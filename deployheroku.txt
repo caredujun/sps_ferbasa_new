@@ -1,0 +1,29 @@
+# Para remover todo histórico do git
+rm -rf .git
+# Depois tem que execurar o init
+git init
+# Muda do nome do branch para main
+git branch -m main
+
+# Comandos para fazer o deploy
+git init
+heroku git:remote -a sps-ferbasa
+git add .
+git commit -m "SPS FERBASA HEROKU"
+python3 manage.py collectstatic
+heroku config:set DISABLE_COLLECTSTATIC=1
+git push -f heroku main --> usa esse para forçar o deploy
+ou
+git push heroku main --> quanto tudo ok
+
+PARA LIMPAR O GIT E COMEÇAR DO ZERO
+rm -rf .git
+heroku plugins:install heroku-repo
+heroku repo:reset --app sps-ferbasa
+git init
+heroku git:remote -a sps-ferbasa
+git add .
+git commit -m "SPS FERBASA"
+python3 manage.py collectstatic
+heroku config:set DISABLE_COLLECTSTATIC=1
+git push -f heroku

@@ -1,0 +1,2246 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editor de Fluxo de Produção</title>
+    <link rel="stylesheet" href="{% static 'fluxo_producao/css/drawflow.min.css' %}">
+    <link rel="stylesheet" href="{% static 'fluxo_producao/css/editor.css' %}">
+    <script src="{% static 'fluxo_producao/js/drawflow.min.js' %}"></script>
+    <!-- Adicionar biblioteca jsPDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- Adicionar html2canvas para renderizar imagens -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        /* Estilos gerais e específicos mantidos */
+        body, html {
+            height: 100%;
+            margin: 0;
+            font-family: sans-serif;
+            overflow: hidden; /* Evitar scroll da página inteira */
+        }
+        .wrapper {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            background-color: #003366; /* Azul escuro */
+            border-bottom: 1px solid #002244;
+        }
+        .header .logo h1 {
+            margin: 0;
+            font-size: 1.5em;
+            color: #ffffff; /* Branco */
+        }
+        .header .actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .header .actions input[type="text"],
+        .header .actions textarea {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .header .actions textarea {
+            resize: vertical;
+            min-height: 38px; /* Altura similar ao input */
+        }
+        .header .actions button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        #btn-salvar {
+            background-color: #28a745;
+            color: white;
+        }
+        #btn-salvar:hover {
+            background-color: #218838;
+        }
+        .content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+        .sidebar {
+            width: 250px;
+            background-color: #f1f1f1;
+            border-right: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .sidebar-header {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+        .sidebar-header h3 {
+            margin: 0 0 10px 0;
+            font-size: 1.1em;
+        }
+        .sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+        .equipamento-item {
+            display: flex;
+            align-items: center;
+            padding: 8px;
+            margin-bottom: 8px;
+            background-color: white;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            cursor: grab;
+        }
+        .equipamento-item:active {
+            cursor: grabbing;
+        }
+        .equipamento-thumb {
+            width: 40px;
+            height: 40px;
+            margin-right: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .equipamento-thumb img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+        .equipamento-info {
+            flex: 1;
+        }
+        .equipamento-nome {
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+        .equipamento-codigo {
+            font-size: 0.8em;
+            color: #666;
+        }
+        .editor-container {
+            flex: 1;
+            position: relative; /* Necessário para Drawflow */
+        }
+        #drawflow {
+            width: 100%;
+            height: 100%;
+            background-color: #fff;
+            background-image: linear-gradient(to right, #eee 1px, transparent 1px), linear-gradient(to bottom, #eee 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        /* Estilos dos nós no Drawflow */
+        .drawflow-node .equipamento-node {
+            border-radius: 5px;
+            border: 2px solid #3498db;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            background-color: white; /* Garantir fundo branco */
+        }
+        .drawflow-node .equipamento-header {
+            background-color: #3498db;
+            color: white;
+            padding: 8px;
+            border-top-left-radius: 3px;
+            border-top-right-radius: 3px;
+        }
+        .drawflow-node .equipamento-titulo {
+            font-weight: bold;
+            text-align: center;
+        }
+        .drawflow-node .equipamento-body {
+            padding: 10px;
+            background-color: white;
+            border-bottom-left-radius: 3px;
+            border-bottom-right-radius: 3px;
+        }
+        .drawflow-node .equipamento-img {
+            max-width: 180px;
+            max-height: 80px;
+            width: auto;
+            height: auto;
+            display: block;
+            margin: 0 auto 10px auto;
+            object-fit: contain; /* Garantir que a imagem caiba */
+        }
+        .drawflow-node .equipamento-codigo {
+            font-weight: bold;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+        .drawflow-node .equipamento-descricao {
+            font-size: 0.85em;
+            font-weight: bold;
+            text-align: center;
+            color: #666;
+        }
+        /* Estilos para carregamento e erros */
+        .carregando, .sem-equipamentos, .erro-carregamento {
+            padding: 20px;
+            text-align: center;
+            color: #666;
+        }
+        .btn-retry {
+            padding: 5px 10px;
+            margin-top: 10px;
+            cursor: pointer;
+        }
+        /* Estilos adicionados para melhorias */
+        .readonly-field {
+            background-color: #f5f5f5;
+            border: 1px solid #ddd;
+            color: #666;
+            cursor: not-allowed;
+        }
+        .btn-fechar {
+            background-color: #f44336;
+            color: white;
+        }
+        .btn-fechar:hover {
+            background-color: #d32f2f;
+        }
+        .btn-verificar {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .btn-verificar:hover {
+            background-color: #388E3C;
+        }
+        .btn-exportar {
+            background-color: #2196F3;
+            color: white;
+        }
+        .btn-exportar:hover {
+            background-color: #1976D2;
+        }
+        /* Painel de verificação */
+        .painel-lateral {
+            position: absolute;
+            right: -350px;
+            top: 0;
+            width: 350px;
+            height: 100%;
+            background-color: white;
+            box-shadow: -2px 0 5px rgba(0, 0, 0, 0.2);
+            z-index: 100;
+            transition: right 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+        .painel-lateral.aberto {
+            right: 0;
+        }
+        .painel-header {
+            padding: 15px;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .painel-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+        }
+        .status-verificacao {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 4px;
+            background-color: #f8f9fa;
+        }
+        .status-icon {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 10px;
+            flex-shrink: 0;
+        }
+        .status-icon.status-success { background-color: #28a745; }
+        .status-icon.status-error { background-color: #dc3545; }
+        .status-icon.status-loading {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .status-text { font-weight: bold; }
+        .problemas-container .categoria-problema {
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .problemas-container .categoria-header {
+            background-color: #f1f1f1;
+            padding: 10px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            border-bottom: 1px solid #ddd;
+        }
+        .problemas-container .categoria-header h4 { margin: 0; font-size: 1em; }
+        .problemas-container .toggle-categoria { font-size: 0.8em; transition: transform 0.2s ease; }
+        .problemas-container .categoria-itens {
+            padding: 0;
+            display: block;
+            max-height: 500px;
+            overflow-y: auto;
+            transition: max-height 0.3s ease-out;
+        }
+        .problemas-container .categoria-itens.collapsed {
+            max-height: 0;
+            padding-top: 0;
+            padding-bottom: 0;
+            overflow: hidden;
+        }
+        .problemas-container .problema-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 15px;
+            border-bottom: 1px solid #eee;
+            transition: background-color 0.2s ease;
+        }
+        .problemas-container .problema-item:last-child { border-bottom: none; }
+        .problemas-container .problema-item:hover { background-color: #f9f9f9; }
+        .problemas-container .problema-icon {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 10px;
+            flex-shrink: 0;
+        }
+        .problemas-container .problema-info { flex: 1; margin-right: 10px; }
+        .problemas-container .problema-titulo { font-weight: bold; font-size: 0.95em; }
+        .problemas-container .problema-descricao { font-size: 0.85em; color: #666; }
+        .problemas-container .btn-focar-problema {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8em;
+            transition: background-color 0.2s ease;
+        }
+        .problemas-container .btn-focar-problema:hover { background-color: #0056b3; }
+        .painel-footer {
+            padding: 15px;
+            border-top: 1px solid #ddd;
+            display: flex;
+            justify-content: flex-end;
+        }
+        .btn-fechar-painel {
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+        }
+        /* Modal de exportação */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+        .modal-content {
+            background-color: #fff;
+            margin: 5% auto;
+            padding: 0;
+            border-radius: 5px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            width: 80%;
+            max-width: 900px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .modal-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid #e9e9e9;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .modal-body {
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            gap: 20px;
+        }
+        .modal-footer {
+            padding: 15px 20px;
+            border-top: 1px solid #e9e9e9;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        .close {
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close:hover { color: #333; }
+        /* Abas do modal */
+        .tab-item {
+            padding: 10px 15px;
+            cursor: pointer;
+            border: 1px solid #ddd;
+            border-bottom: none;
+            background-color: #f9f9f9;
+            margin-bottom: -1px;
+        }
+        .tab-item.active {
+            background-color: #fff;
+            border-bottom: 1px solid #fff;
+            font-weight: bold;
+        }
+        .tab-pane { display: none; padding: 15px; border: 1px solid #ddd; border-top: none; }
+        .tab-pane.active { display: block; }
+        /* Indicadores de problemas */
+        .node-error { box-shadow: 0 0 10px 2px rgba(255, 0, 0, 0.7) !important; }
+        .node-warning { box-shadow: 0 0 10px 2px rgba(255, 165, 0, 0.7) !important; }
+        .node-cycle { box-shadow: 0 0 10px 2px rgba(255, 69, 0, 0.7) !important; }
+        .node-incompatible { box-shadow: 0 0 10px 2px rgba(128, 0, 128, 0.7) !important; }
+        .node-highlight {
+            box-shadow: 0 0 0 4px rgba(52, 152, 219, 0.7) !important;
+            transition: box-shadow 0.3s ease-in-out;
+        }
+        .connection-warning { stroke: #ffa500 !important; stroke-width: 3px !important; }
+
+        /* Estilo para adicionar setas aos conectores */
+        .drawflow .connection .main-path {
+            stroke-width: 2px;
+            stroke: #6c757d; /* Cor padrão da conexão */
+            marker-end: url(#arrowhead); /* Aplica a seta definida abaixo */
+        }
+        .drawflow .connection .main-path.selected {
+            stroke: #4ea9ff;
+            marker-end: url(#arrowhead-selected);
+        }
+        .connection-error {
+            stroke: #ff0000 !important;
+            stroke-width: 3px !important;
+            marker-end: url(#arrowhead-error) !important;
+        }
+        .connection-warning {
+            stroke: #ffa500 !important;
+            stroke-width: 3px !important;
+            marker-end: url(#arrowhead-warning) !important;
+        }
+    </style>
+
+    <!-- Definições SVG para as setas -->
+    <svg width="0" height="0" style="position:absolute;z-index:-1;">
+        <defs>
+            <marker id="arrowhead" viewBox="0 0 10 10" refX="-5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#6c757d"></path>
+            </marker>
+            <marker id="arrowhead-selected" viewBox="0 0 10 10" refX="-2" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#4ea9ff"></path>
+            </marker>
+            <marker id="arrowhead-error" viewBox="0 0 10 10" refX="-2" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#ff0000"></path>
+            </marker>
+            <marker id="arrowhead-warning" viewBox="0 0 10 10" refX="-2" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#ffa500"></path>
+            </marker>
+        </defs>
+    </svg>
+</head>
+<body>
+    <div class="wrapper">
+        <div class="header">
+            <div class="logo">
+                <h1>Editor de Fluxo de Produção</h1>
+            </div>
+            <div class="actions">
+                <input type="text" id="fluxo-nome" placeholder="Cenário - ID do Fluxo" value="{{ fluxo.nome|default:'' }}" readonly class="readonly-field">
+                <textarea id="fluxo-descricao" placeholder="Descrição (opcional)" readonly class="readonly-field">{{ fluxo.descricao|default:'' }}</textarea>
+                <button id="btn-salvar">Salvar Fluxo</button>
+                <button id="btn-verificar" class="btn-verificar">Verificar Fluxo</button>
+                <button id="btn-exportar" class="btn-exportar">Exportar</button>
+                <button id="btn-fechar" class="btn-fechar">Fechar Editor</button>
+            </div>
+        </div>
+
+        <div class="content">
+            <div class="sidebar">
+                <div class="sidebar-header">
+                    <h3>Equipamentos</h3>
+                    <select id="filtro-equipamentos" style="width: 100%; padding: 8px; margin-bottom: 5px;">
+                        <option value="">-- Todos os equipamentos --</option>
+                    </select>
+                    <button id="btn-recarregar-equipamentos" style="width: 100%; padding: 5px;">Recarregar Equipamentos</button>
+                </div>
+
+                <div class="sidebar-content" id="equipamentos-lista">
+                    <!-- Equipamentos serão carregados aqui via JavaScript -->
+                </div>
+            </div>
+
+            <div class="editor-container">
+                <div id="drawflow"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Painel de verificação de consistência -->
+    <div id="painel-verificacao" class="painel-lateral">
+        <div class="painel-header">
+            <h3>Resultados da Verificação</h3>
+            <button class="btn-fechar-painel">&times;</button>
+        </div>
+        <div class="painel-body">
+            <div class="status-verificacao">
+                <div class="status-icon status-loading"></div>
+                <div class="status-text">Aguardando verificação...</div>
+            </div>
+
+            <div class="problemas-container">
+                <!-- Os problemas serão carregados aqui via JavaScript -->
+            </div>
+        </div>
+        <div class="painel-footer">
+            <button id="btn-exportar-relatorio" class="btn-exportar" disabled>Exportar Relatório</button> <!-- Iniciar desabilitado -->
+        </div>
+    </div>
+
+    <!-- Modal para exportação -->
+    <div id="modal-exportacao" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Exportar Fluxo de Produção</h2>
+                <span class="close">&times;</span>
+            </div>
+
+            <div class="modal-body">
+                <div class="tabs" style="flex: 1;">
+                    <div class="tab-header" style="display: flex; border-bottom: 1px solid #ddd;">
+                        <div class="tab-item active" data-tab="imagem">Imagem</div>
+                        <div class="tab-item" data-tab="pdf">PDF</div>
+                    </div>
+
+                    <div class="tab-content-container">
+                        <!-- Opções para exportação de imagem -->
+                        <div class="tab-pane active" id="tab-imagem">
+                            <div class="form-group" style="margin-bottom: 15px;">
+                                <label style="display: block; margin-bottom: 5px;">Formato:</label>
+                                <div class="radio-group" style="display: flex; gap: 15px;">
+                                    <label>
+                                        <input type="radio" name="formato-imagem" value="png" checked> PNG (com transparência)
+                                    </label>
+                                    <label>
+                                        <input type="radio" name="formato-imagem" value="jpg"> JPG (fundo branco)
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="form-group" style="margin-bottom: 15px;">
+                                <label style="display: block; margin-bottom: 5px;">Resolução:</label>
+                                <div class="radio-group" style="display: flex; gap: 15px;">
+                                    <label>
+                                        <input type="radio" name="resolucao-imagem" value="1" checked> Normal (1x)
+                                    </label>
+                                    <label>
+                                        <input type="radio" name="resolucao-imagem" value="2"> Alta (2x)
+                                    </label>
+                                    <label>
+                                        <input type="radio" name="resolucao-imagem" value="3"> Ultra (3x)
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="form-group" style="margin-bottom: 15px;">
+                                <label>
+                                    <input type="checkbox" id="incluir-grade-imagem"> Incluir grade de fundo
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Opções para exportação de PDF -->
+                        <div class="tab-pane" id="tab-pdf">
+                            <div class="form-group" style="margin-bottom: 15px;">
+                                <label style="display: block; margin-bottom: 5px;">Orientação:</label>
+                                <div class="radio-group" style="display: flex; gap: 15px;">
+                                    <label>
+                                        <input type="radio" name="orientacao-pdf" value="portrait"> Retrato
+                                    </label>
+                                    <label>
+                                        <input type="radio" name="orientacao-pdf" value="landscape" checked> Paisagem
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="form-group" style="margin-bottom: 15px;">
+                                <label style="display: block; margin-bottom: 5px;">Tamanho da página:</label>
+                                <select id="tamanho-pagina-pdf" style="padding: 5px; width: 200px;">
+                                    <option value="a4">A4</option>
+                                    <option value="a3">A3</option>
+                                    <option value="letter">Carta</option>
+                                    <option value="legal">Ofício</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group" style="margin-bottom: 15px;">
+                                <label>
+                                    <input type="checkbox" id="incluir-cabecalho-pdf" checked> Incluir cabeçalho
+                                </label>
+                            </div>
+
+                            <div class="form-group" style="margin-bottom: 15px;">
+                                <label>
+                                    <input type="checkbox" id="incluir-rodape-pdf" checked> Incluir rodapé
+                                </label>
+                            </div>
+
+                            <div class="form-group" style="margin-bottom: 15px;">
+                                <label>
+                                    <input type="checkbox" id="incluir-legenda-pdf" checked> Incluir legenda de equipamentos
+                                </label>
+                            </div>
+
+                            <div class="form-group" style="margin-bottom: 15px;">
+                                <label for="autor-pdf" style="display: block; margin-bottom: 5px;">Autor:</label>
+                                <input type="text" id="autor-pdf" placeholder="Nome do autor" style="padding: 5px; width: 200px;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="preview-container" style="flex: 1; border: 1px solid #ddd; padding: 15px; border-radius: 5px; display: flex; flex-direction: column;">
+                    <h3>Pré-visualização</h3>
+                    <div class="preview-image" style="flex: 1; background-color: #f5f5f5; display: flex; align-items: center; justify-content: center; min-height: 300px; overflow: hidden;">
+                        <!-- A pré-visualização será renderizada aqui -->
+                        <p>Clique em "Atualizar Pré-visualização" para ver como ficará a exportação</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button id="btn-previsualizar" style="background-color: #6c757d; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Atualizar Pré-visualização</button>
+                <button id="btn-exportar-final" style="background-color: #3498db; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Exportar</button>
+            </div>
+        </div>
+    </div>
+
+    <input type="hidden" id="fluxo-id" value="{{ fluxo_id|default:'' }}">
+
+    <script>
+        // Configuração inicial
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log("DOM carregado - iniciando editor");
+            console.log("Iniciando editor.html do fluxos ...");
+
+            // Inicializar o DrawFlow
+            const editor = new Drawflow(document.getElementById('drawflow'));
+            console.log("DrawFlow inicializado");
+            editor.reroute = true;
+            editor.start();
+
+            // Variáveis globais
+            let equipamentos = [];
+            const fluxoId = document.getElementById('fluxo-id').value;
+            let fluxoAlterado = false;
+            let nodeCustomDataMap = {}; // Mapa externo para dados personalizados // Flag para rastrear alterações
+            let ultimoResultadoVerificacao = null; // Armazenar último resultado da verificação
+
+            // Carregar equipamentos
+            setTimeout(function() {
+                try {
+                    carregarEquipamentos();
+                } catch (e) {
+                    console.error("Erro ao iniciar carregamento:", e);
+                    document.getElementById('equipamentos-lista').innerHTML =
+                        '<div class="erro-carregamento">Erro ao inicializar: ' + e.message + '</div>';
+                }
+            }, 500); // Reduzir atraso
+
+            // Carregar fluxo existente, se houver
+            if (fluxoId) {
+                carregarFluxo(fluxoId);
+            }
+
+            // Event listeners para detectar alterações no Drawflow
+            editor.on('nodeCreated', function(id) { marcarComoAlterado('nodeCreated'); });
+            editor.on('nodeRemoved', function(id) { marcarComoAlterado('nodeRemoved'); });
+            editor.on('connectionCreated', function(connection) { marcarComoAlterado('connectionCreated'); });
+            editor.on('connectionRemoved', function(connection) { marcarComoAlterado('connectionRemoved'); });
+            editor.on('nodeMoved', function(id) { marcarComoAlterado('nodeMoved'); });
+
+            // Função para marcar o fluxo como alterado
+            function marcarComoAlterado(origem) {
+                if (!fluxoAlterado) { // Only log the first time
+                     console.log(`Fluxo marcado como alterado via: ${origem}`);
+                }
+                fluxoAlterado = true;
+                ultimoResultadoVerificacao = null; // Invalidar resultado da verificação
+                document.getElementById('btn-exportar-relatorio').disabled = true; // Desabilitar exportação de relatório
+            }
+
+            // Event listeners dos botões
+            document.getElementById('btn-salvar').addEventListener('click', salvarFluxo);
+            document.getElementById('btn-fechar').addEventListener('click', function() {
+                console.log(`Botão Fechar clicado. fluxoAlterado = ${fluxoAlterado}`); // Add log
+                if (fluxoAlterado) {
+                    if (confirm("Você tem alterações não salvas. Deseja realmente fechar sem salvar?")) {
+                        console.log("Usuário confirmou fechar sem salvar.");
+                        window.close();
+                    } else {
+                         console.log("Usuário cancelou o fechamento.");
+                    }
+                } else {
+                    console.log("Fechando sem alterações pendentes.");
+                    window.close();
+                }
+            });
+            document.getElementById('filtro-equipamentos').addEventListener('change', filtrarEquipamentosPorCodigo);
+            document.getElementById('btn-recarregar-equipamentos').addEventListener('click', function() {
+                carregarEquipamentos();
+            });
+
+            // Novos event listeners para verificação e exportação
+            document.getElementById('btn-verificar').addEventListener('click', verificarFluxo);
+            document.getElementById('btn-exportar').addEventListener('click', abrirModalExportacao);
+
+            // Event listeners para o painel de verificação
+            document.querySelector('.btn-fechar-painel').addEventListener('click', function() {
+                document.getElementById('painel-verificacao').classList.remove('aberto');
+            });
+            document.getElementById('btn-exportar-relatorio').addEventListener('click', exportarRelatorioVerificacao);
+
+            // Event listeners para o modal de exportação
+            document.querySelector('#modal-exportacao .close').addEventListener('click', function() {
+                document.getElementById('modal-exportacao').style.display = 'none';
+            });
+
+            // Alternar entre as abas do modal de exportação
+            const tabItems = document.querySelectorAll('#modal-exportacao .tab-item');
+            const tabPanes = document.querySelectorAll('#modal-exportacao .tab-pane');
+
+            tabItems.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const targetTabId = this.getAttribute('data-tab');
+
+                    // Remover classe 'active' de todas as abas e painéis
+                    tabItems.forEach(t => t.classList.remove('active'));
+                    tabPanes.forEach(p => p.classList.remove('active'));
+
+                    // Adicionar classe 'active' à aba clicada e ao painel correspondente
+                    this.classList.add('active');
+                    document.getElementById('tab-' + targetTabId).classList.add('active');
+                });
+            });
+
+            // Event listeners para os botões do modal de exportação
+            document.getElementById('btn-previsualizar').addEventListener('click', atualizarPreVisualizacao);
+            document.getElementById('btn-exportar-final').addEventListener('click', exportarFluxo);
+
+            // Fechar modal quando clicar fora dele
+            window.addEventListener('click', function(event) {
+                const modal = document.getElementById('modal-exportacao');
+                if (event.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
+
+            // Função para carregar equipamentos
+            function carregarEquipamentos() {
+                console.log("Iniciando carregamento de equipamentos...");
+
+                // Mostrar mensagem de carregamento
+                const container = document.getElementById('equipamentos-lista');
+                container.innerHTML = '<div class="carregando">Carregando equipamentos...</div>';
+
+                // Obter URL base do site
+                const baseUrl = window.location.origin;
+                const apiUrl = baseUrl + '/fluxo_producao/api/equipamentos/';
+
+                console.log("Fazendo requisição para: " + apiUrl);
+
+                fetch(apiUrl)
+                    .then(response => {
+                        console.log("Resposta recebida:", response.status);
+                        if (!response.ok) {
+                            throw new Error('Resposta da rede não foi ok: ' + response.status);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log("Dados recebidos:", data);
+
+                        if (!data.equipamentos || !Array.isArray(data.equipamentos)) {
+                            throw new Error('Formato de dados inválido');
+                        }
+
+                        equipamentos = data.equipamentos;
+                        console.log("Número de equipamentos:", equipamentos.length);
+
+                        if (equipamentos.length === 0) {
+                            container.innerHTML = '<div class="sem-equipamentos">Nenhum equipamento encontrado. Adicione equipamentos no Django Admin.</div>';
+                        } else {
+                            renderizarEquipamentos(equipamentos);
+                            atualizarSelectCodigos(equipamentos);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Erro ao carregar equipamentos:', error);
+                        container.innerHTML = '<div class="erro-carregamento">Erro ao carregar equipamentos: ' + error.message + '</div>';
+                        container.innerHTML += '<button id="btn-tentar-novamente" class="btn-retry">Tentar novamente</button>';
+
+                        document.getElementById('btn-tentar-novamente').addEventListener('click', function() {
+                            carregarEquipamentos();
+                        });
+                    });
+            }
+
+            // Função para atualizar o select de códigos
+            function atualizarSelectCodigos(listaEquipamentos) {
+                const select = document.getElementById('filtro-equipamentos');
+
+                // Manter apenas a primeira opção (Todos os equipamentos)
+                select.innerHTML = '<option value="">-- Todos os equipamentos --</option>';
+
+                // Adicionar opções para cada código de equipamento
+                const codigosUnicos = [...new Set(listaEquipamentos.map(e => e.codigo_cadastro))].sort();
+                codigosUnicos.forEach(codigo_cadastro => {
+                    const option = document.createElement('option');
+                    option.value = codigo_cadastro;
+                    option.textContent = codigo_cadastro;
+                    select.appendChild(option);
+                });
+            }
+
+            // Função para renderizar equipamentos na barra lateral
+            function renderizarEquipamentos(listaEquipamentos) {
+                const container = document.getElementById('equipamentos-lista');
+                container.innerHTML = '';
+
+                listaEquipamentos.forEach(equip => {
+                    const equipDiv = document.createElement('div');
+                    equipDiv.className = 'equipamento-item';
+                    equipDiv.setAttribute('data-equipamento-id', equip.id);
+                    equipDiv.setAttribute('draggable', 'true');
+
+                    // Usar a view dinâmica para a imagem
+                    const imagemHtml = `<img src="/fluxo_producao/equipamento_imagem/${equip.id}/" alt="${equip.nome}" onerror="this.onerror=null; this.src='/static/fluxo_producao/img/equipamento-placeholder.png';">`;
+
+                    equipDiv.innerHTML = `
+                        <div class="equipamento-thumb">
+                            ${imagemHtml}
+                        </div>
+                        <div class="equipamento-info">
+                            <div class="equipamento-nome">${equip.nome}</div>
+                            <!-- Alteramos para mostrar a descrição da ordem na barra lateral -->
+                            <div class="equipamento-codigo">${equip.descricao}</div>
+                        </div>
+                    `;
+
+                    // Adicionar eventos de drag and drop
+                    equipDiv.addEventListener('dragstart', function(event) {
+                        event.dataTransfer.setData('equipamento_id', equip.id);
+                    });
+
+                    container.appendChild(equipDiv);
+                });
+
+                // Configurar eventos de drag and drop para o editor
+                configurarDragAndDrop();
+            }
+
+            // Função para configurar drag and drop
+            function configurarDragAndDrop() {
+                const drawflowElement = document.getElementById('drawflow');
+
+                drawflowElement.addEventListener('dragover', function(event) {
+                    event.preventDefault();
+                });
+
+                drawflowElement.addEventListener('drop', function(event) {
+                    event.preventDefault();
+
+                    const equipamentoId = event.dataTransfer.getData('equipamento_id');
+                    if (!equipamentoId) return;
+
+                    const equipamento = equipamentos.find(e => e.id == equipamentoId);
+                    if (!equipamento) return;
+
+                    // Calcular posição relativa ao editor
+                    const rect = drawflowElement.getBoundingClientRect();
+                    const posX = event.clientX - rect.left;
+                    const posY = event.clientY - rect.top;
+
+                    // Adicionar nó ao DrawFlow
+                    adicionarNoEquipamento(equipamento, posX, posY);
+                });
+            }
+
+            // Função para adicionar nó de equipamento ao DrawFlow
+            function adicionarNoEquipamento(equipamento, posX, posY) {
+                // Usar a view dinâmica para a imagem
+                const imagemSrc = `/fluxo_producao/equipamento_imagem/${equipamento.id}/`;
+                const placeholderSrc = '/static/fluxo_producao/img/equipamento-placeholder.png';
+                const imagemHtml = `<img src="${imagemSrc}" alt="${equipamento.nome}" class="equipamento-img" onerror="this.onerror=null; this.src='${placeholderSrc}';">`;
+
+                const html = `
+                    <div class="equipamento-node" style="width: 200px; overflow: hidden;">
+                        <div class="equipamento-header" style="background-color: #3498db; color: white; padding: 8px;">
+                            <div class="equipamento-titulo">${equipamento.nome}</div>
+                        </div>
+                        <div class="equipamento-body" style="padding: 10px; background-color: white; display: flex; flex-direction: column; align-items: center;">
+                            <div style="width: 100%; height: 80px; display: flex; align-items: center; justify-content: center; overflow: hidden; margin-bottom: 10px;">
+                                ${imagemHtml}
+                            </div>
+                            <div class="equipamento-detalhes" style="width: 100%;">
+                                <!-- Comentamos para não mostrar o código -->
+                                <!-- <div class="equipamento-codigo" style="font-weight: bold;">${equipamento.codigo}</div> -->
+                                <div class="equipamento-descricao" style="font-size: 0.9em; color: #666;">${equipamento.descricao || ''}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                // Adicionar nó ao DrawFlow com entradas e saídas
+                const nodeId = editor.addNode(
+                    equipamento.nome,
+                    1,  // Número de entradas
+                    1,  // Número de saídas
+                    posX,
+                    posY,
+                    'equipamento',
+                    {
+                        equipamento_id: equipamento.id,
+                        codigo: equipamento.codigo,
+                        imagem_src: imagemSrc // Armazenar src da imagem para exportação
+                    },
+                    html
+                );
+
+                // Log para verificar os dados imediatamente após adicionar o nó
+                try {
+                    const nodeDataAfterAdd = editor.getNodeFromId(nodeId);
+                    console.log(`[Node Add] Dados recuperados do nó ${nodeId} imediatamente após adição:`, JSON.stringify(nodeDataAfterAdd.data));
+                    if (!nodeDataAfterAdd.data || !nodeDataAfterAdd.data.imagem_src || !nodeDataAfterAdd.data.codigo) {
+                        console.error(`[Node Add] ERRO: Dados ausentes imediatamente após adicionar o nó ${nodeId}!`, nodeDataAfterAdd.data);
+                    }
+                } catch (e) {
+                    console.error(`[Node Add] Erro ao recuperar dados do nó ${nodeId} imediatamente após adição:`, e);
+                }
+
+                fluxoAlterado = true; // Marcar fluxo como alterado
+                return nodeId;
+            }
+
+            // Função para carregar um fluxo existente
+            function carregarFluxo(id) {
+                console.log("Iniciando carregamento do fluxo existente ...");
+                id = id.replace(".", "");
+                console.log(id);
+                fetch(`/fluxo_producao/api/fluxo/${id}/`)
+                    .then(response => response.json())
+                    .then(data => {
+                        document.getElementById('fluxo-nome').value = data.nome;
+                        document.getElementById('fluxo-descricao').value = data.descricao || '';
+
+                        // Log para verificar os dados recebidos do servidor
+                        console.log("[Load Flow] Dados recebidos do servidor:", JSON.stringify(data.dados_fluxo));
+
+                        // Importar dados do fluxo para o DrawFlow
+                        if (data.dados_fluxo && data.dados_fluxo.drawflow && data.dados_fluxo.drawflow.Home && data.dados_fluxo.drawflow.Home.data && Object.keys(data.dados_fluxo.drawflow.Home.data).length > 0) {
+                            const dadosImportar = data.dados_fluxo;
+                            editor.import(dadosImportar);
+                            console.log("[Load Flow] Dados importados para o editor.");
+
+                            // Restaurar dados personalizados (imagem_src, codigo) que podem ser perdidos no import
+                            const nodesImportados = dadosImportar.drawflow.Home.data;
+                            Object.keys(nodesImportados).forEach(nodeId => {
+                                const nodeOriginalData = nodesImportados[nodeId].data;
+                                const nodeAtualEditor = editor.getNodeFromId(nodeId);
+
+                                if (nodeAtualEditor && nodeOriginalData) {
+                                    // Verificar se os dados personalizados estão faltando após o import
+                                    let precisaAtualizar = false;
+                                    const dadosAtualizar = { ...nodeAtualEditor.data }; // Copiar dados atuais
+
+                                    if (!dadosAtualizar.imagem_src && nodeOriginalData.imagem_src) {
+                                        dadosAtualizar.imagem_src = nodeOriginalData.imagem_src;
+                                        precisaAtualizar = true;
+                                        console.log(`[Load Flow] Restaurando imagem_src para nó ${nodeId}: ${nodeOriginalData.imagem_src}`);
+                                    }
+                                    if (!dadosAtualizar.codigo && nodeOriginalData.codigo) {
+                                        dadosAtualizar.codigo = nodeOriginalData.codigo;
+                                        precisaAtualizar = true;
+                                        console.log(`[Load Flow] Restaurando codigo para nó ${nodeId}: ${nodeOriginalData.codigo}`);
+                                    }
+                                    // Adicionar outros campos personalizados se necessário
+
+                                    if (precisaAtualizar) {
+                                        editor.updateNodeDataFromId(nodeId, dadosAtualizar);
+                                        console.log(`[Load Flow] Dados atualizados para o nó ${nodeId} após import:`, JSON.stringify(editor.getNodeFromId(nodeId).data));
+                                    } else {
+                                        console.log(`[Load Flow] Dados personalizados já presentes para o nó ${nodeId} após import:`, JSON.stringify(nodeAtualEditor.data));
+                                    }
+                                } else {
+                                     console.warn(`[Load Flow] Não foi possível encontrar o nó ${nodeId} no editor ou dados originais após import.`);
+                                }
+                            });
+
+                            fluxoAlterado = false; // Reseta a flag após carregar
+                            console.log("[Load Flow] Carregamento e restauração de dados concluídos.");
+                        } else {
+                            console.log("[Load Flow] Nenhum dado de fluxo para importar ou dados inválidos.");
+                            editor.clear(); // Limpar editor se não houver dados válidos
+                            fluxoAlterado = false;
+                        }
+                    })
+                    .catch(error => console.error('Erro ao carregar fluxo:', error));
+            }
+
+            // Função para salvar o fluxo
+            function salvarFluxo() {
+                const nome = document.getElementById("fluxo-nome").value.trim();
+                const descricao = document.getElementById("fluxo-descricao").value.trim();
+                const fluxoId = document.getElementById("fluxo-id").value;
+                const dadosFluxo = editor.export();
+
+                // Log para inspecionar os dados exportados antes de salvar
+                console.log("[Save Flow] Dados exportados pelo editor:", JSON.stringify(dadosFluxo));
+                // Verificar dados específicos do primeiro nó (se existir)
+                if (dadosFluxo.drawflow && dadosFluxo.drawflow.Home && dadosFluxo.drawflow.Home.data) {
+                    const firstNodeId = Object.keys(dadosFluxo.drawflow.Home.data)[0];
+                    if (firstNodeId) {
+                        console.log(`[Save Flow] Dados do primeiro nó (${firstNodeId}) nos dados exportados:`, JSON.stringify(dadosFluxo.drawflow.Home.data[firstNodeId].data));
+                    }
+                }
+
+                const dados = {
+                    fluxo_id: fluxoId || null,
+                    nome: nome,
+                    descricao: descricao,
+                    dados_fluxo: dadosFluxo
+                };
+
+                console.log("[Save Flow] Tentando salvar fluxo com dados:", JSON.stringify(dados));
+                fetch('/fluxo_producao/api/fluxo/salvar/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: JSON.stringify(dados)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        alert(data.message);
+                        fluxoAlterado = false; // Reseta a flag após salvar com sucesso
+                        console.log("Fluxo salvo com sucesso - fluxoAlterado resetado para false");
+
+                        // Atualizar ID do fluxo se for um novo fluxo
+                        if (!fluxoId) {
+                            document.getElementById('fluxo-id').value = data.fluxo_id;
+                            // Atualizar URL sem recarregar a página
+                            window.history.pushState(
+                                {},
+                                '',
+                                `/fluxo_producao/editor/${data.fluxo_id}/`
+                            );
+                        }
+                    } else {
+                        alert('Erro: ' + data.message);
+                        console.log("Erro ao salvar fluxo (resposta API):", data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro na requisição de salvar fluxo:', error);
+                    alert('Erro ao salvar fluxo. Verifique o console para mais detalhes.');
+                });
+            }
+
+            // Função para filtrar equipamentos por código
+            function filtrarEquipamentosPorCodigo() {
+                const codigoSelecionado = document.getElementById('filtro-equipamentos').value;
+
+                if (!codigoSelecionado) {
+                    renderizarEquipamentos(equipamentos);
+                    return;
+                }
+
+                const filtrados = equipamentos.filter(equip =>
+                    equip.codigo_cadastro === codigoSelecionado
+                );
+
+                renderizarEquipamentos(filtrados);
+            }
+
+            // --- INÍCIO: Funções de Verificação de Consistência ---
+
+            // Função principal de verificação de consistência
+            function verificarConsistenciaFluxo() {
+                const dadosFluxo = editor.export();
+                const nodes = dadosFluxo.drawflow.Home.data;
+                const problemas = [];
+
+                // Verificar equipamentos sem conexão
+                const nosSemConexao = verificarNosSemConexao(nodes);
+                if (nosSemConexao.length > 0) {
+                    problemas.push({
+                        tipo: 'equipamentos_sem_conexao',
+                        mensagem: 'Equipamentos sem conexão',
+                        detalhes: nosSemConexao
+                    });
+                }
+
+                // Verificar fluxos incompletos
+                const fluxosIncompletos = verificarFluxosIncompletos(nodes);
+                if (fluxosIncompletos.length > 0) {
+                    problemas.push({
+                        tipo: 'fluxos_incompletos',
+                        mensagem: 'Fluxos incompletos (entradas/saídas desconectadas)',
+                        detalhes: fluxosIncompletos
+                    });
+                }
+
+                // Verificar ciclos no fluxo
+                const ciclos = verificarCiclos(nodes);
+                if (ciclos.length > 0) {
+                    problemas.push({
+                        tipo: 'ciclos_detectados',
+                        mensagem: 'Ciclos detectados no fluxo',
+                        detalhes: ciclos
+                    });
+                }
+
+                // Verificar incompatibilidades entre equipamentos
+                const incompatibilidades = verificarIncompatibilidades(nodes);
+                if (incompatibilidades.length > 0) {
+                    problemas.push({
+                        tipo: 'incompatibilidades',
+                        mensagem: 'Conexões incompatíveis',
+                        detalhes: incompatibilidades
+                    });
+                }
+
+                return {
+                    valido: problemas.length === 0,
+                    problemas: problemas
+                };
+            }
+
+            // Função para verificar nós sem conexão
+            function verificarNosSemConexao(nodes) {
+                const nosSemConexao = [];
+
+                Object.keys(nodes).forEach(nodeId => {
+                    const node = nodes[nodeId];
+                    let temConexaoEntrada = false;
+                    let temConexaoSaida = false;
+
+                    // Verificar se há conexões nas entradas
+                    Object.values(node.inputs).forEach(input => {
+                        if (input.connections && input.connections.length > 0) {
+                            temConexaoEntrada = true;
+                        }
+                    });
+
+                    // Verificar se há conexões nas saídas
+                    Object.values(node.outputs).forEach(output => {
+                        if (output.connections && output.connections.length > 0) {
+                            temConexaoSaida = true;
+                        }
+                    });
+
+                    if (!temConexaoEntrada && !temConexaoSaida) {
+                        nosSemConexao.push({
+                            id: nodeId,
+                            nome: node.name,
+                            tipo: 'sem_conexao'
+                        });
+                    }
+                });
+
+                return nosSemConexao;
+            }
+
+            // Função para verificar fluxos incompletos
+            function verificarFluxosIncompletos(nodes) {
+                const fluxosIncompletos = [];
+                const todosNodeIds = Object.keys(nodes);
+
+                // Se houver apenas um nó, não é incompleto
+                if (todosNodeIds.length <= 1) {
+                    return [];
+                }
+
+                Object.keys(nodes).forEach(nodeId => {
+                    const node = nodes[nodeId];
+
+                    // Verificar entradas não conectadas (exceto para nós iniciais)
+                    let temEntradaDesconectada = false;
+                    Object.values(node.inputs).forEach(input => {
+                        if (!input.connections || input.connections.length === 0) {
+                            temEntradaDesconectada = true;
+                        }
+                    });
+
+                    // Verificar saídas não conectadas (exceto para nós finais)
+                    let temSaidaDesconectada = false;
+                    Object.values(node.outputs).forEach(output => {
+                        if (!output.connections || output.connections.length === 0) {
+                            temSaidaDesconectada = true;
+                        }
+                    });
+
+                    // Se não for um nó inicial e tiver entradas desconectadas
+                    if (temEntradaDesconectada && !isNoInicial(nodeId, nodes)) {
+                        fluxosIncompletos.push({
+                            id: nodeId,
+                            nome: node.name,
+                            tipo: 'entrada_desconectada'
+                        });
+                    }
+
+                    // Se não for um nó final e tiver saídas desconectadas
+                    if (temSaidaDesconectada && !isNoFinal(nodeId, nodes)) {
+                        fluxosIncompletos.push({
+                            id: nodeId,
+                            nome: node.name,
+                            tipo: 'saida_desconectada'
+                        });
+                    }
+                });
+
+                // Remover duplicados (um nó pode ser marcado como entrada e saída desconectada)
+                const unicos = [];
+                const idsVistos = new Set();
+                fluxosIncompletos.forEach(item => {
+                    if (!idsVistos.has(item.id)) {
+                        unicos.push(item);
+                        idsVistos.add(item.id);
+                    }
+                });
+
+                return unicos;
+            }
+
+            // Função para verificar ciclos no fluxo
+            function verificarCiclos(nodes) {
+                const ciclos = [];
+                const visitados = {}; // Nós já visitados em alguma DFS
+                const pilhaRecursao = {}; // Nós atualmente na pilha da DFS atual
+                const nosComCiclo = new Set(); // Para evitar reportar o mesmo nó múltiplas vezes
+
+                function dfs(nodeId, caminho) {
+                    visitados[nodeId] = true;
+                    pilhaRecursao[nodeId] = true;
+                    caminho.push(nodeId);
+
+                    const node = nodes[nodeId];
+
+                    // Verificar todas as conexões de saída
+                    Object.values(node.outputs).forEach(output => {
+                        if (output.connections) {
+                            output.connections.forEach(conn => {
+                                const targetNodeId = conn.node;
+
+                                // Se o nó de destino existe
+                                if (nodes[targetNodeId]) {
+                                    // Se o nó já está na pilha de recursão, encontramos um ciclo
+                                    if (pilhaRecursao[targetNodeId]) {
+                                        const cicloDetectado = caminho.slice(caminho.indexOf(targetNodeId));
+                                        cicloDetectado.forEach(idCiclo => {
+                                            if (!nosComCiclo.has(idCiclo)) {
+                                                ciclos.push({
+                                                    id: idCiclo,
+                                                    nome: nodes[idCiclo].name,
+                                                    tipo: 'ciclo'
+                                                });
+                                                nosComCiclo.add(idCiclo);
+                                            }
+                                        });
+                                    }
+                                    // Se o nó ainda não foi visitado nesta DFS, continue a busca
+                                    else if (!visitados[targetNodeId]) {
+                                        dfs(targetNodeId, [...caminho]);
+                                    }
+                                }
+                            });
+                        }
+                    });
+
+                    // Remover o nó da pilha de recursão ao retornar
+                    pilhaRecursao[nodeId] = false;
+                }
+
+                // Iniciar DFS a partir de cada nó não visitado
+                Object.keys(nodes).forEach(nodeId => {
+                    if (!visitados[nodeId]) {
+                        dfs(nodeId, []);
+                    }
+                });
+
+                return ciclos;
+            }
+
+            // Função para verificar incompatibilidades entre equipamentos
+            function verificarIncompatibilidades(nodes) {
+                const incompatibilidades = [];
+
+                // Implementação futura: Requer regras de negócio específicas
+                // sobre quais equipamentos podem se conectar entre si.
+                // Exemplo: verificar se equipamentoId pode se conectar a targetEquipamentoId
+                // if (!saoEquipamentosCompativeis(equipamentoId, targetEquipamentoId)) {
+                //     incompatibilidades.push({ id: nodeId, nome: node.name, tipo: 'incompativel' });
+                // }
+
+                return incompatibilidades;
+            }
+
+            // Funções auxiliares
+            function isNoInicial(nodeId, nodes) {
+                // Um nó é inicial se nenhuma conexão chega a suas entradas
+                const node = nodes[nodeId];
+                let temConexaoEntrada = false;
+                Object.values(node.inputs).forEach(input => {
+                    if (input.connections && input.connections.length > 0) {
+                        temConexaoEntrada = true;
+                    }
+                });
+                return !temConexaoEntrada;
+            }
+
+            function isNoFinal(nodeId, nodes) {
+                // Um nó é final se nenhuma conexão sai de suas saídas
+                const node = nodes[nodeId];
+                let temConexaoSaida = false;
+                Object.values(node.outputs).forEach(output => {
+                    if (output.connections && output.connections.length > 0) {
+                        temConexaoSaida = true;
+                    }
+                });
+                return !temConexaoSaida;
+            }
+
+            function saoEquipamentosCompativeis(equipamentoIdA, equipamentoIdB) {
+                // Placeholder: Implementar com regras de negócio específicas
+                return true; // Por padrão, todos são compatíveis
+            }
+
+            // --- FIM: Funções de Verificação de Consistência ---
+
+            // Função para chamar a verificação e exibir resultados
+            function verificarFluxo() {
+                console.log("Verificando consistência do fluxo...");
+
+                // Abrir o painel de verificação
+                document.getElementById('painel-verificacao').classList.add('aberto');
+
+                // Mostrar mensagem de carregamento
+                const statusContainer = document.querySelector('.status-verificacao');
+                statusContainer.innerHTML = '<div class="status-icon status-loading"></div><div class="status-text">Verificando fluxo...</div>';
+
+                // Limpar problemas anteriores
+                document.querySelector('.problemas-container').innerHTML = '';
+
+                // Remover classes de erro de todos os nós
+                document.querySelectorAll('.drawflow-node').forEach(node => {
+                    node.classList.remove('node-error', 'node-warning', 'node-cycle', 'node-incompatible');
+                });
+
+                // Executar a verificação real (simular um pequeno delay para UX)
+                setTimeout(() => {
+                    const resultado = verificarConsistenciaFluxo();
+                    ultimoResultadoVerificacao = resultado; // Armazenar resultado
+                    document.getElementById('btn-exportar-relatorio').disabled = false; // Habilitar botão
+                    // Exibir os resultados
+                    exibirResultadosVerificacao(resultado);
+                }, 300); // Delay de 300ms
+            }
+
+            // Função para exibir os resultados da verificação no painel
+            function exibirResultadosVerificacao(resultado) {
+                const statusContainer = document.querySelector('.status-verificacao');
+                const problemasContainer = document.querySelector('.problemas-container');
+
+                if (resultado.valido) {
+                    statusContainer.innerHTML = `
+                        <div class="status-icon status-success"></div>
+                        <div class="status-text">O fluxo está consistente!</div>
+                    `;
+                    problemasContainer.innerHTML = '<p style="text-align: center; color: #666;">Não foram encontrados problemas.</p>';
+                } else {
+                    const totalProblemas = resultado.problemas.reduce((acc, p) => acc + p.detalhes.length, 0);
+                    statusContainer.innerHTML = `
+                        <div class="status-icon status-error"></div>
+                        <div class="status-text">Foram encontrados ${totalProblemas} problema(s)</div>
+                    `;
+
+                    // Agrupar problemas por tipo
+                    const problemasPorTipo = {};
+                    resultado.problemas.forEach(problema => {
+                        if (!problemasPorTipo[problema.tipo]) {
+                            problemasPorTipo[problema.tipo] = {
+                                mensagem: problema.mensagem,
+                                detalhes: []
+                            };
+                        }
+                        problemasPorTipo[problema.tipo].detalhes = problemasPorTipo[problema.tipo].detalhes.concat(problema.detalhes);
+                    });
+
+                    // Criar HTML para cada tipo de problema
+                    let html = '';
+                    Object.keys(problemasPorTipo).forEach(tipo => {
+                        const problema = problemasPorTipo[tipo];
+                        html += `
+                            <div class="categoria-problema">
+                                <div class="categoria-header">
+                                    <h4>${problema.mensagem} (${problema.detalhes.length})</h4>
+                                    <span class="toggle-categoria">▼</span>
+                                </div>
+                                <div class="categoria-itens">
+                        `;
+
+                        problema.detalhes.forEach(detalhe => {
+                            html += `
+                                <div class="problema-item" data-node-id="${detalhe.id}">
+                                    <div class="problema-icon" style="background-color: ${getTipoProblemaColor(detalhe.tipo)};"></div>
+                                    <div class="problema-info">
+                                        <div class="problema-titulo">${detalhe.nome} (ID: ${detalhe.id})</div>
+                                        <div class="problema-descricao">${getDescricaoProblema(detalhe.tipo)}</div>
+                                    </div>
+                                    <button class="btn-focar-problema">Focar</button>
+                                </div>
+                            `;
+                        });
+
+                        html += `
+                                </div>
+                            </div>
+                        `;
+                    });
+
+                    problemasContainer.innerHTML = html;
+
+                    // Adicionar event listeners para os botões de focar APÓS criar o HTML
+                    document.querySelectorAll('.btn-focar-problema').forEach(btn => {
+                        btn.addEventListener('click', function() {
+                            const nodeId = this.closest('.problema-item').getAttribute('data-node-id');
+                            focarNoEquipamento(nodeId);
+                        });
+                    });
+
+                    // Adicionar event listeners para expandir/colapsar categorias
+                    document.querySelectorAll('.categoria-header').forEach(header => {
+                        header.addEventListener('click', function() {
+                            const itens = this.nextElementSibling;
+                            const toggle = this.querySelector('.toggle-categoria');
+
+                            itens.classList.toggle('collapsed');
+                            if (itens.classList.contains('collapsed')) {
+                                toggle.style.transform = 'rotate(-90deg)';
+                            } else {
+                                toggle.style.transform = 'rotate(0deg)';
+                            }
+                        });
+                        // Iniciar expandido por padrão
+                    });
+
+                    // Destacar nós com problemas no canvas
+                    resultado.problemas.forEach(problema => {
+                        problema.detalhes.forEach(detalhe => {
+                            const nodeElement = editor.getNodeFromId(detalhe.id);
+                            if (nodeElement && nodeElement.html) {
+                                const nodeDiv = document.querySelector(`.drawflow-node[data-node="${detalhe.id}"]`);
+                                if (nodeDiv) {
+                                    switch (detalhe.tipo) {
+                                        case 'sem_conexao':
+                                            nodeDiv.classList.add('node-error');
+                                            break;
+                                        case 'entrada_desconectada':
+                                        case 'saida_desconectada':
+                                            nodeDiv.classList.add('node-warning');
+                                            break;
+                                        case 'ciclo':
+                                            nodeDiv.classList.add('node-cycle');
+                                            break;
+                                        case 'incompativel':
+                                            nodeDiv.classList.add('node-incompatible');
+                                            break;
+                                    }
+                                }
+                            }
+                        });
+                    });
+                }
+            }
+
+            // Função para obter a cor do tipo de problema
+            function getTipoProblemaColor(tipo) {
+                switch (tipo) {
+                    case 'sem_conexao': return '#dc3545'; // Vermelho
+                    case 'entrada_desconectada':
+                    case 'saida_desconectada': return '#ffc107'; // Amarelo
+                    case 'ciclo': return '#fd7e14'; // Laranja
+                    case 'incompativel': return '#6f42c1'; // Roxo
+                    default: return '#6c757d'; // Cinza
+                }
+            }
+
+            // Função para obter a descrição do problema
+            function getDescricaoProblema(tipo) {
+                switch (tipo) {
+                    case 'sem_conexao': return 'Equipamento não conectado.';
+                    case 'entrada_desconectada': return 'Entrada(s) não conectada(s).';
+                    case 'saida_desconectada': return 'Saída(s) não conectada(s).';
+                    case 'ciclo': return 'Faz parte de um ciclo.';
+                    case 'incompativel': return 'Conectado a equipamento incompatível.';
+                    default: return 'Problema desconhecido.';
+                }
+            }
+            // Função para focar em um equipamento específico (centralização manual)
+            function focarNoEquipamento(nodeId) {
+                console.log(`[Focus] Tentando focar no nó ID: ${nodeId}`);
+                try {
+                    const nodeData = editor.getNodeFromId(nodeId);
+                    if (!nodeData) {
+                        console.warn(`[Focus] Nó com ID ${nodeId} não encontrado.`);
+                        alert(`Erro: Nó com ID ${nodeId} não encontrado.`);
+                        return;
+                    }
+
+                    const nodeWidth = 200; // Largura aproximada do nó
+                    const nodeHeight = 150; // Altura aproximada do nó
+                    const nodeCenterX = nodeData.pos_x + nodeWidth / 2;
+                    const nodeCenterY = nodeData.pos_y + nodeHeight / 2;
+
+                    const editorContainer = document.getElementById("drawflow");
+                    const containerWidth = editorContainer.clientWidth;
+                    const containerHeight = editorContainer.clientHeight;
+
+                    // Calcular o centro do canvas visível (considerando o zoom)
+                    const canvasCenterX = nodeCenterX * editor.zoom;
+                    const canvasCenterY = nodeCenterY * editor.zoom;
+
+                    // Calcular a posição de scroll necessária para centralizar o nó
+                    const targetScrollLeft = canvasCenterX - (containerWidth / 2);
+                    const targetScrollTop = canvasCenterY - (containerHeight / 2);
+
+                    console.log(`[Focus] Calculando scroll: NodeCenterCanvas=(${canvasCenterX}, ${canvasCenterY}), Zoom=${editor.zoom}, Container=(${containerWidth}, ${containerHeight}), TargetScroll=(${targetScrollLeft}, ${targetScrollTop})`);
+
+                    // Aplicar o scroll ao container do editor
+                    editorContainer.scrollTo({
+                        left: targetScrollLeft,
+                        top: targetScrollTop,
+                        behavior: 'smooth'
+                    });
+                    console.log(`[Focus] Scroll aplicado para (${targetScrollLeft}, ${targetScrollTop})`);
+
+                    // Destacar o nó
+                    const nodeElement = document.querySelector(`.drawflow-node[data-node="${nodeId}"]`);
+                    if (nodeElement) {
+                        console.log(`[Focus] Elemento DOM do nó ${nodeId} encontrado. Aplicando destaque.`);
+                        document.querySelectorAll('.node-highlight').forEach(el => el.classList.remove('node-highlight'));
+                        nodeElement.classList.add('node-highlight');
+                        setTimeout(() => {
+                            nodeElement.classList.remove('node-highlight');
+                            console.log(`[Focus] Destaque removido do nó ${nodeId}.`);
+                        }, 3000);
+                    } else {
+                        console.warn(`[Focus] Elemento DOM do nó ${nodeId} não encontrado para aplicar destaque.`);
+                    }
+                } catch (error) {
+                    console.error(`[Focus] Erro ao tentar focar no nó ${nodeId}:`, error);
+                    alert(`Ocorreu um erro ao tentar focar no nó ${nodeId}. Verifique o console.`);
+                }
+            }
+            // Função para abrir o modal de exportação
+            function abrirModalExportacao() {
+                document.getElementById('modal-exportacao').style.display = 'block';
+                // Garantir que a aba 'imagem' esteja ativa ao abrir
+                document.querySelector('.tab-item[data-tab="imagem"]').click();
+            }
+
+            // --- INÍCIO: Funções de Exportação ---
+
+            // Função para carregar uma imagem e retornar um objeto Image
+            function carregarImagem(src) {
+                console.log(`[Export] Tentando carregar imagem: ${src}`); // Log: Início do carregamento
+                return new Promise((resolve, reject) => {
+                    const img = new Image();
+                    img.crossOrigin = "Anonymous"; // Tentar resolver problemas de CORS
+                    img.onload = () => {
+                        console.log(`[Export] Imagem carregada com sucesso: ${src}`); // Log: Sucesso
+                        resolve(img);
+                    };
+                    img.onerror = (e) => {
+                        console.warn(`[Export] Erro ao carregar imagem: ${src}`, e); // Log: Erro
+                        // Tentar carregar placeholder em caso de erro
+                        const placeholder = new Image();
+                        placeholder.onload = () => {
+                            console.log(`[Export] Placeholder carregado para: ${src}`); // Log: Placeholder OK
+                            resolve(placeholder);
+                        };
+                        placeholder.onerror = (e2) => {
+                            console.error(`[Export] Falha ao carregar imagem e placeholder: ${src}`, e2); // Log: Falha total
+                            reject(new Error(`Falha ao carregar imagem e placeholder: ${src}`));
+                        };
+                        placeholder.src = '/static/fluxo_producao/img/equipamento-placeholder.png';
+                    };
+                    img.src = src;
+                });
+            }
+
+            // Função para calcular as dimensões do fluxo
+            function calcularDimensoesFluxo() {
+                const nodes = editor.export().drawflow.Home.data;
+                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                const nodeWidth = 200; // Largura padrão do nó
+                const nodeHeight = 150; // Altura padrão do nó (aproximada)
+
+                if (Object.keys(nodes).length === 0) {
+                    return { minX: 0, minY: 0, maxX: 800, maxY: 600, width: 800, height: 600 };
+                }
+
+                Object.values(nodes).forEach(node => {
+                    minX = Math.min(minX, node.pos_x);
+                    minY = Math.min(minY, node.pos_y);
+                    maxX = Math.max(maxX, node.pos_x + nodeWidth);
+                    maxY = Math.max(maxY, node.pos_y + nodeHeight);
+                });
+
+                return {
+                    minX, minY, maxX, maxY,
+                    width: maxX - minX,
+                    height: maxY - minY
+                };
+            }
+
+            // Função para desenhar a grade de fundo
+            function desenharGrade(ctx, width, height, padding, escala) {
+                const gridSize = 20 * escala;
+                ctx.strokeStyle = '#e9e9e9';
+                ctx.lineWidth = 1;
+
+                for (let x = padding * escala; x < width; x += gridSize) {
+                    ctx.beginPath(); ctx.moveTo(x, padding * escala); ctx.lineTo(x, height - padding * escala); ctx.stroke();
+                }
+                for (let y = padding * escala; y < height; y += gridSize) {
+                    ctx.beginPath(); ctx.moveTo(padding * escala, y); ctx.lineTo(width - padding * escala, y); ctx.stroke();
+                }
+            }
+
+            // Função para renderizar um nó no canvas (com imagem real)
+            async function renderizarNo(ctx, node, escala) {
+                console.log(`[Export] Renderizando nó ${node.id} (${node.name})`); // Log: Início renderização nó
+                // Explicitamente logar o objeto data
+                console.log(`[Export] Data object for node ${node.id}:`, node.data);
+
+                const x = node.pos_x * escala;
+                const y = node.pos_y * escala;
+                const width = 200 * escala;
+                const headerHeight = 30 * escala;
+                const padding = 10 * escala;
+                const borderRadius = 5 * escala;
+                const imgContainerHeight = 80 * escala;
+                const detailsHeight = 30 * escala; // Altura estimada para código + descrição
+                const height = headerHeight + padding + imgContainerHeight + padding + detailsHeight + padding;
+
+                // Desenhar fundo e borda
+                ctx.fillStyle = '#ffffff';
+                ctx.strokeStyle = '#3498db';
+                ctx.lineWidth = 2 * escala;
+                ctx.beginPath(); ctx.roundRect(x, y, width, height, borderRadius); ctx.fill(); ctx.stroke();
+
+                // Desenhar cabeçalho
+                ctx.fillStyle = '#3498db';
+                ctx.beginPath(); ctx.roundRect(x, y, width, headerHeight, [borderRadius, borderRadius, 0, 0]); ctx.fill();
+
+                // Desenhar título
+                ctx.fillStyle = '#ffffff';
+                ctx.font = `bold ${14 * escala}px Arial`;
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText(node.name, x + width / 2, y + headerHeight / 2);
+
+                // Desenhar corpo
+                const bodyY = y + headerHeight + padding;
+
+                // Desenhar imagem
+                const imgX = x + padding;
+                const imgY = bodyY;
+                const imgMaxWidth = width - 2 * padding;
+                const imgMaxHeight = imgContainerHeight;
+                let imgSrc = null; // Inicializar imgSrc
+
+                // Verificar se node.data e node.data.imagem_src existem
+                if (node.data && node.data.imagem_src) {
+                    imgSrc = node.data.imagem_src;
+                    console.log(`[Export] Found imagem_src for node ${node.id}: ${imgSrc}`);
+                } else {
+                    console.warn(`[Export] imagem_src not found in data for node ${node.id}. Data:`, node.data);
+                }
+
+                try {
+                    if (imgSrc) { // Apenas tentar carregar se imgSrc for válido
+                        const img = await carregarImagem(imgSrc);
+                        console.log(`[Export] Imagem carregada para nó ${node.id}. Dimensões: ${img.width}x${img.height}`); // Log: Imagem carregada
+                        const aspectRatio = img.width / img.height;
+                        let drawWidth = imgMaxWidth;
+                        let drawHeight = drawWidth / aspectRatio;
+                        if (drawHeight > imgMaxHeight) {
+                            drawHeight = imgMaxHeight;
+                            drawWidth = drawHeight * aspectRatio;
+                        }
+                        const drawX = imgX + (imgMaxWidth - drawWidth) / 2;
+                        const drawY = imgY + (imgMaxHeight - drawHeight) / 2;
+                        console.log(`[Export] Desenhando imagem para nó ${node.id} em (${drawX}, ${drawY}) com tamanho ${drawWidth}x${drawHeight}`); // Log: Desenho
+                        ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
+                        console.log(`[Export] Imagem desenhada para nó ${node.id}`); // Log: Desenho OK
+                    } else {
+                        // Lançar erro se imgSrc estiver faltando para acionar o bloco catch para o placeholder
+                        throw new Error("imagem_src is missing or invalid.");
+                    }
+                } catch (error) {
+                    console.error(`[Export] Falha ao carregar/desenhar imagem para nó ${node.id} (src: ${imgSrc}):`, error); // Log: Erro no desenho
+                    // Desenhar placeholder
+                    ctx.fillStyle = '#cccccc';
+                    ctx.fillRect(imgX, imgY, imgMaxWidth, imgMaxHeight);
+                    ctx.fillStyle = '#666666';
+                    ctx.font = `${10 * escala}px Arial`;
+                    ctx.textAlign = 'center';
+                    ctx.fillText('Imagem Indisponível', imgX + imgMaxWidth / 2, imgY + imgMaxHeight / 2);
+                }
+
+                // Desenhar detalhes (código, descrição)
+                const detailsY = imgY + imgMaxHeight + padding;
+                ctx.fillStyle = '#333333';
+                ctx.font = `bold ${12 * escala}px Arial`;
+                ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+
+                // Verificar se node.data e node.data.codigo existem
+                let codigo = 'N/A'; // Padrão para 'N/A'
+                if (node.data && node.data.codigo) {
+                    codigo = node.data.codigo;
+                    console.log(`[Export] Found codigo for node ${node.id}: ${codigo}`);
+                } else {
+                    console.warn(`[Export] codigo not found in data for node ${node.id}. Data:`, node.data);
+                }
+                ctx.fillText(`Código: ${codigo}`, x + padding, detailsY);
+
+                // ctx.font = `${10 * escala}px Arial`;
+                // const descricao = node.data.descricao || "; // Adicionar verificação para descrição se necessário
+                // ctx.fillText(descricao, x + padding, detailsY + 15 * escala); // Ajustar Y se necessário
+
+                // Desenhar pontos de conexão
+                const pointRadius = 6 * escala;
+                const connY = y + height / 2; // Ajustar Y se necessário
+                ctx.fillStyle = '#28a745'; // Entrada
+                ctx.beginPath(); ctx.arc(x, connY, pointRadius, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#007bff'; // Saída
+                ctx.beginPath(); ctx.arc(x + width, connY, pointRadius, 0, Math.PI * 2); ctx.fill();
+                console.log(`[Export] Nó ${node.id} renderizado.`); // Log: Fim renderização nó
+            }
+
+            // Função para renderizar as conexões no canvas (curvas de Bezier)
+            function renderizarConexoes(ctx, nodes, escala) {
+                ctx.strokeStyle = '#6c757d';
+                ctx.lineWidth = 2 * escala;
+                const nodeWidth = 200 * escala;
+                // Ajustar altura dinamicamente?
+                const headerHeight = 30 * escala;
+                const padding = 10 * escala;
+                const imgContainerHeight = 80 * escala;
+                const detailsHeight = 30 * escala;
+                const nodeHeight = headerHeight + padding + imgContainerHeight + padding + detailsHeight + padding;
+
+                Object.values(nodes).forEach(node => {
+                    Object.values(node.outputs).forEach(output => {
+                        if (output.connections) {
+                            output.connections.forEach(conn => {
+                                const targetNode = nodes[conn.node];
+                                if (!targetNode) return;
+
+                                const startX = node.pos_x * escala + nodeWidth;
+                                const startY = node.pos_y * escala + nodeHeight / 2; // Ajustar Y se necessário
+                                const endX = targetNode.pos_x * escala;
+                                const endY = targetNode.pos_y * escala + nodeHeight / 2; // Ajustar Y se necessário
+
+                                ctx.beginPath(); ctx.moveTo(startX, startY);
+                                const ctrlX1 = startX + 50 * escala, ctrlY1 = startY;
+                                const ctrlX2 = endX - 50 * escala, ctrlY2 = endY;
+                                ctx.bezierCurveTo(ctrlX1, ctrlY1, ctrlX2, ctrlY2, endX, endY);
+                                ctx.stroke();
+
+                                // Desenhar seta
+                                const angle = Math.atan2(endY - ctrlY2, endX - ctrlX2);
+                                const arrowLength = 10 * escala;
+                                ctx.beginPath(); ctx.moveTo(endX, endY);
+                                ctx.lineTo(endX - arrowLength * Math.cos(angle - Math.PI / 6), endY - arrowLength * Math.sin(angle - Math.PI / 6));
+                                ctx.lineTo(endX - arrowLength * Math.cos(angle + Math.PI / 6), endY - arrowLength * Math.sin(angle + Math.PI / 6));
+                                ctx.closePath(); ctx.fillStyle = '#6c757d'; ctx.fill();
+                            });
+                        }
+                    });
+                });
+            }
+
+            // Função assíncrona para gerar o canvas do fluxo
+            async function gerarCanvasFluxo(escala, incluirGrade, formato) {
+                console.log(`[Export] Iniciando geração do canvas. Escala: ${escala}, Grade: ${incluirGrade}, Formato: ${formato}`); // Log: Início canvas
+                const bounds = calcularDimensoesFluxo();
+                const padding = 50; // Padding em pixels
+                const nodes = editor.export().drawflow.Home.data;
+
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = (bounds.width + padding * 2) * escala;
+                canvas.height = (bounds.height + padding * 2) * escala;
+                console.log(`[Export] Dimensões do canvas: ${canvas.width}x${canvas.height}`); // Log: Dimensões
+
+                if (formato === 'jpg') {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                }
+                if (incluirGrade) {
+                    desenharGrade(ctx, canvas.width, canvas.height, padding, escala);
+                }
+
+                ctx.translate((padding - bounds.minX) * escala, (padding - bounds.minY) * escala);
+
+                console.log(`[Export] Renderizando ${Object.keys(nodes).length} nós...`); // Log: Renderizando nós
+                for (const nodeId in nodes) {
+                    // Buscar dados atualizados do nó diretamente do editor
+                    const nodeDataCompleto = editor.getNodeFromId(nodeId);
+                    if (!nodeDataCompleto) {
+                        console.warn(`[Export] Nó ${nodeId} não encontrado no editor ao buscar dados completos.`);
+                        continue; // Pular se o nó não for encontrado
+                    }
+                    // Log para inspecionar os dados completos do nó antes de renderizar
+                    console.log(`[Export] Dados completos para nó ${nodeId} (buscado via getNodeFromId):`, JSON.stringify(nodeDataCompleto));
+                    // Log ADICIONAL: Verificar os campos específicos ANTES de chamar renderizarNo
+                    console.log(`[Export] ANTES de renderizarNo - Nó ${nodeId}: imagem_src=${nodeDataCompleto.data?.imagem_src}, codigo=${nodeDataCompleto.data?.codigo}`);
+                    await renderizarNo(ctx, nodeDataCompleto, escala); // Passar os dados completos
+                }
+                console.log(`[Export] Nós renderizados. Renderizando conexões...`); // Log: Nós OK, conexões
+                renderizarConexoes(ctx, nodes, escala);
+                console.log(`[Export] Conexões renderizadas. Geração do canvas concluída.`); // Log: Canvas OK
+
+                return canvas;
+            }
+
+            // Função para exportar o fluxo como imagem
+            async function exportarComoImagem(formato, escala, incluirGrade) {
+                console.log(`[Export] Iniciando exportação como imagem (${formato})...`); // Log: Início export imagem
+                try {
+                    const canvas = await gerarCanvasFluxo(escala, incluirGrade, formato);
+                    const dataURL = canvas.toDataURL(`image/${formato}`, formato === 'jpg' ? 0.9 : 1.0);
+                    const link = document.createElement('a');
+                    link.href = dataURL;
+                    const nomeFluxo = document.getElementById('fluxo-nome').value || 'fluxo_producao';
+                    link.download = `${nomeFluxo}_${new Date().toISOString().slice(0, 10)}.${formato}`;
+                    link.click();
+                    console.log(`[Export] Exportação como imagem (${formato}) concluída.`); // Log: Fim export imagem
+                } catch (error) {
+                    console.error("[Export] Erro ao exportar como imagem:", error);
+                    alert("Erro ao gerar imagem. Verifique o console.");
+                }
+            }
+
+            // Função para exportar o fluxo como PDF
+            async function exportarComoPDF(opcoes) {
+                console.log(`[Export] Iniciando exportação como PDF...`, opcoes); // Log: Início export PDF
+                try {
+                    const { jsPDF } = window.jspdf;
+                    const canvas = await gerarCanvasFluxo(2, false, 'png'); // Usar escala maior para melhor qualidade no PDF
+                    const imageData = canvas.toDataURL('image/png');
+                    console.log(`[Export] Canvas base para PDF gerado.`); // Log: Canvas PDF OK
+
+                    let orientacao = opcoes.orientacao || (canvas.width > canvas.height ? 'landscape' : 'portrait');
+
+                    const pdf = new jsPDF({
+                        orientation: orientacao,
+                        unit: 'mm',
+                        format: opcoes.formato || 'a4'
+                    });
+
+                    pdf.setProperties({
+                        title: document.getElementById('fluxo-nome').value || 'Fluxo de Produção',
+                        subject: document.getElementById('fluxo-descricao').value || 'Diagrama de Fluxo de Produção',
+                        creator: 'Editor de Fluxo de Produção',
+                        author: opcoes.autor || 'Sistema',
+                        keywords: 'fluxo, produção, diagrama'
+                    });
+
+                    const pageHeight = pdf.internal.pageSize.height;
+                    const pageWidth = pdf.internal.pageSize.width;
+                    let currentY = 10;
+
+                    if (opcoes.incluirCabecalho) {
+                        pdf.setFontSize(16);
+                        pdf.text(document.getElementById('fluxo-nome').value || 'Fluxo de Produção', 14, currentY + 5);
+                        currentY += 8;
+                        pdf.setFontSize(10);
+                        pdf.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, 14, currentY + 5);
+                        currentY += 5;
+                        if (document.getElementById('fluxo-descricao').value) {
+                            pdf.text(`Descrição: ${document.getElementById('fluxo-descricao').value}`, 14, currentY + 5);
+                            currentY += 5;
+                        }
+                        pdf.setLineWidth(0.5);
+                        pdf.line(10, currentY + 2, pageWidth - 10, currentY + 2);
+                        currentY += 7;
+                    }
+
+                    const marginX = 10;
+                    const marginYBottom = 15;
+                    const availableWidth = pageWidth - 2 * marginX;
+                    const availableHeight = pageHeight - currentY - marginYBottom;
+                    const scale = Math.min(availableWidth / canvas.width, availableHeight / canvas.height);
+                    const finalWidth = canvas.width * scale;
+                    const finalHeight = canvas.height * scale;
+                    const x = marginX + (availableWidth - finalWidth) / 2;
+                    const y = currentY;
+
+                    console.log(`[Export] Adicionando imagem ao PDF. Dimensões: ${finalWidth}x${finalHeight}`); // Log: Add imagem PDF
+                    pdf.addImage(imageData, 'PNG', x, y, finalWidth, finalHeight);
+
+                    let totalPages = 1;
+                    if (opcoes.incluirLegenda) {
+                        console.log(`[Export] Adicionando legenda ao PDF...`); // Log: Add legenda
+                        totalPages = adicionarLegendaEquipamentos(pdf);
+                        console.log(`[Export] Legenda adicionada. Total de páginas: ${totalPages}`); // Log: Legenda OK
+                    }
+
+                    if (opcoes.incluirRodape) {
+                        console.log(`[Export] Adicionando rodapé ao PDF...`); // Log: Add rodapé
+                        const rodapeY = pageHeight - 7;
+                        for (let i = 1; i <= totalPages; i++) {
+                            pdf.setPage(i);
+                            pdf.setFontSize(8);
+                            pdf.text(`Gerado em ${new Date().toLocaleString('pt-BR')}`, 14, rodapeY);
+                            pdf.text(`Página ${i} de ${totalPages}`, pageWidth - 30, rodapeY);
+                        }
+                    }
+
+                    const nomeFluxo = document.getElementById('fluxo-nome').value || 'fluxo_producao';
+                    pdf.save(`${nomeFluxo}_${new Date().toISOString().slice(0, 10)}.pdf`);
+                    console.log(`[Export] Exportação como PDF concluída.`); // Log: Fim export PDF
+
+                } catch (error) {
+                    console.error("[Export] Erro ao exportar como PDF:", error);
+                    alert("Erro ao gerar PDF. Verifique o console.");
+                }
+            }
+
+            // Função para adicionar legenda de equipamentos ao PDF (retorna número total de páginas)
+            function adicionarLegendaEquipamentos(pdf) {
+                const nodes = editor.export().drawflow.Home.data;
+                const equipamentosLegenda = {};
+
+                Object.values(nodes).forEach(node => {
+                    const equipamentoId = node.data.equipamento_id;
+                    if (!equipamentosLegenda[equipamentoId]) {
+                        equipamentosLegenda[equipamentoId] = {
+                            nome: node.name,
+                            codigo: node.data.codigo || 'N/A',
+                            quantidade: 0
+                        };
+                    }
+                    equipamentosLegenda[equipamentoId].quantidade++;
+                });
+
+                if (Object.keys(equipamentosLegenda).length === 0) return 1; // Nenhuma legenda, 1 página total
+
+                pdf.addPage();
+                let currentPage = 2;
+                const pageHeight = pdf.internal.pageSize.height;
+                const pageWidth = pdf.internal.pageSize.width;
+                let currentY = 15;
+
+                pdf.setFontSize(16);
+                pdf.text('Legenda de Equipamentos', 14, currentY);
+                currentY += 10;
+                pdf.setLineWidth(0.5);
+                pdf.line(10, currentY, pageWidth - 10, currentY);
+                currentY += 7;
+
+                pdf.setFontSize(12);
+                pdf.text('Código', 14, currentY);
+                pdf.text('Nome', 50, currentY);
+                pdf.text('Quantidade', pageWidth - 40, currentY);
+                currentY += 2;
+                pdf.line(10, currentY, pageWidth - 10, currentY);
+                currentY += 7;
+
+                pdf.setFontSize(10);
+                Object.values(equipamentosLegenda).sort((a, b) => a.codigo.localeCompare(b.codigo)).forEach(equip => {
+                    if (currentY > pageHeight - 20) {
+                        pdf.addPage();
+                        currentPage++;
+                        currentY = 15;
+                        // Adicionar cabeçalho na nova página da legenda?
+                        pdf.setFontSize(12);
+                        pdf.text('Código', 14, currentY);
+                        pdf.text('Nome', 50, currentY);
+                        pdf.text('Quantidade', pageWidth - 40, currentY);
+                        currentY += 2;
+                        pdf.line(10, currentY, pageWidth - 10, currentY);
+                        currentY += 7;
+                        pdf.setFontSize(10);
+                    }
+                    pdf.text(equip.codigo, 14, currentY);
+                    pdf.text(equip.nome, 50, currentY);
+                    pdf.text(equip.quantidade.toString(), pageWidth - 40, currentY, { align: 'right' });
+                    currentY += 8;
+                });
+
+                return currentPage; // Retorna o número total de páginas
+            }
+
+            // --- FIM: Funções de Exportação ---
+
+            // --- INÍCIO: Função Exportar Relatório de Verificação ---
+            function exportarRelatorioVerificacao() {
+                console.log("[Report] Iniciando exportação do relatório de verificação..."); // Log: Início relatório
+                if (!ultimoResultadoVerificacao) {
+                    alert("Execute a verificação primeiro antes de exportar o relatório.");
+                    console.warn("[Report] Tentativa de exportar relatório sem verificação prévia."); // Log: Sem verificação
+                    return;
+                }
+
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF({
+                    orientation: 'portrait',
+                    unit: 'mm',
+                    format: 'a4'
+                });
+
+                const nomeFluxo = document.getElementById('fluxo-nome').value || 'Fluxo de Produção';
+                pdf.setProperties({
+                    title: `Relatório de Verificação - ${nomeFluxo}`,
+                    subject: 'Relatório de problemas de consistência encontrados no fluxo',
+                    creator: 'Editor de Fluxo de Produção',
+                    author: 'Sistema'
+                });
+
+                const pageHeight = pdf.internal.pageSize.height;
+                const pageWidth = pdf.internal.pageSize.width;
+                let currentY = 15;
+                const marginX = 14;
+                const marginYBottom = 15;
+                let pageNum = 1;
+
+                // Cabeçalho
+                pdf.setFontSize(18);
+                pdf.text(`Relatório de Verificação`, marginX, currentY);
+                currentY += 8;
+                pdf.setFontSize(12);
+                pdf.text(`Fluxo: ${nomeFluxo}`, marginX, currentY);
+                currentY += 6;
+                pdf.text(`Data: ${new Date().toLocaleString('pt-BR')}`, marginX, currentY);
+                currentY += 8;
+                pdf.setLineWidth(0.5);
+                pdf.line(marginX - 4, currentY, pageWidth - marginX + 4, currentY);
+                currentY += 10;
+
+                // Função para adicionar rodapé
+                const addFooter = (currentPage, totalPages) => {
+                    pdf.setFontSize(8);
+                    const footerY = pageHeight - 7;
+                    pdf.text(`Página ${currentPage} de ${totalPages}`, pageWidth - marginX - 10, footerY, { align: 'right' });
+                };
+
+                // Resumo
+                pdf.setFontSize(14);
+                pdf.text('Resumo da Verificação', marginX, currentY);
+                currentY += 8;
+                pdf.setFontSize(10);
+                if (ultimoResultadoVerificacao.valido) {
+                    pdf.setTextColor(0, 128, 0); // Verde
+                    pdf.text('O fluxo está consistente. Nenhum problema encontrado.', marginX, currentY);
+                    pdf.setTextColor(0, 0, 0); // Resetar cor
+                    currentY += 10;
+                    console.log("[Report] Fluxo consistente."); // Log: Consistente
+                } else {
+                    const totalProblemas = ultimoResultadoVerificacao.problemas.reduce((acc, p) => acc + p.detalhes.length, 0);
+                    pdf.setTextColor(220, 53, 69); // Vermelho
+                    pdf.text(`Foram encontrados ${totalProblemas} problema(s).`, marginX, currentY);
+                    pdf.setTextColor(0, 0, 0); // Resetar cor
+                    currentY += 10;
+                    console.log(`[Report] ${totalProblemas} problema(s) encontrado(s).`); // Log: Problemas
+                }
+
+                // Detalhes dos problemas
+                if (!ultimoResultadoVerificacao.valido) {
+                    pdf.setFontSize(14);
+                    pdf.text('Detalhes dos Problemas', marginX, currentY);
+                    currentY += 8;
+
+                    const problemasPorTipo = {};
+                    ultimoResultadoVerificacao.problemas.forEach(problema => {
+                        if (!problemasPorTipo[problema.tipo]) {
+                            problemasPorTipo[problema.tipo] = {
+                                mensagem: problema.mensagem,
+                                detalhes: []
+                            };
+                        }
+                        problemasPorTipo[problema.tipo].detalhes = problemasPorTipo[problema.tipo].detalhes.concat(problema.detalhes);
+                    });
+
+                    Object.keys(problemasPorTipo).forEach(tipo => {
+                        const problema = problemasPorTipo[tipo];
+
+                        // Verificar espaço para cabeçalho da categoria
+                        if (currentY + 10 > pageHeight - marginYBottom) {
+                            addFooter(pageNum, pageNum); // Adiciona rodapé antes de pular
+                            pdf.addPage();
+                            pageNum++;
+                            currentY = 15;
+                        }
+
+                        pdf.setFontSize(12);
+                        pdf.setFont(undefined, 'bold');
+                        pdf.text(`${problema.mensagem} (${problema.detalhes.length})`, marginX, currentY);
+                        pdf.setFont(undefined, 'normal');
+                        currentY += 7;
+
+                        problema.detalhes.forEach(detalhe => {
+                            // Verificar espaço para o item
+                            if (currentY + 10 > pageHeight - marginYBottom) {
+                                addFooter(pageNum, pageNum); // Adiciona rodapé antes de pular
+                                pdf.addPage();
+                                pageNum++;
+                                currentY = 15;
+                            }
+                            pdf.setFontSize(10);
+                            pdf.text(`- Nó: ${detalhe.nome} (ID: ${detalhe.id})`, marginX + 5, currentY);
+                            currentY += 5;
+                            pdf.setFontSize(9);
+                            pdf.setTextColor(108, 117, 125); // Cinza
+                            pdf.text(`  Descrição: ${getDescricaoProblema(detalhe.tipo)}`, marginX + 5, currentY);
+                            pdf.setTextColor(0, 0, 0); // Resetar cor
+                            currentY += 7;
+                        });
+                        currentY += 5; // Espaço extra entre categorias
+                    });
+                }
+
+                // Adicionar rodapé na última página e atualizar as anteriores
+                for (let i = 1; i <= pageNum; i++) {
+                    pdf.setPage(i);
+                    addFooter(i, pageNum);
+                }
+
+                pdf.save(`Relatorio_Verificacao_${nomeFluxo}_${new Date().toISOString().slice(0, 10)}.pdf`);
+                console.log("[Report] Exportação do relatório concluída."); // Log: Fim relatório
+            }
+            // --- FIM: Função Exportar Relatório de Verificação ---
+
+            // Função para atualizar a pré-visualização da exportação
+            async function atualizarPreVisualizacao() {
+                const previewContainer = document.querySelector('.preview-image');
+                previewContainer.innerHTML = '<p>Gerando pré-visualização...</p>';
+                const tabAtiva = document.querySelector('#modal-exportacao .tab-item.active').getAttribute('data-tab');
+                console.log(`[Preview] Iniciando pré-visualização para aba: ${tabAtiva}`); // Log: Início preview
+
+                try {
+                    let canvas;
+                    let formato = 'png'; // Default para preview
+                    if (tabAtiva === 'imagem') {
+                        formato = document.querySelector('input[name="formato-imagem"]:checked').value;
+                        const escala = parseFloat(document.querySelector('input[name="resolucao-imagem"]:checked').value);
+                        const incluirGrade = document.getElementById('incluir-grade-imagem').checked;
+                        canvas = await gerarCanvasFluxo(escala, incluirGrade, formato);
+                    } else {
+                        // Preview do PDF mostra a imagem base com escala maior para clareza
+                        canvas = await gerarCanvasFluxo(2, false, 'png');
+                    }
+                    console.log(`[Preview] Canvas gerado para pré-visualização.`); // Log: Canvas preview OK
+
+                    const previewWidth = previewContainer.clientWidth - 20;
+                    const previewHeight = previewContainer.clientHeight - 20;
+                    const previewScale = Math.min(previewWidth / canvas.width, previewHeight / canvas.height, 1);
+
+                    const img = document.createElement('img');
+                    img.src = canvas.toDataURL(`image/${formato}`);
+                    img.style.width = `${canvas.width * previewScale}px`;
+                    img.style.height = `${canvas.height * previewScale}px`;
+                    img.style.border = '1px solid #ccc';
+
+                    previewContainer.innerHTML = '';
+                    previewContainer.appendChild(img);
+                    if (tabAtiva === 'pdf') {
+                        previewContainer.innerHTML += '<p style="font-size: 0.8em; color: #666; text-align: center;">Pré-visualização da imagem base da primeira página do PDF.</p>';
+                    }
+                    console.log(`[Preview] Pré-visualização exibida.`); // Log: Preview OK
+                } catch (error) {
+                    console.error("[Preview] Erro ao gerar pré-visualização:", error);
+                    previewContainer.innerHTML = '<p style="color: red;">Erro ao gerar pré-visualização.</p>';
+                }
+            }
+
+            // Função para exportar o fluxo (chamada final)
+            function exportarFluxo() {
+                const tabAtiva = document.querySelector('#modal-exportacao .tab-item.active').getAttribute('data-tab');
+
+                if (tabAtiva === 'imagem') {
+                    const formato = document.querySelector('input[name="formato-imagem"]:checked').value;
+                    const escala = parseFloat(document.querySelector('input[name="resolucao-imagem"]:checked').value);
+                    const incluirGrade = document.getElementById('incluir-grade-imagem').checked;
+                    exportarComoImagem(formato, escala, incluirGrade);
+                } else {
+                    const opcoes = {
+                        orientacao: document.querySelector('input[name="orientacao-pdf"]:checked').value,
+                        formato: document.getElementById('tamanho-pagina-pdf').value,
+                        incluirCabecalho: document.getElementById('incluir-cabecalho-pdf').checked,
+                        incluirRodape: document.getElementById('incluir-rodape-pdf').checked,
+                        incluirLegenda: document.getElementById('incluir-legenda-pdf').checked,
+                        autor: document.getElementById('autor-pdf').value
+                    };
+                    exportarComoPDF(opcoes);
+                }
+
+                document.getElementById('modal-exportacao').style.display = 'none';
+            }
+
+            // Função auxiliar para obter cookie CSRF
+            function getCookie(name) {
+                let cookieValue = null;
+                if (document.cookie && document.cookie !== '') {
+                    const cookies = document.cookie.split(';');
+                    for (let i = 0; i < cookies.length; i++) {
+                        const cookie = cookies[i].trim();
+                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                            break;
+                        }
+                    }
+                }
+                return cookieValue;
+            }
+        });
+    </script>
+</body>
+</html>

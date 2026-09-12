@@ -1,0 +1,179 @@
+from django.shortcuts import render
+from django.http import JsonResponse
+from .agents import executar_agente_com_prompt_do_admin
+from django.views.decorators.http import require_POST
+from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
+from functools import wraps
+from .models import RelatorioPDF, HistoricoAgente
+import datetime
+from django.utils import timezone
+
+# 🌟 Precisa bater EXATAMENTE (acentos, maiúsculas) com o nome do grupo criado no Django Admin
+# e com a string usada no filtro de template `has_group` do base_site.html
+NOME_GRUPO_AGENTE_IA = "Agente de IA"
+
+
+def exige_acesso_ao_agente_ia(view_func):
+    """
+    Exige que o usuário esteja logado E (seja superusuário OU membro do grupo
+    'Agente de IA'). Quem estiver logado mas sem essa permissão recebe um 403
+    (Permission Denied) em vez de ser redirecionado pra tela de login de novo
+    — o que criaria um loop, já que ele já está autenticado.
+    """
+    @login_required
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        tem_acesso = request.user.is_superuser or request.user.groups.filter(name=NOME_GRUPO_AGENTE_IA).exists()
+        if not tem_acesso:
+            raise PermissionDenied("Você não tem permissão para acessar o Agente de IA.")
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+
+@exige_acesso_ao_agente_ia
+def chat_view(request):
+    if request.method == "POST":
+        mensagem = request.POST.get("mensagem", "").strip()
+        # Captura a lista de IDs dos PDFs enviados pelo front-end
+        pdf_ids = request.POST.getlist("pdfs_selecionados")
+
+        # Converte os IDs em inteiros válidos
+        pdf_ids = [int(id_str) for id_str in pdf_ids if id_str.isdigit()]
+
+        # Executa o agente passando a mensagem, os arquivos escolhidos e o usuário logado
+        # (usado para isolar a memória de curto prazo e o histórico salvo por conta)
+        resposta, fontes = executar_agente_com_prompt_do_admin(mensagem, pdf_ids, request.user)
+
+        return JsonResponse({
+            "resposta": resposta,
+            "fontes": fontes
+        })
+
+    # No GET, renderiza a página trazendo todos os relatórios disponíveis
+    relatorios = RelatorioPDF.objects.filter(ativo=True).order_by('-id')
+    return render(request, "chat.html", {"relatorios": relatorios})
+
+
+
+@exige_acesso_ao_agente_ia
+@require_POST
+def limpar_historico_view(request):
+    """
+    Remove registros do histórico DO USUÁRIO LOGADO, baseando-se estritamente
+    no período ou no intervalo de datas utilizando o campo 'data' nativo do modelo.
+    """
+    try:
+        periodo = request.POST.get("periodo", "tudo")
+        agora = timezone.now()
+
+        # 🌟 Toda consulta parte do histórico do usuário atual — nunca do histórico global
+        base_queryset = HistoricoAgente.objects.filter(usuario=request.user)
+
+        if periodo == "hoje":
+            # Filtra e remove apenas as mensagens enviadas desde a meia-noite de hoje
+            inicio_dia = agora.replace(hour=0, minute=0, second=0, microsecond=0)
+            queryset = base_queryset.filter(data__gte=inicio_dia)
+
+        elif periodo == "7_dias":
+            # Filtra e remove mensagens dos últimos 7 dias
+            sete_dias_atras = agora - datetime.timedelta(days=7)
+            queryset = base_queryset.filter(data__gte=sete_dias_atras)
+
+        elif periodo == "personalizado":
+            data_inicio_str = request.POST.get("data_inicio")
+            data_fim_str = request.POST.get("data_fim")
+
+            if not data_inicio_str or not data_fim_str:
+                return JsonResponse({"status": "erro", "mensagem": "Intervalo de datas incompleto."}, status=400)
+
+            # 🌟 VALIDAÇÃO 1: mensagem amigável se a data vier malformada,
+            # em vez de deixar o ValueError do strptime estourar como erro técnico genérico
+            try:
+                data_inicio = datetime.datetime.strptime(data_inicio_str, "%Y-%m-%d")
+                data_fim = datetime.datetime.strptime(data_fim_str, "%Y-%m-%d")
+            except ValueError:
+                return JsonResponse({
+                    "status": "erro",
+                    "mensagem": "Data inválida. Selecione as datas pelo calendário no formato correto."
+                }, status=400)
+
+            # 🌟 VALIDAÇÃO 2: garante no backend que a data inicial não é posterior à final,
+            # mesmo que o front-end já valide isso (evita requisição manipulada retornar
+            # silenciosamente um queryset vazio)
+            if data_inicio > data_fim:
+                return JsonResponse({
+                    "status": "erro",
+                    "mensagem": "A data de início não pode ser posterior à data de fim."
+                }, status=400)
+
+            # Inclui o dia final inteiro no intervalo e torna os datetimes timezone-aware
+            data_fim = data_fim + datetime.timedelta(days=1)
+            data_inicio = timezone.make_aware(data_inicio)
+            data_fim = timezone.make_aware(data_fim)
+
+            queryset = base_queryset.filter(data__range=[data_inicio, data_fim])
+        else:
+            # 🌟 Opção "tudo" agora limpa só o histórico DO USUÁRIO LOGADO,
+            # não mais a tabela inteira do sistema
+            queryset = base_queryset
+
+        # Executa a limpeza cirúrgica
+        total_removido, _ = queryset.delete()
+
+        return JsonResponse({
+            "status": "sucesso",
+            "mensagem": "Limpeza concluída! " + str(total_removido) + " mensagens foram removidas do histórico."
+        })
+
+    except Exception as e:
+        return JsonResponse({"status": "erro", "mensagem": str(e)}, status=500)
+
+
+@exige_acesso_ao_agente_ia
+@require_POST
+def upload_pdf_view(request):
+    """
+    Recebe um arquivo (PDF, TXT ou XLSX) enviado pela zona de arrastar-e-soltar
+    da barra lateral e cria um novo RelatorioPDF ativo para uso imediato pelo agente.
+    """
+    arquivo = request.FILES.get("arquivo")
+
+    if not arquivo:
+        return JsonResponse({"status": "erro", "mensagem": "Nenhum arquivo foi enviado."}, status=400)
+
+    # 🌟 EXTENSÕES ACEITAS: PDF, TXT e XLSX (planilha Excel)
+    extensoes_aceitas = (".pdf", ".txt", ".xlsx")
+    nome_arquivo = arquivo.name.lower()
+
+    if not nome_arquivo.endswith(extensoes_aceitas):
+        return JsonResponse({
+            "status": "erro",
+            "mensagem": "Apenas arquivos PDF, TXT ou XLSX são aceitos."
+        }, status=400)
+
+    # Limite de segurança para evitar uploads muito grandes (ajuste se necessário)
+    limite_mb = 25
+    if arquivo.size > limite_mb * 1024 * 1024:
+        return JsonResponse({
+            "status": "erro",
+            "mensagem": f"Arquivo maior que {limite_mb}MB. Reduza o tamanho e tente novamente."
+        }, status=400)
+
+    # Usa o nome do arquivo (sem extensão) como título padrão
+    titulo = arquivo.name.rsplit(".", 1)[0]
+
+    try:
+        novo_relatorio = RelatorioPDF.objects.create(
+            titulo=titulo,
+            arquivo=arquivo,
+            ativo=True
+        )
+        return JsonResponse({
+            "status": "sucesso",
+            "mensagem": "Relatório enviado com sucesso!",
+            "id": novo_relatorio.id,
+            "titulo": novo_relatorio.titulo
+        })
+    except Exception as e:
+        return JsonResponse({"status": "erro", "mensagem": str(e)}, status=500)

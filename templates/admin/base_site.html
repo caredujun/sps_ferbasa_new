@@ -1,0 +1,64 @@
+{% extends "admin/base_site.html" %}
+{% load group_extras %}
+{% load admin_interface_tags %}
+
+{% block title %}
+{% if title %}{{ title }} | {% endif %}{% if cenario_ativo_usuario_texto %}{{ cenario_ativo_usuario_texto }}{% else %}{{ site_title|default:"Django administration" }}{% endif %}
+{% endblock title %}
+
+{% block branding %}
+{% get_admin_interface_theme as theme %}
+<h1 id="site-name">
+    <a href="{% url 'admin:index' %}">
+        {% if theme.logo_visible %}
+            {% if theme.logo %}
+            <img class="logo" style="display:none;" src="{{ theme.logo.url }}" {% if theme.logo.width %}width="{{ theme.logo.width }}"{% endif %} {% if theme.logo.height %}height="{{ theme.logo.height }}"{% endif %}>
+            {% else %}
+            <img class="logo default" style="display:none;" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" width="104" height="36">
+            {% endif %}
+        {% endif %}
+        {% if theme.title_visible %}
+        {# 🌟 Antes: {{ theme.title }} (global, gravado uma vez). Agora: calculado #}
+        {# por usuário a cada request, via context_processors.cenario_ativo_usuario #}
+        <span>{% if cenario_ativo_usuario_texto %}{{ cenario_ativo_usuario_texto }}{% else %}{{ site_header|default:"Django administration" }}{% endif %}</span>
+        {% endif %}
+    </a>
+</h1>
+{% endblock branding %}
+
+{% block userlinks %}
+    <!-- Mantém os links originais do django-admin-interface ("Mudar senha", "Sair") -->
+    {{ block.super }}
+
+    <!-- 🌟 Só exibe para superusuário ou membros do grupo "Agente de IA" -->
+    {% if user.is_superuser or user|has_group:"Agente de IA" %}
+        <span class="userlinks-agent" style="margin-right: 15px; margin-left: 15px; display: inline-block; vertical-align: middle;">
+            <a href="/chat/" target="_blank" style="
+                background-color: var(--admin-interface-header-background-color, #417690);
+                color: #ffd700 !important;
+                border: 1px solid var(--admin-interface-header-link-color, rgba(255, 255, 255, 0.3));
+                padding: 4px 12px;
+                font-size: 12px;
+                font-weight: bold;
+                border-radius: 4px;
+                text-decoration: none;
+                display: inline-flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
+                height: 96px;
+                box-sizing: border-box;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+                transition: filter 0.2s;
+            " onmouseover="this.style.filter='contrast(1.5) brightness(1.2)'" onmouseout="this.style.filter='none'">
+                <svg viewBox="0 0 100 100" width="26" height="26">
+                    <path d="M50.0,4.0 Q61.31,38.69 96.0,50.0 Q61.31,61.31 50.0,96.0 Q38.69,61.31 4.0,50.0 Q38.69,38.69 50.0,4.0 Z" fill="#ffd700"/>
+                    <path d="M83.0,8.0 Q86.54,18.46 97.0,22.0 Q86.54,25.54 83.0,36.0 Q79.46,25.54 69.0,22.0 Q79.46,18.46 83.0,8.0 Z" fill="#ffd700"/>
+                    <path d="M18.0,71.0 Q20.12,77.88 27.0,80.0 Q20.12,82.12 18.0,89.0 Q15.88,82.12 9.0,80.0 Q15.88,77.88 18.0,71.0 Z" fill="#ffd700"/>
+                </svg>
+                <span>Agente IA</span>
+            </a>
+        </span>
+    {% endif %}
+{% endblock %}

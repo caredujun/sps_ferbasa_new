@@ -1,0 +1,521 @@
+ Para ativar e acompanhar worker no celery no Heroku:heroku run python -m celery -A sps worker -l info
+ Para acompanhar direto: heroku logs -t -d worker
+ Para ativar e acompanhar worker no celery beat no Heroku:heroku run python -m celery -A sps beat --scheduler django_celery_beat.schedulers:DatabaseScheduler -l info
+
+# Para ativar o celery quando estiver rodando local: python -m celery -A sps worker -l info
+# Para ativar o celery + beat quando estiver rodando local: python -m celery -A sps worker --scheduler django_celery_beat.schedulers:DatabaseScheduler -E -B -l info
+
+# link para ajustar redis no heroku : https://devcenter.heroku.com/articles/managing-heroku-redis-using-cli#redis-credentials
+# alterar qtde de works no Heroku : heroku ps:scale worker=1
+
+#           Pare o processo como: heroku ps:stop run.3298
+
+# Comando para acompanhar a celery no Heroku/comando direto: heroku logs -t -d worker
+
+# Alterar a qtde de dynos/workers : heroku ps:scale worker=1
+
+# Acessar postgres : sudo -u postgres psql
+# Criar usuário interativo direto: sudo -u postgres createuser --interactive
+# Criar banco de dados direto: sudo -u postgres createdb nome_do_db
+# Listar banco de dados : \du (tem que usar antes sudo -u postgres psql
+# Para acessar o dbase sps: sudo -u postgres psql sps
+# Para alterar a senha do usuário postgres para o banco de dados sps: ALTER USER postgres with encrypted password 'Kodaka32354211';
+# Para alterar a senha do usuário caredujun para o banco de dados sps: ALTER USER caredujun with encrypted password 'Kodaka32354211';
+
+
+Alterar ordem das apps:
+- Dentro de cada app, acessar o arquivo apps.py. Nesse ajustar o espaço em branco no verbose_name da app. Quanto mais espaço, mais prioridade na apresentação.
+- Para a INTERFACE, o arquivo apps.py fica em external_libraries\site-packages\admin_interface\apps.py.
+- Para AUTENTICAÇAO E AUTORIZAÇÃO,  o arquivo apps.py fica em external_libraries\site-packages\django\contrib\auth\apps.py.
+
+- Comando para mostrar a sequencial atual em tabelas do postgres:
+  select schemaname as schema, sequencename as sequence, last_value from pg_sequences;
+
+- Apagar todas as tabelas do postgres
+DO $$
+
+DECLARE
+  row record;
+BEGIN
+    FOR row IN SELECT * FROM pg_tables WHERE schemaname = 'public'
+    LOOP
+      EXECUTE 'DROP TABLE public.' || quote_ident(row.tablename) || ' CASCADE';
+    END LOOP;
+END;
+$$;
+
+- Apagar todas a funções e procedures do banco de dados do postgres. Usar no Pgadmin
+DO
+$do$
+DECLARE
+   _sql text;
+BEGIN
+   SELECT INTO _sql
+          string_agg(format('DROP %s %s;'
+                          , CASE prokind
+                              WHEN 'f' THEN 'FUNCTION'
+                              WHEN 'a' THEN 'AGGREGATE'
+                              WHEN 'p' THEN 'PROCEDURE'
+                              WHEN 'w' THEN 'FUNCTION'  -- window function (rarely applicable)
+                              -- ELSE NULL              -- not possible in pg 11
+                            END
+                          , oid::regprocedure)
+                   , E'\n')
+   FROM   pg_proc
+   WHERE  pronamespace = 'public'::regnamespace  -- schema name here!
+   -- AND    prokind = ANY ('{f,a,p,w}')         -- optionally filter kinds
+   ;
+
+   IF _sql IS NOT NULL THEN
+      RAISE NOTICE '%', _sql;  -- debug / check first
+      EXECUTE _sql;            -- uncomment payload once you are sure
+   ELSE
+      RAISE NOTICE 'No fuctions found in schema %', quote_ident(_schema);
+   END IF;
+END
+$do$;
+
+Copiar schema do banco de dados para arquivo texto (usa o command.com)
+C:\Program Files\PostgreSQL\14\bin>pg_dump -U caredu -s sps > c:\spslocal.txt
+A senha para caredu é Kodaka32354211
+
+Para corrigir o erro maldito abaixo:
+To https://git.heroku.com/sps-ferbasa.git
+ ! [rejected]        main -> main (non-fast-forward)
+error: failed to push some refs to 'https://git.heroku.com/sps-ferbasa.git'
+hint: Updates were rejected because the tip of your current branch is behind
+hint: its remote counterpart. Integrate the remote changes (e.g.
+hint: 'git pull ...') before pushing again.
+hint: See the 'Note about fast-forwards' in 'git push --help' for details.
+Solução: execute no terminal git pull heroku main --allow-unrelated-histories
+
+Se ocorrer o erro Not possible to fast-forward even with no changes use git reset --hard heroku/main e faça novamente todas as etapas do deploy
+
+https://devcenter.heroku.com/articles/heroku-postgres-import-export
+
+Arquivo Excel fluxoproducao_new.xls (colunas)
+['Descricao Fluxo',
+'Id Produto',
+'Nome Produto',
+'Coluna',
+'Linha',
+'Id Consumo Padrao',
+'Descricao Consumo Padrao']
+
+
+git checkout main -> SE DEPLOY RETORNAR UPTODATE OK
+
+*********************************************************************************************************************
+
+EXPORTAR BANCO DE DADOS DO HEROKU PARA AMBIENTE LOCAL (EXECUTAR COMANDOS NO TERMINAL)
+heroku pg:backups:capture --app sps-ferbasa
+heroku pg:backups:download --app sps-ferbasa
+pg_restore --verbose --clean --no-acl --no-owner -h localhost -U postgres -d spsferbasa latest.dump
+
+IMPORTAR BANCO DE DADOS PARA O HEROKU A PARTIR DO AMBIENTE LOCAL (EXECUAR COMANDOS NO TERMINAL)
+# Cria um backup para posteriormente ser gravado no AWS S3
+pg_dump -Fc --no-acl --no-owner -h localhost -U postgres -d spsferbasa -f spsferbasa_28_03_2026.dump
+# Cria uma URL para permitir a transferência do arquivo gerado para o Heroku. Observar que o nome do bucket no S3 é spsferbasa
+aws s3 presign s3://spsferbasa/spsferbasa.dump
+# Copia o your-object (que é o backup) no AWS S3. Tem que ser feito manualmente usando o AWS
+# Roda o comando abaixo trocando o <SIGNED URL> pela URL gerada. A mesma deve ficar entre ''. sps-ferbasa é o nome da app no Heroku
+heroku pg:backups:restore '<SIGNED URL>' DATABASE_URL --app sps-ferbasa
+------------------------------------------------------------------
+ATULIZAR requirements.txt
+pip freeze > requirements.txt
+------------------------------------------------------------------
+CAMPO COM MÁSCARA NÃO FUNCIONANDO
+Tem que colocar no settings as linhas abaixo:
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static')
+]
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+------------------------------------------------------------------
+Agendar backup diário (nesse exemplo é para fazer backup todo dia as 18h00
+heroku pg:backups:schedule DATABASE_URL --at '14:00 America/Los_Angeles' --app sps-ferbasa
+obs: tentamos Brazi/East mas não funciona. 14:00 em Los Angeles é 18:00 no Brasil
+------------------------------------------------------------------
+Obter DATABASE_URL do banco de dados
+heroku config:get DATABASE_URL -a sps-ferbasa
+-----------------------------------------------------------------
+PARA LIMPAR O GIT E COMEÇAR DO ZERO
+rm -rf .git
+heroku plugins:install heroku-repo
+heroku repo:reset --app sps-ferbasa
+git init
+heroku git:remote -a sps-ferbasa
+git add .
+git commit -m "SPS FERBASA"
+python3 manage.py collectstatic
+heroku config:set DISABLE_COLLECTSTATIC=1
+git push -f heroku
+-----------------------------------------------------------------
+Erro no install do psycopg2
+No terminal rodar
+sudo apt-get install python3-dev libxml2-dev libxslt1-dev zlib1g-dev libsasl2-dev libldap2-dev build-essential libssl-dev libffi-dev libmysqlclient-dev libjpeg-dev libpq-dev libjpeg8-dev liblcms2-dev libblas-dev libatlas-base-dev
+
+-----------------------------------------------------------------
+Erro ao ativar localmente o celery como CONEXÃO RECUSADA
+Tem que instalar o redis no terminal usando sudo apt install redis-server
+Pode ser também que o comando no settings CELERY_BROKER_URL = "redis://localhost:6379 esteja" esteja comentado (iniciando com #)
+-----------------------------------------------------------------
+Como usar o < ou > no objecs: usar similar a
+TbProducaoMensal.objects.filter(pro_men_item_consumo_id=self.id, pro_men_qtde_consumo__lt=0).count() > 0:
+----------------------------------------------------------------
+PROCEDURE PARA RESETAR SEQUENCIA
+
+declare
+    sql varchar;
+begin
+    for sql in SELECT 'SELECT SETVAL(' ||
+       quote_literal(quote_ident(PGT.schemaname) || '.' || quote_ident(S.relname)) ||
+       ', COALESCE(MAX(' ||quote_ident(C.attname)|| '), 1) ) FROM ' ||
+       quote_ident(PGT.schemaname)|| '.'||quote_ident(T.relname)|| ';'
+	FROM pg_class AS S,
+		 pg_depend AS D,
+		 pg_class AS T,
+		 pg_attribute AS C,
+		 pg_tables AS PGT
+	WHERE S.relkind = 'S'
+		AND S.oid = D.objid
+		AND D.refobjid = T.oid
+		AND D.refobjid = C.attrelid
+		AND D.refobjsubid = C.attnum
+		AND T.relname = PGT.tablename
+	ORDER BY S.relname loop
+
+	execute sql;
+
+	end loop;
+end;
+-------------------------------------------------------------------
+Mostrar onde foi salvo o conf do postgres: sudo -u postgres psql -c 'SHOW config_file'
+-------------------------------------------------------------------
+This snippet finds orphaned sequences that aren't owned by any column.
+
+select ns.nspname as schema_name, seq.relname as seq_name
+from pg_class as seq
+join pg_namespace ns on (seq.relnamespace=ns.oid)
+where seq.relkind = 'S'
+  and not exists (select * from pg_depend where objid=seq.oid and deptype='a' and classid = 'pg_class'::regclass)
+order by seq.relname;
+------------------------------------------------------------------
+Alterar postgresql.conf
+No terminal externo
+Mostrar o path do postgresql:
+sudo -u postgres psql -c "SHOW config_file;"
+
+Para editar: por exemplo
+sudo nano /etc/postgresql/16/main/postgresql.conf
+Geralmente muda o número 16 podendo ser 15, 17, etc. É a versão do postgresql
+
+Para restart postgresql
+sudo service postgresql restart
+
+------------------------------------------------------------------
+Transferir o banco de dados local para o Heroku
+PGUSER=postgres PGPASSWORD='Kodaka32354211' heroku pg:push spsferbasa DATABASE_URL --app sps-ferbasa
+------------------------------------------------------------------
+
+------------------------------------------------------------------
+RESET MIGRATIONS
+You want to clear all the migration history but you want to keep the existing database.
+
+1. Make sure your models fits the current database schema
+The easiest way to do it is trying to create new migrations:
+
+python manage.py makemigrations
+If there are any pending migration, apply them first.
+
+If you see the message:
+
+No changes detected
+You are good to go.
+
+2. Clear the migration history for each app
+Now you will need to clear the migration history app by app.
+
+First run the showmigrations command so we can keep track of what is going on:
+
+$ python manage.py showmigrations
+Result:
+
+admin
+ [X] 0001_initial
+ [X] 0002_logentry_remove_auto_add
+auth
+ [X] 0001_initial
+ [X] 0002_alter_permission_name_max_length
+ [X] 0003_alter_user_email_max_length
+ [X] 0004_alter_user_username_opts
+ [X] 0005_alter_user_last_login_null
+ [X] 0006_require_contenttypes_0002
+ [X] 0007_alter_validators_add_error_messages
+contenttypes
+ [X] 0001_initial
+ [X] 0002_remove_content_type_name
+core
+ [X] 0001_initial
+ [X] 0002_remove_mymodel_i
+ [X] 0003_mymodel_bio
+sessions
+ [X] 0001_initial
+Clear the migration history (please note that core is the name of my app):
+
+$ python manage.py migrate --fake core zero
+The result will be something like this:
+
+Operations to perform:
+  Unapply all migrations: core
+Running migrations:
+  Rendering model states... DONE
+  Unapplying core.0003_mymodel_bio... FAKED
+  Unapplying core.0002_remove_mymodel_i... FAKED
+  Unapplying core.0001_initial... FAKED
+Now run the command showmigrations again:
+
+$ python manage.py showmigrations
+Result:
+
+admin
+ [X] 0001_initial
+ [X] 0002_logentry_remove_auto_add
+auth
+ [X] 0001_initial
+ [X] 0002_alter_permission_name_max_length
+ [X] 0003_alter_user_email_max_length
+ [X] 0004_alter_user_username_opts
+ [X] 0005_alter_user_last_login_null
+ [X] 0006_require_contenttypes_0002
+ [X] 0007_alter_validators_add_error_messages
+contenttypes
+ [X] 0001_initial
+ [X] 0002_remove_content_type_name
+core
+ [ ] 0001_initial
+ [ ] 0002_remove_mymodel_i
+ [ ] 0003_mymodel_bio
+sessions
+ [X] 0001_initial
+You must do that for all the apps you want to reset the migration history.
+
+3. Remove the actual migration files.
+Go through each of your projects apps migration folder and remove everything inside, except for the __init__.py file.
+
+Or if you are using a unix-like OS you can run the following script (inside your project dir):
+
+find . -path "*/migrations/*.py" -not -name "__init__.py" -delete
+find . -path "*/migrations/*.pyc"  -delete
+PS: The example above will remove all the migrations file inside your project.
+
+Run the showmigrations again:
+
+$ python manage.py showmigrations
+Result:
+
+admin
+ [X] 0001_initial
+ [X] 0002_logentry_remove_auto_add
+auth
+ [X] 0001_initial
+ [X] 0002_alter_permission_name_max_length
+ [X] 0003_alter_user_email_max_length
+ [X] 0004_alter_user_username_opts
+ [X] 0005_alter_user_last_login_null
+ [X] 0006_require_contenttypes_0002
+ [X] 0007_alter_validators_add_error_messages
+contenttypes
+ [X] 0001_initial
+ [X] 0002_remove_content_type_name
+core
+ (no migrations)
+sessions
+ [X] 0001_initial
+4. Create the initial migrations
+$ python manage.py makemigrations
+Result:
+
+Migrations for 'core':
+  0001_initial.py:
+    - Create model MyModel
+5. Fake the initial migration
+In this case you won’t be able to apply the initial migration because the database table already exists. What we want to do is to fake this migration instead:
+
+$ python manage.py migrate --fake-initial
+Result:
+
+Operations to perform:
+  Apply all migrations: admin, core, contenttypes, auth, sessions
+Running migrations:
+  Rendering model states... DONE
+  Applying core.0001_initial... FAKED
+Run showmigrations again:
+
+admin
+ [X] 0001_initial
+ [X] 0002_logentry_remove_auto_add
+auth
+ [X] 0001_initial
+ [X] 0002_alter_permission_name_max_length
+ [X] 0003_alter_user_email_max_length
+ [X] 0004_alter_user_username_opts
+ [X] 0005_alter_user_last_login_null
+ [X] 0006_require_contenttypes_0002
+ [X] 0007_alter_validators_add_error_messages
+contenttypes
+ [X] 0001_initial
+ [X] 0002_remove_content_type_name
+core
+ [X] 0001_initial
+sessions
+ [X] 0001_initial
+And we are all set up :-)
+------------------------------------------------------------------
+------------------------------------------------------------------
+PARA MARCAR UMA MIGRATION COMO EXECUTADA
+python manage.py migrate --fake APP_NAME MIGRATION_NAME SEM .PY
+------------------------------------------------------------------
+
+------------------------------------------------------------------------------
+Roll back banco de dados do heroku. Comandos no terminal do PyCharm no projeto sps_ferbasa
+Atenção: link que mostra o procedimento descrito pelo Heroku
+         https://devcenter.heroku.com/articles/heroku-postgres-rollback
+
+ Sumário dos comandos:
+ - Definindo o ponto de recuperação, lembrando que temos até 4 dias atrás que podem ser recuperados.
+
+   OLD COMANDO: heroku addons:create heroku-postgresql:standard-0 --rollback HEROKU_POSTGRESQL_YELLOW --to '2024-04-21 15:52+00' --app sps-ferbasa
+   NEW COMANDO : heroku addons:create -a sps-ferbasa heroku-postgresql:standard-0 -- --rollback DATABASE --to 2025-03-01 12:00+00
+   obs: para saber o nome do banco de dados, digitar no terminal heroku pg:info
+        Na primeira linha temos os nome do banco de dados como por exemplo: HEROKU_POSTGRESQL_MAUVE_URL. Considerar para usar no comando o nome sem _URL
+
+- Confirmando que foi criado o banco de dados recuperado (rollback database)
+
+  heroku pg:wait --app sps-ferbasa
+
+  obs: ao terminar irá aparecer uma mensagem como por exemplo: Waiting for database HEROKU_POSTGRESQL_SILVER... available
+
+- Promovendo o banco de dados gerado como primário para ser usado:
+
+  heroku pg:promote HEROKU_POSTGRESQL_SILVER --app sps-ferbasa
+
+  obs: usar o nome do banco de dados que retornar do comando heroku pg:wait --app sps-ferbasa
+
+  ----------------------------------------------------------------------------
+- Exemplo de procedure no PostgreSQL retornando uma lista no procedure 'output_real_zero'.
+
+CREATE OR REPLACE PROCEDURE public.output_real_zero(
+	IN lista_in integer[],
+	OUT lista integer[])
+LANGUAGE 'plpgsql'
+AS $BODY$
+declare
+	cursor1 refcursor;
+BEGIN
+
+	open cursor1 for select mae_id from fluxos_tbfluxoproducaoinputoutput as a where mae_id in (SELECT unnest(lista_in)) and (select avg(dau_valor_4) from fluxos_tbfluxoproducaoinputoutputdaugther where mae_id = a.id) = 0;
+	-- O mae_id nessa tabela é o id do fluxo de produção
+	Declare
+		-- Vamos criar as variáveis que irão receber os dados do cursor
+		v_mae_id bigint;
+	begin
+		loop
+			FETCH NEXT FROM cursor1 into v_mae_id;
+			exit when v_mae_id is null; -- quando não retornar nada sai fora do loop
+			if v_mae_id not in (SELECT unnest(lista)) then
+				lista = lista || v_mae_id;
+			end if;
+		end loop;
+	end;
+
+END;
+$BODY$;
+
+
+  Para chamar coloca null conforme abaixo:
+  cursor = connection.cursor()
+  sql = "call public.output_real_zero(null)"
+  cursor.execute(sql)
+  lista = cursor.fetchone()[0]
+  cursor.close()
+  ---------------------------------------------------------------------------
+- Exemplo de procedure no PostgreSQL que recebe uma lista como in no procedure 'atualiza_input_output_lista'. Para chamar conforme abaixo:
+  Observar que tem que colocar o array antes da string da lista
+  cursor = connection.cursor()
+  sql = "call public.atualiza_input_output_lista(array" + str(lista) + ")"
+  cursor.execute(sql)
+  cursor.close()
+  -------------------------------------------------------------------------
+- Para desbloquear (unlock) abelas no Postgresql Admin
+
+SELECT l.*,a.*
+  FROM pg_locks l
+  JOIN pg_stat_activity a USING (pid)
+ WHERE NOT granted;
+
+
+SELECT l.*,a.*
+  FROM pg_locks l
+  JOIN pg_stat_activity a USING (pid)
+ WHERE granted
+   AND (database,relation) IN (SELECT database,relation
+                                 FROM pg_locks WHERE NOT granted);
+ --------------------------------------------------------------------------
+ Para unlock via Deep Seek
+ Digitar no Deep Seek unlock transactions holding postgresql
+ -------------------------------------------------------------------------
+ - Instalar o ngrok (tem que estar logado no site do ngrok)
+
+ Depois do download do ngrok (tem link no site), rodar os comando abaixo:
+ sudo tar -xvzf ~/Downloads/ngrok-v3-stable-linux-amd64.tgz -C /usr/local/bin
+ ngrok config add-authtoken 2uAu8niTBJUqA9YOMHYdtJoXqcJ_7xpf5SuTqPApU1qfzPa9M
+
+ Para Ephemeral Domain rodar
+ ngrok http http://localhost:8000
+
+ Vai ser gerado uma url em frente ao texto Forwarding como https://5511-189-113-34-195.ngrok-free.ap
+ ESSA URL QUE DEVE SER PASSADA PARA OS USUÁRIOS
+ CADA VEZ QUE DESLIGA TEM QUE REPETIR A OPERAÇÃO E GERAR OUTRA URL QUE FICARÁ ATIVA ENQUANTO O COMPUTADOR ESTIVER LIGADO
+
+ Para Static Domain rodar (USAR SEMPRE ESSE POIS DO CONTRÁRIO NÃO IRÁ FUNCIONAR DEVIDO AO CSRF (NO SETTING COLOCAMOS CSRF_TRUSTED_ORIGINS = [
+    'https://bluejay-crisp-seagull.ngrok-free.app',]
+
+ ngrok http --url=bluejay-crisp-seagull.ngrok-free.app 8000
+
+ A URL será sempre a mesma. Ou seja:
+ https://bluejay-crisp-seagull.ngrok-free.app
+
+ Simplificando:
+ ngrok config add-authtoken 2uAu8niTBJUqA9YOMHYdtJoXqcJ_7xpf5SuTqPApU1qfzPa9M
+ ngrok http --url=bluejay-crisp-seagull.ngrok-free.app 8000
+
+ Tem de ativar o celery e runserver
+ ------------------------------------------------------------------------------
+ Para ajustar sequencial de tabela
+
+CREATE OR REPLACE FUNCTION reset_sequence(
+table_name TEXT,
+column_name TEXT
+) RETURNS void AS $$
+DECLARE
+    seq_name TEXT;
+    max_id INT;
+BEGIN
+    -- Construct the sequence name
+    seq_name := table_name || '_' || column_name || '_seq';
+
+    -- Get the maximum value of the column
+    EXECUTE 'SELECT COALESCE(MAX(' || column_name || '), 1) FROM ' || table_name INTO max_id;
+
+    -- Reset the sequence
+    EXECUTE 'SELECT setval(''' || seq_name || ''', ' || max_id || ')';
+END;
+$$ LANGUAGE plpgsql;
+
+Exemplo
+
+SELECT reset_sequence('users', 'id');
+-------------------------------------------------------------------------------------------

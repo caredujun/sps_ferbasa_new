@@ -1,0 +1,14 @@
+# Heres a comment
+*.psd
+*.pdf
+*.dump.*
+/test
+/spec
+.env
+__pycache__/
+*.pyc
+.venv/
+*.dump
+backup_spsferbasa
+apps_cenario.zip
+staticfiles/

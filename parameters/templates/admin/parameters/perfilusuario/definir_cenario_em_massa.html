@@ -1,0 +1,22 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block content %}
+<p>Você está prestes a definir o cenário ativo para {{ perfis|length }} usuário(s):</p>
+
+<ul>
+    {% for perfil in perfis %}
+        <li>{{ perfil.usuario }} (cenário atual: {{ perfil.cenario_ativo|default:"nenhum" }})</li>
+    {% endfor %}
+</ul>
+
+<form method="post">
+    {% csrf_token %}
+    {# 🌟 CORRIGIDO: sem esse campo, o Django não sabe qual ação rodar #}
+    {# quando esse formulário é reenviado -- resultava em "Nenhuma ação selecionada". #}
+    <input type="hidden" name="action" value="definir_cenario_ativo_em_massa">
+    {{ form.as_p }}
+    <input type="submit" name="aplicar" value="Confirmar" class="default">
+    <a href="." class="button cancel-link">Cancelar</a>
+</form>
+{% endblock %}

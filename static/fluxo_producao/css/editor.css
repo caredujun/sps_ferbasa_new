@@ -1,0 +1,456 @@
+/* Estilos para o editor de fluxo de produção */
+
+/* Layout principal */
+.wrapper {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.header {
+    background-color: #2c3e50;
+    color: white;
+    padding: 10px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.logo h1 {
+    margin: 0;
+    font-size: 1.5rem;
+}
+
+.actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.actions input, .actions textarea {
+    padding: 8px;
+    border: none;
+    border-radius: 4px;
+}
+
+.actions button {
+    background-color: #3498db;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.actions button:hover {
+    background-color: #2980b9;
+}
+
+/* Botão de fechar com estilo diferenciado */
+.btn-fechar {
+    background-color: #e74c3c !important;
+}
+
+.btn-fechar:hover {
+    background-color: #c0392b !important;
+}
+
+#fluxo-nome {
+    width: 200px;
+}
+
+#fluxo-descricao {
+    width: 300px;
+    height: 36px;
+    resize: none;
+}
+
+/* Layout do conteúdo */
+.content {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* Barra lateral */
+.sidebar {
+    width: 300px;
+    background-color: #f5f5f5;
+    border-right: 1px solid #ddd;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.sidebar-header {
+    padding: 15px;
+    border-bottom: 1px solid #ddd;
+}
+
+.sidebar-header h3 {
+    margin: 0 0 10px 0;
+}
+
+#filtro-equipamentos {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.sidebar-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px;
+}
+
+/* Itens de equipamento na barra lateral */
+.equipamento-item {
+    display: flex;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    background-color: white;
+    cursor: grab;
+    transition: box-shadow 0.3s;
+}
+
+.equipamento-item:hover {
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.equipamento-thumb {
+    width: 60px;
+    height: 60px;
+    margin-right: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.equipamento-thumb img {
+    max-width: 100%;
+    max-height: 100%;
+}
+
+.sem-imagem {
+    font-size: 0.8rem;
+    color: #999;
+    text-align: center;
+}
+
+.equipamento-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.equipamento-nome {
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.equipamento-codigo {
+    font-size: 0.8rem;
+    color: #666;
+}
+
+/* Área do editor */
+.editor-container {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+}
+
+#drawflow {
+    width: 100%;
+    height: 100%;
+    background-color: #f9f9f9;
+    background-image: radial-gradient(#e3e3e3 1px, transparent 1px);
+    background-size: 20px 20px;
+}
+
+/* Nós de equipamento no editor */
+.equipamento-node {
+    width: 200px !important;
+    border-radius: 4px;
+    overflow: hidden !important;
+}
+
+.equipamento-header {
+    background-color: #3498db;
+    color: white;
+    padding: 8px;
+}
+
+.equipamento-titulo {
+    font-weight: bold;
+    text-align: center;
+}
+
+.equipamento-body {
+    padding: 10px;
+    background-color: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow: hidden !important;
+}
+
+.equipamento-img {
+    max-width: 180px !important;
+    max-height: 80px !important;
+    width: auto !important;
+    height: auto !important;
+    object-fit: contain !important;
+    margin-bottom: 10px;
+    align-self: center;
+}
+
+.equipamento-detalhes {
+    font-size: 0.9rem;
+    width: 100%;
+}
+
+.equipamento-descricao {
+    margin-top: 5px;
+    font-size: 0.8rem;
+    color: #666;
+}
+
+/* Estilos forçados para os nós de equipamento */
+.drawflow .drawflow-node .equipamento-node,
+.drawflow .drawflow-node .equipamento-node * {
+    max-width: 200px !important;
+    box-sizing: border-box !important;
+}
+
+.drawflow .drawflow-node img {
+    max-width: 180px !important;
+    max-height: 80px !important;
+    width: auto !important;
+    height: auto !important;
+    object-fit: contain !important;
+}
+
+/* Sobrescrever estilos do DrawFlow que possam interferir */
+.drawflow .drawflow-node {
+    width: auto !important;
+    min-width: 200px !important;
+    max-width: 200px !important;
+}
+
+.drawflow .drawflow-node .drawflow_content_node {
+    width: 100% !important;
+    max-width: 200px !important;
+    overflow: hidden !important;
+}
+
+.imagem-container {
+    width: 100% !important;
+    height: 80px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    overflow: hidden !important;
+    margin-bottom: 10px !important;
+}
+
+/* Cores personalizadas para pontos de entrada e saída */
+.drawflow .drawflow-node .input {
+    background: #4CAF50 !important; /* Verde */
+    border: 2px solid #388E3C !important;
+}
+
+.drawflow .drawflow-node .input:hover {
+    background: #388E3C !important;
+}
+
+.drawflow .drawflow-node .output {
+    background: #3498db !important; /* Azul */
+    border: 2px solid #2980b9 !important;
+}
+
+.drawflow .drawflow-node .output:hover {
+    background: #2980b9 !important;
+}
+
+/* Modal para listar fluxos e confirmação */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+    background-color: white;
+    margin: 10% auto;
+    padding: 20px;
+    border-radius: 5px;
+    width: 80%;
+    max-width: 800px;
+    position: relative;
+}
+
+/* Estilo específico para o modal de confirmação */
+#modal-confirmar-fechar .modal-content {
+    max-width: 500px;
+    text-align: center;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+#btn-confirmar-fechar {
+    background-color: #e74c3c;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+#btn-confirmar-fechar:hover {
+    background-color: #c0392b;
+}
+
+#btn-cancelar-fechar {
+    background-color: #7f8c8d;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+#btn-cancelar-fechar:hover {
+    background-color: #95a5a6;
+}
+
+.close {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    font-size: 24px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+/* Tabela de fluxos */
+.fluxos-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+}
+
+.fluxos-table th, .fluxos-table td {
+    padding: 10px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+.fluxos-table th {
+    background-color: #f5f5f5;
+}
+
+.btn-editar {
+    display: inline-block;
+    padding: 5px 10px;
+    background-color: #3498db;
+    color: white;
+    text-decoration: none;
+    border-radius: 3px;
+}
+
+.btn-editar:hover {
+    background-color: #2980b9;
+}
+
+/* Estilos para conexões do DrawFlow */
+.drawflow .connection .main-path {
+    stroke: #3498db;
+    stroke-width: 3px;
+}
+
+.drawflow .connection .point {
+    fill: #3498db;
+}
+
+.drawflow .connection .point.selected, .drawflow .connection .point:hover {
+    fill: #2980b9;
+}
+
+/* Estados de carregamento e erro */
+.carregando {
+    padding: 15px;
+    text-align: center;
+    color: #666;
+}
+
+.erro-carregamento {
+    padding: 15px;
+    text-align: center;
+    color: #e74c3c;
+    border: 1px solid #e74c3c;
+    border-radius: 4px;
+    margin-bottom: 10px;
+}
+
+.sem-equipamentos {
+    padding: 15px;
+    text-align: center;
+    color: #666;
+    border: 1px dashed #ddd;
+    border-radius: 4px;
+}
+
+.btn-retry {
+    display: block;
+    margin: 10px auto;
+    padding: 8px 15px;
+    background-color: #3498db;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+    .content {
+        flex-direction: column;
+    }
+
+    .sidebar {
+        width: 100%;
+        height: 200px;
+        border-right: none;
+        border-bottom: 1px solid #ddd;
+    }
+
+    .actions {
+        flex-wrap: wrap;
+    }
+
+    #fluxo-nome, #fluxo-descricao {
+        width: 100%;
+    }
+}

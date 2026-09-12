@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Assistente de IA Integrado</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/l10n/pt.js"></script>
+    <style>
+        body { font-family: "Roboto", Arial, sans-serif; background-color: #f8f9fa; margin: 0; padding: 20px; display: flex; justify-content: center; }
+        .app-container { display: flex; gap: 20px; max-width: 1050px; width: 100%; margin: 40px auto; }
+
+        .sidebar { width: 280px; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); padding: 20px; height: fit-content; }
+        .chat-container { flex: 1; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); padding: 20px; }
+
+        h2, h3 { color: #333; margin-top: 0; }
+        h2 { border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        #chat-box { border: 1px solid #e0e0e0; height: 480px; overflow-y: auto; padding: 15px; background: #fafafa; border-radius: 6px; margin-bottom: 15px; }
+        .chat-box-p { margin: 12px 0; line-height: 1.6; font-size: 14px; word-break: break-word; text-align: left; }
+        .input-area { display: flex; gap: 10px; }
+        #input-box { flex: 1; padding: 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+        button { padding: 12px 24px; background-color: #417690; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
+
+        .pdf-item { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding: 8px; border-radius: 4px; background: #fdfdfd; border: 1px solid #eee; font-size: 13px; cursor: pointer; }
+        .pdf-item input { cursor: pointer; }
+        .badge-fonte { display: inline-block; background: #e3f2fd; color: #0d47a1; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-top: 5px; border: 1px solid #bbdefb; }
+
+        /* Tabelas Markdown renderizadas */
+        .md-table-wrap { overflow-x: auto; margin: 12px 0; }
+        .md-table { border-collapse: collapse; width: 100%; font-size: 13px; }
+        .md-table th, .md-table td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; vertical-align: top; }
+        .md-table th { background: #eef3f6; font-weight: bold; }
+        .md-table tr:nth-child(even) { background: #fafafa; }
+
+        /* Listas Markdown renderizadas */
+        .md-list { margin: 8px 0; padding-left: 22px; }
+        .md-list li { margin-bottom: 4px; }
+
+        /* Zona de arrastar-e-soltar de PDFs */
+        .drop-zone {
+            border: 2px dashed #ccc;
+            border-radius: 6px;
+            padding: 16px 10px;
+            text-align: center;
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 15px;
+            cursor: pointer;
+            transition: border-color 0.15s, background-color 0.15s, color 0.15s;
+        }
+        .drop-zone.drag-over {
+            border-color: #417690;
+            background-color: #eef5f8;
+            color: #417690;
+        }
+        .drop-zone input[type="file"] { display: none; }
+        .upload-status { font-size: 12px; margin-bottom: 10px; }
+        .upload-status.erro { color: #d32f2f; }
+        .upload-status.sucesso { color: #2e7d32; }
+
+        /* Campo de data com calendário nativo */
+        .input-data {
+            padding: 5px 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 12px;
+            width: 135px;
+            text-align: center;
+            font-family: inherit;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- PAINEL LATERAL -->
+        <div class="sidebar">
+            <h3>📂 Relatórios</h3>
+            <p style="color: #666; font-size: 12px; margin-bottom: 15px;">Marque os arquivos que deseja incluir na análise da resposta atual.</p>
+
+            <!-- ZONA DE ARRASTAR-E-SOLTAR -->
+            <div id="drop-zone" class="drop-zone">
+                📤 Arraste um PDF, TXT ou XLSX aqui<br>ou clique para escolher
+                <input type="file" id="input-arquivo-pdf" accept=".pdf,.txt,.xlsx,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+            </div>
+            <div id="upload-status" class="upload-status"></div>
+
+            <div id="pdf-selector-list">
+                {% for pdf in relatorios %}
+                    <label class="pdf-item">
+                        <input type="checkbox" class="pdf-checkbox" value="{{ pdf.id }}">
+                        <span>{{ pdf.titulo }}</span>
+                    </label>
+                {% empty %}
+                    <p style="color: gray; font-size: 13px;"><em>Nenhum PDF cadastrado no Admin.</em></p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- CONTAINER PRINCIPAL DO CHAT -->
+        <div class="chat-container">
+            <!-- PAINEL DE CONTROLE DE LIMPEZA INTEGRADO NO TOPO -->
+            <div style="display: flex; gap: 10px; align-items: center; background: #fff; padding: 10px; border-radius: 6px; border: 1px solid #eee; margin-bottom: 15px; flex-wrap: wrap;">
+                <h2 style="margin: 0; padding: 0; border: none; flex: 1; font-size: 20px;">🤖 Central de IA</h2>
+
+                <select id="seletor-periodo" style="padding: 6px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px; cursor: pointer; background: #fff;">
+                    <option value="hoje">Limpar Hoje</option>
+                    <option value="7_dias">Limpar Últimos 7 dias</option>
+                    <option value="tudo">Limpar Todo o Histórico</option>
+                    <option value="personalizado">Intervalo de Datas</option>
+                </select>
+
+                <!-- Campos de data com calendário nativo do navegador -->
+                <div id="campos-datas-personalizadas" style="display: none; gap: 6px; align-items: center;">
+                    <input type="text" id="data-inicio" class="input-data" placeholder="dd/mm/aaaa" readonly>
+                    <span style="font-size: 12px; color: #777;">até</span>
+                    <input type="text" id="data-fim" class="input-data" placeholder="dd/mm/aaaa" readonly>
+                </div>
+
+                <button type="button" id="btn-limpar" style="padding: 7px 14px; background-color: #d32f2f; font-size: 12px; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Executar Limpeza</button>
+            </div>
+
+            <div id="chat-box">
+                <p id="placeholder-text" style="color: gray;"><em>Olá {% firstof user.first_name user.username %}! O que posso fazer por você hoje?</em></p>
+            </div>
+
+            <form id="chat-form">
+                {% csrf_token %}
+                <div class="input-area">
+                    <input type="text" id="input-box" name="mensagem" placeholder="Digite sua pergunta..." required>
+                    <button type="submit" id="btn-enviar">Enviar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <script>
+        // Nome do usuário logado, escapado com segurança para uso dentro de strings JS
+        var NOME_USUARIO = "{{ user.first_name|default:user.username|escapejs }}";
+        function escapeHtml(str) {
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        function formatarInline(texto) {
+            if (!texto) return "";
+            var res = escapeHtml(texto);
+            res = res.replace(/\$\$/g, '').replace(/\$/g, '');
+            res = res.replace(/\\text\s*\{(.*?)\}/g, '$1');
+            res = res.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            res = res.replace(/\*(.*?)\*/g, '<em>$1</em>');
+            return res;
+        }
+
+        function ehLinhaSeparadora(linha) {
+            return /^\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?$/.test(linha.trim());
+        }
+
+        function dividirCelulas(linha) {
+            var l = linha.trim();
+            if (l.indexOf('|') === 0) l = l.substring(1);
+            if (l.lastIndexOf('|') === l.length - 1) l = l.substring(0, l.length - 1);
+            return l.split('|').map(function(c) { return c.trim(); });
+        }
+
+        function tentarParsearTabela(linhas, i) {
+            var headerLine = linhas[i].trim();
+            var separatorLine = linhas[i + 1] ? linhas[i + 1].trim() : '';
+            if (headerLine.indexOf('|') === -1 || !ehLinhaSeparadora(separatorLine)) return null;
+
+            var headers = dividirCelulas(headerLine);
+            var j = i + 2;
+            var linhasCorpo = [];
+            while (j < linhas.length && linhas[j].trim().indexOf('|') === 0) {
+                linhasCorpo.push(dividirCelulas(linhas[j]));
+                j++;
+            }
+
+            var html = '<div class="md-table-wrap"><table class="md-table"><thead><tr>';
+            headers.forEach(function(h) { html += '<th>' + formatarInline(h) + '</th>'; });
+            html += '</tr></thead><tbody>';
+            linhasCorpo.forEach(function(row) {
+                html += '<tr>';
+                for (var k = 0; k < headers.length; k++) {
+                    html += '<td>' + formatarInline(row[k] || '') + '</td>';
+                }
+                html += '</tr>';
+            });
+            html += '</tbody></table></div>';
+
+            return { html: html, proximoIndice: j };
+        }
+        function processarRespostaCompleta(texto) {
+            if (!texto) return "";
+            var linhas = texto.split('\n');
+            var saida = [];
+            var listaAtual = null;
+
+            function fecharLista() {
+                if (listaAtual) {
+                    var tag = listaAtual.tipo;
+                    saida.push('<' + tag + ' class="md-list">' +
+                        listaAtual.itens.map(function(it) { return '<li>' + it + '</li>'; }).join('') +
+                        '</' + tag + '>');
+                    listaAtual = null;
+                }
+            }
+
+            var i = 0;
+            while (i < linhas.length) {
+                var linhaRaw = linhas[i];
+                var linha = linhaRaw.trim();
+
+                if (!linha) {
+                    fecharLista();
+                    saida.push('<br>');
+                    i++;
+                    continue;
+                }
+
+                if (linha.indexOf('|') === 0) {
+                    fecharLista();
+                    var resultadoTabela = tentarParsearTabela(linhas, i);
+                    if (resultadoTabela) {
+                        saida.push(resultadoTabela.html);
+                        i = resultadoTabela.proximoIndice;
+                        continue;
+                    }
+                }
+
+                if (linha.indexOf('###') === 0) {
+                    fecharLista();
+                    var conteudoTitulo = linha.substring(3).trim();
+                    saida.push('<h3 style="margin:16px 0 8px 0; color:#333;">' + formatarInline(conteudoTitulo) + '</h3>');
+                    i++;
+                    continue;
+                }
+
+                var matchUli = linhaRaw.match(/^(\s*)([-\*•])\s+(.*)/);
+                if (matchUli) {
+                    if (!listaAtual || listaAtual.tipo !== 'ul') {
+                        fecharLista();
+                        listaAtual = { tipo: 'ul', itens: [] };
+                    }
+                    listaAtual.itens.push(formatarInline(matchUli[3]));
+                    i++;
+                    continue;
+                }
+
+                var matchOli = inlineMatchOli(linhaRaw);
+                if (matchOli) {
+                    if (!listaAtual || listaAtual.tipo !== 'ol') {
+                        fecharLista();
+                        listaAtual = { tipo: 'ol', itens: [] };
+                    }
+                    listaAtual.itens.push(formatarInline(matchOli[3]));
+                    i++;
+                    continue;
+                }
+
+                fecharLista();
+                saida.push('<p style="margin: 6px 0;">' + formatarInline(linhaRaw) + '</p>');
+                i++;
+            }
+
+            fecharLista();
+            return saida.join('');
+        }
+
+        function inlineMatchOli(str) {
+            return str.match(/^(\s*)(\d+)\.\s+(.*)/);
+        }
+
+        var inputIni = document.getElementById('data-inicio');
+        var inputFim = document.getElementById('data-fim');
+
+        // Flatpickr: mostra dd/mm/aaaa para o usuário, mas mantém o valor real
+        // do input (usado no envio ao backend) em aaaa-mm-dd (dateFormat),
+        // independente do idioma/SO de quem está acessando.
+        if (typeof flatpickr !== 'undefined') {
+            flatpickr.localize(flatpickr.l10ns.pt);
+            flatpickr(inputIni, { dateFormat: 'Y-m-d', altInput: true, altFormat: 'd/m/Y', allowInput: false });
+            flatpickr(inputFim, { dateFormat: 'Y-m-d', altInput: true, altFormat: 'd/m/Y', allowInput: false });
+        }
+
+        document.getElementById('seletor-periodo').addEventListener('change', function() {
+            var painelDatas = document.getElementById('campos-datas-personalizadas');
+            if (this.value === 'personalizado') {
+                painelDatas.style.display = 'flex';
+            } else {
+                painelDatas.style.display = 'none';
+            }
+        });
+
+        document.getElementById('btn-limpar').addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+
+            var seletorPeriodo = document.getElementById('seletor-periodo').value;
+            var confirmacaoTexto = 'Confirma a exclusão das mensagens do período selecionado?';
+            if (seletorPeriodo === 'tudo') {
+                confirmacaoTexto = '⚠️ ATENÇÃO: Tem certeza de que deseja apagar permanentemente TODO o histórico?';
+            }
+            if (!confirm(confirmacaoTexto)) return;
+
+            var tokenCsrfLimpeza = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            var dadosEnvioLimpeza = new FormData();
+            dadosEnvioLimpeza.append('periodo', seletorPeriodo);
+
+            if (seletorPeriodo === 'personalizado') {
+                var campoDataInicio = inputIni.value; // formato yyyy-mm-dd
+                var campoDataFim = inputFim.value;     // formato yyyy-mm-dd
+
+                if (!campoDataInicio || !campoDataFim) {
+                    alert('Por favor, selecione as duas datas no calendário.');
+                    return;
+                }
+                if (campoDataInicio > campoDataFim) {
+                    alert('A data de início não pode ser depois da data de fim.');
+                    return;
+                }
+
+                dadosEnvioLimpeza.append('data_inicio', campoDataInicio);
+                dadosEnvioLimpeza.append('data_fim', campoDataFim);
+            }
+
+            fetch('/chat/limpar/', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': tokenCsrfLimpeza },
+                body: dadosEnvioLimpeza
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.status === 'sucesso') {
+                    var box = document.getElementById('chat-box');
+                    if (box) {
+                        box.innerHTML = '<p id="placeholder-text" style="color: gray;"><em>Histórico limpo! Olá ' + NOME_USUARIO + ', o que posso fazer por você agora?</em></p>';
+                    }
+                } else {
+                    alert('Erro: ' + data.mensagem);
+                }
+            })
+            .catch(function(error) {
+                alert('Erro na comunicação com o servidor.');
+            });
+        });
+
+        // ===== UPLOAD DE PDF POR ARRASTAR-E-SOLTAR =====
+        var dropZone = document.getElementById('drop-zone');
+        var inputArquivo = document.getElementById('input-arquivo-pdf');
+        var uploadStatus = document.getElementById('upload-status');
+        var listaPdfs = document.getElementById('pdf-selector-list');
+
+        function mostrarStatusUpload(mensagem, tipo) {
+            uploadStatus.textContent = mensagem;
+            uploadStatus.className = 'upload-status ' + (tipo || '');
+        }
+
+        function adicionarItemNaLista(id, titulo) {
+            // Remove o placeholder "Nenhum PDF cadastrado" se ele existir
+            var placeholder = listaPdfs.querySelector('em');
+            if (placeholder) placeholder.closest('p').remove();
+
+            var label = document.createElement('label');
+            label.className = 'pdf-item';
+            label.innerHTML = '<input type="checkbox" class="pdf-checkbox" value="' + id + '" checked><span></span>';
+            label.querySelector('span').textContent = titulo;
+            listaPdfs.prepend(label);
+        }
+
+        function enviarArquivoPdf(arquivo) {
+            if (!arquivo) return;
+
+            var nomeMinusculo = arquivo.name.toLowerCase();
+            var extensaoValida = nomeMinusculo.endsWith('.pdf') || nomeMinusculo.endsWith('.txt') || nomeMinusculo.endsWith('.xlsx');
+
+            if (!extensaoValida) {
+                mostrarStatusUpload('Apenas arquivos PDF, TXT ou XLSX são aceitos.', 'erro');
+                return;
+            }
+
+            mostrarStatusUpload('Enviando "' + arquivo.name + '"...', '');
+
+            var tokenCsrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            var dadosUpload = new FormData();
+            dadosUpload.append('arquivo', arquivo);
+
+            fetch('/chat/upload/', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': tokenCsrf },
+                body: dadosUpload
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.status === 'sucesso') {
+                    mostrarStatusUpload('✅ ' + data.mensagem, 'sucesso');
+                    adicionarItemNaLista(data.id, data.titulo);
+                } else {
+                    mostrarStatusUpload('❌ ' + data.mensagem, 'erro');
+                }
+            })
+            .catch(function() {
+                mostrarStatusUpload('❌ Erro ao enviar o arquivo.', 'erro');
+            });
+        }
+
+        // Clique na zona abre o seletor de arquivos do sistema
+        dropZone.addEventListener('click', function() {
+            inputArquivo.click();
+        });
+
+        inputArquivo.addEventListener('change', function() {
+            if (inputArquivo.files.length > 0) {
+                enviarArquivoPdf(inputArquivo.files[0]);
+                inputArquivo.value = '';
+            }
+        });
+
+        // Eventos de arrastar-e-soltar
+        ['dragenter', 'dragover'].forEach(function(evento) {
+            dropZone.addEventListener(evento, function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.classList.add('drag-over');
+            });
+        });
+
+        ['dragleave', 'drop'].forEach(function(evento) {
+            dropZone.addEventListener(evento, function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.classList.remove('drag-over');
+            });
+        });
+
+        dropZone.addEventListener('drop', function(e) {
+            var arquivos = e.dataTransfer.files;
+            if (arquivos.length > 0) {
+                enviarArquivoPdf(arquivos[0]);
+            }
+        });
+
+        document.getElementById('chat-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            var input = document.getElementById('input-box');
+            var chatBox = document.getElementById('chat-box');
+            var btnEnviar = document.getElementById('btn-enviar');
+            var textoMensagem = input.value.trim();
+            if (!textoMensagem) return;
+
+            var ph = document.getElementById('placeholder-text');
+            if (ph) ph.remove();
+
+            chatBox.innerHTML += '<div class="chat-box-p"><strong>Você:</strong> ' + escapeHtml(textoMensagem) + '</div>';
+            input.value = '';
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            btnEnviar.disabled = true;
+            btnEnviar.style.opacity = '0.5';
+
+            var loader = document.createElement('div');
+            loader.id = 'loading-status';
+            loader.className = 'chat-box-p';
+            loader.style.color = 'orange';
+            loader.innerHTML = '<em>🤖 Agente processando resposta...</em>';
+            chatBox.appendChild(loader);
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            var formData = new FormData();
+            formData.append('mensagem', textoMensagem);
+
+            var checkboxes = document.querySelectorAll('.pdf-checkbox:checked');
+            checkboxes.forEach(function(cb) {
+                formData.append('pdfs_selecionados', cb.value);
+            });
+
+            fetch('/chat/', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken },
+                body: formData
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                const status = document.getElementById('loading-status');
+                if (status) status.remove();
+
+                btnEnviar.disabled = false;
+                btnEnviar.style.opacity = '1';
+
+                var fontesHtml = '';
+                if (data.fontes && data.fontes.length > 0) {
+                    fontesHtml = '<div style="margin-top:5px; display:flex; gap:5px; flex-wrap:wrap;">';
+                    data.fontes.forEach(function(fonte) {
+                        fontesHtml += '<span class="badge-fonte">📄 Fonte: ' + escapeHtml(fonte) + '</span>';
+                    });
+                    fontesHtml += '</div>';
+                }
+
+                var textoLimpoHTML = processarRespostaCompleta(data.resposta || data.resposta_ia);
+                chatBox.innerHTML += '<div class="chat-box-p" style="color: #2b2b2b;"><strong style="color: #0056b3;">Agente IA:</strong><div style="margin-top: 5px;">' + textoLimpoHTML + '</div>' + fontesHtml + '</div>';
+                chatBox.scrollTop = chatBox.scrollHeight;
+            })
+            .catch(function(error) {
+                const status = document.getElementById('loading-status');
+                if (status) {
+                    status.style.color = 'red';
+                    status.innerHTML = '<span>❌ Erro no envio da mensagem.</span>';
+                }
+                btnEnviar.disabled = false;
+                btnEnviar.style.opacity = '1';
+            });
+        });
+    </script>
+</body>
+</html>
