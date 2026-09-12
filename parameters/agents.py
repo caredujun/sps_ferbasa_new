@@ -15,7 +15,10 @@ from .models import AgenteConfig, HistoricoAgente, RelatorioPDF
 # 🌟 NOVO: wizard de criação de cenário via conversa
 from .fluxo_criar_cenario import (
     usuario_esta_em_fluxo, iniciar_fluxo_criar_cenario, iniciar_fluxo_mudar_cenario,
-    processar_mensagem_fluxo
+    iniciar_fluxo_indicadores, iniciar_fluxo_cambio, processar_mensagem_fluxo,
+    iniciar_download_planilha_indicador, iniciar_download_planilha_cambio,
+    identificar_tipo_planilha_reenviada,
+    _processar_planilha_indicador, _processar_planilha_cambio,
 )
 
 # Carrega as variáveis de ambiente do arquivo .env localizado na raiz do projeto
@@ -170,6 +173,50 @@ def _detectar_intencao_mudar_cenario(mensagem):
         and PADRAO_CENARIO.search(texto)
         and PADRAO_TIPO_OU_PERIODO.search(texto)
     )
+
+
+# 🌟 NOVO: frases que disparam o wizard de indicadores (editar valor, criar
+# indicador, ou reajuste em massa). Só precisa mencionar "indicador" junto
+# de algum verbo de ação -- o próprio wizard decide qual dos 3 sub-fluxos
+# usar, olhando a mesma mensagem de novo.
+PADRAO_INDICADOR = re.compile(r"indicador", re.IGNORECASE)
+PADRAO_ACAO_INDICADOR = re.compile(
+    r"mud[ae]r?|alter[ae]r?|troc[ae]r?|edit[ae]r?|atualiz[ae]r?|cri[ae]r?|cadastr[ae]r?|reajust|"
+    r"elimin|apag|exclu[ií]|delet|remov",
+    re.IGNORECASE
+)
+
+
+def _detectar_intencao_indicadores(mensagem):
+    texto = mensagem or ""
+    return bool(PADRAO_INDICADOR.search(texto) and PADRAO_ACAO_INDICADOR.search(texto))
+
+
+# 🌟 NOVO: mesma lógica do fluxo de indicadores, mas pra taxas de câmbio --
+# reaproveita o mesmo PADRAO_ACAO_INDICADOR (é só um conjunto de verbos de
+# ação, não específico de indicador).
+PADRAO_CAMBIO = re.compile(r"c[âa]mbio", re.IGNORECASE)
+
+
+def _detectar_intencao_cambio(mensagem):
+    texto = mensagem or ""
+    return bool(PADRAO_CAMBIO.search(texto) and PADRAO_ACAO_INDICADOR.search(texto))
+
+
+# 🌟 NOVO: "baixar planilha do indicador/câmbio X" -- gera um template
+# pra download, fora do wizard passo-a-passo (resolve tudo numa mensagem só).
+PADRAO_BAIXAR_PLANILHA = re.compile(r"baix[ae]r?|download", re.IGNORECASE)
+PADRAO_PLANILHA = re.compile(r"planilha", re.IGNORECASE)
+
+
+def _detectar_download_planilha_indicador(mensagem):
+    texto = mensagem or ""
+    return bool(PADRAO_INDICADOR.search(texto) and PADRAO_PLANILHA.search(texto) and PADRAO_BAIXAR_PLANILHA.search(texto))
+
+
+def _detectar_download_planilha_cambio(mensagem):
+    texto = mensagem or ""
+    return bool(PADRAO_CAMBIO.search(texto) and PADRAO_PLANILHA.search(texto) and PADRAO_BAIXAR_PLANILHA.search(texto))
 
 
 # 🌟 NOVO: detecta uma resposta vazia ou "quebrada" (linha repetida em loop,
@@ -346,6 +393,53 @@ def executar_agente_com_prompt_do_admin(mensagem_usuario: str, pdf_ids: list, us
     # 🌟 NOVO: usuário pedindo pra mudar tipo/período do cenário ativo
     if _detectar_intencao_mudar_cenario(mensagem_usuario):
         resposta = iniciar_fluxo_mudar_cenario(usuario, mensagem_usuario)
+        _salvar_historico(usuario, mensagem_usuario, resposta)
+        return resposta, []
+
+    # 🌟 NOVO: usuário pedindo pra baixar a planilha-modelo de um indicador
+    if _detectar_download_planilha_indicador(mensagem_usuario):
+        resposta = iniciar_download_planilha_indicador(usuario, mensagem_usuario)
+        _salvar_historico(usuario, mensagem_usuario, resposta)
+        return resposta, []
+
+    # 🌟 NOVO: usuário pedindo pra baixar a planilha-modelo de um câmbio
+    if _detectar_download_planilha_cambio(mensagem_usuario):
+        resposta = iniciar_download_planilha_cambio(usuario, mensagem_usuario)
+        _salvar_historico(usuario, mensagem_usuario, resposta)
+        return resposta, []
+
+    # 🌟 NOVO: usuário reenviou uma planilha preenchida (marcada nos
+    # Relatórios) mencionando um indicador ou câmbio -- checa ANTES dos
+    # wizards normais de editar, senão "atualizar indicador X com essa
+    # planilha" cairia no fluxo de editar comum (que também reconhece
+    # "atualizar" + "indicador").
+    if pdf_ids:
+        # 🌟 CORRIGIDO: identifica pelo nome do arquivo primeiro (não exige
+        # mais que a mensagem mencione "indicador"/"câmbio" explicitamente
+        # -- o nome do arquivo, gerado por nós, já basta). Só cai pra
+        # checagem por palavra-chave se o arquivo não bater nosso padrão
+        # (por exemplo, foi renomeado).
+        tipo_planilha = identificar_tipo_planilha_reenviada(usuario, pdf_ids)
+
+        if tipo_planilha == 'ind' or (tipo_planilha is None and PADRAO_INDICADOR.search(mensagem_usuario or "")):
+            resposta = _processar_planilha_indicador(usuario, mensagem_usuario, pdf_ids)
+            _salvar_historico(usuario, mensagem_usuario, resposta)
+            return resposta, []
+
+        if tipo_planilha == 'cam' or (tipo_planilha is None and PADRAO_CAMBIO.search(mensagem_usuario or "")):
+            resposta = _processar_planilha_cambio(usuario, mensagem_usuario, pdf_ids)
+            _salvar_historico(usuario, mensagem_usuario, resposta)
+            return resposta, []
+
+    # 🌟 NOVO: usuário pedindo pra mexer em indicadores (editar/criar/reajustar)
+    if _detectar_intencao_indicadores(mensagem_usuario):
+        resposta = iniciar_fluxo_indicadores(usuario, mensagem_usuario)
+        _salvar_historico(usuario, mensagem_usuario, resposta)
+        return resposta, []
+
+    # 🌟 NOVO: usuário pedindo pra mexer em taxas de câmbio (editar/criar/reajustar/eliminar)
+    if _detectar_intencao_cambio(mensagem_usuario):
+        resposta = iniciar_fluxo_cambio(usuario, mensagem_usuario)
         _salvar_historico(usuario, mensagem_usuario, resposta)
         return resposta, []
 

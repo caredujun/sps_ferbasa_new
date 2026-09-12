@@ -174,12 +174,12 @@ class TbProdutoMercadoPreco(models.Model):
     pro_mer_pre_estoque = models.IntegerField(verbose_name='Estoque (dias venda)')
     pro_mer_pre_validado = models.BooleanField(default=0, verbose_name='Validado')
     pro_mer_pre_ativo = models.BooleanField(blank=False, null=False, default=True, verbose_name='Ativo')
-    pro_mer_pre_indicador = models.ForeignKey(TbIndicadores, null=True, blank=True, on_delete=models.CASCADE,
+    pro_mer_pre_indicador = models.ForeignKey(TbIndicadores, null=True, blank=True, on_delete=models.PROTECT,
                                               verbose_name='Indicador Preço', related_name='pro_mer_pre_indicador')
-    pro_mer_pre_indicador_vol_min = models.ForeignKey(TbIndicadores, null=True, blank=True, on_delete=models.CASCADE,
+    pro_mer_pre_indicador_vol_min = models.ForeignKey(TbIndicadores, null=True, blank=True, on_delete=models.PROTECT,
                                                       verbose_name='Indicador Volume: Mín.',
                                                       related_name='pro_mer_pre_indicador_vol_min')
-    pro_mer_pre_indicador_vol_max = models.ForeignKey(TbIndicadores, null=True, blank=True, on_delete=models.CASCADE,
+    pro_mer_pre_indicador_vol_max = models.ForeignKey(TbIndicadores, null=True, blank=True, on_delete=models.PROTECT,
                                                       verbose_name='Máx.', related_name='pro_mer_pre_indicador_vol_max')
     pro_mer_pre_moeda = models.CharField(max_length=3, choices=ProMerPre.choices, null=False, blank=False,
                                          default='BRL', verbose_name='Moeda')
@@ -472,7 +472,7 @@ class TbMercadoOutbound(models.Model):
     mer_out_mercado = models.ForeignKey(TbMercado, on_delete=models.CASCADE, verbose_name='Mercado')
     mer_out_unidade = models.ForeignKey(TbUnidadeProducao, on_delete=models.CASCADE, verbose_name='Planta de Produção')
     mer_out_produto = models.ForeignKey(TbProdutos, on_delete=models.CASCADE, verbose_name='Produto')
-    mer_out_indicador = models.ForeignKey(TbIndicadores, null=True, blank=True, on_delete=models.CASCADE,
+    mer_out_indicador = models.ForeignKey(TbIndicadores, null=True, blank=True, on_delete=models.PROTECT,
                                           verbose_name='Indicador')
     mer_out_moeda = models.CharField(max_length=3, choices=MerOutChoices.choices, null=False, blank=False,
                                      default='BRL', verbose_name='Moeda')

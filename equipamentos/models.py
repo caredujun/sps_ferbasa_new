@@ -117,7 +117,7 @@ class TbEquipamentosCadastro(models.Model):  # Esta tabela é geral. Não possui
     equ_cad_output = models.CharField(max_length=3, choices=OutputUnidChoices.choices, verbose_name='Output')
     equ_cad_unidade_producao = models.ForeignKey(TbUnidadeProducao, on_delete=models.CASCADE, verbose_name='Planta')
     equ_cad_imagem = models.ImageField(upload_to='equipamentos', null=True, blank=True, verbose_name='Imagem')
-    equ_cad_indicador_manutencao = models.ForeignKey(TbIndicadores, null=True, blank=True, on_delete=models.CASCADE, verbose_name='Indicador Custo Manutenção')
+    equ_cad_indicador_manutencao = models.ForeignKey(TbIndicadores, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Indicador Custo Manutenção')
     equ_cad_moeda_manutencao = models.CharField(max_length=3, choices=EquipamentoCadastroMoedaChoices.choices, verbose_name='Moeda Custo Manutenção')
     valor_inicial_1 = models.BooleanField(blank=False, null=False, default=True, verbose_name='Valor Inicial Running')
     valor_inicial_2 = models.DecimalField(max_digits=6, decimal_places=2, default=0.00, verbose_name='Valor Inicial Paradas Programadas (%)')

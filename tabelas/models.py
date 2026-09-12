@@ -464,7 +464,7 @@ class TbCustoFixo(models.Model):
         EUR = ('EUR', 'EURO')
 
     fix_nome = models.CharField(max_length=50, verbose_name='Nome')
-    fix_indicador = models.ForeignKey(TbIndicadores, null=True, blank=True, on_delete=models.CASCADE, verbose_name='Indicador')
+    fix_indicador = models.ForeignKey(TbIndicadores, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Indicador')
     fix_moeda = models.CharField(max_length=3, choices=FixMoedaChoices.choices, null=False, blank=False, default='BRL', verbose_name='Moeda')
     fix_observacao = models.TextField(verbose_name='Observação', blank=True, null=True)
     fix_fonte = models.FileField(upload_to='fontes', null=True, blank=True, verbose_name='Fonte')
@@ -647,7 +647,7 @@ class TbDepreAmorti(models.Model):
 
     dep_nome = models.CharField(max_length=50, verbose_name='Nome')
     dep_recorrente = models.BooleanField(blank=False, null=False, default=False, verbose_name='Recorrente')
-    dep_indicador = models.ForeignKey(TbIndicadores, null=True, blank=True, on_delete=models.CASCADE, verbose_name='Indicador')
+    dep_indicador = models.ForeignKey(TbIndicadores, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Indicador')
     dep_moeda = models.CharField(max_length=3, choices=DepMoedaChoices.choices, null=False, blank=False, default='BRL', verbose_name='Moeda')
     dep_observacao = models.TextField(verbose_name='Observação', blank=True, null=True)
     dep_fonte = models.FileField(upload_to='fontes', null=True, blank=True, verbose_name='Fonte')
@@ -828,7 +828,7 @@ class TbCapex(models.Model):
 
     cap_nome = models.CharField(max_length=50, verbose_name='Nome')
     cap_recorrente = models.BooleanField(blank=False, null=False, default=False, verbose_name='Recorrente')
-    cap_indicador = models.ForeignKey(TbIndicadores, null=True, blank=True, on_delete=models.CASCADE, verbose_name='Indicador')
+    cap_indicador = models.ForeignKey(TbIndicadores, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Indicador')
     cap_moeda = models.CharField(max_length=3, choices=CapMoedaChoices.choices, null=False, blank=False, default='BRL', verbose_name='Moeda')
     cap_observacao = models.TextField(verbose_name='Observação', blank=True, null=True)
     cap_fonte = models.FileField(upload_to='fontes', null=True, blank=True, verbose_name='Fonte')
@@ -1231,9 +1231,9 @@ class TbCustoItemPreco(models.Model):
     cus_ite_pre_unidade_producao = models.ForeignKey(TbUnidadeProducao, on_delete=models.CASCADE,  verbose_name='Unidade de Produção')
     cus_ite_pre_validado = models.BooleanField(blank=False, null=False, default=False, verbose_name='Validado')
     cus_ite_pre_custo_variavel_adiconado = models.ForeignKey(TbCustoVariavelAdicionado, on_delete=models.SET_NULL, null=True, blank=True, verbose_name='Custo Var. Adic. CF')
-    cus_ite_pre_indicador_preco = models.ForeignKey(TbIndicadores, null=True, blank=True, on_delete=models.CASCADE, verbose_name='Indicador do Preço', related_name='cus_ite_pre_indicador_preco')
+    cus_ite_pre_indicador_preco = models.ForeignKey(TbIndicadores, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Indicador do Preço', related_name='cus_ite_pre_indicador_preco')
     cus_ite_pre_moeda_preco = models.CharField(max_length=3, choices=ItemPrecoMoedaChoices.choices, verbose_name='Moeda do Preço')
-    cus_ite_pre_indicador_inbound = models.ForeignKey(TbIndicadores, null=True, blank=True, on_delete=models.CASCADE, verbose_name='Indicador do Inbound', related_name='cus_ite_pre_indicador_inbound')
+    cus_ite_pre_indicador_inbound = models.ForeignKey(TbIndicadores, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Indicador do Inbound', related_name='cus_ite_pre_indicador_inbound')
     cus_ite_pre_moeda_inbound = models.CharField(max_length=3, choices=ItemPrecoMoedaChoices.choices, verbose_name='Moeda do Inbound')
     cus_ite_pre_observacao = models.TextField(verbose_name='Observação', blank=True, null=True)
     valor_inicial_1 = models.DecimalField(max_digits=18, decimal_places=2, verbose_name='Valor Inicial: Preço')

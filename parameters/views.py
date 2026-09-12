@@ -7,6 +7,7 @@ from django.core.exceptions import PermissionDenied
 from functools import wraps
 from .models import RelatorioPDF, HistoricoAgente
 import datetime
+import re
 from django.utils import timezone
 
 # 🌟 Precisa bater EXATAMENTE (acentos, maiúsculas) com o nome do grupo criado no Django Admin
@@ -31,6 +32,93 @@ def exige_acesso_ao_agente_ia(view_func):
     return wrapper
 
 
+def _extrair_opcoes_clicaveis(texto):
+    """
+    Detecta, no próprio texto que o wizard já produz, se a pergunta atual
+    tem um conjunto pequeno e fechado de respostas esperadas -- e, se
+    tiver, devolve essas opções pra virarem botões clicáveis no chat, sem
+    precisar mudar nenhuma das dezenas de funções do wizard que já geram
+    esse texto. Padrão adotado em TODOS os fluxos do Agente IA (criar
+    cenário, mudar cenário, indicadores, câmbio).
+
+    Reconhece, nessa ordem:
+    0. Listas livres sob um cabeçalho EXATO e exclusivo de escolha
+       ("Indicadores cadastrados:", "Taxas de câmbio cadastradas:",
+       "Períodos e valores atuais:", "Alguns cenários recentes:",
+       "Alguns grupos existentes:") -- só essas funções específicas do
+       wizard geram esse texto, então é um sinal seguro (não se confunde
+       com um resumo informativo qualquer, que nunca usa esse cabeçalho).
+       Bullets com "id: nome" (cenários/grupos) viram o id; bullets com
+       "nome (código)" (câmbio) viram só o nome; "período: valor" vira
+       só o período.
+    1. Confirmação "(sim / não)" -- aceita também a variante em negrito
+       "(**sim** / **não**)", usada no fluxo de criar cenário.
+    2. Menu de bullets em negrito: "- **opção** -- descrição"
+    3. Lista entre parênteses tipo "(Mensal / Trimestral / Anual...)"
+    4. Mensagens de instrução sem pergunta fechada, mas que só existem
+       pra sinalizar "quando terminar, volte aqui": o link de download de
+       planilha, e os avisos de "processando em segundo plano, me manda
+       qualquer mensagem depois" (duplicação, limpeza, otimização,
+       consolidação, verificação de filhas).
+
+    Se o texto também mencionar "manter", "cancelar" ou "nenhum" entre
+    aspas (comum nas perguntas do wizard), adiciona como opção extra.
+    Limita a 12 botões pra não virar uma parede em cenários com muitos
+    cadastros.
+    """
+    if not texto:
+        return []
+
+    opcoes = []
+
+    m_lista = re.search(
+        r'(?:Indicadores cadastrados|Taxas de câmbio cadastradas|Períodos e valores atuais|'
+        r'Alguns cenários recentes|Alguns grupos existentes):\n'
+        r'((?:-\s.+\n?)+)',
+        texto
+    )
+    if m_lista:
+        for linha in m_lista.group(1).strip().split('\n'):
+            linha = linha.strip()
+            if not linha.startswith('-'):
+                continue
+            item = linha.lstrip('-').strip()
+            # "DÓLAR (USD)" -> "DÓLAR" / "28: NOME DO CENÁRIO" -> "28"
+            item = re.sub(r'\s*\([^)]*\)\s*$', '', item).strip()
+            item = item.split(':')[0].strip()
+            if item:
+                opcoes.append(item)
+
+    if not opcoes and re.search(r'\(\*{0,2}sim\*{0,2}\s*/\s*\*{0,2}n[ãa]o\*{0,2}\)', texto, re.IGNORECASE):
+        opcoes = ['Sim', 'Não']
+
+    if not opcoes:
+        achados = re.findall(r'^-\s+\*\*([^*]+)\*\*\s*--', texto, re.MULTILINE)
+        if achados:
+            opcoes = [o.strip().capitalize() for o in achados]
+
+    if not opcoes:
+        m = re.search(r'\(([A-ZÀ-Ý][\wÀ-ÿ]*(?:\s*/\s*[A-ZÀ-Ý][\wÀ-ÿ]*){1,4})', texto)
+        if m:
+            opcoes = [o.strip() for o in m.group(1).split('/')]
+
+    if not opcoes and '[📥 Baixar planilha](' in texto:
+        opcoes = ['Já enviei a planilha']
+
+    if not opcoes and re.search(r'me manda qualquer mensagem', texto, re.IGNORECASE):
+        opcoes = ['Verificar']
+
+    if opcoes:
+        if re.search(r'"manter"', texto, re.IGNORECASE) and 'Manter' not in opcoes:
+            opcoes.append('Manter')
+        if re.search(r'"cancelar"', texto, re.IGNORECASE) and 'Cancelar' not in opcoes:
+            opcoes.append('Cancelar')
+        if re.search(r'"nenhum[oa]?"', texto, re.IGNORECASE) and 'Nenhum' not in opcoes:
+            opcoes.append('Nenhum')
+
+    return opcoes[:12]
+
+
 @exige_acesso_ao_agente_ia
 def chat_view(request):
     if request.method == "POST":
@@ -45,9 +133,14 @@ def chat_view(request):
         # (usado para isolar a memória de curto prazo e o histórico salvo por conta)
         resposta, fontes = executar_agente_com_prompt_do_admin(mensagem, pdf_ids, request.user)
 
+        # 🌟 NOVO: extrai opções clicáveis do próprio texto da resposta,
+        # pra virarem botões no chat em vez do usuário ter que digitar.
+        opcoes = _extrair_opcoes_clicaveis(resposta)
+
         return JsonResponse({
             "resposta": resposta,
-            "fontes": fontes
+            "fontes": fontes,
+            "opcoes": opcoes
         })
 
     # No GET, renderiza a página trazendo todos os relatórios disponíveis
