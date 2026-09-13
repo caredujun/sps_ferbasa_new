@@ -1107,7 +1107,7 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
     class custo_variavel_zerado(admin.SimpleListFilter):
         # Human-readable title which will be displayed in the
         # right admin sidebar just above the filter options.
-        title = 'Custo Variável Zero'
+        title = 'Custo Variável Zero/Null'
 
         # Parameter for the filter that will be used in the URL query.
         parameter_name = 'custo_variavel_zero'
@@ -1122,7 +1122,7 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
                 # Vamos montar uma lista do fluxos que estão na queryset
                 lista_in = list(queryset.values_list('id', flat=True))
 
-                # Vamos passar essa lista para a procedure que verifica se o fluxo tem custo variavel zerado
+                # Vamos passar essa lista para a procedure que verifica se o fluxo tem custo variavel zerado ou null
                 cursor = connection.cursor()
                 sql = "call public.custo_variavel_zero(array" + str(lista_in) + ", null)"
                 cursor.execute(sql)

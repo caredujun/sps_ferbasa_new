@@ -77,6 +77,22 @@ PALAVRAS_MANTER = ('manter', 'mesmo', 'mesma', 'igual', 'não mudar', 'nao mudar
 # vez de tratá-la como resposta a uma etapa antiga.
 MINUTOS_EXPIRACAO_FLUXO = 15
 
+# 🌟 NOVO: etapas de "aguardando" (checagem de status de task em segundo
+# plano) ficam ISENTAS da expiração acima. Diferente de uma etapa que
+# espera um dado específico (nome, período, valor -- onde uma mensagem
+# velha e sem relação poderia ser mal-interpretada como resposta), essas
+# etapas só reagem a QUALQUER mensagem checando o status de novo -- não
+# tem risco de confusão, então não faz sentido elas expirarem rápido.
+# Sem isso, um ciclo completo (limpar->otimizar->consolidar) que demora
+# mais de 15 minutos entre uma checagem e outra "esquece" que devia
+# continuar sozinho pra próxima etapa.
+ETAPAS_SEM_EXPIRACAO = {
+    'aguardando_duplicacao', 'aguardando_limpeza', 'aguardando_otimizacao',
+    'aguardando_consolidacao', 'aguardando_verificacao_filhas',
+    'proc_aguardando_limpeza', 'proc_aguardando_otimizacao', 'proc_aguardando_consolidacao',
+    'proc_ciclo_aguardando_limpeza', 'proc_ciclo_aguardando_otimizacao', 'proc_ciclo_aguardando_consolidacao',
+}
+
 
 def usuario_esta_em_fluxo(usuario):
     """True se o usuário tem QUALQUER um dos wizards em andamento agora."""
@@ -95,6 +111,21 @@ def _encerrar_fluxo(estado):
     estado.save()
 
 
+def cancelar_fluxo_ativo(usuario):
+    """
+    Encerra qualquer fluxo em andamento do usuário, se houver. Usado em
+    agents.py quando uma mensagem nova bate com um comando reconhecido
+    (criar cenário, mexer em indicador, etc.) MESMO com outro fluxo já em
+    andamento -- em vez de a mensagem nova ser engolida como se fosse
+    resposta à pergunta antiga (ex: clicar "criar um cenário novo" enquanto
+    o wizard de indicadores ainda esperava um nome), o comando reconhecido
+    tem prioridade e cancela o fluxo velho primeiro.
+    """
+    estado = _get_estado(usuario)
+    if estado.fluxo_ativo:
+        _encerrar_fluxo(estado)
+
+
 def iniciar_fluxo_criar_cenario(usuario):
     estado = _get_estado(usuario)
     estado.fluxo_ativo = FLUXO_CRIAR
@@ -103,7 +134,7 @@ def iniciar_fluxo_criar_cenario(usuario):
     estado.save()
     return (
         "Vamos criar um novo cenário! 🎬\n\n"
-        "Qual vai ser o **nome** do cenário? (a qualquer momento, digite "
+        "Qual vai ser o **nome** do cenário? (a qualquer momento, clique em "
         "\"cancelar\" para desistir)"
     )
 
@@ -187,7 +218,11 @@ def _processar_mensagem_fluxo_com_lock(estado, mensagem):
     # respostas sem nexo antes (ex: uma pergunta sobre um indicador sendo
     # respondida como se fosse confirmação de uma mudança de cenário de
     # dias atrás).
-    if estado.fluxo_ativo and (timezone.now() - estado.atualizado_em) > timedelta(minutes=MINUTOS_EXPIRACAO_FLUXO):
+    if (
+        estado.fluxo_ativo
+        and estado.etapa_atual not in ETAPAS_SEM_EXPIRACAO
+        and (timezone.now() - estado.atualizado_em) > timedelta(minutes=MINUTOS_EXPIRACAO_FLUXO)
+    ):
         _encerrar_fluxo(estado)
         return (
             "O fluxo anterior ficou parado por um tempo e expirou automaticamente, pra não misturar "
@@ -206,6 +241,8 @@ def _processar_mensagem_fluxo_com_lock(estado, mensagem):
         return _processar_indicadores(estado, texto)
     elif estado.fluxo_ativo == FLUXO_CAMBIO:
         return _processar_cambio(estado, texto)
+    elif estado.fluxo_ativo == FLUXO_PROCESSAR:
+        return _processar_fluxo_processar(estado, texto)
 
     # Estado inconsistente (não deveria acontecer) -- encerra por segurança
     _encerrar_fluxo(estado)
@@ -251,7 +288,7 @@ def _etapa_nome(estado, texto):
     if TbCenarios.objects.filter(cen_nome=nome).exists():
         return (
             f"Já existe um cenário chamado **{nome}**. Escolhe outro nome, "
-            "ou digite \"cancelar\" pra desistir."
+            "ou clique em \"cancelar\" pra desistir."
         )
 
     dados = estado.dados_coletados
@@ -489,8 +526,7 @@ def _checar_duplicacao(estado):
         return (
             "⚠️ Não consegui detectar nenhum worker do Celery ativo agora -- a "
             "duplicação das tabelas do cenário não vai acontecer sozinha até "
-            "alguém ligar o Celery. Assim que estiver rodando, me manda "
-            "qualquer mensagem que eu confiro de novo."
+            "alguém ligar o Celery. Assim que estiver rodando, clica em \"Verificar\" que eu confiro de novo."
         )
 
     task = _buscar_task_duplicacao(momento_criacao)
@@ -498,7 +534,7 @@ def _checar_duplicacao(estado):
         return (
             "O Celery está ativo, mas ainda não encontrei o registro da "
             "duplicação desse cenário -- pode ser que tenha começado e está duplicando as tabelas. "
-            "Me manda qualquer mensagem em alguns segundos que eu confiro de novo."
+            "Clica em \"Verificar\" em alguns segundos que eu confiro de novo."
         )
 
     if task.status == 'SUCCESS':
@@ -521,7 +557,7 @@ def _checar_duplicacao(estado):
     # PENDING, STARTED, RETRY, etc. -- ainda rodando
     return (
         f"Ainda duplicando as tabelas do cenário **{cenario_id}/{cenario_nome}** "
-        f"(status atual: {task.status}). Me manda qualquer mensagem daqui a pouco "
+        f"(status atual: {task.status}). Clica em \"Verificar\" daqui a pouco "
         "que eu confiro de novo."
     )
 
@@ -568,7 +604,7 @@ def _etapa_confirmar_processar(estado, texto):
     estado.save()
     return (
         f"Beleza, disparei a **limpeza** do cenário **{cenario_id}/{cenario_nome}** em segundo plano. "
-        "Me manda qualquer mensagem daqui a pouco que eu confiro se já terminou."
+        "Clica em \"Verificar\" daqui a pouco que eu confiro se já terminou."
     )
 
 
@@ -587,7 +623,7 @@ def _etapa_aguardando_limpeza(estado, texto):
         return _disparar_otimizacao(estado, cenario)
 
     if cenario.flag == 5:  # ainda limpando
-        return f"Ainda limpando o cenário **{cenario_id}/{cenario_nome}**. Me manda qualquer mensagem daqui a pouco."
+        return f"Ainda limpando o cenário **{cenario_id}/{cenario_nome}**. Clica em \"Verificar\" daqui a pouco."
 
     _encerrar_fluxo(estado)
     return f"O status do cenário **{cenario_id}/{cenario_nome}** mudou pra algo inesperado (flag={cenario.flag}) -- melhor conferir manualmente no Admin. Cancelei o acompanhamento automático aqui."
@@ -624,7 +660,7 @@ def _disparar_otimizacao(estado, cenario):
 
     return (
         f"Limpeza concluída! Disparei a **otimização** do cenário **{cenario_id}/{cenario.cen_nome}** "
-        f"({total_periodos} período(s)) em segundo plano. Me manda qualquer mensagem daqui a pouco "
+        f"({total_periodos} período(s)) em segundo plano. Clica em \"Verificar\" daqui a pouco "
         "que eu confiro o progresso."
     )
 
@@ -647,14 +683,14 @@ def _etapa_aguardando_otimizacao(estado, texto):
         return (
             f"Ainda otimizando o cenário **{cenario_id}/{cenario_nome}** "
             f"({total_otimizado} de {total_periodos} períodos concluídos). "
-            "Me manda qualquer mensagem daqui a pouco."
+            "Clica em \"Verificar\" daqui a pouco."
         )
 
     cenario = TbCenarios.objects_real.get(id=cenario_id)
     if cenario.flag != 3:
         # Todos os períodos já processaram, mas o status geral do cenário
         # ainda não virou "OTIMIZADO" -- dá uma folga e confere de novo.
-        return f"Períodos todos processados, aguardando o cenário fechar como OTIMIZADO. Me manda qualquer mensagem em instantes."
+        return f"Períodos todos processados, aguardando o cenário fechar como OTIMIZADO. Clica em \"Verificar\" em instantes."
 
     from django.db import connection
     from .tasks import consolidar_cenario_celery
@@ -669,7 +705,7 @@ def _etapa_aguardando_otimizacao(estado, texto):
     estado.save()
     return (
         f"Otimização concluída! Disparei a **consolidação** do cenário **{cenario_id}/{cenario_nome}** "
-        "em segundo plano. Me manda qualquer mensagem daqui a pouco."
+        "em segundo plano. Clica em \"Verificar\" daqui a pouco."
     )
 
 
@@ -687,7 +723,7 @@ def _etapa_aguardando_consolidacao(estado, texto):
         )
 
     if cenario.flag == 6:  # ainda consolidando
-        return f"Ainda consolidando o cenário **{cenario_id}/{cenario_nome}**. Me manda qualquer mensagem daqui a pouco."
+        return f"Ainda consolidando o cenário **{cenario_id}/{cenario_nome}**. Clica em \"Verificar\" daqui a pouco."
 
     _encerrar_fluxo(estado)
     return f"O status do cenário **{cenario_id}/{cenario_nome}** mudou pra algo inesperado (flag={cenario.flag}) -- melhor conferir manualmente no Admin."
@@ -957,7 +993,7 @@ def _etapa_mudar_confirmar(estado, texto, cenario):
     return (
         f"Cenário atualizado! Como o período mudou, disparei em segundo plano o ajuste "
         f"das tabelas filhas do cenário **{cenario.id}/{cenario.cen_nome}** (criar os "
-        "períodos que faltam ou remover os que sobraram). Me manda qualquer mensagem "
+        "períodos que faltam ou remover os que sobraram). Clica em \"Verificar\" "
         "daqui a pouco que eu confiro se já terminou."
     )
 
@@ -990,7 +1026,7 @@ def _etapa_aguardando_verificacao_filhas(estado, texto, cenario):
     if task is None:
         return (
             "Ainda não encontrei o registro do ajuste das tabelas filhas -- pode ser que "
-            "ainda não tenha começado. Me manda qualquer mensagem em alguns segundos que "
+            "ainda não tenha começado. Clica em \"Verificar\" em alguns segundos que "
             "eu confiro de novo."
         )
 
@@ -1012,7 +1048,7 @@ def _etapa_aguardando_verificacao_filhas(estado, texto, cenario):
     # PENDING, STARTED, RETRY, etc. -- ainda rodando
     return (
         f"Ainda ajustando as tabelas filhas do cenário {cenario.id}/{cenario.cen_nome} "
-        f"(status atual: {task.status}). Me manda qualquer mensagem daqui a pouco."
+        f"(status atual: {task.status}). Clica em \"Verificar\" daqui a pouco."
     )
 
 
@@ -2797,4 +2833,557 @@ _HANDLERS_CAMBIO = {
     'cam_massa_periodo_fim': _etapa_cam_massa_periodo_fim,
     'cam_massa_percentual': _etapa_cam_massa_percentual,
     'cam_massa_confirmar': _etapa_cam_massa_confirmar,
+}
+
+
+# =======================================================================
+# Fluxo: processar_cenario -- limpar, otimizar ou consolidar o cenário
+# ATIVO, a qualquer momento (não só durante a criação de um cenário novo).
+# Reaproveita a mesma lógica de disparo/acompanhamento já usada no ciclo
+# de criação, mas cada ação aqui é INDEPENDENTE: dispara só aquela etapa
+# e para, sem encadear automaticamente pra próxima -- o usuário decide se
+# quer seguir pra próxima etapa depois.
+# =======================================================================
+
+FLUXO_PROCESSAR = 'processar_cenario'
+
+MENSAGENS_FLAG = {
+    1: 'CONSOLIDADO', 2: 'LIMPO', 3: 'OTIMIZADO',
+    4: 'OTIMIZANDO', 5: 'LIMPANDO', 6: 'CONSOLIDANDO', 7: 'ATUALIZANDO FLUXOS',
+}
+
+
+def iniciar_consulta_status(usuario, mensagem=""):
+    """
+    Consulta somente informativa (não é bem um "fluxo") -- mostra o status
+    atual do cenário ativo. Se ele estiver LIMPO ou OTIMIZADO, já pergunta
+    se quer seguir pro próximo passo, reaproveitando as mesmas etapas de
+    encadeamento do fluxo de processar (proc_pos_limpeza_otimizar /
+    proc_pos_otimizacao_consolidar).
+    """
+    perfil = getattr(usuario, 'perfilusuario', None)
+    if perfil is None or perfil.cenario_ativo_id is None:
+        return "Você ainda não tem um cenário ativo escolhido. Acesse a tela de Cenários e ative um antes."
+
+    cenario = TbCenarios.objects_real.filter(id=perfil.cenario_ativo_id).first()
+    if cenario is None:
+        return "O cenário que estava ativo pra você não existe mais."
+
+    if cenario.flag is None:
+        status_atual = "ainda não processado (nunca foi limpo)"
+    else:
+        status_atual = MENSAGENS_FLAG.get(cenario.flag, f"desconhecido (flag={cenario.flag})")
+
+    if cenario.flag in FLAGS_OPERACAO_EM_ANDAMENTO:
+        return (
+            f"O cenário **{cenario.id}/{cenario.cen_nome}** está: **{status_atual}** "
+            "(operação em andamento). Clica em \"Verificar\" daqui a pouco pra conferir se já terminou."
+        )
+
+    if cenario.flag == 2:  # LIMPO
+        estado = _get_estado(usuario)
+        estado.fluxo_ativo = FLUXO_PROCESSAR
+        estado.etapa_atual = 'proc_pos_limpeza_otimizar'
+        estado.dados_coletados = {'cenario_id': cenario.id, 'cenario_nome': cenario.cen_nome}
+        estado.save()
+        return f"O cenário **{cenario.id}/{cenario.cen_nome}** está: **{status_atual}**. Quer que eu já dispare a **otimização**? (sim / não)"
+
+    if cenario.flag == 3:  # OTIMIZADO
+        estado = _get_estado(usuario)
+        estado.fluxo_ativo = FLUXO_PROCESSAR
+        estado.etapa_atual = 'proc_pos_otimizacao_consolidar'
+        estado.dados_coletados = {'cenario_id': cenario.id, 'cenario_nome': cenario.cen_nome}
+        estado.save()
+        return f"O cenário **{cenario.id}/{cenario.cen_nome}** está: **{status_atual}**. Quer que eu já dispare a **consolidação**? (sim / não)"
+
+    if cenario.flag == 1 or cenario.flag is None:  # CONSOLIDADO ou nunca processado
+        estado = _get_estado(usuario)
+        estado.fluxo_ativo = FLUXO_PROCESSAR
+        estado.etapa_atual = 'proc_pos_consolidacao_limpar'
+        estado.dados_coletados = {'cenario_id': cenario.id, 'cenario_nome': cenario.cen_nome}
+        estado.save()
+        return f"O cenário **{cenario.id}/{cenario.cen_nome}** está: **{status_atual}**. Quer que eu já dispare a **limpeza** (pra começar o ciclo de novo)? (sim / não)"
+
+    return f"O cenário **{cenario.id}/{cenario.cen_nome}** está: **{status_atual}**."
+
+
+def iniciar_ciclo_completo(usuario, mensagem):
+    """
+    "Limpar, otimizar e consolidar o cenário" numa tacada só -- dispara
+    limpeza, e ao terminar segue AUTOMATICAMENTE pra otimização, e ao
+    terminar segue automaticamente pra consolidação, sem perguntar
+    confirmação no meio (diferente do fluxo de ação única, que pergunta
+    a cada passo). O usuário só acompanha via "Verificar".
+    """
+    perfil = getattr(usuario, 'perfilusuario', None)
+    if perfil is None or perfil.cenario_ativo_id is None:
+        return "Você ainda não tem um cenário ativo escolhido. Acesse a tela de Cenários e ative um antes."
+
+    cenario = TbCenarios.objects_real.filter(id=perfil.cenario_ativo_id).first()
+    if cenario is None:
+        return "O cenário que estava ativo pra você não existe mais."
+
+    if cenario.flag in FLAGS_OPERACAO_EM_ANDAMENTO:
+        return (
+            f"O cenário {cenario.id}/{cenario.cen_nome} já está com uma operação em andamento agora "
+            f"({FLAGS_OPERACAO_EM_ANDAMENTO[cenario.flag]}). Espera terminar antes de disparar o ciclo completo."
+        )
+
+    return _disparar_ciclo_completo(usuario, cenario)
+
+
+def _disparar_ciclo_completo(usuario, cenario):
+    from fluxos.models import TbFluxoProducaoDaugther01, TbFluxoProducao
+    from django.db import connection
+    from .tasks import limpar_cenario_celery
+
+    cenario_id = cenario.id
+
+    if TbFluxoProducaoDaugther01.objects.filter(custo_variavel=None, tbcenarios_id=cenario_id, mae_id__flu_pro_ativo=True).count() > 0:
+        return "Tem fluxo(s) de produção ativo(s) sem o cálculo dos custos variáveis. Não posso limpar automaticamente -- verifica isso no Admin primeiro."
+
+    if TbFluxoProducao.objects.filter(flu_pro_input_output_atualizado=False, tbcenarios_id=cenario_id, flu_pro_ativo=True).count() > 0:
+        return "Tem fluxo(s) de produção ativo(s) com I/O desatualizado. Usa \"Atualizar Fluxos\" no Admin antes de tentar de novo."
+
+    if TbFluxoProducaoDaugther01.objects.filter(custo_variavel=0, tbcenarios_id=cenario_id, mae_id__flu_pro_ativo=True).count() > 0:
+        return "Tem fluxo(s) de produção ativo(s) com custo variável zerado. Verifica isso no Admin antes de tentar de novo."
+
+    cursor = connection.cursor()
+    sql = "update parameters_tbcenarios set flag = 5 where id = " + str(cenario_id)
+    cursor.execute(sql)
+    sql = "update parameters_tbcenariosdaugther set flag = 3 where otimizar = true and mae_id = " + str(cenario_id)
+    cursor.execute(sql)
+    cursor.close()
+    limpar_cenario_celery.delay(cenario_id)
+
+    estado = _get_estado(usuario)
+    estado.fluxo_ativo = FLUXO_PROCESSAR
+    estado.etapa_atual = 'proc_ciclo_aguardando_limpeza'
+    estado.dados_coletados = {'cenario_id': cenario_id, 'cenario_nome': cenario.cen_nome}
+    estado.save()
+
+    return (
+        f"Disparei o **ciclo completo** (limpar → otimizar → consolidar) do cenário "
+        f"**{cenario_id}/{cenario.cen_nome}** 🔁 -- vou seguir automaticamente de uma etapa pra outra, "
+        "sem perguntar no meio. Clica em \"Verificar\" quando quiser conferir o andamento."
+    )
+
+
+def _etapa_proc_ciclo_aguardando_limpeza(estado, texto):
+    dados = estado.dados_coletados
+    cenario_id = dados['cenario_id']
+    cenario_nome = dados['cenario_nome']
+    cenario = TbCenarios.objects_real.filter(id=cenario_id).first()
+    if cenario is None:
+        _encerrar_fluxo(estado)
+        return f"O cenário {cenario_id}/{cenario_nome} não existe mais. Cancelei o acompanhamento."
+
+    if cenario.flag == 2:  # LIMPO -- segue direto pra otimização, sem perguntar
+        return _disparar_otimizacao_ciclo(estado.usuario, cenario)
+
+    if cenario.flag == 5:
+        return f"Ainda limpando o cenário **{cenario_id}/{cenario_nome}**. Clica em \"Verificar\" daqui a pouco."
+
+    _encerrar_fluxo(estado)
+    return f"O status do cenário **{cenario_id}/{cenario_nome}** mudou pra algo inesperado (flag={cenario.flag}) durante a limpeza -- melhor conferir manualmente no Admin. Cancelei o ciclo aqui."
+
+
+def _disparar_otimizacao_ciclo(usuario, cenario):
+    from django.db import connection
+    from .tasks import otimizar_cenario_celery
+
+    cenario_id = cenario.id
+    cursor = connection.cursor()
+    sql = "update parameters_tbcenarios set flag = 4 where id = " + str(cenario_id)
+    cursor.execute(sql)
+    sql = "update parameters_tbcenariosdaugther set flag = 4 where otimizar = true and mae_id = " + str(cenario_id)
+    cursor.execute(sql)
+
+    sql = "select conta_periodos(" + str(cenario_id) + ")"
+    cursor.execute(sql)
+    total_periodos = cursor.fetchone()[0]
+    cursor.close()
+
+    from otimizacao.models import TbProdutoMercadoFluxo
+    total_variaveis = TbProdutoMercadoFluxo.objects.filter(tbcenarios_id=cenario_id, flag=True).count()
+
+    for i in range(total_periodos):
+        if TbCenariosDaugther.objects.get(mae_id=cenario_id, dau_order=i + 1).otimizar:
+            otimizar_cenario_celery.delay(i, cenario_id, total_variaveis)
+
+    estado = _get_estado(usuario)
+    estado.fluxo_ativo = FLUXO_PROCESSAR
+    estado.etapa_atual = 'proc_ciclo_aguardando_otimizacao'
+    estado.dados_coletados = {'cenario_id': cenario_id, 'cenario_nome': cenario.cen_nome, 'total_periodos': total_periodos}
+    estado.save()
+
+    return (
+        f"Limpeza concluída! Disparei a **otimização** do cenário "
+        f"**{cenario_id}/{cenario.cen_nome}** ({total_periodos} período(s)) em segundo plano. "
+        "Clica em \"Verificar\" quando quiser conferir o progresso."
+    )
+
+
+def _etapa_proc_ciclo_aguardando_otimizacao(estado, texto):
+    dados = estado.dados_coletados
+    cenario_id = dados['cenario_id']
+    cenario_nome = dados['cenario_nome']
+    total_periodos = dados.get('total_periodos', 0)
+
+    total_otimizado = (
+        TbCenariosDaugther.objects.filter(mae_id=cenario_id, flag=1).count()
+        + TbCenariosDaugther.objects.filter(mae_id=cenario_id, flag=0).count()
+    )
+
+    if total_otimizado < total_periodos:
+        return (
+            f"Ainda otimizando o cenário **{cenario_id}/{cenario_nome}** "
+            f"({total_otimizado} de {total_periodos} período(s) concluídos). Clica em \"Verificar\" daqui a pouco."
+        )
+
+    cenario = TbCenarios.objects_real.filter(id=cenario_id).first()
+    if cenario is None:
+        _encerrar_fluxo(estado)
+        return f"O cenário {cenario_id}/{cenario_nome} não existe mais. Cancelei o acompanhamento."
+
+    if cenario.flag != 3:
+        return "Períodos todos processados, aguardando o cenário fechar como OTIMIZADO. Clica em \"Verificar\" em instantes."
+
+    return _disparar_consolidacao_ciclo(estado.usuario, cenario)
+
+
+def _disparar_consolidacao_ciclo(usuario, cenario):
+    from django.db import connection
+    from .tasks import consolidar_cenario_celery
+
+    cenario_id = cenario.id
+    cursor = connection.cursor()
+    sql = "update parameters_tbcenarios set flag = 6 where id = " + str(cenario_id)
+    cursor.execute(sql)
+    cursor.close()
+    consolidar_cenario_celery.delay(cenario_id)
+
+    estado = _get_estado(usuario)
+    estado.fluxo_ativo = FLUXO_PROCESSAR
+    estado.etapa_atual = 'proc_ciclo_aguardando_consolidacao'
+    estado.dados_coletados = {'cenario_id': cenario_id, 'cenario_nome': cenario.cen_nome}
+    estado.save()
+
+    return (
+        f"Otimização concluída! Disparei a **consolidação** do cenário "
+        f"**{cenario_id}/{cenario.cen_nome}** em segundo plano. Clica em \"Verificar\" quando quiser conferir se já terminou."
+    )
+
+
+def _etapa_proc_ciclo_aguardando_consolidacao(estado, texto):
+    dados = estado.dados_coletados
+    cenario_id = dados['cenario_id']
+    cenario_nome = dados['cenario_nome']
+    cenario = TbCenarios.objects_real.filter(id=cenario_id).first()
+    if cenario is None:
+        _encerrar_fluxo(estado)
+        return f"O cenário {cenario_id}/{cenario_nome} não existe mais. Cancelei o acompanhamento."
+
+    if cenario.flag == 1:  # CONSOLIDADO
+        _encerrar_fluxo(estado)
+        return f"✅ Ciclo completo! Cenário **{cenario_id}/{cenario_nome}** limpo, otimizado, e consolidado."
+
+    if cenario.flag == 6:
+        return f"Ainda consolidando o cenário **{cenario_id}/{cenario_nome}**. Clica em \"Verificar\" daqui a pouco."
+
+    _encerrar_fluxo(estado)
+    return f"O status do cenário **{cenario_id}/{cenario_nome}** mudou pra algo inesperado (flag={cenario.flag}) durante a consolidação -- melhor conferir manualmente no Admin."
+
+
+def iniciar_fluxo_processar(usuario, mensagem):
+    perfil = getattr(usuario, 'perfilusuario', None)
+    if perfil is None or perfil.cenario_ativo_id is None:
+        return "Você ainda não tem um cenário ativo escolhido. Acesse a tela de Cenários e ative um antes."
+
+    cenario = TbCenarios.objects_real.filter(id=perfil.cenario_ativo_id).first()
+    if cenario is None:
+        return "O cenário que estava ativo pra você não existe mais."
+
+    texto = (mensagem or '').lower()
+    if re.search(r'limp[ae]r?', texto):
+        acao = 'limpar'
+    elif re.search(r'otimiz[ae]r?', texto):
+        acao = 'otimizar'
+    elif re.search(r'consolid[ae]r?', texto):
+        acao = 'consolidar'
+    else:
+        return "Não entendi se você quer **limpar**, **otimizar**, ou **consolidar** o cenário ativo. Pode repetir dizendo qual dessas ações?"
+
+    # 🌟 Trava comum: não dá pra disparar nada novo se já tem uma operação
+    # em andamento nesse cenário agora (mesma checagem usada em mudar_cenario).
+    if cenario.flag in FLAGS_OPERACAO_EM_ANDAMENTO:
+        return (
+            f"O cenário {cenario.id}/{cenario.cen_nome} já está com uma operação em andamento agora "
+            f"({FLAGS_OPERACAO_EM_ANDAMENTO[cenario.flag]}). Espera terminar antes de disparar outra."
+        )
+
+    # 🌟 Restrições da cadeia: só otimiza se estiver LIMPO (flag=2), só
+    # consolida se estiver OTIMIZADO (flag=3).
+    if acao == 'otimizar' and cenario.flag != 2:
+        status_atual = MENSAGENS_FLAG.get(cenario.flag, f'flag={cenario.flag}')
+        return (
+            f"Não dá pra otimizar o cenário **{cenario.id}/{cenario.cen_nome}** agora -- ele precisa "
+            f"estar **LIMPO** primeiro, e o status atual é **{status_atual}**. Limpa o cenário antes "
+            "de otimizar."
+        )
+
+    if acao == 'consolidar' and cenario.flag != 3:
+        status_atual = MENSAGENS_FLAG.get(cenario.flag, f'flag={cenario.flag}')
+        return (
+            f"Não dá pra consolidar o cenário **{cenario.id}/{cenario.cen_nome}** agora -- ele precisa "
+            f"estar **OTIMIZADO** primeiro, e o status atual é **{status_atual}**. Otimiza o cenário "
+            "antes de consolidar."
+        )
+
+    if acao == 'limpar':
+        return _disparar_limpeza_standalone(usuario, cenario)
+    elif acao == 'otimizar':
+        return _disparar_otimizacao_standalone(usuario, cenario)
+    else:
+        return _disparar_consolidacao_standalone(usuario, cenario)
+
+
+def _etapa_proc_pos_consolidacao_limpar(estado, texto):
+    resposta = texto.strip().lower()
+    dados = estado.dados_coletados
+    cenario_id = dados['cenario_id']
+    cenario_nome = dados['cenario_nome']
+
+    if resposta not in ('sim', 's', 'yes', 'y'):
+        _encerrar_fluxo(estado)
+        return f"Ok, cenário **{cenario_id}/{cenario_nome}** fica como está."
+
+    cenario = TbCenarios.objects_real.filter(id=cenario_id).first()
+    if cenario is None:
+        _encerrar_fluxo(estado)
+        return f"O cenário {cenario_id}/{cenario_nome} não existe mais. Cancelei o acompanhamento."
+
+    return _disparar_limpeza_standalone(estado.usuario, cenario)
+
+
+def _disparar_limpeza_standalone(usuario, cenario):
+    from fluxos.models import TbFluxoProducaoDaugther01, TbFluxoProducao
+    from django.db import connection
+    from .tasks import limpar_cenario_celery
+
+    cenario_id = cenario.id
+
+    if TbFluxoProducaoDaugther01.objects.filter(custo_variavel=None, tbcenarios_id=cenario_id, mae_id__flu_pro_ativo=True).count() > 0:
+        return "Tem fluxo(s) de produção ativo(s) sem o cálculo dos custos variáveis. Não posso limpar automaticamente -- verifica isso no Admin primeiro."
+
+    if TbFluxoProducao.objects.filter(flu_pro_input_output_atualizado=False, tbcenarios_id=cenario_id, flu_pro_ativo=True).count() > 0:
+        return "Tem fluxo(s) de produção ativo(s) com I/O desatualizado. Usa \"Atualizar Fluxos\" no Admin antes de tentar de novo."
+
+    if TbFluxoProducaoDaugther01.objects.filter(custo_variavel=0, tbcenarios_id=cenario_id, mae_id__flu_pro_ativo=True).count() > 0:
+        return "Tem fluxo(s) de produção ativo(s) com custo variável zerado. Verifica isso no Admin antes de tentar de novo."
+
+    cursor = connection.cursor()
+    sql = "update parameters_tbcenarios set flag = 5 where id = " + str(cenario_id)
+    cursor.execute(sql)
+    sql = "update parameters_tbcenariosdaugther set flag = 3 where otimizar = true and mae_id = " + str(cenario_id)
+    cursor.execute(sql)
+    cursor.close()
+    limpar_cenario_celery.delay(cenario_id)
+
+    estado = _get_estado(usuario)
+    estado.fluxo_ativo = FLUXO_PROCESSAR
+    estado.etapa_atual = 'proc_aguardando_limpeza'
+    estado.dados_coletados = {'cenario_id': cenario_id, 'cenario_nome': cenario.cen_nome}
+    estado.save()
+
+    return (
+        f"Disparei a **limpeza** do cenário **{cenario_id}/{cenario.cen_nome}** em segundo plano. "
+        "Clica em \"Verificar\" quando quiser conferir se já terminou."
+    )
+
+
+def _etapa_proc_aguardando_limpeza(estado, texto):
+    dados = estado.dados_coletados
+    cenario_id = dados['cenario_id']
+    cenario_nome = dados['cenario_nome']
+    cenario = TbCenarios.objects_real.filter(id=cenario_id).first()
+    if cenario is None:
+        _encerrar_fluxo(estado)
+        return f"O cenário {cenario_id}/{cenario_nome} não existe mais. Cancelei o acompanhamento."
+
+    if cenario.flag == 2:  # LIMPO
+        estado.etapa_atual = 'proc_pos_limpeza_otimizar'
+        estado.save()
+        return f"✅ Cenário **{cenario_id}/{cenario_nome}** limpo! Quer que eu já dispare a **otimização**? (sim / não)"
+
+    if cenario.flag == 5:  # ainda limpando
+        return f"Ainda limpando o cenário **{cenario_id}/{cenario_nome}**. Clica em \"Verificar\" daqui a pouco."
+
+    _encerrar_fluxo(estado)
+    return f"O status do cenário **{cenario_id}/{cenario_nome}** mudou pra algo inesperado (flag={cenario.flag}) -- melhor conferir manualmente no Admin. Cancelei o acompanhamento automático aqui."
+
+
+def _etapa_proc_pos_limpeza_otimizar(estado, texto):
+    resposta = texto.strip().lower()
+    dados = estado.dados_coletados
+    cenario_id = dados['cenario_id']
+    cenario_nome = dados['cenario_nome']
+
+    if resposta not in ('sim', 's', 'yes', 'y'):
+        _encerrar_fluxo(estado)
+        return f"Ok, cenário **{cenario_id}/{cenario_nome}** fica limpo por enquanto. É só pedir pra otimizar quando quiser."
+
+    cenario = TbCenarios.objects_real.filter(id=cenario_id).first()
+    if cenario is None:
+        _encerrar_fluxo(estado)
+        return f"O cenário {cenario_id}/{cenario_nome} não existe mais. Cancelei o acompanhamento."
+
+    return _disparar_otimizacao_standalone(estado.usuario, cenario)
+
+
+def _disparar_otimizacao_standalone(usuario, cenario):
+    from django.db import connection
+    from .tasks import otimizar_cenario_celery
+
+    cenario_id = cenario.id
+    cursor = connection.cursor()
+    sql = "update parameters_tbcenarios set flag = 4 where id = " + str(cenario_id)
+    cursor.execute(sql)
+    sql = "update parameters_tbcenariosdaugther set flag = 4 where otimizar = true and mae_id = " + str(cenario_id)
+    cursor.execute(sql)
+
+    sql = "select conta_periodos(" + str(cenario_id) + ")"
+    cursor.execute(sql)
+    total_periodos = cursor.fetchone()[0]
+    cursor.close()
+
+    from otimizacao.models import TbProdutoMercadoFluxo
+    total_variaveis = TbProdutoMercadoFluxo.objects.filter(tbcenarios_id=cenario_id, flag=True).count()
+
+    for i in range(total_periodos):
+        if TbCenariosDaugther.objects.get(mae_id=cenario_id, dau_order=i + 1).otimizar:
+            otimizar_cenario_celery.delay(i, cenario_id, total_variaveis)
+
+    estado = _get_estado(usuario)
+    estado.fluxo_ativo = FLUXO_PROCESSAR
+    estado.etapa_atual = 'proc_aguardando_otimizacao'
+    estado.dados_coletados = {'cenario_id': cenario_id, 'cenario_nome': cenario.cen_nome, 'total_periodos': total_periodos}
+    estado.save()
+
+    return (
+        f"Disparei a **otimização** do cenário **{cenario_id}/{cenario.cen_nome}** "
+        f"({total_periodos} período(s)) em segundo plano. Clica em \"Verificar\" quando quiser conferir o progresso."
+    )
+
+
+def _etapa_proc_aguardando_otimizacao(estado, texto):
+    dados = estado.dados_coletados
+    cenario_id = dados['cenario_id']
+    cenario_nome = dados['cenario_nome']
+    total_periodos = dados.get('total_periodos', 0)
+
+    total_otimizado = (
+        TbCenariosDaugther.objects.filter(mae_id=cenario_id, flag=1).count()
+        + TbCenariosDaugther.objects.filter(mae_id=cenario_id, flag=0).count()
+    )
+
+    if total_otimizado < total_periodos:
+        return (
+            f"Ainda otimizando o cenário **{cenario_id}/{cenario_nome}** "
+            f"({total_otimizado} de {total_periodos} período(s) concluídos). "
+            "Clica em \"Verificar\" daqui a pouco."
+        )
+
+    cenario = TbCenarios.objects_real.filter(id=cenario_id).first()
+    if cenario is None:
+        _encerrar_fluxo(estado)
+        return f"O cenário {cenario_id}/{cenario_nome} não existe mais. Cancelei o acompanhamento."
+
+    if cenario.flag != 3:
+        return "Períodos todos processados, aguardando o cenário fechar como OTIMIZADO. Clica em \"Verificar\" em instantes."
+
+    estado.etapa_atual = 'proc_pos_otimizacao_consolidar'
+    estado.save()
+    return f"✅ Cenário **{cenario_id}/{cenario_nome}** otimizado! Quer que eu já dispare a **consolidação**? (sim / não)"
+
+
+def _etapa_proc_pos_otimizacao_consolidar(estado, texto):
+    resposta = texto.strip().lower()
+    dados = estado.dados_coletados
+    cenario_id = dados['cenario_id']
+    cenario_nome = dados['cenario_nome']
+
+    if resposta not in ('sim', 's', 'yes', 'y'):
+        _encerrar_fluxo(estado)
+        return f"Ok, cenário **{cenario_id}/{cenario_nome}** fica otimizado por enquanto. É só pedir pra consolidar quando quiser."
+
+    cenario = TbCenarios.objects_real.filter(id=cenario_id).first()
+    if cenario is None:
+        _encerrar_fluxo(estado)
+        return f"O cenário {cenario_id}/{cenario_nome} não existe mais. Cancelei o acompanhamento."
+
+    return _disparar_consolidacao_standalone(estado.usuario, cenario)
+
+
+def _disparar_consolidacao_standalone(usuario, cenario):
+    from django.db import connection
+    from .tasks import consolidar_cenario_celery
+
+    cenario_id = cenario.id
+    cursor = connection.cursor()
+    sql = "update parameters_tbcenarios set flag = 6 where id = " + str(cenario_id)
+    cursor.execute(sql)
+    cursor.close()
+    consolidar_cenario_celery.delay(cenario_id)
+
+    estado = _get_estado(usuario)
+    estado.fluxo_ativo = FLUXO_PROCESSAR
+    estado.etapa_atual = 'proc_aguardando_consolidacao'
+    estado.dados_coletados = {'cenario_id': cenario_id, 'cenario_nome': cenario.cen_nome}
+    estado.save()
+
+    return (
+        f"Disparei a **consolidação** do cenário **{cenario_id}/{cenario.cen_nome}** em segundo plano. "
+        "Clica em \"Verificar\" quando quiser conferir se já terminou."
+    )
+
+
+def _etapa_proc_aguardando_consolidacao(estado, texto):
+    dados = estado.dados_coletados
+    cenario_id = dados['cenario_id']
+    cenario_nome = dados['cenario_nome']
+    cenario = TbCenarios.objects_real.filter(id=cenario_id).first()
+    if cenario is None:
+        _encerrar_fluxo(estado)
+        return f"O cenário {cenario_id}/{cenario_nome} não existe mais. Cancelei o acompanhamento."
+
+    if cenario.flag == 1:  # CONSOLIDADO
+        _encerrar_fluxo(estado)
+        return f"✅ Cenário **{cenario_id}/{cenario_nome}** consolidado!"
+
+    if cenario.flag == 6:  # ainda consolidando
+        return f"Ainda consolidando o cenário **{cenario_id}/{cenario_nome}**. Clica em \"Verificar\" daqui a pouco."
+
+    _encerrar_fluxo(estado)
+    return f"O status do cenário **{cenario_id}/{cenario_nome}** mudou pra algo inesperado (flag={cenario.flag}) -- melhor conferir manualmente no Admin."
+
+
+def _processar_fluxo_processar(estado, texto):
+    handler = _HANDLERS_PROCESSAR.get(estado.etapa_atual)
+    if handler is None:
+        _encerrar_fluxo(estado)
+        return "Não consegui identificar em qual etapa estávamos. Cancelei o fluxo -- pode começar de novo se quiser."
+    return handler(estado, texto)
+
+
+_HANDLERS_PROCESSAR = {
+    'proc_ciclo_aguardando_limpeza': _etapa_proc_ciclo_aguardando_limpeza,
+    'proc_ciclo_aguardando_otimizacao': _etapa_proc_ciclo_aguardando_otimizacao,
+    'proc_ciclo_aguardando_consolidacao': _etapa_proc_ciclo_aguardando_consolidacao,
+    'proc_pos_consolidacao_limpar': _etapa_proc_pos_consolidacao_limpar,
+    'proc_aguardando_limpeza': _etapa_proc_aguardando_limpeza,
+    'proc_pos_limpeza_otimizar': _etapa_proc_pos_limpeza_otimizar,
+    'proc_aguardando_otimizacao': _etapa_proc_aguardando_otimizacao,
+    'proc_pos_otimizacao_consolidar': _etapa_proc_pos_otimizacao_consolidar,
+    'proc_aguardando_consolidacao': _etapa_proc_aguardando_consolidacao,
 }

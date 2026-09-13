@@ -1,6 +1,7 @@
 from django.shortcuts import render
 from django.http import JsonResponse
 from .agents import executar_agente_com_prompt_do_admin
+from .fluxo_criar_cenario import usuario_esta_em_fluxo
 from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
@@ -105,16 +106,20 @@ def _extrair_opcoes_clicaveis(texto):
     if not opcoes and '[📥 Baixar planilha](' in texto:
         opcoes = ['Já enviei a planilha']
 
-    if not opcoes and re.search(r'me manda qualquer mensagem', texto, re.IGNORECASE):
+    if not opcoes and re.search(r'"Verificar"', texto, re.IGNORECASE):
         opcoes = ['Verificar']
 
-    if opcoes:
-        if re.search(r'"manter"', texto, re.IGNORECASE) and 'Manter' not in opcoes:
-            opcoes.append('Manter')
-        if re.search(r'"cancelar"', texto, re.IGNORECASE) and 'Cancelar' not in opcoes:
-            opcoes.append('Cancelar')
-        if re.search(r'"nenhum[oa]?"', texto, re.IGNORECASE) and 'Nenhum' not in opcoes:
-            opcoes.append('Nenhum')
+    # 🌟 CORRIGIDO: antes, "manter"/"cancelar"/"nenhum" só viravam botão se
+    # OUTRA opção já tivesse sido detectada -- numa pergunta de texto livre
+    # (tipo "qual o nome do cenário? (a qualquer momento, digite \"cancelar\"
+    # para desistir)"), nenhum botão aparecia, nem o de cancelar. Agora
+    # funcionam sozinhos também, sem depender de outra opção existir.
+    if re.search(r'"manter"', texto, re.IGNORECASE) and 'Manter' not in opcoes:
+        opcoes.append('Manter')
+    if re.search(r'"cancelar"', texto, re.IGNORECASE) and 'Cancelar' not in opcoes:
+        opcoes.append('Cancelar')
+    if re.search(r'"nenhum[oa]?"', texto, re.IGNORECASE) and 'Nenhum' not in opcoes:
+        opcoes.append('Nenhum')
 
     return opcoes[:12]
 
@@ -136,6 +141,14 @@ def chat_view(request):
         # 🌟 NOVO: extrai opções clicáveis do próprio texto da resposta,
         # pra virarem botões no chat em vez do usuário ter que digitar.
         opcoes = _extrair_opcoes_clicaveis(resposta)
+
+        # 🌟 CORRIGIDO: garante o botão "Cancelar" sempre que ainda existir
+        # um fluxo em andamento DE VERDADE (checando o estado, não o texto
+        # da resposta) -- mais confiável do que depender da mensagem
+        # mencionar "cancelar" explicitamente. Só some quando o fluxo já
+        # tiver terminado (sucesso, erro, ou cancelamento).
+        if usuario_esta_em_fluxo(request.user) and 'Cancelar' not in opcoes:
+            opcoes.append('Cancelar')
 
         return JsonResponse({
             "resposta": resposta,

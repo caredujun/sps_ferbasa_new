@@ -14,10 +14,11 @@ from .models import AgenteConfig, HistoricoAgente, RelatorioPDF
 
 # 🌟 NOVO: wizard de criação de cenário via conversa
 from .fluxo_criar_cenario import (
-    usuario_esta_em_fluxo, iniciar_fluxo_criar_cenario, iniciar_fluxo_mudar_cenario,
+    usuario_esta_em_fluxo, cancelar_fluxo_ativo, iniciar_fluxo_criar_cenario, iniciar_fluxo_mudar_cenario,
     iniciar_fluxo_indicadores, iniciar_fluxo_cambio, processar_mensagem_fluxo,
     iniciar_download_planilha_indicador, iniciar_download_planilha_cambio,
-    identificar_tipo_planilha_reenviada,
+    identificar_tipo_planilha_reenviada, iniciar_fluxo_processar, iniciar_consulta_status,
+    iniciar_ciclo_completo,
     _processar_planilha_indicador, _processar_planilha_cambio,
 )
 
@@ -203,6 +204,44 @@ def _detectar_intencao_cambio(mensagem):
     return bool(PADRAO_CAMBIO.search(texto) and PADRAO_ACAO_INDICADOR.search(texto))
 
 
+# 🌟 NOVO: "limpar/otimizar/consolidar o cenário [ativo]" -- ação avulsa,
+# disponível a qualquer momento, não só durante a criação de um cenário
+# novo. Palavras de ação diferentes das de mudar/criar cenário, então não
+# tem risco de conflito entre os detectores.
+PADRAO_PROCESSAR_ACAO = re.compile(r'limp[ae]r?|otimiz[ae]r?|consolid[ae]r?', re.IGNORECASE)
+
+
+def _detectar_intencao_processar(mensagem):
+    texto = mensagem or ""
+    return bool(PADRAO_CENARIO.search(texto) and PADRAO_PROCESSAR_ACAO.search(texto))
+
+
+# 🌟 NOVO: "limpar, otimizar e consolidar o cenário" -- as 3 ações juntas
+# na mesma mensagem disparam o ciclo completo automático (sem perguntar
+# confirmação entre as etapas), em vez do fluxo de ação única (que
+# pergunta a cada passo). Precisa ser checado ANTES do detector de ação
+# única, senão essa mensagem cairia só no "limpar".
+def _detectar_intencao_ciclo_completo(mensagem):
+    texto = (mensagem or '').lower()
+    return bool(
+        PADRAO_CENARIO.search(texto)
+        and re.search(r'limp[ae]r?', texto)
+        and re.search(r'otimiz[ae]r?', texto)
+        and re.search(r'consolid[ae]r?', texto)
+    )
+
+
+# 🌟 NOVO: "qual o status/situação do cenário [ativo]" -- consulta
+# informativa, mostra o status atual (e já pergunta se quer seguir pro
+# próximo passo, se fizer sentido).
+PADRAO_STATUS = re.compile(r'status|situa[cç][ãa]o', re.IGNORECASE)
+
+
+def _detectar_intencao_status(mensagem):
+    texto = mensagem or ""
+    return bool(PADRAO_CENARIO.search(texto) and PADRAO_STATUS.search(texto))
+
+
 # 🌟 NOVO: "baixar planilha do indicador/câmbio X" -- gera um template
 # pra download, fora do wizard passo-a-passo (resolve tudo numa mensagem só).
 PADRAO_BAIXAR_PLANILHA = re.compile(r"baix[ae]r?|download", re.IGNORECASE)
@@ -378,32 +417,43 @@ def executar_agente_com_prompt_do_admin(mensagem_usuario: str, pdf_ids: list, us
     wizard de criar cenário (resposta a uma etapa) ou está pedindo pra
     começar um agora -- nesses dois casos, a mensagem nunca chega no LLM.
     """
-    # 🌟 NOVO: usuário respondendo a uma etapa do wizard em andamento
-    if usuario_esta_em_fluxo(usuario):
-        resposta = processar_mensagem_fluxo(usuario, mensagem_usuario)
-        _salvar_historico(usuario, mensagem_usuario, resposta)
-        return resposta, []
+    # 🌟 CORRIGIDO: os detectores de comando (abaixo) agora são checados
+    # ANTES de "usuario_esta_em_fluxo" -- antes, um comando reconhecido
+    # (tipo clicar "criar um cenário novo" nas Ações Comuns) enquanto
+    # outro fluxo já estava em andamento (tipo o wizard de indicadores
+    # esperando um nome) era engolido como se fosse resposta à pergunta
+    # antiga, em vez de começar o comando novo. Agora, cada detector que
+    # bater cancela o fluxo velho primeiro (se houver) e começa o novo.
+    esta_em_fluxo = usuario_esta_em_fluxo(usuario)
 
     # 🌟 NOVO: usuário pedindo pra começar o wizard agora
     if _detectar_intencao_criar_cenario(mensagem_usuario):
+        if esta_em_fluxo:
+            cancelar_fluxo_ativo(usuario)
         resposta = iniciar_fluxo_criar_cenario(usuario)
         _salvar_historico(usuario, mensagem_usuario, resposta)
         return resposta, []
 
     # 🌟 NOVO: usuário pedindo pra mudar tipo/período do cenário ativo
     if _detectar_intencao_mudar_cenario(mensagem_usuario):
+        if esta_em_fluxo:
+            cancelar_fluxo_ativo(usuario)
         resposta = iniciar_fluxo_mudar_cenario(usuario, mensagem_usuario)
         _salvar_historico(usuario, mensagem_usuario, resposta)
         return resposta, []
 
     # 🌟 NOVO: usuário pedindo pra baixar a planilha-modelo de um indicador
     if _detectar_download_planilha_indicador(mensagem_usuario):
+        if esta_em_fluxo:
+            cancelar_fluxo_ativo(usuario)
         resposta = iniciar_download_planilha_indicador(usuario, mensagem_usuario)
         _salvar_historico(usuario, mensagem_usuario, resposta)
         return resposta, []
 
     # 🌟 NOVO: usuário pedindo pra baixar a planilha-modelo de um câmbio
     if _detectar_download_planilha_cambio(mensagem_usuario):
+        if esta_em_fluxo:
+            cancelar_fluxo_ativo(usuario)
         resposta = iniciar_download_planilha_cambio(usuario, mensagem_usuario)
         _salvar_historico(usuario, mensagem_usuario, resposta)
         return resposta, []
@@ -415,31 +465,76 @@ def executar_agente_com_prompt_do_admin(mensagem_usuario: str, pdf_ids: list, us
     # "atualizar" + "indicador").
     if pdf_ids:
         # 🌟 CORRIGIDO: identifica pelo nome do arquivo primeiro (não exige
-        # mais que a mensagem mencione "indicador"/"câmbio" explicitamente
-        # -- o nome do arquivo, gerado por nós, já basta). Só cai pra
-        # checagem por palavra-chave se o arquivo não bater nosso padrão
-        # (por exemplo, foi renomeado).
+        # que a mensagem mencione "indicador"/"câmbio" -- o nome do
+        # arquivo, gerado por nós, já basta). O plano B (palavra-chave) só
+        # entra em ação se a mensagem mencionar "planilha" explicitamente
+        # -- sem essa exigência, qualquer "alterar câmbio X" com QUALQUER
+        # arquivo marcado (mesmo um PDF de relatório sem relação nenhuma)
+        # cairia aqui por engano, atropelando o wizard normal.
         tipo_planilha = identificar_tipo_planilha_reenviada(usuario, pdf_ids)
+        menciona_planilha = PADRAO_PLANILHA.search(mensagem_usuario or "")
 
-        if tipo_planilha == 'ind' or (tipo_planilha is None and PADRAO_INDICADOR.search(mensagem_usuario or "")):
+        if tipo_planilha == 'ind' or (tipo_planilha is None and menciona_planilha and PADRAO_INDICADOR.search(mensagem_usuario or "")):
+            if esta_em_fluxo:
+                cancelar_fluxo_ativo(usuario)
             resposta = _processar_planilha_indicador(usuario, mensagem_usuario, pdf_ids)
             _salvar_historico(usuario, mensagem_usuario, resposta)
             return resposta, []
 
-        if tipo_planilha == 'cam' or (tipo_planilha is None and PADRAO_CAMBIO.search(mensagem_usuario or "")):
+        if tipo_planilha == 'cam' or (tipo_planilha is None and menciona_planilha and PADRAO_CAMBIO.search(mensagem_usuario or "")):
+            if esta_em_fluxo:
+                cancelar_fluxo_ativo(usuario)
             resposta = _processar_planilha_cambio(usuario, mensagem_usuario, pdf_ids)
             _salvar_historico(usuario, mensagem_usuario, resposta)
             return resposta, []
 
     # 🌟 NOVO: usuário pedindo pra mexer em indicadores (editar/criar/reajustar)
     if _detectar_intencao_indicadores(mensagem_usuario):
+        if esta_em_fluxo:
+            cancelar_fluxo_ativo(usuario)
         resposta = iniciar_fluxo_indicadores(usuario, mensagem_usuario)
         _salvar_historico(usuario, mensagem_usuario, resposta)
         return resposta, []
 
     # 🌟 NOVO: usuário pedindo pra mexer em taxas de câmbio (editar/criar/reajustar/eliminar)
     if _detectar_intencao_cambio(mensagem_usuario):
+        if esta_em_fluxo:
+            cancelar_fluxo_ativo(usuario)
         resposta = iniciar_fluxo_cambio(usuario, mensagem_usuario)
+        _salvar_historico(usuario, mensagem_usuario, resposta)
+        return resposta, []
+
+    # 🌟 NOVO: usuário perguntando o status/situação do cenário ativo
+    if _detectar_intencao_status(mensagem_usuario):
+        if esta_em_fluxo:
+            cancelar_fluxo_ativo(usuario)
+        resposta = iniciar_consulta_status(usuario, mensagem_usuario)
+        _salvar_historico(usuario, mensagem_usuario, resposta)
+        return resposta, []
+
+    # 🌟 NOVO: "limpar, otimizar e consolidar" juntos -- ciclo completo
+    # automático. Checado ANTES da ação única, senão cairia só no "limpar".
+    if _detectar_intencao_ciclo_completo(mensagem_usuario):
+        if esta_em_fluxo:
+            cancelar_fluxo_ativo(usuario)
+        resposta = iniciar_ciclo_completo(usuario, mensagem_usuario)
+        _salvar_historico(usuario, mensagem_usuario, resposta)
+        return resposta, []
+
+    # 🌟 NOVO: usuário pedindo pra limpar/otimizar/consolidar o cenário
+    # ativo, a qualquer momento (não só durante a criação de um cenário novo)
+    if _detectar_intencao_processar(mensagem_usuario):
+        if esta_em_fluxo:
+            cancelar_fluxo_ativo(usuario)
+        resposta = iniciar_fluxo_processar(usuario, mensagem_usuario)
+        _salvar_historico(usuario, mensagem_usuario, resposta)
+        return resposta, []
+
+    # 🌟 Só chega aqui se NENHUM comando reconhecido bateu -- se o usuário
+    # estava mesmo no meio de um fluxo, trata a mensagem como resposta à
+    # etapa atual.
+    if esta_em_fluxo:
+        resposta = processar_mensagem_fluxo(usuario, mensagem_usuario)
         _salvar_historico(usuario, mensagem_usuario, resposta)
         return resposta, []
 

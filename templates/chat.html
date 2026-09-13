@@ -8,7 +8,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/l10n/pt.js"></script>
     <style>
         body { font-family: "Roboto", Arial, sans-serif; background-color: #f8f9fa; margin: 0; padding: 20px; display: flex; justify-content: center; }
-        .app-container { display: flex; gap: 20px; max-width: 1050px; width: 100%; margin: 40px auto; }
+        .app-container { display: flex; gap: 20px; max-width: 1350px; width: 100%; margin: 40px auto; }
 
         .sidebar { width: 280px; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); padding: 20px; height: fit-content; }
         .chat-container { flex: 1; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); padding: 20px; }
@@ -38,6 +38,26 @@
             cursor: pointer;
         }
         .botao-opcao:hover { background: #417690; color: #fff; }
+
+        /* Painel lateral direito: Ações Comuns no SPS */
+        .grupo-acoes-dropdown { margin-bottom: 16px; }
+        .grupo-acoes-dropdown label {
+            display: block;
+            font-size: 12px;
+            font-weight: bold;
+            color: #417690;
+            margin-bottom: 4px;
+        }
+        .select-acao-comum {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 13px;
+            background: #fff;
+            cursor: pointer;
+        }
+        .select-acao-comum:hover { border-color: #417690; }
 
         /* Tabelas Markdown renderizadas */
         .md-table-wrap { overflow-x: auto; margin: 12px 0; }
@@ -116,7 +136,7 @@
         <div class="chat-container">
             <!-- PAINEL DE CONTROLE DE LIMPEZA INTEGRADO NO TOPO -->
             <div style="display: flex; gap: 10px; align-items: center; background: #fff; padding: 10px; border-radius: 6px; border: 1px solid #eee; margin-bottom: 15px; flex-wrap: wrap;">
-                <h2 style="margin: 0; padding: 0; border: none; flex: 1; font-size: 20px;">🤖 Central de IA</h2>
+                <h2 style="margin: 0; padding: 0; border: none; flex: 1; font-size: 20px;">🤖 Central de IA do SPS</h2>
 
                 <select id="seletor-periodo" style="padding: 6px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px; cursor: pointer; background: #fff;">
                     <option value="hoje">Limpar Hoje</option>
@@ -147,6 +167,48 @@
                 </div>
             </form>
         </div>
+
+        <!-- PAINEL LATERAL DIREITO: AÇÕES COMUNS -->
+        <div class="sidebar">
+            <h3>⚡ Ações Comuns no SPS</h3>
+            <p style="color: #666; font-size: 12px; margin-bottom: 15px;">Escolhe a categoria e seleciona a ação, sem risco de digitar errado.</p>
+
+            <div class="grupo-acoes-dropdown">
+                <label for="dropdown-cenario">Cenário</label>
+                <select id="dropdown-cenario" class="select-acao-comum" onchange="dispararAcaoDropdown(this)">
+                    <option value="">Selecione uma ação...</option>
+                    <option value="criar um cenário novo">Criar cenário novo</option>
+                    <option value="mudar o tipo ou período do cenário ativo">Mudar tipo/período</option>
+                    <option value="qual é o status do cenário?">Ver status</option>
+                    <option value="limpar cenário">Limpar</option>
+                    <option value="otimizar cenário">Otimizar</option>
+                    <option value="consolidar cenário">Consolidar</option>
+                    <option value="limpar, otimizar e consolidar o cenário">Ciclo completo (limpar, otimizar e consolidar)</option>
+                </select>
+            </div>
+
+            <div class="grupo-acoes-dropdown">
+                <label for="dropdown-indicadores">Indicadores</label>
+                <select id="dropdown-indicadores" class="select-acao-comum" onchange="dispararAcaoDropdown(this)">
+                    <option value="">Selecione uma ação...</option>
+                    <option value="mudar um indicador">Mudar valor</option>
+                    <option value="criar um indicador novo">Criar novo</option>
+                    <option value="reajustar indicador em massa">Reajuste em massa</option>
+                    <option value="eliminar um indicador">Eliminar</option>
+                </select>
+            </div>
+
+            <div class="grupo-acoes-dropdown">
+                <label for="dropdown-cambio">Taxas de Câmbio</label>
+                <select id="dropdown-cambio" class="select-acao-comum" onchange="dispararAcaoDropdown(this)">
+                    <option value="">Selecione uma ação...</option>
+                    <option value="mudar uma taxa de câmbio">Mudar valor</option>
+                    <option value="criar uma taxa de câmbio nova">Criar nova</option>
+                    <option value="reajustar câmbio em massa">Reajuste em massa</option>
+                    <option value="eliminar uma taxa de câmbio">Eliminar</option>
+                </select>
+            </div>
+        </div>
     </div>
     <script>
         // Nome do usuário logado, escapado com segurança para uso dentro de strings JS
@@ -165,6 +227,16 @@
             var form = document.getElementById('chat-form');
             input.value = opcao;
             form.dispatchEvent(new Event('submit', { cancelable: true }));
+        }
+
+        // 🌟 NOVO: chamada pelo onchange dos dropdowns de "Ações Comuns" --
+        // dispara a frase escolhida (reaproveitando escolherOpcao) e volta
+        // o dropdown pro placeholder, pronto pra próxima seleção.
+        function dispararAcaoDropdown(select) {
+            var valor = select.value;
+            if (!valor) return;
+            escolherOpcao(valor);
+            select.selectedIndex = 0;
         }
 
         function formatarInline(texto) {
