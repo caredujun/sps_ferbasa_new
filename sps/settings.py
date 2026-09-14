@@ -95,6 +95,13 @@ SILENCED_SYSTEM_CHECKS = ["security.W019"]
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    # 🌟 NOVO (multi-idioma, Fase 1): trata idioma do request (cookie,
+    # header Accept-Language do navegador, etc.) -- serve principalmente
+    # de base pra requisições SEM usuário logado (ex: tela de login).
+    # Pra usuário logado, DefinirUsuarioAtualMiddleware (mais abaixo,
+    # depois do Authentication) SOBRESCREVE com o idioma_efetivo() dele,
+    # que tem prioridade. Precisa vir ANTES do CommonMiddleware.
+    'django.middleware.locale.LocaleMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -173,6 +180,30 @@ AUTH_PASSWORD_VALIDATORS = [
 
 
 LANGUAGE_CODE = 'pt-BR'
+
+# 🌟 NOVO (multi-idioma, Fase 1): faltava esse liga-desliga geral do
+# mecanismo de internacionalização do Django -- sem ele, {% trans %} e
+# tudo mais relacionado a idioma é ignorado, mesmo com LANGUAGES e
+# LocaleMiddleware configurados.
+USE_I18N = True
+
+# 🌟 NOVO (multi-idioma, Fase 1): os 7 idiomas suportados -- os CÓDIGOS
+# aqui precisam bater exatamente com IDIOMA_CHOICES em parameters/models.py.
+LANGUAGES = [
+    ('pt-br', 'Português'),
+    ('en', 'English'),
+    ('es', 'Español'),
+    ('fr', 'Français'),
+    ('de', 'Deutsch'),
+    ('it', 'Italiano'),
+    ('zh-hans', '中文（简体）'),
+]
+
+# 🌟 NOVO (multi-idioma, Fase 1): onde ficam os arquivos de tradução
+# (.po/.mo) gerados pelo "python manage.py makemessages"/"compilemessages".
+LOCALE_PATHS = [
+    os.path.join(BASE_DIR, 'locale'),
+]
 
 #Time Zone
 DJANGO_CELERY_BEAT_TZ_AWARE = False

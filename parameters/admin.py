@@ -905,9 +905,25 @@ admin.site.register(TbCenarios, TbCenariosAdmin)
 class TbEmpresaAdmin(admin.ModelAdmin):
     # fields = [('emp_nome', 'emp_tipo'), 'emp_descricao', 'emp_moeda', ('emp_moeda_imagem', 'emp_moeda_imagem_tag'), ('emp_logo', 'emp_logo_tag'), ('emp_fluxo', 'emp_fluxo_tag'), ('emp_informacao1', 'emp_fonte1'), ('emp_informacao2', 'emp_fonte2'), ('emp_informacao3', 'emp_fonte3')]
     fields = [('emp_nome', 'emp_tipo'), 'emp_descricao', 'emp_moeda', ('emp_moeda_imagem', 'emp_moeda_imagem_tag'),
-              ('emp_logo', 'emp_logo_tag'), ('emp_fluxo', 'emp_fluxo_tag')]
+              ('emp_logo', 'emp_logo_tag'), ('emp_fluxo', 'emp_fluxo_tag'), 'idioma_padrao', 'apps_habilitados']
+    # 🌟 NOVO (multi-empresa): apps opcionais habilitados pra essa
+    # empresa (ex: custo_ferbasa só marcado pra Ferbasa) -- widget de
+    # múltipla escolha lado a lado, só um superusuário DE VERDADE edita
+    # (has_change_permission dessa tela já é restrito a is_superuser).
+    filter_horizontal = ['apps_habilitados']
 
     readonly_fields = ['emp_moeda_imagem_tag', 'emp_logo_tag', 'emp_fluxo_tag']
+
+    # 🌟 NOVO (multi-empresa): só um superusuário DE VERDADE decide quais
+    # apps opcionais uma empresa tem acesso -- mesmo raciocínio de
+    # eh_superuser_empresa (não faz sentido a própria empresa se
+    # autoconceder acesso a um app novo).
+    def get_readonly_fields(self, request, obj=None):
+        readonly = list(super().get_readonly_fields(request, obj))
+        if not request.user.is_superuser:
+            readonly.append('apps_habilitados')
+        return readonly
+
     list_display = ['id', 'ativo', 'botao_ativar', 'emp_nome', 'emp_logo', 'emp_logo_tag', 'emp_tipo', 'emp_descricao',
                     'emp_moeda',
                     'emp_moeda_imagem', 'emp_moeda_imagem_tag', 'emp_fluxo', 'emp_fluxo_tag']
@@ -1056,6 +1072,23 @@ class TbEmpresaAdmin(admin.ModelAdmin):
 
 # registrando
 admin.site.register(TbEmpresa, TbEmpresaAdmin)
+
+
+class AppOpcionalAdmin(admin.ModelAdmin):
+    fields = ('app_label', 'nome_exibicao')
+    list_display = ['nome_exibicao', 'app_label']
+
+    def has_change_permission(self, request, obj=None):
+        return request.user.is_superuser
+
+    def has_add_permission(self, request):
+        return request.user.is_superuser
+
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_superuser
+
+
+admin.site.register(AppOpcional, AppOpcionalAdmin)
 
 
 class TbGlossarioAdmin(admin.ModelAdmin):
@@ -1247,7 +1280,7 @@ class PerfilUsuarioInline(admin.StackedInline):
     form = PerfilUsuarioForm
     formset = PerfilUsuarioInlineFormSet
     can_delete = False
-    fields = ('empresa', 'empresa_ativa', 'eh_superuser_empresa', 'cenario_ativo', 'pode_trocar_cenario')
+    fields = ('empresa', 'empresa_ativa', 'eh_superuser_empresa', 'idioma', 'cenario_ativo', 'pode_trocar_cenario')
     # 🌟 CORRIGIDO: autocomplete tirado -- a tentativa de filtrar via hack
     # no Select2 não funcionou de forma confiável. cenario_ativo volta a
     # ser um select comum, populado via JS puro (fetch + <option>), sem
@@ -1266,6 +1299,23 @@ class PerfilUsuarioInline(admin.StackedInline):
     class Media:
         js = ('admin/js/empresa_filtra_cenario.js',)
 
+    # 🌟 NOVO (multi-empresa): o StackedInline tem a PRÓPRIA checagem de
+    # permissão (separada da tela de Usuário) -- por padrão, checa se o
+    # usuário tem permissão Django pro model PerfilUsuario, que um
+    # superuser de empresa não tem nenhuma concedida. Sem isso, a seção
+    # inteira ("Empresa e Cenário ativo") simplesmente não aparecia pra
+    # ele, mesmo já podendo editar o Usuário em si. Delega pra mesma
+    # regra já aplicada em CustomUserAdmin (o pai) -- quem pode editar o
+    # Usuário também pode editar o perfil dele.
+    def has_view_permission(self, request, obj=None):
+        return True
+
+    def has_change_permission(self, request, obj=None):
+        return True
+
+    def has_add_permission(self, request, obj=None):
+        return True
+
     # 🌟 NOVO (multi-empresa): só um superusuário DE VERDADE pode
     # conceder/revogar "superuser de empresa" -- um superuser de empresa
     # não pode fazer isso nem pra si mesmo nem pra ninguém (evita
@@ -1274,6 +1324,18 @@ class PerfilUsuarioInline(admin.StackedInline):
         readonly = list(super().get_readonly_fields(request, obj))
         if not request.user.is_superuser:
             readonly.append('eh_superuser_empresa')
+        # 🌟 NOVO (multi-idioma, Fase 1): usuário comum editando o
+        # PRÓPRIO perfil só pode mexer no idioma -- empresa, cenário
+        # ativo etc. continuam travados (ele já tem telas dedicadas pra
+        # trocar cenário; a empresa dele não é algo que ele mesmo decide).
+        eh_auto_edicao_comum = (
+                obj is not None and obj.pk == request.user.pk
+                and not eh_superuser_ou_superuser_empresa(request.user)
+        )
+        if eh_auto_edicao_comum:
+            for campo in ('empresa', 'empresa_ativa', 'cenario_ativo', 'pode_trocar_cenario'):
+                if campo not in readonly:
+                    readonly.append(campo)
         return readonly
 
     # 🌟 NOVO: superuser de empresa só pode vincular usuários novos (ou
@@ -1297,6 +1359,15 @@ class CustomUserAdmin(UserAdmin):
         perfil = getattr(request.user, 'perfilusuario', None)
         return bool(perfil and perfil.eh_superuser_empresa)
 
+    # 🌟 NOVO (multi-idioma, Fase 1): qualquer usuário -- mesmo comum,
+    # sem ser superuser de nenhum tipo -- pode abrir e editar o PRÓPRIO
+    # registro (usado principalmente pra trocar o próprio idioma, mas
+    # também soma-o="troco minha senha", etc.). get_fieldsets abaixo
+    # restringe o que aparece nesse caso, pra ele não poder se
+    # auto-conceder permissões.
+    def _eh_auto_edicao(self, request, obj):
+        return obj is not None and obj.pk == request.user.pk
+
     # 🌟 NOVO (multi-empresa): superuser de empresa pode gerenciar
     # usuários -- criar, editar, excluir -- mas só os DA PRÓPRIA EMPRESA.
     def has_add_permission(self, request):
@@ -1308,6 +1379,8 @@ class CustomUserAdmin(UserAdmin):
     def has_change_permission(self, request, obj=None):
         if request.user.is_superuser:
             return True
+        if self._eh_auto_edicao(request, obj):
+            return True
         perfil = getattr(request.user, 'perfilusuario', None)
         if not (perfil and perfil.eh_superuser_empresa and perfil.empresa_id):
             return False
@@ -1317,7 +1390,20 @@ class CustomUserAdmin(UserAdmin):
         return bool(perfil_obj and perfil_obj.empresa_id == perfil.empresa_id)
 
     def has_delete_permission(self, request, obj=None):
-        return self.has_change_permission(request, obj)
+        # 🌟 CORRIGIDO: auto-edição NÃO inclui poder se auto-excluir --
+        # aqui sempre cai na regra normal (superuser/superuser de
+        # empresa), nunca no atalho de _eh_auto_edicao.
+        if request.user.is_superuser:
+            return True
+        if self._eh_auto_edicao(request, obj):
+            return False
+        perfil = getattr(request.user, 'perfilusuario', None)
+        if not (perfil and perfil.eh_superuser_empresa and perfil.empresa_id):
+            return False
+        if obj is None:
+            return True
+        perfil_obj = getattr(obj, 'perfilusuario', None)
+        return bool(perfil_obj and perfil_obj.empresa_id == perfil.empresa_id)
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
@@ -1326,15 +1412,33 @@ class CustomUserAdmin(UserAdmin):
         perfil = getattr(request.user, 'perfilusuario', None)
         if perfil and perfil.eh_superuser_empresa and perfil.empresa_id:
             return qs.filter(perfilusuario__empresa_id=perfil.empresa_id)
+        # 🌟 NOVO: usuário comum não vê a LISTAGEM de ninguém (nem ele
+        # mesmo) -- mas ainda assim consegue abrir o PRÓPRIO registro
+        # direto pela URL, já que has_change_permission libera pra esse
+        # caso específico (Django não passa pelo get_queryset da
+        # changelist pra resolver o objeto de uma URL de edição direta).
         return qs.none()
 
     # 🌟 NOVO: superuser de empresa não vê (nem pode mexer em)
     # is_superuser/grupos/permissões Django de ninguém -- evita ele criar
     # outro superuser de verdade ou se auto-conceder permissões extras.
+    # Usuário comum editando o PRÓPRIO registro vê um conjunto ainda mais
+    # restrito -- só o essencial (nome, email, senha), nunca permissões.
     def get_fieldsets(self, request, obj=None):
         fieldsets = super().get_fieldsets(request, obj)
-        if self._eh_superuser_empresa_nao_real(request):
+        eh_auto_edicao_comum = (
+                not eh_superuser_ou_superuser_empresa(request.user)
+                and self._eh_auto_edicao(request, obj)
+        )
+        if eh_auto_edicao_comum:
+            campos_bloqueados = ('is_superuser', 'is_staff', 'is_active', 'groups', 'user_permissions', 'last_login',
+                                 'date_joined')
+        elif self._eh_superuser_empresa_nao_real(request):
             campos_bloqueados = ('is_superuser', 'groups', 'user_permissions')
+        else:
+            campos_bloqueados = ()
+
+        if campos_bloqueados:
             fieldsets = tuple(
                 (nome, {**opcoes, 'fields': tuple(
                     campo for campo in opcoes['fields'] if campo not in campos_bloqueados
@@ -1354,6 +1458,28 @@ class AgenteConfigAdmin(admin.ModelAdmin):
     list_display = ('nome', 'ativo')
     list_editable = ('ativo',)  # 🌟 Permite marcar/desmarcar direto na listagem, sem abrir o registro
 
+    # 🌟 NOVO (multi-empresa): sem isso, a tela nem aparecia no menu do
+    # Admin pra quem não fosse superusuário de verdade (Django checa
+    # permissão própria pra cada model, e superuser de empresa não tem
+    # nenhuma concedida por padrão).
+    # ⚠️ Nota: AgenteConfig ainda NÃO tem campo empresa (fica pra Parte 5)
+    # -- por enquanto, qualquer superuser de empresa vê/edita a MESMA
+    # configuração, compartilhada com todo mundo.
+    def has_module_permission(self, request):
+        return eh_superuser_ou_superuser_empresa(request.user)
+
+    def has_view_permission(self, request, obj=None):
+        return eh_superuser_ou_superuser_empresa(request.user)
+
+    def has_add_permission(self, request):
+        return eh_superuser_ou_superuser_empresa(request.user)
+
+    def has_change_permission(self, request, obj=None):
+        return eh_superuser_ou_superuser_empresa(request.user)
+
+    def has_delete_permission(self, request, obj=None):
+        return eh_superuser_ou_superuser_empresa(request.user)
+
 
 @admin.register(HistoricoAgente)
 class HistoricoAgenteAdmin(admin.ModelAdmin):
@@ -1362,9 +1488,17 @@ class HistoricoAgenteAdmin(admin.ModelAdmin):
 
     def get_list_filter(self, request):
         # Filtro por usuário só faz sentido pra quem vê o histórico de todo mundo
-        if request.user.is_superuser:
+        if eh_superuser_ou_superuser_empresa(request.user):
             return ('usuario',)
         return ()
+
+    # 🌟 NOVO (multi-empresa): libera a tela aparecer no menu pro
+    # superuser de empresa também.
+    def has_module_permission(self, request):
+        return eh_superuser_ou_superuser_empresa(request.user)
+
+    def has_view_permission(self, request, obj=None):
+        return eh_superuser_ou_superuser_empresa(request.user)
 
     def has_add_permission(self, request):
         return False
@@ -1376,11 +1510,45 @@ class HistoricoAgenteAdmin(admin.ModelAdmin):
         qs = super().get_queryset(request)
         if request.user.is_superuser:
             return qs
+        perfil = getattr(request.user, 'perfilusuario', None)
+        if perfil and perfil.eh_superuser_empresa and perfil.empresa_id:
+            # 🌟 NOVO: superuser de empresa vê o histórico de TODOS os
+            # usuários da própria empresa, não só o dele mesmo.
+            return qs.filter(usuario__perfilusuario__empresa_id=perfil.empresa_id)
         return qs.filter(usuario=request.user)
 
 
 @admin.register(RelatorioPDF)
 class RelatorioPDFAdmin(admin.ModelAdmin):
-    list_display = ('titulo', 'ativo', 'criado_em')
+    list_display = ('titulo', 'empresa', 'ativo', 'criado_em')
     list_filter = ('ativo',)
     search_fields = ('titulo',)  # Removed texto_extraido from here
+
+    # 🌟 NOVO (multi-empresa): libera a tela aparecer no menu pro
+    # superuser de empresa também.
+    def has_module_permission(self, request):
+        return eh_superuser_ou_superuser_empresa(request.user)
+
+    def has_view_permission(self, request, obj=None):
+        return eh_superuser_ou_superuser_empresa(request.user)
+
+    def has_add_permission(self, request):
+        return eh_superuser_ou_superuser_empresa(request.user)
+
+    def has_change_permission(self, request, obj=None):
+        return eh_superuser_ou_superuser_empresa(request.user)
+
+    def has_delete_permission(self, request, obj=None):
+        return eh_superuser_ou_superuser_empresa(request.user)
+
+    # 🌟 NOVO (multi-empresa): filtra a listagem pela empresa EFETIVA do
+    # usuário logado -- mesmo padrão de TbCenariosAdmin. Vale até pro
+    # superuser real: ele só vê os relatórios da empresa que está ativa
+    # pra ele no momento, não de todas ao mesmo tempo.
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        perfil = getattr(request.user, 'perfilusuario', None)
+        empresa_id = perfil.empresa_efetiva_id() if perfil else None
+        if empresa_id is None:
+            return qs.none()
+        return qs.filter(empresa_id=empresa_id)

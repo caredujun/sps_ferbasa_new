@@ -27,6 +27,9 @@ urlpatterns += [
     # usuário -- URL direta, fora do mecanismo de URLs do Admin.
     path('parameters/cenarios-por-empresa/<int:empresa_id>/',
          views.cenarios_por_empresa_json, name='cenarios_por_empresa_json'),
+    # 🌟 NOVO (multi-idioma, Fase 1): troca o idioma pessoal do usuário
+    # logado -- acessível a QUALQUER usuário, mesmo sem acesso ao Admin.
+    path('trocar-idioma/', views.trocar_idioma_view, name='trocar_idioma'),
     path('fluxo_producao/', include('fluxos.urls')),
     path('two_factor/'    , include(('admin_two_factor.urls', 'admin_two_factor'), namespace='two_factor')),
     path(''               , admin.site.urls),

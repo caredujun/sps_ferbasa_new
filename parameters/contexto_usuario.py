@@ -78,3 +78,29 @@ def eh_superuser_ou_superuser_empresa(usuario):
         return True
     perfil = getattr(usuario, 'perfilusuario', None)
     return bool(perfil and perfil.eh_superuser_empresa)
+
+
+def empresa_tem_app_habilitado(usuario, app_label):
+    """
+    🌟 NOVO (multi-empresa): diz se a empresa EFETIVA do usuário logado
+    tem o app opcional "app_label" habilitado (TbEmpresa.
+    apps_habilitados). Usado pelos has_module_permission/has_view_
+    permission dos apps opcionais (ex: custo_ferbasa), pra sumir do menu
+    do Admin pra quem não tem acesso.
+
+    Vale até pro superusuário DE VERDADE -- ele só vê o app se a empresa
+    que está ATIVA pra ele no momento tiver o app habilitado (mesmo
+    espírito de "até o superuser só vê a empresa ativa" já aplicado no
+    resto do sistema) -- evita ele ver dado de um app exclusivo de uma
+    empresa enquanto está "logado como" outra.
+    """
+    if usuario is None or not usuario.is_authenticated:
+        return False
+    perfil = getattr(usuario, 'perfilusuario', None)
+    if perfil is None:
+        return False
+    empresa_id = perfil.empresa_efetiva_id()
+    if empresa_id is None:
+        return False
+    from .models import TbEmpresa
+    return TbEmpresa.objects.filter(id=empresa_id, apps_habilitados__app_label=app_label).exists()

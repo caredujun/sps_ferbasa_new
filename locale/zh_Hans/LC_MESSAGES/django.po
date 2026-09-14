@@ -1,0 +1,177 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: zh_Hans\n"
+
+msgid "Nome"
+msgstr "名称"
+
+msgid "Tipo"
+msgstr "类型"
+
+msgid "Descrição"
+msgstr "描述"
+
+msgid "Moeda"
+msgstr "货币"
+
+msgid "Imagem da Moeda"
+msgstr "货币图片"
+
+msgid "Logo"
+msgstr "徽标"
+
+msgid "Fluxo de Produção"
+msgstr "生产流程"
+
+msgid "Idioma Padrão"
+msgstr "默认语言"
+
+msgid "Próximo Número de Cenário"
+msgstr "下一个方案编号"
+
+msgid "Apps Habilitados"
+msgstr "已启用的应用"
+
+msgid "Empresa"
+msgstr "公司"
+
+msgid "Empresas"
+msgstr "公司"
+
+msgid "   Cenário"
+msgstr "   方案"
+
+msgid "   Cenários"
+msgstr "   方案"
+
+msgid "Início"
+msgstr "开始"
+
+msgid "Fim"
+msgstr "结束"
+
+msgid "Ativo"
+msgstr "激活"
+
+msgid "Grupo"
+msgstr "组"
+
+msgid "Copiar de "
+msgstr "复制自 "
+
+msgid "Controle"
+msgstr "控制"
+
+msgid "Cenário"
+msgstr "方案"
+
+msgid "É Cenário Base"
+msgstr "是基础方案"
+
+msgid "Cenário Ativo"
+msgstr "当前方案"
+
+msgid "Pode trocar cenário ativo"
+msgstr "可以更改当前方案"
+
+msgid "Superusuário da Empresa"
+msgstr "公司超级用户"
+
+msgid "Idioma"
+msgstr "语言"
+
+msgid "Empresa Ativa (superusuário)"
+msgstr "当前公司（超级用户）"
+
+msgid "Cenários ativos por empresa (memória)"
+msgstr "按公司划分的当前方案（记忆）"
+
+msgid "Perfil de Usuário"
+msgstr "用户资料"
+
+msgid "Perfis de Usuário"
+msgstr "用户资料"
+
+msgid "Assistente de IA Integrado"
+msgstr "集成人工智能助手"
+
+msgid "Relatórios"
+msgstr "报告"
+
+msgid "Marque os arquivos que deseja incluir na análise da resposta atual."
+msgstr "勾选您希望包含在当前回复分析中的文件。"
+
+msgid "Arraste um PDF, TXT ou XLSX aqui"
+msgstr "将 PDF、TXT 或 XLSX 文件拖到此处"
+
+msgid "ou clique para escolher"
+msgstr "或点击选择"
+
+msgid "Nenhum PDF cadastrado no Admin."
+msgstr "管理后台中没有已注册的 PDF。"
+
+msgid "Digite sua pergunta..."
+msgstr "请输入您的问题……"
+
+msgid "Enviar"
+msgstr "发送"
+
+msgid "Ações Comuns no SPS"
+msgstr "SPS 常用操作"
+
+msgid "Escolhe a categoria e seleciona a ação, sem risco de digitar errado."
+msgstr "选择类别和操作，无需担心输入错误。"
+
+msgid "Selecione uma ação..."
+msgstr "请选择操作……"
+
+msgid "Criar cenário novo"
+msgstr "创建新方案"
+
+msgid "Mudar tipo/período"
+msgstr "更改类型/期间"
+
+msgid "Ver status"
+msgstr "查看状态"
+
+msgid "Limpar"
+msgstr "清除"
+
+msgid "Otimizar"
+msgstr "优化"
+
+msgid "Consolidar"
+msgstr "整合"
+
+msgid "Ciclo completo (limpar, otimizar e consolidar)"
+msgstr "完整流程（清除、优化并整合）"
+
+msgid "Indicadores"
+msgstr "指标"
+
+msgid "Mudar valor"
+msgstr "更改数值"
+
+msgid "Criar novo"
+msgstr "新建"
+
+msgid "Reajuste em massa"
+msgstr "批量调整"
+
+msgid "Eliminar"
+msgstr "删除"
+
+msgid "Taxas de Câmbio"
+msgstr "汇率"
+
+msgid "Criar nova"
+msgstr "新建"
+
+msgid "Agente IA"
+msgstr "人工智能助手"
+
+#, python-format
+msgid "Olá %(nome_usuario)s! O que posso fazer por você hoje?"
+msgstr "你好，%(nome_usuario)s！今天我能为您做些什么？"

@@ -1,12 +1,13 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.http import JsonResponse
+from django.contrib import messages
 from .agents import executar_agente_com_prompt_do_admin
 from .fluxo_criar_cenario import usuario_esta_em_fluxo
 from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from functools import wraps
-from .models import RelatorioPDF, HistoricoAgente
+from .models import RelatorioPDF, HistoricoAgente, IDIOMA_CHOICES
 from .contexto_usuario import eh_superuser_ou_superuser_empresa
 import datetime
 import re
@@ -157,6 +158,29 @@ def cenarios_por_empresa_json(request, empresa_id):
     return JsonResponse({'cenarios': dados})
 
 
+@login_required
+@require_POST
+def trocar_idioma_view(request):
+    """
+    🌟 NOVO (multi-idioma, Fase 1): permite que QUALQUER usuário logado
+    troque o próprio idioma, a qualquer momento -- sem depender de ter
+    acesso ao Django Admin (que exige is_staff). Usado pelo seletor de
+    idioma na tela do chat.
+    """
+    novo_idioma = request.POST.get('idioma', '')
+    codigos_validos = {codigo for codigo, _ in IDIOMA_CHOICES}
+    if novo_idioma not in codigos_validos:
+        messages.error(request, 'Idioma inválido.')
+        return redirect(request.META.get('HTTP_REFERER', '/'))
+
+    perfil = getattr(request.user, 'perfilusuario', None)
+    if perfil is not None:
+        perfil.idioma = novo_idioma
+        perfil.save()
+
+    return redirect(request.META.get('HTTP_REFERER', '/'))
+
+
 @exige_acesso_ao_agente_ia
 def chat_view(request):
     if request.method == "POST":
@@ -189,9 +213,24 @@ def chat_view(request):
             "opcoes": opcoes
         })
 
-    # No GET, renderiza a página trazendo todos os relatórios disponíveis
-    relatorios = RelatorioPDF.objects.filter(ativo=True).order_by('-id')
-    return render(request, "chat.html", {"relatorios": relatorios})
+    # No GET, renderiza a página trazendo os relatórios da empresa efetiva do usuário
+    # 🌟 NOVO (multi-empresa): antes trazia TODOS os relatórios (de
+    # qualquer empresa) -- agora filtra igual ao resto do sistema.
+    perfil = getattr(request.user, 'perfilusuario', None)
+    empresa_id = perfil.empresa_efetiva_id() if perfil else None
+    if empresa_id is None:
+        relatorios = RelatorioPDF.objects.none()
+    else:
+        relatorios = RelatorioPDF.objects.filter(ativo=True, empresa_id=empresa_id).order_by('-id')
+
+    # 🌟 NOVO (multi-idioma, Fase 1): manda o idioma atual e a lista de
+    # opções pro seletor de idioma no template.
+    idioma_atual = perfil.idioma_efetivo() if perfil else 'pt-br'
+    return render(request, "chat.html", {
+        "relatorios": relatorios,
+        "idioma_atual": idioma_atual,
+        "idioma_opcoes": IDIOMA_CHOICES,
+    })
 
 
 

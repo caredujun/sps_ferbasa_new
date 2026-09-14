@@ -6,7 +6,8 @@ from django.contrib import admin, messages
 import locale, datetime
 from django.db.models.signals import post_save
 from django.utils.html import format_html
-from parameters.models import TbCenarios
+from parameters.models import TbCenarios, TbEmpresa
+from parameters.contexto_usuario import get_usuario_atual
 import pandas as pd
 import statsmodels.api as sm
 from decimal import Decimal
@@ -15,6 +16,21 @@ from decimal import Decimal
 #from fluxos.models import TbFluxoConsumoPadrao
 
 locale.setlocale(locale.LC_ALL, 'pt_BR.utf8')  # Estou usando esse pois Heroku não aceita pt_BR
+
+
+def _atribuir_empresa_se_necessario(instance):
+    """
+    🌟 NOVO (multi-empresa, Parte 3): preenche "empresa" automaticamente
+    na CRIAÇÃO de qualquer registro dessas tabelas independentes de
+    cenário -- a partir da empresa efetiva do usuário logado. Mesmo
+    mecanismo já usado em tabelas/models.py e parameters/models.py.
+    """
+    if instance.pk is None and instance.empresa_id is None:
+        usuario = get_usuario_atual()
+        if usuario is not None:
+            perfil = getattr(usuario, 'perfilusuario', None)
+            if perfil is not None:
+                instance.empresa_id = perfil.empresa_efetiva_id()
 
 
 def custom_titled_filter(title):
@@ -62,12 +78,15 @@ class BonificacaoFilter(admin.SimpleListFilter):
 class TbItensConsumo(models.Model):
     ite_con_tipo_choice = (('COMPRADO', 'COMPRADO'), ('FABRICADO', 'FABRICADO'))
 
-    ite_con_codigo = models.CharField(max_length=10, null=False, blank=False, unique=True, verbose_name='Código')
+    # 🌟 CORRIGIDO (multi-empresa): unique=True tirado (era global) --
+    # unicidade agora fica no Meta, junto com empresa.
+    ite_con_codigo = models.CharField(max_length=10, null=False, blank=False, verbose_name='Código')
     ite_con_descricao = models.CharField(max_length=60, null=False, blank=False, verbose_name='Descrição')
     ite_con_unidade = models.CharField(max_length=2, null=False, blank=False, verbose_name='Unidade')
     ite_con_tipo = models.CharField(max_length=9, choices=ite_con_tipo_choice, null=False, blank=False, verbose_name='Tipo')
     ite_subproduto = models.BooleanField(default=False, verbose_name='Subproduto')
     ite_con_observacao = models.TextField(verbose_name='Observação', blank=True, null=True)
+    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Empresa')
 
     def __str__(self):
         return self.ite_con_descricao + ' - ' + self.ite_con_codigo
@@ -83,6 +102,13 @@ class TbItensConsumo(models.Model):
         verbose_name = '          Item de Consumo'
         verbose_name_plural = '          Itens de Consumo'
         ordering = ['ite_con_descricao']
+        constraints = [
+            models.UniqueConstraint(fields=['ite_con_codigo', 'empresa'], name='itemconsumo_codigo_unico_por_empresa')
+        ]
+
+    def save(self, *args, **kwargs):
+        _atribuir_empresa_se_necessario(self)
+        super().save(*args, **kwargs)
 
     def bonificacao(self):
         #Vamos ver se o item de consumo aparece como bonificação no arquivo de produção
@@ -96,7 +122,9 @@ class TbItensConsumo(models.Model):
     bonificacao.short_description = 'Bonificação'
 
 class TbItensProducao(models.Model):
-    ite_pro_codigo = models.CharField(max_length=10, null=False, blank=False, unique=True, verbose_name='Código')
+    # 🌟 CORRIGIDO (multi-empresa): unique=True tirado -- unicidade
+    # agora fica no Meta, junto com empresa.
+    ite_pro_codigo = models.CharField(max_length=10, null=False, blank=False, verbose_name='Código')
     ite_pro_descricao = models.CharField(max_length=60, null=False, blank=False, verbose_name='Descrição')
     ite_pro_unidade = models.CharField(max_length=2, null=False, blank=False, verbose_name='Unidade')
     ite_pro_ano_mes_inicio = models.CharField(max_length=7, null=True, blank=True, verbose_name='Ano/Mês Início')
@@ -110,6 +138,7 @@ class TbItensProducao(models.Model):
     ite_pro_ggf_variavel_pi = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True, verbose_name='Valor GGF Variável Prod. Internos')
     ite_pro_ggf_fixo_outros_pi = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True, verbose_name='Valor GGF Fixo/Outros Prod. Internos')
     ite_pro_observacao = models.TextField(verbose_name='Observação', blank=True, null=True)
+    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Empresa')
 
     def __str__(self):
         return self.ite_pro_descricao + ' / ' + self.ite_pro_codigo
@@ -133,6 +162,13 @@ class TbItensProducao(models.Model):
         verbose_name = '           Item de Produção'
         verbose_name_plural = '           Itens de Produção'
         ordering = ['ite_pro_descricao']
+        constraints = [
+            models.UniqueConstraint(fields=['ite_pro_codigo', 'empresa'], name='itemproducao_codigo_unico_por_empresa')
+        ]
+
+    def save(self, *args, **kwargs):
+        _atribuir_empresa_se_necessario(self)
+        super().save(*args, **kwargs)
 
 
 class TbItensProducaoDaugther(models.Model):
@@ -141,6 +177,7 @@ class TbItensProducaoDaugther(models.Model):
     valor_material = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, verbose_name='Valor Material')
     valor_ggf = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, verbose_name='Valor GGF')
     mae = models.ForeignKey(TbItensProducao, on_delete=models.CASCADE, verbose_name='Mãe')
+    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Empresa')
 
     def __str__(self):
         return '' #  str(self.item_consumo)
@@ -149,6 +186,10 @@ class TbItensProducaoDaugther(models.Model):
         verbose_name = '          Item de Consumo'
         verbose_name_plural = '          Itens de Consumo'
         ordering = ['item_consumo']
+
+    def save(self, *args, **kwargs):
+        _atribuir_empresa_se_necessario(self)
+        super().save(*args, **kwargs)
 
     def tipo_insumo(self):
         retorno = TbItensConsumo.objects.get(id=self.item_consumo_id).ite_con_tipo
@@ -168,6 +209,7 @@ class TbItensProducaoDaugther1(models.Model):
     item_consumo = models.ForeignKey(TbItensConsumo, on_delete=models.CASCADE, verbose_name='Item de Consumo')
     indicador = models.DecimalField(max_digits=15, decimal_places=4, verbose_name='Indicador')
     mae = models.ForeignKey(TbItensProducao, on_delete=models.CASCADE, verbose_name='Mãe')
+    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Empresa')
 
     def __str__(self):
         return ''
@@ -177,11 +219,18 @@ class TbItensProducaoDaugther1(models.Model):
         verbose_name_plural = 'Arvore Genealógica de Produção'
         ordering = ['chave']
 
+    def save(self, *args, **kwargs):
+        _atribuir_empresa_se_necessario(self)
+        super().save(*args, **kwargs)
+
 
 class TbEstabelecimentos(models.Model):
-    est_codigo = models.CharField(max_length=3, null=False, blank=False, unique=True, verbose_name='Código')
-    est_nome = models.CharField(max_length=60, null=False, blank=False, unique=True, verbose_name='Nome')
+    # 🌟 CORRIGIDO (multi-empresa): unique=True tirado dos dois -- vira
+    # constraint no Meta, junto com empresa.
+    est_codigo = models.CharField(max_length=3, null=False, blank=False, verbose_name='Código')
+    est_nome = models.CharField(max_length=60, null=False, blank=False, verbose_name='Nome')
     est_observacao = models.TextField(verbose_name='Observação', blank=True, null=True)
+    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Empresa')
 
     def __str__(self):
         return self.est_nome + ' / ' + self.est_codigo
@@ -194,12 +243,23 @@ class TbEstabelecimentos(models.Model):
         verbose_name = '         Estabelecimento'
         verbose_name_plural = '         Estabelecimentos'
         ordering = ['est_nome']
+        constraints = [
+            models.UniqueConstraint(fields=['est_codigo', 'empresa'], name='estabelecimento_codigo_unico_por_empresa'),
+            models.UniqueConstraint(fields=['est_nome', 'empresa'], name='estabelecimento_nome_unico_por_empresa'),
+        ]
+
+    def save(self, *args, **kwargs):
+        _atribuir_empresa_se_necessario(self)
+        super().save(*args, **kwargs)
 
 
 class TbGruposMaquinas(models.Model):
-    gru_maq_codigo = models.CharField(max_length=10, null=False, blank=False, unique=True, verbose_name='Código')
+    # 🌟 CORRIGIDO (multi-empresa): unique=True tirado -- vira constraint
+    # no Meta, junto com empresa.
+    gru_maq_codigo = models.CharField(max_length=10, null=False, blank=False, verbose_name='Código')
     gru_maq_nome = models.CharField(max_length=60, null=False, blank=False, verbose_name='Nome')
     gru_maq_observacao = models.TextField(verbose_name='Observação', blank=True, null=True)
+    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Empresa')
 
     def __str__(self):
         return self.gru_maq_nome + ' / ' + self.gru_maq_codigo
@@ -212,13 +272,23 @@ class TbGruposMaquinas(models.Model):
         verbose_name = '        Grupo Máquina'
         verbose_name_plural = '        Grupos Máquinas'
         ordering = ['gru_maq_codigo']
+        constraints = [
+            models.UniqueConstraint(fields=['gru_maq_codigo', 'empresa'], name='grupomaquina_codigo_unico_por_empresa')
+        ]
+
+    def save(self, *args, **kwargs):
+        _atribuir_empresa_se_necessario(self)
+        super().save(*args, **kwargs)
 
 
 class TbContaContabil(models.Model):
-    con_con_codigo = models.CharField(max_length=6, null=False, blank=False, unique=True, verbose_name='Código')
+    # 🌟 CORRIGIDO (multi-empresa): unique=True tirado -- vira constraint
+    # no Meta, junto com empresa.
+    con_con_codigo = models.CharField(max_length=6, null=False, blank=False, verbose_name='Código')
     con_con_descricao = models.CharField(max_length=60, null=False, blank=False, verbose_name='Descricao')
     con_con_pessoal = models.BooleanField(blank=False, null=False, default=False, verbose_name='Conta de Pessoal')
     con_con_observacao = models.TextField(verbose_name='Observação', blank=True, null=True)
+    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Empresa')
 
     def __str__(self):
         return self.con_con_codigo + '/' + self.con_con_descricao
@@ -231,6 +301,13 @@ class TbContaContabil(models.Model):
         verbose_name = '       Conta Contábil'
         verbose_name_plural = '       Contas Contábeis'
         ordering = ['con_con_descricao']
+        constraints = [
+            models.UniqueConstraint(fields=['con_con_codigo', 'empresa'], name='contacontabil_codigo_unico_por_empresa')
+        ]
+
+    def save(self, *args, **kwargs):
+        _atribuir_empresa_se_necessario(self)
+        super().save(*args, **kwargs)
 
 
 class TbCentroCusto(models.Model):
@@ -245,6 +322,7 @@ class TbCentroCusto(models.Model):
     cen_cus_mod = models.IntegerField(blank=False, null=False, verbose_name='Mão-de-obra Direta (MOD)', default=0)
     cen_cus_moi = models.IntegerField(blank=False, null=False, verbose_name='Mão-de-obra Indireta (MOI)', default=0)
     cen_cus_observacao = models.TextField(verbose_name='Observação', blank=True, null=True)
+    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Empresa')
 
     def __str__(self):
         return self.cen_cus_codigo + '/' + self.cen_cus_descricao
@@ -257,7 +335,14 @@ class TbCentroCusto(models.Model):
         verbose_name        = '      Centro de Custo'
         verbose_name_plural = '      Centros de Custo'
         ordering = ['cen_cus_descricao']
-        unique_together = ('cen_cus_codigo', 'cen_cus_referencia')
+        # 🌟 CORRIGIDO (multi-empresa): "empresa" acrescentada na
+        # combinação única -- antes só (código, referência), o que
+        # impediria duas empresas de terem o mesmo código+referência.
+        unique_together = ('cen_cus_codigo', 'cen_cus_referencia', 'empresa')
+
+    def save(self, *args, **kwargs):
+        _atribuir_empresa_se_necessario(self)
+        super().save(*args, **kwargs)
 
 class TbContaContabilCentroCusto(models.Model):
     con_con_cen_cus_tipo_choice = (
@@ -273,6 +358,7 @@ class TbContaContabilCentroCusto(models.Model):
     con_con_cen_cus_tipo = models.CharField(max_length=8, choices=con_con_cen_cus_tipo_choice, null=False, blank=False, verbose_name='Tipo')
     con_con_cen_cus_percentual = models.DecimalField(max_digits=6, decimal_places=2, verbose_name='Percentual (%)', default=100.00)
     con_con_cen_cus_observacao = models.TextField(verbose_name='Observação', blank=True, null=True)
+    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Empresa')
 
     def __str__(self):
         return f"{self.con_con_cen_cus_conta} - {self.con_con_cen_cus_cc}"
@@ -281,6 +367,10 @@ class TbContaContabilCentroCusto(models.Model):
         verbose_name = '     Conta Contábil/Centro de Custo'
         verbose_name_plural = '     Contas Contábeis/Centros de Custo'
         unique_together = ('con_con_cen_cus_conta', 'con_con_cen_cus_cc', 'con_con_cen_cus_estabelecimento')
+
+    def save(self, *args, **kwargs):
+        _atribuir_empresa_se_necessario(self)
+        super().save(*args, **kwargs)
 
 
 class TbProducaoMensal(models.Model):
@@ -296,6 +386,7 @@ class TbProducaoMensal(models.Model):
     pro_men_valor_ggf = models.DecimalField(max_digits=15, null=True, decimal_places=2, verbose_name='Valor GGF')
     pro_men_valor_ultima_entrada = models.DecimalField(max_digits=10, null=True, decimal_places=2, verbose_name='Valor Última Entrada')
     pro_men_observacao = models.TextField(verbose_name='Observação', blank=True, null=True)
+    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Empresa')
 
     def __str__(self):
         return ''
@@ -305,6 +396,10 @@ class TbProducaoMensal(models.Model):
         verbose_name_plural = '    Produção Mensal'
         ordering = ['pro_men_ano_mes', 'pro_men_item_producao']
         unique_together = ('pro_men_ano_mes', 'pro_men_estabelecimento', 'pro_men_grupo_maquina', 'pro_men_ordem_producao', 'pro_men_item_producao', 'pro_men_item_consumo')
+
+    def save(self, *args, **kwargs):
+        _atribuir_empresa_se_necessario(self)
+        super().save(*args, **kwargs)
 
     def indicador(self):
         valor_retorno = 0
@@ -328,6 +423,7 @@ class TbDistribuicaoGGFMensal(models.Model):
     dis_ggf_men_conta_cc = models.ForeignKey(TbContaContabilCentroCusto, on_delete=models.CASCADE, verbose_name='Conta Contábil/Centro de Custo')
     dis_ggf_men_valor = models.DecimalField(max_digits=12, decimal_places=2, verbose_name='Valor')
     dis_ggf_men_observacao = models.TextField(verbose_name='Observação', blank=True, null=True)
+    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Empresa')
 
     def __str__(self):
         return ''
@@ -337,6 +433,10 @@ class TbDistribuicaoGGFMensal(models.Model):
         verbose_name_plural = '   Distribuição GGF Mensal'
         ordering = ['dis_ggf_men_ano_mes', 'dis_ggf_men_item_producao']
         unique_together = ('dis_ggf_men_ano_mes', 'dis_ggf_men_estabelecimento', 'dis_ggf_men_grupo_maquina', 'dis_ggf_men_ordem_producao', 'dis_ggf_men_item_producao', 'dis_ggf_men_conta_cc')
+
+    def save(self, *args, **kwargs):
+        _atribuir_empresa_se_necessario(self)
+        super().save(*args, **kwargs)
 
     def referencia_cc(self):
         id_cc = TbContaContabilCentroCusto.objects.get(id=self.dis_ggf_men_conta_cc_id).con_con_cen_cus_cc_id
@@ -367,7 +467,9 @@ class TbConsumoEspecifico(models.Model):
         SOM = ('SOM', 'SOMA')
         MUL = ('MUL', 'MULTIPLICAÇÃO')
 
-    con_esp_descricao = models.CharField(max_length=100, null=False, blank=False, unique=True, verbose_name='Descrição')
+    # 🌟 CORRIGIDO (multi-empresa): unique=True tirado -- vira constraint
+    # no Meta, junto com empresa.
+    con_esp_descricao = models.CharField(max_length=100, null=False, blank=False, verbose_name='Descrição')
     con_esp_validado = models.BooleanField(default=False, verbose_name='Validado')
     con_esp_area_responsavel = models.CharField(max_length=3, choices=AreaResponsavelChoices.choices, null=False, blank=False, verbose_name='Área Responsável')
     con_esp_criado_por = models.CharField(max_length=20, null=True, blank=True, verbose_name='Criado por')
@@ -390,9 +492,7 @@ class TbConsumoEspecifico(models.Model):
     con_esp_tipo_equacao = models.CharField(max_length=3, choices=TipoEquacaolChoices.choices, default='SOM', null=True, blank=True, verbose_name='Tipo Equação')
     con_esp_observacao = models.TextField(verbose_name='Observação', blank=True, null=True)
     flag = models.BooleanField(blank=True, null=True, default=False, verbose_name='Controle')
-
-    # Este campo (flag) é somente para controle no calculo do indicador por periodo
-    # Se for igual a zero / false significa que não é para calcular o indicador. Se 1 / true é para calcular o indicador
+    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Empresa')
 
     def __str__(self):
         return self.con_esp_descricao
@@ -407,7 +507,6 @@ class TbConsumoEspecifico(models.Model):
         if self.con_esp_ano_mes_fim < self.con_esp_ano_mes_inicio:
             raise ValidationError('Ano/Mês Fim deve ser maior ou igual ao Ano/Mês Início. Favor corrigir!')
 
-        # Verificando se ano/mmês informado está correto
         year, month = self.con_esp_ano_mes_inicio.split('/')
         day = '01'
         isValidDate = True
@@ -419,7 +518,6 @@ class TbConsumoEspecifico(models.Model):
         if not isValidDate:
             raise ValidationError('Ano/Mês Início informado está incorreto. Favor corrigir!')
 
-        # Verificando se ano/mmês fim está correto
         year, month = self.con_esp_ano_mes_fim.split('/')
         day = '01'
         isValidDate = True
@@ -436,11 +534,18 @@ class TbConsumoEspecifico(models.Model):
         verbose_name = '  Consumo Específico SPS'
         verbose_name_plural = '  Consumos Específicos SPS'
         ordering = ['con_esp_descricao']
+        constraints = [
+            models.UniqueConstraint(fields=['con_esp_descricao', 'empresa'], name='consumoespecifico_descricao_unica_por_empresa')
+        ]
+
+    def save(self, *args, **kwargs):
+        _atribuir_empresa_se_necessario(self)
+        super().save(*args, **kwargs)
 
     def desv_prod(self):
         return self.con_esp_desvio_producao
     desv_prod.short_description = '(D+P)'
-    desv_prod.boolean = True  # Para mostrar um ícon
+    desv_prod.boolean = True
 
     def percentual_desvio(self):
         if self.con_esp_qtde_produzida != None and self.con_esp_qtde_desviada != None:
@@ -448,9 +553,7 @@ class TbConsumoEspecifico(models.Model):
                 valor_retorno = self.con_esp_qtde_desviada * 100 / (self.con_esp_qtde_produzida + self.con_esp_qtde_desviada)
             else:
                 valor_retorno = 0
-            # Vamos formatar o valor do retorno no padrão brasileiro
             valor_retorno = locale.format_string('%.2f', valor_retorno, True)
-
             return valor_retorno
         else:
             return ''
@@ -471,11 +574,10 @@ class TbConsumoEspecifico(models.Model):
 
     status_colored_model.short_description = 'Status'
 
-    def sps(self): # Para mostrar se indicador está sendo usado pelo SPS
+    def sps(self):
         from fluxos.models import TbFluxoConsumoPadrao
         from equipamentos.models import TbEquipamentosConsumoEspecifico
 
-        # Vamos pegar o cenário ativo (id e nome)
         cen_ativo = str(TbCenarios.objects.get(cen_ativo=True).id)
 
         if TbFluxoConsumoPadrao.objects.filter(flu_con_pad_consumo_especifico_id=self.id, tbcenarios_id=cen_ativo).exists() or TbEquipamentosConsumoEspecifico.objects.filter(equ_con_consumo_especifico_id=self.id, tbcenarios_id=cen_ativo).exists():
@@ -494,7 +596,7 @@ class TbConsumoEspecifico(models.Model):
 
     indicador_sps.short_description = format_html('<b style="color:{};">{}</b>', 'blue', 'Indicador (SPS)')
 
-    def indicador_d_0(self): # indicador quando o desvio não é considerado produção
+    def indicador_d_0(self):
         if self.con_esp_qtde_produzida != None:
             if self.con_esp_qtde_produzida > 0:
                 retorno = self.con_esp_qtde_consumo / self.con_esp_qtde_produzida
@@ -506,7 +608,7 @@ class TbConsumoEspecifico(models.Model):
 
     indicador_d_0.short_description = 'Indicador (P)'
 
-    def indicador_d_p(self): # indicador quando o desvio é considerado produção
+    def indicador_d_p(self):
         if self.con_esp_qtde_desviada == None:
             qtde_desviada = 0
         else:
@@ -530,8 +632,6 @@ class TbConsumoEspecifico(models.Model):
 
     legenda.short_description = ''
 
-    # Colocamos o save no admin para enviar mensagens
-
 
 class TbConsumoEspecificoDaugther(models.Model):
     ano_mes = models.CharField(max_length=7, null=False, blank=False, verbose_name='Ano/Mês')
@@ -540,10 +640,8 @@ class TbConsumoEspecificoDaugther(models.Model):
     qtde_consumo = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='Qtde Consumo')
     indicador = models.DecimalField(max_digits=12, decimal_places=4, verbose_name='Indicador (SPS)')
     flag = models.BooleanField(blank=True, null=True, default=False, verbose_name='Controle')
-    # Este campo (flag) é somente para controle.
-    # Se for igual a zero significa que é lixo. Deixamos na tabela, pois pode voltar a ser utilizado
-    # Se for igual a um (1) significa que está sendo usado no sistema
     mae = models.ForeignKey(TbConsumoEspecifico, on_delete=models.CASCADE, verbose_name='Mãe')
+    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Empresa')
 
     def __str__(self):
         return ''
@@ -553,7 +651,11 @@ class TbConsumoEspecificoDaugther(models.Model):
         verbose_name_plural = 'Valores Históricos'
         ordering = ['ano_mes']
 
-    def indicador_d_0(self): # indicador quando o desvio não é considerado produção
+    def save(self, *args, **kwargs):
+        _atribuir_empresa_se_necessario(self)
+        super().save(*args, **kwargs)
+
+    def indicador_d_0(self):
         if self.qtde_produzida > 0:
             retorno = self.qtde_consumo / self.qtde_produzida
             return locale.format_string('%.4f', retorno, True)
@@ -562,7 +664,7 @@ class TbConsumoEspecificoDaugther(models.Model):
 
     indicador_d_0.short_description = 'Indicador (P)'
 
-    def indicador_d_p(self): # indicador quando o desvio é considerado produção
+    def indicador_d_p(self):
         if self.qtde_desviada == None:
             qtde_desviada = 0
         else:
@@ -586,7 +688,6 @@ class TbConsumoEspecificoDaugther(models.Model):
         else:
             valor_retorno = 0
 
-        # Vamos formatar o valor do retorno no padrão brasileiro
         valor_retorno = locale.format_string('%.2f', valor_retorno, True)
 
         return valor_retorno
@@ -598,6 +699,7 @@ class TbConsumoEspecificoDaugther1(models.Model):
     codigo = models.CharField(max_length=3, null=False, blank=False, verbose_name='Código')
     consumo_especifico = models.ForeignKey(TbConsumoEspecifico, on_delete=models.CASCADE, verbose_name='Consumo Específico')
     mae = models.ForeignKey(TbConsumoEspecifico, on_delete=models.CASCADE, related_name='mae', verbose_name='Mãe')
+    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Empresa')
 
     def __str__(self):
         return ''
@@ -606,11 +708,13 @@ class TbConsumoEspecificoDaugther1(models.Model):
 
         self.codigo = self.codigo.upper()  # Passa o código para maiusculo antes de salvar
 
+    def save(self, *args, **kwargs):
+        _atribuir_empresa_se_necessario(self)
+        super().save(*args, **kwargs)
+
     def indicador_atual(self):
-        # Temos que calcular o valor do indicador para o mesmo período indicado no indicador
         if self.consumo_especifico is not None:
             cursor = connection.cursor()
-            # Expressão SQL
             ano_mes_inicio = TbConsumoEspecifico.objects.get(id=self.mae_id).con_esp_ano_mes_inicio
             ano_mes_fim = TbConsumoEspecifico.objects.get(id=self.mae_id).con_esp_ano_mes_fim
             sql = "call public.consumo_especifico_indicador_periodo(" + str(self.consumo_especifico_id) + ", '" + \
@@ -619,17 +723,10 @@ class TbConsumoEspecificoDaugther1(models.Model):
             retorno = cursor.fetchone()[0]
             cursor.close()
 
-            # Vamos formatar o valor no padrão brasileiro
             retorno = locale.format_string('%.4f', retorno, True)
         else:
             retorno = None
         return retorno
-        valor_retorno = TbConsumoEspecifico.objects.get(id=self.consumo_especifico_id).con_esp_indicador
-
-        # Vamos formatar o valor do retorno no padrão brasileiro
-        valor_retorno = locale.format_string('%.4f', valor_retorno, True)
-
-        return valor_retorno
 
     indicador_atual.short_description = 'Indicador Atual'
 
@@ -677,8 +774,7 @@ class TbCustoVariavelAdicionado(models.Model):
     cus_var_adi_item_consumo = models.ManyToManyField(TbItensConsumo, blank=True, verbose_name='Itens de Consumo para Desconsiderar')
     cus_var_adi_observacao = models.TextField(verbose_name='Observação', blank=True, null=True)
     flag = models.BooleanField(blank=True, null=True, default=False, verbose_name='Controle')
-    # Este campo (flag) é somente para controle no calculo do indicador por periodo
-    # Se for igual a zero / false significa que não é para calcular o indicador. Se 1 / true é para calcular o indicador
+    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Empresa')
 
     def __str__(self):
         return self.cus_var_adi_descricao
@@ -689,7 +785,6 @@ class TbCustoVariavelAdicionado(models.Model):
         if self.cus_var_adi_ano_mes_fim < self.cus_var_adi_ano_mes_inicio:
             raise ValidationError('Ano/Mês Fim deve ser maior ou igual ao Ano/Mês Início. Favor corrigir!')
 
-        # Verificando se ano/mmês informado está correto
         year, month = self.cus_var_adi_ano_mes_inicio.split('/')
         day = '01'
         isValidDate = True
@@ -701,7 +796,6 @@ class TbCustoVariavelAdicionado(models.Model):
         if not isValidDate:
             raise ValidationError('Ano/Mês Início informado está incorreto. Favor corrigir!')
 
-        # Verificando se ano/mmês fim está correto
         year, month = self.cus_var_adi_ano_mes_fim.split('/')
         day = '01'
         isValidDate = True
@@ -716,7 +810,7 @@ class TbCustoVariavelAdicionado(models.Model):
     def desv_prod(self):
         return self.cus_var_adi_desvio_producao
     desv_prod.short_description = '(D+P)'
-    desv_prod.boolean = True  # Para mostrar um ícon
+    desv_prod.boolean = True
 
     def percentual_desvio(self):
         if self.cus_var_adi_qtde_produzida != None and  self.cus_var_adi_qtde_desviada != None:
@@ -724,7 +818,6 @@ class TbCustoVariavelAdicionado(models.Model):
                 valor_retorno = self.cus_var_adi_qtde_desviada * 100 / (self.cus_var_adi_qtde_produzida + self.cus_var_adi_qtde_desviada)
             else:
                 valor_retorno = 0
-            # Vamos formatar o valor do retorno no padrão brasileiro
             valor_retorno = locale.format_string('%.2f', valor_retorno, True)
 
             return valor_retorno
@@ -747,6 +840,10 @@ class TbCustoVariavelAdicionado(models.Model):
         verbose_name_plural = ' Custos Variáveis Adicionados SPS'
         ordering = ['cus_var_adi_descricao']
 
+    def save(self, *args, **kwargs):
+        _atribuir_empresa_se_necessario(self)
+        super().save(*args, **kwargs)
+
     def status_colored_model(self):
         colors = {
             'CALCULADO': 'green',
@@ -762,26 +859,12 @@ class TbCustoVariavelAdicionado(models.Model):
 
     status_colored_model.short_description = 'Status'
 
-    # Colocamos o save no admin para permitir alterar mensagens
-    '''
-    def save(self, *args, **kwargs):
-        # Vamos salvar o super save
-        super(TbCustoVariavelAdicionado, self).save(*args, **kwargs)
-
-        # Vamos atualizar os indicadores
-        from .tasks import calcula_custo_variavel_adicionado
-
-        # Só executa após commit da tabela
-        transaction.on_commit(lambda: calcula_custo_variavel_adicionado(self.pk))
-    '''
-
     def custo_variavel_adicionado_total(self):
         if self.cus_var_adi_custo_variavel_adicionado_material != None and self.cus_var_adi_custo_variavel_adicionado_ggf != None:
             valor_retorno = self.cus_var_adi_custo_variavel_adicionado_material + self.cus_var_adi_custo_variavel_adicionado_ggf
         else:
             valor_retorno = 0
 
-        # Vamos formatar o valor do retorno no padrão brasileiro
         valor_retorno = locale.format_string('%.2f', valor_retorno, True)
 
         return format_html('<b style="color:{};">{}</b>', 'blue', valor_retorno,)
@@ -794,7 +877,6 @@ class TbCustoVariavelAdicionado(models.Model):
         else:
             valor_retorno = 0
 
-        # Vamos formatar o valor do retorno no padrão brasileiro
         valor_retorno = locale.format_string('%.2f', valor_retorno, True)
 
         return valor_retorno
@@ -807,7 +889,6 @@ class TbCustoVariavelAdicionado(models.Model):
         else:
             valor_retorno = 0
 
-        # Vamos formatar o valor do retorno no padrão brasileiro
         valor_retorno = locale.format_string('%.2f', valor_retorno, True)
 
         return valor_retorno
@@ -837,10 +918,8 @@ class TbCustoVariavelAdicionadoDaugther(models.Model):
     custo_total_desv = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, default=0, verbose_name='Custo Total (P+D)')
     custo_variavel_ggf_direto_desv = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, default=0, verbose_name='Custo Var. GGF Fase (P+D)')
     flag = models.BooleanField(blank=True, null=True, default=False, verbose_name='Controle')
-    # Este campo (flag) é somente para controle.
-    # Se for igual a zero significa que é lixo. Deixamos na tabela, pois pode voltar a ser utilizado
-    # Se for igual a um (1) significa que está sendo usado no sistema
     mae = models.ForeignKey(TbCustoVariavelAdicionado, on_delete=models.CASCADE, verbose_name='Mãe')
+    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Empresa')
 
     def __str__(self):
         return ''
@@ -850,10 +929,13 @@ class TbCustoVariavelAdicionadoDaugther(models.Model):
         verbose_name_plural = 'Valores Históricos'
         ordering = ['ano_mes']
 
+    def save(self, *args, **kwargs):
+        _atribuir_empresa_se_necessario(self)
+        super().save(*args, **kwargs)
+
     def custo_var_adic_total(self):
         valor_retorno = self.custo_variavel_adicionado_material  + self.custo_variavel_adicionado_ggf
 
-        # Vamos formatar o valor do retorno no padrão brasileiro
         valor_retorno = locale.format_string('%.2f', valor_retorno, True)
 
         return valor_retorno
@@ -863,7 +945,6 @@ class TbCustoVariavelAdicionadoDaugther(models.Model):
     def percentual_desvio(self):
         if (self.qtde_produzida + self.qtde_desviada) > 0:
             valor_retorno = self.qtde_desviada * 100 / (self.qtde_produzida + self.qtde_desviada)
-            # Vamos formatar o valor do retorno no padrão brasileiro
             valor_retorno = locale.format_string('%.2f', valor_retorno, True)
             return valor_retorno
         else:
@@ -873,7 +954,6 @@ class TbCustoVariavelAdicionadoDaugther(models.Model):
     def custo_var_adic_total_p(self):
         valor_retorno = self.custo_variavel_adicionado_material_p  + self.custo_variavel_adicionado_ggf_p
 
-        # Vamos formatar o valor do retorno no padrão brasileiro
         valor_retorno = locale.format_string('%.2f', valor_retorno, True)
 
         return valor_retorno
@@ -883,7 +963,6 @@ class TbCustoVariavelAdicionadoDaugther(models.Model):
     def custo_var_adic_total_p_d(self):
         valor_retorno = self.custo_variavel_adicionado_material_p_d  + self.custo_variavel_adicionado_ggf_p_d
 
-        # Vamos formatar o valor do retorno no padrão brasileiro
         valor_retorno = locale.format_string('%.2f', valor_retorno, True)
 
         return valor_retorno
@@ -896,6 +975,7 @@ class TbCustoVariavelAdicionadoDaugther1(models.Model):
     custo_variavel_adicionado = models.ForeignKey(TbCustoVariavelAdicionado, on_delete=models.CASCADE, verbose_name='Custo Variável Adicionado')
     consumo_especifico = models.ForeignKey(TbConsumoEspecifico, on_delete=models.CASCADE, verbose_name='Consumo Específico')
     mae = models.ForeignKey(TbCustoVariavelAdicionado, on_delete=models.CASCADE, related_name='mae', verbose_name='Mãe')
+    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Empresa')
 
     def __str__(self):
         return ''
@@ -903,10 +983,13 @@ class TbCustoVariavelAdicionadoDaugther1(models.Model):
     def clean(self):
         self.codigo = self.codigo.upper()  # Passa o código para maiusculo antes de salvar
 
+    def save(self, *args, **kwargs):
+        _atribuir_empresa_se_necessario(self)
+        super().save(*args, **kwargs)
+
     def custo_variavel_adicionado_atual(self):
         valor_retorno = TbCustoVariavelAdicionado.objects.get(id=self.custo_variavel_adicionado_id).cus_var_adi_custo_variavel_adicionado_material + TbCustoVariavelAdicionado.objects.get(id=self.custo_variavel_adicionado_id).cus_var_adi_custo_variavel_adicionado_ggf
 
-        # Vamos formatar o valor do retorno no padrão brasileiro
         valor_retorno = locale.format_string('%.2f', valor_retorno, True)
 
         return valor_retorno
@@ -916,7 +999,6 @@ class TbCustoVariavelAdicionadoDaugther1(models.Model):
     def indicador_atual(self):
         valor_retorno = TbConsumoEspecifico.objects.get(id=self.consumo_especifico_id).con_esp_indicador
 
-        # Vamos formatar o valor do retorno no padrão brasileiro
         valor_retorno = locale.format_string('%.4f', valor_retorno, True)
 
         return valor_retorno
@@ -936,6 +1018,11 @@ class TbAjusteCusto(models.Model):
     indicador = models.DecimalField(max_digits=15, decimal_places=4, verbose_name='Indicador')
     flag = models.BooleanField(blank=True, null=False, default=False, verbose_name='Flag')
     ordem_lançamento = models.IntegerField(null=False, blank=False, verbose_name='Ordem Lançamento')
+    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Empresa')
+
+    def save(self, *args, **kwargs):
+        _atribuir_empresa_se_necessario(self)
+        super().save(*args, **kwargs)
 
 
 class TbAjusteCustoCopy(models.Model):
@@ -944,9 +1031,16 @@ class TbAjusteCustoCopy(models.Model):
     item_consumo_id = models.IntegerField(null=True, blank=True, verbose_name='Id Item Consumo')
     indicador = models.DecimalField(max_digits=15, decimal_places=4, verbose_name='Indicador')
     flag = models.BooleanField(blank=True, null=False, default=False, verbose_name='Flag')
+    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Empresa')
+
+    def save(self, *args, **kwargs):
+        _atribuir_empresa_se_necessario(self)
+        super().save(*args, **kwargs)
 
 class TbRegressaoLinearMultipla(models.Model):
-    reg_lin_mul_descricao = models.CharField(max_length=100, null=False, blank=False, unique=True, verbose_name='Descrição')
+    # 🌟 CORRIGIDO (multi-empresa): unique=True tirado -- vira constraint
+    # no Meta, junto com empresa.
+    reg_lin_mul_descricao = models.CharField(max_length=100, null=False, blank=False, verbose_name='Descrição')
     reg_lin_mul_ano_mes_inicio = models.CharField(max_length=7, null=False, blank=False, verbose_name='Ano/Mês Início')
     reg_lin_mul_ano_mes_fim = models.CharField(max_length=7, null=False, blank=False, verbose_name='Ano/Mês Fim')
     reg_lin_mul_status = models.TextField(verbose_name='Status', default='CALCULANDO', blank=True, null=True)
@@ -958,6 +1052,7 @@ class TbRegressaoLinearMultipla(models.Model):
     reg_lin_mul_grupo_maquina = models.ManyToManyField(TbGruposMaquinas, blank=True, verbose_name='Grupos Máquina')
     reg_lin_mul_sumario = models.TextField(verbose_name='Sumário', blank=True, null=True)
     reg_lin_mul_observacao = models.TextField(verbose_name='Observação', blank=True, null=True)
+    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Empresa')
 
     def __str__(self):
         return self.reg_lin_mul_descricao
@@ -968,7 +1063,6 @@ class TbRegressaoLinearMultipla(models.Model):
         if self.reg_lin_mul_ano_mes_fim < self.reg_lin_mul_ano_mes_inicio:
             raise ValidationError('Ano/Mês Fim deve ser maior ou igual ao Ano/Mês Início. Favor corrigir!')
 
-        # Verificando se ano/mmês informado está correto
         year, month = self.reg_lin_mul_ano_mes_inicio.split('/')
         day = '01'
         isValidDate = True
@@ -980,7 +1074,6 @@ class TbRegressaoLinearMultipla(models.Model):
         if not isValidDate:
             raise ValidationError('Ano/Mês Início informado está incorreto. Favor corrigir!')
 
-        # Verificando se ano/mmês fim está correto
         year, month = self.reg_lin_mul_ano_mes_fim.split('/')
         day = '01'
         isValidDate = True
@@ -996,6 +1089,13 @@ class TbRegressaoLinearMultipla(models.Model):
         verbose_name = 'Regressão Linear Múltipla'
         verbose_name_plural = 'Regressões Lineares Múltiplas'
         ordering = ['reg_lin_mul_descricao']
+        constraints = [
+            models.UniqueConstraint(fields=['reg_lin_mul_descricao', 'empresa'], name='regressao_descricao_unica_por_empresa')
+        ]
+
+    def save(self, *args, **kwargs):
+        _atribuir_empresa_se_necessario(self)
+        super().save(*args, **kwargs)
 
     def status_colored_model(self):
         if self.reg_lin_mul_status == 'CALCULANDO':
@@ -1012,16 +1112,7 @@ class TbRegressaoLinearMultipla(models.Model):
             self.reg_lin_mul_status,
         )
 
-
-
     status_colored_model.short_description = 'Status'
-
-    # Colocamos o save no admin para enviar mensagens
-    '''
-    def save(self, *args, **kwargs):
-        transaction.on_commit(lambda: atualiza_tabela_variaveis(self.pk))
-        super(TbRegressaoLinearMultipla, self).save(*args, **kwargs)
-    '''
 
 class TbRegressaoLinearMultiplaDaugther(models.Model):
     class TipoVariavelChoices(models.TextChoices):
@@ -1041,10 +1132,8 @@ class TbRegressaoLinearMultiplaDaugther(models.Model):
     pt = models.DecimalField(max_digits=15, decimal_places=4, default=0, verbose_name='P>|t|')
 
     flag = models.BooleanField(default=False, verbose_name='Controle')
-    # Este campo (flag) é somente para controle.
-    # Se for igual a zero significa que é lixo. Deixamos na tabela, pois pode voltar a ser utilizado
-    # Se for igual a um (1) significa que está sendo usado no sistema
     mae = models.ForeignKey(TbRegressaoLinearMultipla, on_delete=models.CASCADE, verbose_name='Mãe')
+    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Empresa')
 
     def __str__(self):
         return ''
@@ -1053,6 +1142,10 @@ class TbRegressaoLinearMultiplaDaugther(models.Model):
         verbose_name = 'Variável'
         verbose_name_plural = 'Variáveis'
         ordering = ['-tipo_variavel', 'agrupamento', 'item_consumo']
+
+    def save(self, *args, **kwargs):
+        _atribuir_empresa_se_necessario(self)
+        super().save(*args, **kwargs)
 
 
 class TbRegressaoLinearMultiplaDaugther1(models.Model):
@@ -1063,10 +1156,8 @@ class TbRegressaoLinearMultiplaDaugther1(models.Model):
     qtde_consumo = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='Qtde Consumo')
     indicador = models.DecimalField(max_digits=12, decimal_places=4, default=0, verbose_name='Indicador')
     flag = models.BooleanField(default=False, verbose_name='Controle')
-    # Este campo (flag) é somente para controle.
-    # Se for igual a zero significa que é lixo. Deixamos na tabela, pois pode voltar a ser utilizado
-    # Se for igual a um (1) significa que está sendo usado no sistema
     mae = models.ForeignKey(TbRegressaoLinearMultipla, on_delete=models.CASCADE, verbose_name='Mãe')
+    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Empresa')
 
     def __str__(self):
         return ''
@@ -1075,3 +1166,7 @@ class TbRegressaoLinearMultiplaDaugther1(models.Model):
         verbose_name = 'Base de Dados'
         verbose_name_plural = 'Base de Dados'
         ordering = ['ano_mes', '-variavel']
+
+    def save(self, *args, **kwargs):
+        _atribuir_empresa_se_necessario(self)
+        super().save(*args, **kwargs)

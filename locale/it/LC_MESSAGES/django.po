@@ -1,0 +1,177 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: it\n"
+
+msgid "Nome"
+msgstr "Nome"
+
+msgid "Tipo"
+msgstr "Tipo"
+
+msgid "Descrição"
+msgstr "Descrizione"
+
+msgid "Moeda"
+msgstr "Valuta"
+
+msgid "Imagem da Moeda"
+msgstr "Immagine della Valuta"
+
+msgid "Logo"
+msgstr "Logo"
+
+msgid "Fluxo de Produção"
+msgstr "Flusso di Produzione"
+
+msgid "Idioma Padrão"
+msgstr "Lingua Predefinita"
+
+msgid "Próximo Número de Cenário"
+msgstr "Prossimo Numero di Scenario"
+
+msgid "Apps Habilitados"
+msgstr "App Abilitate"
+
+msgid "Empresa"
+msgstr "Azienda"
+
+msgid "Empresas"
+msgstr "Aziende"
+
+msgid "   Cenário"
+msgstr "   Scenario"
+
+msgid "   Cenários"
+msgstr "   Scenari"
+
+msgid "Início"
+msgstr "Inizio"
+
+msgid "Fim"
+msgstr "Fine"
+
+msgid "Ativo"
+msgstr "Attivo"
+
+msgid "Grupo"
+msgstr "Gruppo"
+
+msgid "Copiar de "
+msgstr "Copia da "
+
+msgid "Controle"
+msgstr "Controllo"
+
+msgid "Cenário"
+msgstr "Scenario"
+
+msgid "É Cenário Base"
+msgstr "È Scenario Base"
+
+msgid "Cenário Ativo"
+msgstr "Scenario Attivo"
+
+msgid "Pode trocar cenário ativo"
+msgstr "Può cambiare lo scenario attivo"
+
+msgid "Superusuário da Empresa"
+msgstr "Superutente dell'Azienda"
+
+msgid "Idioma"
+msgstr "Lingua"
+
+msgid "Empresa Ativa (superusuário)"
+msgstr "Azienda Attiva (superutente)"
+
+msgid "Cenários ativos por empresa (memória)"
+msgstr "Scenari attivi per azienda (memoria)"
+
+msgid "Perfil de Usuário"
+msgstr "Profilo Utente"
+
+msgid "Perfis de Usuário"
+msgstr "Profili Utente"
+
+msgid "Assistente de IA Integrado"
+msgstr "Assistente IA Integrato"
+
+msgid "Relatórios"
+msgstr "Report"
+
+msgid "Marque os arquivos que deseja incluir na análise da resposta atual."
+msgstr "Seleziona i file che vuoi includere nell'analisi della risposta attuale."
+
+msgid "Arraste um PDF, TXT ou XLSX aqui"
+msgstr "Trascina qui un PDF, TXT o XLSX"
+
+msgid "ou clique para escolher"
+msgstr "o clicca per scegliere"
+
+msgid "Nenhum PDF cadastrado no Admin."
+msgstr "Nessun PDF registrato nell'Admin."
+
+msgid "Digite sua pergunta..."
+msgstr "Scrivi la tua domanda..."
+
+msgid "Enviar"
+msgstr "Invia"
+
+msgid "Ações Comuns no SPS"
+msgstr "Azioni Comuni nell'SPS"
+
+msgid "Escolhe a categoria e seleciona a ação, sem risco de digitar errado."
+msgstr "Scegli la categoria e seleziona l'azione, senza rischio di errori di digitazione."
+
+msgid "Selecione uma ação..."
+msgstr "Seleziona un'azione..."
+
+msgid "Criar cenário novo"
+msgstr "Crea nuovo scenario"
+
+msgid "Mudar tipo/período"
+msgstr "Cambia tipo/periodo"
+
+msgid "Ver status"
+msgstr "Visualizza stato"
+
+msgid "Limpar"
+msgstr "Pulisci"
+
+msgid "Otimizar"
+msgstr "Ottimizza"
+
+msgid "Consolidar"
+msgstr "Consolida"
+
+msgid "Ciclo completo (limpar, otimizar e consolidar)"
+msgstr "Ciclo completo (pulisci, ottimizza e consolida)"
+
+msgid "Indicadores"
+msgstr "Indicatori"
+
+msgid "Mudar valor"
+msgstr "Cambia valore"
+
+msgid "Criar novo"
+msgstr "Crea nuovo"
+
+msgid "Reajuste em massa"
+msgstr "Adeguamento massivo"
+
+msgid "Eliminar"
+msgstr "Elimina"
+
+msgid "Taxas de Câmbio"
+msgstr "Tassi di Cambio"
+
+msgid "Criar nova"
+msgstr "Crea nuova"
+
+msgid "Agente IA"
+msgstr "Agente IA"
+
+#, python-format
+msgid "Olá %(nome_usuario)s! O que posso fazer por você hoje?"
+msgstr "Ciao %(nome_usuario)s! Cosa posso fare per te oggi?"

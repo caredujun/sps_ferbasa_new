@@ -1277,10 +1277,17 @@ def identificar_tipo_planilha_reenviada(usuario, pdf_ids):
     if perfil is None or perfil.cenario_ativo_id is None:
         return None
 
+    # 🌟 CORRIGIDO (multi-empresa): exige que o relatório pertença à
+    # empresa efetiva do usuário -- mesma correção de segurança feita em
+    # agents.py, evitando reconhecer um arquivo de OUTRA empresa.
+    empresa_id_usuario = perfil.empresa_efetiva_id()
+    if empresa_id_usuario is None:
+        return None
+
     import os
     from .models import RelatorioPDF
     for rid in pdf_ids:
-        r = RelatorioPDF.objects.filter(id=rid, ativo=True).first()
+        r = RelatorioPDF.objects.filter(id=rid, ativo=True, empresa_id=empresa_id_usuario).first()
         if not r or not r.arquivo or not r.arquivo.name.lower().endswith('.xlsx'):
             continue
         nome_arquivo = os.path.basename(r.arquivo.name)
@@ -1885,11 +1892,15 @@ def _processar_planilha_indicador(usuario, mensagem, pdf_ids):
     # arquivo (que já carrega o id do indicador, gravado por
     # _gerar_planilha_periodos). Só cai pra busca por nome na mensagem se
     # o arquivo não tiver esse padrão (por exemplo, foi renomeado).
+    # 🌟 CORRIGIDO (multi-empresa): exige que o relatório pertença à
+    # empresa efetiva do usuário -- evita reconhecer/processar um
+    # arquivo de OUTRA empresa.
+    empresa_id_usuario = perfil.empresa_efetiva_id()
     relatorio = None
     indicador = None
     candidatos_xlsx = []
     for rid in pdf_ids:
-        r = RelatorioPDF.objects.filter(id=rid, ativo=True).first()
+        r = RelatorioPDF.objects.filter(id=rid, ativo=True, empresa_id=empresa_id_usuario).first()
         if r and r.arquivo and r.arquivo.name.lower().endswith('.xlsx'):
             candidatos_xlsx.append(r)
             nome_arquivo = os.path.basename(r.arquivo.name)
@@ -2690,11 +2701,14 @@ def _processar_planilha_cambio(usuario, mensagem, pdf_ids):
     from .models import RelatorioPDF
     from tabelas.models import TbCambio
 
+    # 🌟 CORRIGIDO (multi-empresa): mesma correção de segurança da versão
+    # de indicador.
+    empresa_id_usuario = perfil.empresa_efetiva_id()
     relatorio = None
     cambio = None
     candidatos_xlsx = []
     for rid in pdf_ids:
-        r = RelatorioPDF.objects.filter(id=rid, ativo=True).first()
+        r = RelatorioPDF.objects.filter(id=rid, ativo=True, empresa_id=empresa_id_usuario).first()
         if r and r.arquivo and r.arquivo.name.lower().endswith('.xlsx'):
             candidatos_xlsx.append(r)
             nome_arquivo = os.path.basename(r.arquivo.name)

@@ -1,6 +1,7 @@
 {% extends "admin/base_site.html" %}
 {% load group_extras %}
 {% load admin_interface_tags %}
+{% load i18n %}
 
 {% block title %}
 {% if title %}{{ title }} | {% endif %}{% if empresa_ativa_usuario_texto %}{{ empresa_ativa_usuario_texto }} | {% endif %}{% if cenario_ativo_usuario_texto %}{{ cenario_ativo_usuario_texto }}{% else %}{{ site_title|default:"Django administration" }}{% endif %}
@@ -69,7 +70,7 @@
                     <path d="M83.0,8.0 Q86.54,18.46 97.0,22.0 Q86.54,25.54 83.0,36.0 Q79.46,25.54 69.0,22.0 Q79.46,18.46 83.0,8.0 Z" fill="#ffd700"/>
                     <path d="M18.0,71.0 Q20.12,77.88 27.0,80.0 Q20.12,82.12 18.0,89.0 Q15.88,82.12 9.0,80.0 Q15.88,77.88 18.0,71.0 Z" fill="#ffd700"/>
                 </svg>
-                <span>Agente IA</span>
+                <span>{% trans "Agente IA" %}</span>
             </a>
         </span>
     {% endif %}

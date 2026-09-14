@@ -544,7 +544,18 @@ def executar_agente_com_prompt_do_admin(mensagem_usuario: str, pdf_ids: list, us
         system_instruction = getattr(config_do_admin, 'prompt_sistema', "Você é um assistente útil.")
 
         # 2. 🌟 EXTRAÇÃO CIRÚRGICA DE TODOS OS ARQUIVOS SELECIONADOS (PDF, TXT ou XLSX):
-        relatorios_selecionados = RelatorioPDF.objects.filter(id__in=pdf_ids, ativo=True)
+        # 🌟 CORRIGIDO (multi-empresa): antes filtrava só por id__in e
+        # ativo=True -- sem checar a empresa, alguém poderia mandar o id
+        # de um relatório de OUTRA empresa manipulando a requisição
+        # diretamente (a tela já filtra a listagem, mas isso sozinho não
+        # impede um id "de fora" sendo enviado no POST). Agora exige que
+        # o relatório pertença à empresa efetiva de quem está pedindo.
+        perfil_usuario = getattr(usuario, 'perfilusuario', None)
+        empresa_id_usuario = perfil_usuario.empresa_efetiva_id() if perfil_usuario else None
+        if empresa_id_usuario is None:
+            relatorios_selecionados = RelatorioPDF.objects.none()
+        else:
+            relatorios_selecionados = RelatorioPDF.objects.filter(id__in=pdf_ids, ativo=True, empresa_id=empresa_id_usuario)
         linhas_com_relevancia = []  # lista de (relevancia, linha_marcada)
         linhas_ja_vistas = set()    # evita duplicatas sem custo O(n) por checagem
         fontes_utilizadas = []

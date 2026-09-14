@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.shortcuts import redirect
+from django.utils import translation
 
 from .contexto_usuario import definir_usuario_atual, limpar_usuario_atual, CenarioAtivoNaoDefinidoError
 
@@ -11,6 +12,12 @@ class DefinirUsuarioAtualMiddleware:
     resolver "o cenário ativo" com base em quem está logado, sem precisar
     que toda função no sistema receba o usuário como parâmetro.
 
+    🌟 NOVO (multi-idioma, Fase 1): também ativa o idioma da interface
+    pra essa requisição -- o idioma pessoal do usuário logado, ou o
+    padrão da empresa dele se ele não tiver escolhido nenhum (ver
+    PerfilUsuario.idioma_efetivo()). Precisa estar no mesmo middleware
+    porque os dois dependem do mesmo request.user já resolvido.
+
     Precisa vir DEPOIS de AuthenticationMiddleware no MIDDLEWARE do
     settings.py (senão request.user ainda não existe nesse ponto).
     """
@@ -20,15 +27,35 @@ class DefinirUsuarioAtualMiddleware:
 
     def __call__(self, request):
         usuario = getattr(request, 'user', None)
-        definir_usuario_atual(usuario if usuario and usuario.is_authenticated else None)
+        usuario_autenticado = usuario if usuario and usuario.is_authenticated else None
+        definir_usuario_atual(usuario_autenticado)
+
+        # 🌟 NOVO (multi-idioma, Fase 1): ativa o idioma efetivo do
+        # usuário logado pra essa requisição inteira. translation.activate()
+        # é por-thread, igual ao contexto de usuário acima -- por isso o
+        # mesmo cuidado de sempre desativar no finally.
+        idioma_ativado = False
+        if usuario_autenticado is not None:
+            perfil = getattr(usuario_autenticado, 'perfilusuario', None)
+            if perfil is not None:
+                translation.activate(perfil.idioma_efetivo())
+                idioma_ativado = True
+
         try:
             response = self.get_response(request)
+            if idioma_ativado:
+                # Garante que o cabeçalho HTTP bata com o idioma que
+                # ativamos pra essa requisição.
+                response.headers.setdefault('Content-Language', translation.get_language())
         finally:
             # Sempre limpa, mesmo se a view levantar exceção -- evita que o
             # usuário de uma requisição vaze pra próxima na mesma thread
             # (threads de worker são reaproveitadas entre requisições).
             limpar_usuario_atual()
+            if idioma_ativado:
+                translation.deactivate()
         return response
+
 
     def process_exception(self, request, exception):
         """

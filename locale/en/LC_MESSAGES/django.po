@@ -1,0 +1,177 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: en\n"
+
+msgid "Nome"
+msgstr "Name"
+
+msgid "Tipo"
+msgstr "Type"
+
+msgid "Descrição"
+msgstr "Description"
+
+msgid "Moeda"
+msgstr "Currency"
+
+msgid "Imagem da Moeda"
+msgstr "Currency Image"
+
+msgid "Logo"
+msgstr "Logo"
+
+msgid "Fluxo de Produção"
+msgstr "Production Flow"
+
+msgid "Idioma Padrão"
+msgstr "Default Language"
+
+msgid "Próximo Número de Cenário"
+msgstr "Next Scenario Number"
+
+msgid "Apps Habilitados"
+msgstr "Enabled Apps"
+
+msgid "Empresa"
+msgstr "Company"
+
+msgid "Empresas"
+msgstr "Companies"
+
+msgid "   Cenário"
+msgstr "   Scenario"
+
+msgid "   Cenários"
+msgstr "   Scenarios"
+
+msgid "Início"
+msgstr "Start"
+
+msgid "Fim"
+msgstr "End"
+
+msgid "Ativo"
+msgstr "Active"
+
+msgid "Grupo"
+msgstr "Group"
+
+msgid "Copiar de "
+msgstr "Copy from "
+
+msgid "Controle"
+msgstr "Control"
+
+msgid "Cenário"
+msgstr "Scenario"
+
+msgid "É Cenário Base"
+msgstr "Is Base Scenario"
+
+msgid "Cenário Ativo"
+msgstr "Active Scenario"
+
+msgid "Pode trocar cenário ativo"
+msgstr "Can change active scenario"
+
+msgid "Superusuário da Empresa"
+msgstr "Company Superuser"
+
+msgid "Idioma"
+msgstr "Language"
+
+msgid "Empresa Ativa (superusuário)"
+msgstr "Active Company (superuser)"
+
+msgid "Cenários ativos por empresa (memória)"
+msgstr "Active scenarios by company (memory)"
+
+msgid "Perfil de Usuário"
+msgstr "User Profile"
+
+msgid "Perfis de Usuário"
+msgstr "User Profiles"
+
+msgid "Assistente de IA Integrado"
+msgstr "Integrated AI Assistant"
+
+msgid "Relatórios"
+msgstr "Reports"
+
+msgid "Marque os arquivos que deseja incluir na análise da resposta atual."
+msgstr "Check the files you want to include in the current response's analysis."
+
+msgid "Arraste um PDF, TXT ou XLSX aqui"
+msgstr "Drag a PDF, TXT or XLSX here"
+
+msgid "ou clique para escolher"
+msgstr "or click to choose"
+
+msgid "Nenhum PDF cadastrado no Admin."
+msgstr "No PDF registered in the Admin."
+
+msgid "Digite sua pergunta..."
+msgstr "Type your question..."
+
+msgid "Enviar"
+msgstr "Send"
+
+msgid "Ações Comuns no SPS"
+msgstr "Common Actions in SPS"
+
+msgid "Escolhe a categoria e seleciona a ação, sem risco de digitar errado."
+msgstr "Choose the category and select the action, with no risk of typos."
+
+msgid "Selecione uma ação..."
+msgstr "Select an action..."
+
+msgid "Criar cenário novo"
+msgstr "Create new scenario"
+
+msgid "Mudar tipo/período"
+msgstr "Change type/period"
+
+msgid "Ver status"
+msgstr "View status"
+
+msgid "Limpar"
+msgstr "Clear"
+
+msgid "Otimizar"
+msgstr "Optimize"
+
+msgid "Consolidar"
+msgstr "Consolidate"
+
+msgid "Ciclo completo (limpar, otimizar e consolidar)"
+msgstr "Full cycle (clear, optimize and consolidate)"
+
+msgid "Indicadores"
+msgstr "Indicators"
+
+msgid "Mudar valor"
+msgstr "Change value"
+
+msgid "Criar novo"
+msgstr "Create new"
+
+msgid "Reajuste em massa"
+msgstr "Bulk adjustment"
+
+msgid "Eliminar"
+msgstr "Delete"
+
+msgid "Taxas de Câmbio"
+msgstr "Exchange Rates"
+
+msgid "Criar nova"
+msgstr "Create new"
+
+msgid "Agente IA"
+msgstr "AI Agent"
+
+#, python-format
+msgid "Olá %(nome_usuario)s! O que posso fazer por você hoje?"
+msgstr "Hello %(nome_usuario)s! What can I do for you today?"
