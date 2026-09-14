@@ -129,6 +129,8 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'django.template.context_processors.request',
                 'parameters.context_processors.cenario_ativo_usuario',
+                'parameters.context_processors.empresa_ativa_usuario',
+                'parameters.context_processors.pode_acessar_agente_ia',
 
             ],
         },

@@ -1,4 +1,5 @@
 from parameters.models import TbCenarios, TbEmpresa
+from parameters.contexto_usuario import get_usuario_atual
 from custo_ferbasa.models import TbCustoVariavelAdicionado
 from django.db import models
 from django.db import connection
@@ -10,6 +11,23 @@ from django.contrib.auth.models import Group
 
 import locale
 locale.setlocale(locale.LC_ALL, 'pt_BR.utf8')  #  Estou usando esse pois Heroku não aceita pt_BR
+
+
+def _atribuir_empresa_se_necessario(instance):
+    """
+    🌟 NOVO (multi-empresa, Parte 3): preenche "empresa" automaticamente
+    na CRIAÇÃO de qualquer registro dessas tabelas independentes de
+    cenário -- a partir da empresa efetiva do usuário logado (mesmo
+    mecanismo já usado em parameters.models.TbCenarios.save()). Chamado
+    no início do save() de cada uma das 7 tabelas desse arquivo que não
+    têm campo tbcenarios.
+    """
+    if instance.pk is None and instance.empresa_id is None:
+        usuario = get_usuario_atual()
+        if usuario is not None:
+            perfil = getattr(usuario, 'perfilusuario', None)
+            if perfil is not None:
+                instance.empresa_id = perfil.empresa_efetiva_id()
 
 # Vai ser executado após o save para algumas tabelas
 # Verifica se tem as filhas e faz os ajustes necessários (cria ou deleta)
@@ -176,14 +194,21 @@ class TbIndicadoresDaugther(models.Model):
 class TbCambio(models.Model):
     # Temos que primeiro ver se a tabela TbEmpresa existe no banco de dados
     all_tables = connection.introspection.table_names()
+    moeda_empresa = ''
     if 'parameters_tbempresa' in all_tables:
-        # Vamos ver se tem registro
-        if TbEmpresa.objects.filter(id=1).count() == 1:
-            moeda_empresa = TbEmpresa.objects.get(id=1).emp_moeda
-        else:
+        # 🌟 CORRIGIDO: além de checar se a TABELA existe, protege também
+        # contra a tabela existir mas faltar alguma COLUNA nova (acontece
+        # durante o "makemigrations" de uma migration que ainda não foi
+        # aplicada -- o Django importa os models ANTES de migrar, e essa
+        # consulta pede TODAS as colunas do model Python, que nesse
+        # momento ainda não bateм com o banco). Sem isso, qualquer
+        # migration futura na TbEmpresa quebra o carregamento do projeto
+        # inteiro (nem dá pra rodar makemigrations pra corrigir).
+        try:
+            if TbEmpresa.objects.filter(id=1).count() == 1:
+                moeda_empresa = TbEmpresa.objects.get(id=1).emp_moeda
+        except Exception:
             moeda_empresa = ''
-    else:
-        moeda_empresa = ''
 
     cam_moeda_choice = ()
     if moeda_empresa == 'BRL':
@@ -607,8 +632,13 @@ class TbCustoFixoDaugther(models.Model):
     # Temos que primeiro ver se a tabela TbEmpresa existe no banco de dados
     all_tables = connection.introspection.table_names()
     if 'parameters_tbempresa' in all_tables:
-        if TbEmpresa.objects.filter(id=1).count() > 0:
-            valor_moeda_empresa.short_description = 'Valor (' + TbEmpresa.objects.get(id=1).emp_moeda + ')'
+        # 🌟 CORRIGIDO: mesmo motivo do TbCambio -- protege contra a
+        # tabela existir mas faltar coluna nova (migration em andamento).
+        try:
+            if TbEmpresa.objects.filter(id=1).count() > 0:
+                valor_moeda_empresa.short_description = 'Valor (' + TbEmpresa.objects.get(id=1).emp_moeda + ')'
+        except Exception:
+            pass
 
 
     def save(self, *args, **kwargs):
@@ -789,9 +819,14 @@ class TbDepreAmortiDaugther(models.Model):
     # Temos que primeiro ver se a tabela TbEmpresa existe no banco de dados
     all_tables = connection.introspection.table_names()
     if 'parameters_tbempresa' in all_tables:
-        if TbEmpresa.objects.filter(id=1) == 1:
-            valor_moeda_empresa.short_description = 'Valor (' + TbEmpresa.objects.get(id=1).emp_moeda + ')'
-        else:
+        # 🌟 CORRIGIDO: mesmo motivo do TbCambio -- protege contra a
+        # tabela existir mas faltar coluna nova (migration em andamento).
+        try:
+            if TbEmpresa.objects.filter(id=1) == 1:
+                valor_moeda_empresa.short_description = 'Valor (' + TbEmpresa.objects.get(id=1).emp_moeda + ')'
+            else:
+                valor_moeda_empresa.short_description = ''
+        except Exception:
             valor_moeda_empresa.short_description = ''
 
     def save(self, *args, **kwargs):
@@ -970,9 +1005,14 @@ class TbCapexDaugther(models.Model):
     # Temos que primeiro ver se a tabela TbEmpresa existe no banco de dados
     all_tables = connection.introspection.table_names()
     if 'parameters_tbempresa' in all_tables:
-        if TbEmpresa.objects.filter(id=1) == 1:
-            valor_moeda_empresa.short_description = 'Valor (' + TbEmpresa.objects.get(id=1).emp_moeda + ')'
-        else:
+        # 🌟 CORRIGIDO: mesmo motivo do TbCambio -- protege contra a
+        # tabela existir mas faltar coluna nova (migration em andamento).
+        try:
+            if TbEmpresa.objects.filter(id=1) == 1:
+                valor_moeda_empresa.short_description = 'Valor (' + TbEmpresa.objects.get(id=1).emp_moeda + ')'
+            else:
+                valor_moeda_empresa.short_description = ''
+        except Exception:
             valor_moeda_empresa.short_description = ''
 
     def save(self, *args, **kwargs):
@@ -1006,6 +1046,9 @@ class TbUnidadeProducao(models.Model): # Independe do cenário. Não é necessá
     uni_imagem = models.ImageField(upload_to='tabelas', null=True, blank=True, verbose_name='Imagem')
     uni_localizacao = models.ImageField(upload_to='tabelas', null=True, blank=True, verbose_name='Localização')
     uni_observacao = models.TextField(verbose_name='Observação', blank=True, null=True)
+    # 🌟 NOVO (multi-empresa, Parte 3): tabela independente de cenário --
+    # precisa do próprio campo empresa direto.
+    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Empresa')
 
     def __str__(self):
         return self.uni_nome
@@ -1063,10 +1106,17 @@ class TbUnidadeProducao(models.Model): # Independe do cenário. Não é necessá
         verbose_name_plural = '         Unidades de Produção'
         ordering = ['uni_nome']
 
+    def save(self, *args, **kwargs):
+        _atribuir_empresa_se_necessario(self)
+        super().save(*args, **kwargs)
+
 class TbMercado(models.Model): # Independe do cenário. Não é necessário duplicar ao copiar cenário.
     mer_nome = models.CharField(max_length=40, null=False, blank=False, verbose_name='Nome')
     mer_imagem = models.ImageField(upload_to='tabelas', null=True, blank=True, verbose_name='Imagem')
     mer_observacao = models.TextField(verbose_name='Observação', blank=True, null=True)
+    # 🌟 NOVO (multi-empresa, Parte 3): também escapou do levantamento
+    # original -- não tem tbcenarios, precisa do campo empresa direto.
+    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Empresa')
 
     def __str__(self):
         return self.mer_nome
@@ -1113,10 +1163,16 @@ class TbMercado(models.Model): # Independe do cenário. Não é necessário dupl
         verbose_name_plural = '        Mercados'
         ordering = ['mer_nome']
 
+    def save(self, *args, **kwargs):
+        _atribuir_empresa_se_necessario(self)
+        super().save(*args, **kwargs)
+
 class TbCustoTipo(models.Model): # Independe do cenário. Não é necessário duplicar ao copiar cenário.
     cus_tip_nome = models.CharField(max_length=25, null=False, blank=False, verbose_name='Nome')
     cus_tip_group = models.ManyToManyField(Group, blank=True, verbose_name='Grupo(s) Usuários com Permissão')
     cus_tip_observacao = models.TextField(verbose_name='Observação', blank=True, null=True)
+    # 🌟 NOVO (multi-empresa, Parte 3): tabela independente de cenário.
+    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Empresa')
 
     def __str__(self):
         return self.cus_tip_nome
@@ -1144,6 +1200,7 @@ class TbCustoTipo(models.Model): # Independe do cenário. Não é necessário du
         ordering = ['cus_tip_nome']
 
     def save(self, *args, **kwargs):
+        _atribuir_empresa_se_necessario(self)
 
         # Vamos salvar o super save
         super(TbCustoTipo, self).save(*args, **kwargs)
@@ -1171,6 +1228,8 @@ class TbCustoItem(models.Model): # Independe do cenário. Não é necessário du
     cus_ite_tipo = models.ForeignKey(TbCustoTipo, null=True, blank=True, verbose_name='Tipo', on_delete=models.CASCADE)
     cus_ite_imagem = models.ImageField(upload_to='tabelas', null=True, blank=True, verbose_name='Imagem do Item')
     cus_ite_observacao = models.TextField(verbose_name='Observação', blank=True, null=True)
+    # 🌟 NOVO (multi-empresa, Parte 3): tabela independente de cenário.
+    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Empresa')
 
     def __str__(self):
         return self.cus_ite_nome
@@ -1213,6 +1272,7 @@ class TbCustoItem(models.Model): # Independe do cenário. Não é necessário du
         ordering = ['cus_ite_nome']
 
     def save(self, *args, **kwargs):
+        _atribuir_empresa_se_necessario(self)
 
         # Vamos ver se está adicionando ou modificando o cenário
         if self.pk is None:  # Nesse caso não existe a chave primária. Estamos adicionando. Vamos pegar o id do cenário para lançar no campo tbcenarios.
@@ -1496,6 +1556,8 @@ class TbTipoProducao(models.Model): # Independe do cenário. Não é necessário
     tip_nome = models.CharField(max_length=50, null=False, blank=False, verbose_name='Nome')
     tip_imagem = models.ImageField(upload_to='tabelas', null=True, blank=True, verbose_name='Imagem')
     tip_observacao = models.TextField(verbose_name='Observação', blank=True, null=True)
+    # 🌟 NOVO (multi-empresa, Parte 3): tabela independente de cenário.
+    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Empresa')
 
     def __str__(self):
         return self.tip_nome
@@ -1530,8 +1592,14 @@ class TbTipoProducao(models.Model): # Independe do cenário. Não é necessário
         verbose_name_plural = '   Tipos de Produção'
         ordering = ['tip_nome']
 
+    def save(self, *args, **kwargs):
+        _atribuir_empresa_se_necessario(self)
+        super().save(*args, **kwargs)
+
 class TbFamiliaProduto(models.Model): # Independe do cenário. Não é necessário duplicar ao copiar cenário.
     fam_pro_codigo = models.CharField(max_length=35, null=False, blank=False, verbose_name='Família')
+    # 🌟 NOVO (multi-empresa, Parte 3): tabela independente de cenário.
+    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Empresa')
 
     def __str__(self):
         return self.fam_pro_codigo
@@ -1557,8 +1625,17 @@ class TbFamiliaProduto(models.Model): # Independe do cenário. Não é necessár
         verbose_name_plural = '  Famílias de Produtos'
         ordering = ['fam_pro_codigo']
 
+    def save(self, *args, **kwargs):
+        _atribuir_empresa_se_necessario(self)
+        super().save(*args, **kwargs)
+
 class TbGrupoCenarios(models.Model): # Independe do cenário. Não é necessário duplicar ao copiar cenário.
     gru_cen_codigo = models.CharField(max_length=35, null=False, blank=False, verbose_name='Grupo de Cenários')
+    # 🌟 NOVO (multi-empresa, Parte 3): tabela independente de cenário --
+    # e essa em especial é usada pelo sinal que cria a estrutura base de
+    # cada empresa nova (parameters.models.criar_estrutura_base_para_
+    # empresa_nova), que já foi ajustado pra usar esse campo.
+    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Empresa')
 
     def __str__(self):
         return self.gru_cen_codigo
@@ -1567,14 +1644,18 @@ class TbGrupoCenarios(models.Model): # Independe do cenário. Não é necessári
 
         self.gru_cen_codigo = self.gru_cen_codigo.upper()
 
-        # Verificando se já foi cadastrado registro com o mesmo código de grupo de cenários
+        # 🌟 CORRIGIDO (multi-empresa): checagem de duplicidade agora é
+        # POR EMPRESA, não mais global -- antes, "AS IS" já cadastrado
+        # pra uma empresa impediria QUALQUER outra empresa de ter um
+        # grupo com esse mesmo código (mesmo bug que já corrigimos no
+        # nome do cenário).
         count = 0
         # Se estiver adicionando
         if self.pk is None:
-            count = TbGrupoCenarios.objects.filter(gru_cen_codigo=self.gru_cen_codigo).count()
+            count = TbGrupoCenarios.objects.filter(gru_cen_codigo=self.gru_cen_codigo, empresa_id=self.empresa_id).count()
         else:  # Está modificando
             # filter não aceita !=. Só aceita =. Seleciono e depois uso o exclude. Coisa de louco, mas funciona.
-            count = TbGrupoCenarios.objects.filter(gru_cen_codigo=self.gru_cen_codigo).exclude(id=self.pk).count()
+            count = TbGrupoCenarios.objects.filter(gru_cen_codigo=self.gru_cen_codigo, empresa_id=self.empresa_id).exclude(id=self.pk).count()
 
         if count >= 1:
             raise ValidationError('Grupo de Cenários ' + self.gru_cen_codigo+ ' já cadastrado!')
@@ -1583,6 +1664,10 @@ class TbGrupoCenarios(models.Model): # Independe do cenário. Não é necessári
         verbose_name = ' Grupo de Cenários'
         verbose_name_plural = ' Grupos de Cenários'
         ordering = ['gru_cen_codigo']
+
+    def save(self, *args, **kwargs):
+        _atribuir_empresa_se_necessario(self)
+        super().save(*args, **kwargs)
 
 class TbEquacaoAjustePreco(models.Model): # Independe do cenário. Não é necessário duplicar ao copiar cenário.
     class MoedaChoices(models.TextChoices):
@@ -1610,6 +1695,8 @@ class TbEquacaoAjustePreco(models.Model): # Independe do cenário. Não é neces
     equ_aju_pre_var = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='Valor VAR para teste')
     equ_aju_pre_valor1 = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0, verbose_name='')
     equ_aju_pre_valor2 = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0, verbose_name='')
+    # 🌟 NOVO (multi-empresa, Parte 3): tabela independente de cenário.
+    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Empresa')
 
     # Atenção. Essa tabela nao tem o campo tbcenarios, pois é utilizada por todos os cenários
 
@@ -1634,14 +1721,17 @@ class TbEquacaoAjustePreco(models.Model): # Independe do cenário. Não é neces
                     'A moeda ' + self.get_equ_aju_pre_moeda_display() + ' não foi cadastrada na Tabela Taxas de Câmbio. Favor cadastrar!')
 
         # Verificando se já foi cadastrado a mesma descrição da equação
+        # 🌟 CORRIGIDO (multi-empresa): checagem POR EMPRESA, não mais
+        # global (mesmo motivo já corrigido em TbGrupoCenarios e no nome
+        # do cenário).
 
         count = 0
         # Se estiver adicionando
         if self.pk is None:
-            count = TbEquacaoAjustePreco.objects.filter(equ_aju_pre_descricao=self.equ_aju_pre_descricao).count()
+            count = TbEquacaoAjustePreco.objects.filter(equ_aju_pre_descricao=self.equ_aju_pre_descricao, empresa_id=self.empresa_id).count()
         else:  # Está modificando
             # filter não aceita !=. Só aceita =. Seleciono e depois uso o exclude. Coisa de louco, mas funciona.
-            count = TbEquacaoAjustePreco.objects.filter(equ_aju_pre_descricao=self.equ_aju_pre_descricao).exclude(
+            count = TbEquacaoAjustePreco.objects.filter(equ_aju_pre_descricao=self.equ_aju_pre_descricao, empresa_id=self.empresa_id).exclude(
                 id=self.pk).count()
 
         if count >= 1:
@@ -1729,6 +1819,7 @@ class TbEquacaoAjustePreco(models.Model): # Independe do cenário. Não é neces
         ordering = ['equ_aju_pre_descricao']
 
     def save(self, *args, **kwargs):
+        _atribuir_empresa_se_necessario(self)
 
         # Vamos salvar o super save
         super(TbEquacaoAjustePreco, self).save(*args, **kwargs)

@@ -57,3 +57,24 @@ def limpar_usuario_atual():
     o usuário de uma requisição para a próxima (threads de worker HTTP
     são reaproveitadas entre requisições diferentes)."""
     _contexto.usuario = None
+
+
+def eh_superuser_ou_superuser_empresa(usuario):
+    """
+    🌟 NOVO (multi-empresa): checagem central de "tem poderes de
+    superusuário" -- true tanto pro superusuário DE VERDADE (acesso
+    irrestrito, todas as empresas) quanto pro "superusuário de empresa"
+    (PerfilUsuario.eh_superuser_empresa=True -- os mesmos poderes, mas
+    restritos à própria empresa).
+
+    Importante: essa função só diz "tem os poderes"; ela NÃO restringe
+    escopo por si só -- quem chama continua responsável por aplicar o
+    filtro de empresa nas listagens/querysets (get_queryset), já que um
+    superuser de empresa nunca deve ver/mexer em dado de outra empresa.
+    """
+    if usuario is None or not usuario.is_authenticated:
+        return False
+    if usuario.is_superuser:
+        return True
+    perfil = getattr(usuario, 'perfilusuario', None)
+    return bool(perfil and perfil.eh_superuser_empresa)

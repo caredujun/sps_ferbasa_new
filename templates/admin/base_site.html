@@ -3,7 +3,7 @@
 {% load admin_interface_tags %}
 
 {% block title %}
-{% if title %}{{ title }} | {% endif %}{% if cenario_ativo_usuario_texto %}{{ cenario_ativo_usuario_texto }}{% else %}{{ site_title|default:"Django administration" }}{% endif %}
+{% if title %}{{ title }} | {% endif %}{% if empresa_ativa_usuario_texto %}{{ empresa_ativa_usuario_texto }} | {% endif %}{% if cenario_ativo_usuario_texto %}{{ cenario_ativo_usuario_texto }}{% else %}{{ site_title|default:"Django administration" }}{% endif %}
 {% endblock title %}
 
 {% block branding %}
@@ -20,7 +20,14 @@
         {% if theme.title_visible %}
         {# 🌟 Antes: {{ theme.title }} (global, gravado uma vez). Agora: calculado #}
         {# por usuário a cada request, via context_processors.cenario_ativo_usuario #}
-        <span>{% if cenario_ativo_usuario_texto %}{{ cenario_ativo_usuario_texto }}{% else %}{{ site_header|default:"Django administration" }}{% endif %}</span>
+        {# e empresa_ativa_usuario (multi-empresa) -- pra nunca ter dúvida de em #}
+        {# qual empresa/cenário você está trabalhando agora. #}
+        <span>
+            {% if empresa_ativa_usuario_texto %}{{ empresa_ativa_usuario_texto }}{% endif %}
+            {% if empresa_ativa_usuario_texto and cenario_ativo_usuario_texto %} | {% endif %}
+            {% if cenario_ativo_usuario_texto %}{{ cenario_ativo_usuario_texto }}{% endif %}
+            {% if not empresa_ativa_usuario_texto and not cenario_ativo_usuario_texto %}{{ site_header|default:"Django administration" }}{% endif %}
+        </span>
         {% endif %}
     </a>
 </h1>
@@ -30,8 +37,13 @@
     <!-- Mantém os links originais do django-admin-interface ("Mudar senha", "Sair") -->
     {{ block.super }}
 
-    <!-- 🌟 Só exibe para superusuário ou membros do grupo "Agente de IA" -->
-    {% if user.is_superuser or user|has_group:"Agente de IA" %}
+    <!-- 🌟 CORRIGIDO (multi-empresa): antes checava "user.is_superuser or
+         user|has_group:'Agente de IA'" direto aqui, sem saber do
+         superuser DE EMPRESA (que também deve ter acesso automático).
+         Agora usa "pode_acessar_agente_ia", calculado no context
+         processor (parameters.context_processors.pode_acessar_agente_ia),
+         que já conhece essa regra. -->
+    {% if pode_acessar_agente_ia %}
         <span class="userlinks-agent" style="margin-right: 15px; margin-left: 15px; display: inline-block; vertical-align: middle;">
             <a href="/chat/" target="_blank" style="
                 background-color: var(--admin-interface-header-background-color, #417690);

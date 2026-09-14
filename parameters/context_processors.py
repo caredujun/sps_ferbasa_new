@@ -19,7 +19,11 @@ def cenario_ativo_usuario(request):
 
     try:
         cenario = TbCenarios.objects.get(cen_ativo=True)
-        texto = f"Cenário Ativo: {cenario.id}/{cenario.cen_nome}"
+        # 🌟 CORRIGIDO: usa numero_sequencial (número da empresa) em vez
+        # do id real da tabela -- mesma lógica de fallback do __str__ do
+        # model, pra não quebrar cenários antigos sem numero_sequencial.
+        numero_exibido = cenario.numero_sequencial if cenario.numero_sequencial is not None else cenario.id
+        texto = f"Cenário {numero_exibido}/{cenario.cen_nome}"
     except TbCenarios.DoesNotExist:
         texto = "Nenhum cenário ativo definido"
     except TbCenarios.MultipleObjectsReturned:
@@ -41,3 +45,58 @@ def cenario_ativo_usuario(request):
         texto = "Nenhum cenário ativo escolhido"
 
     return {'cenario_ativo_usuario_texto': texto}
+
+
+def empresa_ativa_usuario(request):
+    """
+    🌟 NOVO (multi-empresa): injeta, em TODA página do Admin, o texto da
+    empresa "efetiva" do usuário logado -- pra usuário comum, a empresa
+    fixa dele; pra superusuário, a empresa_ativa escolhida (trocável).
+    Mesmo espírito do cenario_ativo_usuario acima: elimina qualquer
+    dúvida sobre em qual empresa você está trabalhando agora, sem
+    precisar abrir a tela de Empresas pra conferir.
+    """
+    if not request.user.is_authenticated:
+        return {}
+
+    perfil = getattr(request.user, 'perfilusuario', None)
+    if perfil is None:
+        return {'empresa_ativa_usuario_texto': 'Nenhuma empresa definida'}
+
+    empresa_id = perfil.empresa_efetiva_id()
+    if empresa_id is None:
+        if request.user.is_superuser:
+            texto = 'Nenhuma empresa ativa escolhida'
+        else:
+            texto = 'Nenhuma empresa definida para o seu usuário'
+    else:
+        from .models import TbEmpresa
+        try:
+            empresa = TbEmpresa.objects.get(id=empresa_id)
+            texto = empresa.emp_nome
+        except TbEmpresa.DoesNotExist:
+            texto = 'Empresa definida não existe mais'
+
+    return {'empresa_ativa_usuario_texto': texto}
+
+
+def pode_acessar_agente_ia(request):
+    """
+    🌟 NOVO (multi-empresa): injeta, em toda página do Admin, se o
+    usuário logado pode acessar o Agente IA -- usado pelo botão do
+    cabeçalho (templates/admin/sps/base_site.html), que antes checava só
+    "é superusuário ou está no grupo Agente de IA" direto no template
+    (sem saber do superuser de empresa, que também deve ter acesso
+    automático).
+    """
+    if not request.user.is_authenticated:
+        return {}
+
+    from .contexto_usuario import eh_superuser_ou_superuser_empresa
+    NOME_GRUPO_AGENTE_IA = "Agente de IA"
+
+    tem_acesso = (
+        eh_superuser_ou_superuser_empresa(request.user)
+        or request.user.groups.filter(name=NOME_GRUPO_AGENTE_IA).exists()
+    )
+    return {'pode_acessar_agente_ia': tem_acesso}

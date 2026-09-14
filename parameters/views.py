@@ -7,6 +7,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from functools import wraps
 from .models import RelatorioPDF, HistoricoAgente
+from .contexto_usuario import eh_superuser_ou_superuser_empresa
 import datetime
 import re
 from django.utils import timezone
@@ -18,15 +19,26 @@ NOME_GRUPO_AGENTE_IA = "Agente de IA"
 
 def exige_acesso_ao_agente_ia(view_func):
     """
-    Exige que o usuário esteja logado E (seja superusuário OU membro do grupo
-    'Agente de IA'). Quem estiver logado mas sem essa permissão recebe um 403
-    (Permission Denied) em vez de ser redirecionado pra tela de login de novo
-    — o que criaria um loop, já que ele já está autenticado.
+    Exige que o usuário esteja logado E (seja superusuário, seja
+    superusuário DE EMPRESA, OU membro do grupo 'Agente de IA'). Quem
+    estiver logado mas sem essa permissão recebe um 403 (Permission
+    Denied) em vez de ser redirecionado pra tela de login de novo — o
+    que criaria um loop, já que ele já está autenticado.
+
+    🌟 NOVO (multi-empresa): superuser de empresa (PerfilUsuario.
+    eh_superuser_empresa) ganha acesso automático, sem precisar ser
+    adicionado manualmente ao grupo "Agente de IA" -- os dados que ele
+    vai ver/mexer já ficam restritos à própria empresa pelo mesmo
+    mecanismo de cenário ativo/empresa_efetiva_id() usado em todo o
+    resto do sistema.
     """
     @login_required
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
-        tem_acesso = request.user.is_superuser or request.user.groups.filter(name=NOME_GRUPO_AGENTE_IA).exists()
+        tem_acesso = (
+            eh_superuser_ou_superuser_empresa(request.user)
+            or request.user.groups.filter(name=NOME_GRUPO_AGENTE_IA).exists()
+        )
         if not tem_acesso:
             raise PermissionDenied("Você não tem permissão para acessar o Agente de IA.")
         return view_func(request, *args, **kwargs)
@@ -122,6 +134,27 @@ def _extrair_opcoes_clicaveis(texto):
         opcoes.append('Nenhum')
 
     return opcoes[:12]
+
+
+@login_required
+def cenarios_por_empresa_json(request, empresa_id):
+    """
+    🌟 NOVO (multi-empresa): endpoint JSON simples, FORA do mecanismo de
+    URLs do Admin (que teve problema de resolução não totalmente
+    diagnosticado) -- devolve os cenários de uma empresa, usado pelo JS
+    que popula o dropdown de cenario_ativo no formulário de usuário.
+    Só exige estar logado (não precisa ser staff/superuser aqui, já que
+    é só leitura de uma lista de nomes -- sem dado sensível).
+    """
+    from django.http import JsonResponse
+    from .models import TbCenarios
+
+    cenarios = TbCenarios.objects_real.filter(empresa_id=empresa_id).order_by('numero_sequencial', 'id')
+    dados = [
+        {'id': c.id, 'texto': f"{c.numero_sequencial if c.numero_sequencial is not None else c.id}/{c.cen_nome}"}
+        for c in cenarios
+    ]
+    return JsonResponse({'cenarios': dados})
 
 
 @exige_acesso_ao_agente_ia

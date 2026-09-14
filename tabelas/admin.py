@@ -19,6 +19,27 @@ from produtos.models import TbProdutoMercadoPreco, TbMercadoOutbound
 from django_object_actions import DjangoObjectActions
 from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME
 
+
+class _EmpresaFiltradaAdminMixin:
+    """
+    🌟 NOVO (multi-empresa, Parte 3): filtra a listagem pela empresa
+    EFETIVA do usuário logado (empresa fixa dele, ou a empresa_ativa
+    escolhida, se for superusuário) -- mesmo padrão já usado em
+    TbCenariosAdmin/TbEmpresaAdmin. Reaproveitado pelas 8 telas de
+    tabelas independentes de cenário desse arquivo, pra não repetir a
+    mesma lógica em cada uma.
+    """
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        perfil = getattr(request.user, 'perfilusuario', None)
+        if perfil is None:
+            return qs.none()
+        empresa_id = perfil.empresa_efetiva_id()
+        if empresa_id is None:
+            return qs.none()
+        return qs.filter(empresa_id=empresa_id)
+
+
 import io
 from django.http import FileResponse
 from reportlab.pdfgen import canvas
@@ -1475,10 +1496,10 @@ admin.site.register(TbCapex, TbCapexAdmin)
 
 # Divisor de tabelas ....................................................................
 
-class TbUnidadeProducaoAdmin(admin.ModelAdmin):
+class TbUnidadeProducaoAdmin(_EmpresaFiltradaAdminMixin, admin.ModelAdmin):
     fields = (
     'uni_nome', ('uni_imagem', 'uni_imagem_tag'), ('uni_localizacao', 'uni_localizacao_tag'), 'uni_observacao')
-    list_display = ['id', 'uni_nome', 'uni_imagem', 'uni_imagem_tag_small', 'uni_localizacao',
+    list_display = ['id', 'uni_nome', 'empresa', 'uni_imagem', 'uni_imagem_tag_small', 'uni_localizacao',
                     'uni_localizacao_tag_small']
     readonly_fields = ['uni_imagem_tag', 'uni_imagem_tag_small', 'uni_localizacao_tag', 'uni_localizacao_tag_small']
     list_display_links = ['id', 'uni_nome']
@@ -1492,11 +1513,11 @@ class TbUnidadeProducaoAdmin(admin.ModelAdmin):
 admin.site.register(TbUnidadeProducao, TbUnidadeProducaoAdmin)
 
 
-class TbMercadoAdmin(admin.ModelAdmin):
+class TbMercadoAdmin(_EmpresaFiltradaAdminMixin, admin.ModelAdmin):
     form = TbMercadoFormAdmin
 
     fields = ('mer_nome', ('mer_imagem', 'mer_imagem_tag'), 'mer_observacao')
-    list_display = ['id', 'mer_nome', 'mer_imagem', 'mer_imagem_tag_small', 'mer_observacao']
+    list_display = ['id', 'mer_nome', 'empresa', 'mer_imagem', 'mer_imagem_tag_small', 'mer_observacao']
     list_display_links = ['id', 'mer_nome']
     readonly_fields = ['mer_imagem_tag', 'mer_imagem_tag_small']
 
@@ -1509,9 +1530,9 @@ class TbMercadoAdmin(admin.ModelAdmin):
 admin.site.register(TbMercado, TbMercadoAdmin)
 
 
-class TbCustoTipoAdmin(admin.ModelAdmin):
+class TbCustoTipoAdmin(_EmpresaFiltradaAdminMixin, admin.ModelAdmin):
     fields = ('cus_tip_nome', 'cus_tip_group', 'cus_tip_observacao')
-    list_display = ['id', 'cus_tip_nome', 'cus_tip_observacao']
+    list_display = ['id', 'cus_tip_nome', 'empresa', 'cus_tip_observacao']
     list_display_links = ['id', 'cus_tip_nome']
     filter_horizontal = ('cus_tip_group',)
 
@@ -1524,10 +1545,10 @@ class TbCustoTipoAdmin(admin.ModelAdmin):
 admin.site.register(TbCustoTipo, TbCustoTipoAdmin)
 
 
-class TbCustoItemAdmin(admin.ModelAdmin):
+class TbCustoItemAdmin(_EmpresaFiltradaAdminMixin, admin.ModelAdmin):
     fields = (('cus_ite_nome', 'cus_ite_codigo_interno'), ('cus_ite_unidade', 'cus_ite_tipo'), 'cus_ite_imagem',
               'cus_ite_imagem_tag', 'cus_ite_observacao')
-    list_display = ['id', 'cus_ite_nome', 'cus_ite_imagem_tag_small', 'cus_ite_imagem', 'cus_ite_tipo']
+    list_display = ['id', 'cus_ite_nome', 'empresa', 'cus_ite_imagem_tag_small', 'cus_ite_imagem', 'cus_ite_tipo']
     readonly_fields = ['cus_ite_imagem_tag']
     list_display_links = ['id', 'cus_ite_nome']
     search_fields = ['cus_ite_nome', ]
@@ -2847,9 +2868,9 @@ class TbTipoProducaoDaugtherAdmin(admin.TabularInline):
         return False
 
 
-class TbTipoProducaoAdmin(admin.ModelAdmin):
+class TbTipoProducaoAdmin(_EmpresaFiltradaAdminMixin, admin.ModelAdmin):
     fields = (('tip_nome', 'ordem_usando'), ('tip_imagem', 'tip_imagem_tag'), 'tip_observacao')
-    list_display = ['tip_nome', 'ordem_usando', 'tip_imagem', 'tip_imagem_tag', 'tip_observacao']
+    list_display = ['tip_nome', 'empresa', 'ordem_usando', 'tip_imagem', 'tip_imagem_tag', 'tip_observacao']
     search_fields = ['tip_nome', ]
     readonly_fields = ['tip_imagem_tag', 'ordem_usando']
 
@@ -2882,25 +2903,25 @@ class TbTipoProducaoAdmin(admin.ModelAdmin):
 admin.site.register(TbTipoProducao, TbTipoProducaoAdmin)
 
 
-class TbFamiliaProdutoAdmin(admin.ModelAdmin):
+class TbFamiliaProdutoAdmin(_EmpresaFiltradaAdminMixin, admin.ModelAdmin):
     fields = ('fam_pro_codigo',)
-    list_display = ['fam_pro_codigo']
+    list_display = ['fam_pro_codigo', 'empresa']
 
 
 # Registrando
 admin.site.register(TbFamiliaProduto, TbFamiliaProdutoAdmin)
 
 
-class TbGrupoCenariosAdmin(admin.ModelAdmin):
+class TbGrupoCenariosAdmin(_EmpresaFiltradaAdminMixin, admin.ModelAdmin):
     fields = ('gru_cen_codigo',)
-    list_display = ['gru_cen_codigo']
+    list_display = ['gru_cen_codigo', 'empresa']
 
 
 # Registrando
 admin.site.register(TbGrupoCenarios, TbGrupoCenariosAdmin)
 
 
-class TbEquacaoAjustePrecoAdmin(DjangoObjectActions, admin.ModelAdmin):
+class TbEquacaoAjustePrecoAdmin(_EmpresaFiltradaAdminMixin, DjangoObjectActions, admin.ModelAdmin):
     fields = (('equ_aju_pre_descricao', 'equ_aju_pre_moeda'),
               ('equ_aju_pre_constante_a', 'equ_aju_pre_observacao_a'),
               ('equ_aju_pre_constante_b', 'equ_aju_pre_observacao_b'),
@@ -2910,6 +2931,9 @@ class TbEquacaoAjustePrecoAdmin(DjangoObjectActions, admin.ModelAdmin):
               ('equ_aju_pre_constante_f', 'equ_aju_pre_observacao_f'),
               'equ_aju_pre_formula', ('equ_aju_pre_primeiro_titulo', 'equ_aju_pre_segundo_titulo'),
               ('equ_aju_pre_var', 'equ_aju_pre_valor1', 'equ_aju_pre_valor2'))
+    # 🌟 NOVO (multi-empresa): mostra empresa na listagem -- antes não
+    # existia list_display nenhum aqui (Django mostrava só o __str__).
+    list_display = ['equ_aju_pre_descricao', 'empresa']
 
     # readonly_fields = ['equ_aju_pre_valor1', 'equ_aju_pre_valor2']
 

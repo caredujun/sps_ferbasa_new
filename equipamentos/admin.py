@@ -117,12 +117,17 @@ class TbEquipamentosCadastroAdmin(admin.ModelAdmin):
             return ''
 
     # Vamos ver o tipo de periodo
-    if TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Anual':
-        periodos_running.short_description = 'Anos Running'
-    elif TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Trimestral':
-        periodos_running.short_description = 'Trimestres Running'
-    else:
-        periodos_running.short_description = 'Meses Running'
+    # 🌟 CORRIGIDO: protege contra a tabela/coluna ainda não existir
+    # (acontece durante makemigrations de uma migration ainda não aplicada).
+    try:
+        if TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Anual':
+            periodos_running.short_description = 'Anos Running'
+        elif TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Trimestral':
+            periodos_running.short_description = 'Trimestres Running'
+        else:
+            periodos_running.short_description = 'Meses Running'
+    except Exception:
+        periodos_running.short_description = 'Período Running'
 
     formfield_overrides = {
         # models.CharField: {'widget': TextInput(attrs={'size': '15'})},
@@ -276,12 +281,17 @@ class TbEquipamentosAdmin(DjangoObjectActions, admin.ModelAdmin):
         return retorno
 
     # Vamos ver o tipo de periodo
-    if TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Anual':
-        periodos_ativa.short_description = 'Anos Ativa'
-    elif TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Trimestral':
-        periodos_ativa.short_description = 'Trimestres Ativa'
-    else:
-        periodos_ativa.short_description = 'Meses Ativa'
+    # 🌟 CORRIGIDO: protege contra a tabela/coluna ainda não existir
+    # (acontece durante makemigrations de uma migration ainda não aplicada).
+    try:
+        if TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Anual':
+            periodos_ativa.short_description = 'Anos Ativa'
+        elif TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Trimestral':
+            periodos_ativa.short_description = 'Trimestres Ativa'
+        else:
+            periodos_ativa.short_description = 'Meses Ativa'
+    except Exception:
+        periodos_ativa.short_description = 'Período Ativa'
 
     # Vamos criar um campo para mostrar a média das paradas não programadas previstas
     def media_paradas_np(self, obj):

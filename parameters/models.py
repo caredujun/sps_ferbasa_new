@@ -35,6 +35,11 @@ class TbEmpresa(models.Model):
     emp_moeda_imagem = models.ImageField(upload_to='empresa/', null=True, blank=True, verbose_name='Imagem da Moeda')
     emp_logo = models.ImageField(upload_to='empresa/', null=True, blank=True, verbose_name='Logo')
     emp_fluxo = models.ImageField(upload_to='empresa/', null=True, blank=True, verbose_name='Fluxo de Produção')
+    # 🌟 NOVO (multi-empresa): próximo número a distribuir pra um cenário
+    # novo DESSA empresa -- substitui o uso do id real da tabela (que
+    # agora é compartilhado entre várias empresas) como "número visível"
+    # do cenário. Começa em 1 pra toda empresa nova.
+    proximo_numero_cenario = models.IntegerField(default=1, verbose_name='Próximo Número de Cenário')
 
     def __str__(self):
         return self.emp_nome
@@ -146,7 +151,11 @@ class TbCenarios(models.Model):
                       ('Anual', 'Anual')
                       )
 
-    cen_nome = models.CharField(max_length=150, null=False, blank=False, verbose_name='Nome', unique=True)
+    # 🌟 CORRIGIDO (multi-empresa): unique=True tirado -- era uma trava
+    # GLOBAL (só podia existir "AS IS ANUAL" uma vez em TODO o sistema,
+    # o que impediria empresas diferentes de terem cenários com o mesmo
+    # nome). A trava certa fica no Meta, abaixo: único POR EMPRESA.
+    cen_nome = models.CharField(max_length=150, null=False, blank=False, verbose_name='Nome')
     cen_descricao = models.TextField(null=True, blank=False, verbose_name='Descrição')
     cen_tipo = models.CharField(max_length=10, choices=cen_tipo_choice, null=False, blank=False, verbose_name='Tipo')
     cen_inicio = models.CharField(max_length=7, null=False, blank=False, verbose_name='Início', default='2021/01')
@@ -158,11 +167,31 @@ class TbCenarios(models.Model):
     # este fora daqui — o resto do sistema deve continuar
     # usando "objects" (por usuário).
     cen_grupo = models.ForeignKey('tabelas.TbGrupoCenarios', blank=True, null=True, on_delete=models.CASCADE, verbose_name='Grupo')
-    cen_copiar_de = models.ForeignKey('self', default=1, on_delete=models.SET_DEFAULT, verbose_name='Copiar de ')
+    cen_copiar_de = models.ForeignKey('self', null=True, blank=False, on_delete=models.SET_NULL, verbose_name='Copiar de ')
     flag = models.IntegerField(blank=True, null=True, verbose_name='Controle')
+    # 🌟 NOVO (multi-empresa): a que empresa esse cenário pertence -- fica
+    # opcional (null=True) só na transição, pra não quebrar cenários já
+    # existentes antes da migração de dados; todo cenário NOVO deve
+    # sempre vir com isso preenchido.
+    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Empresa')
+    # 🌟 NOVO: número de exibição do cenário, POR EMPRESA -- substitui o
+    # uso do id real da tabela (que passa a ser compartilhado entre
+    # várias empresas, então não serve mais como "número visível"). É
+    # atribuído a partir de empresa.proximo_numero_cenario no save().
+    numero_sequencial = models.IntegerField(null=True, blank=True, verbose_name='Cenário')
+    # 🌟 NOVO: substitui a checagem antiga por id fixo (1, 2, 3) pra
+    # proteger os cenários base (AS IS Mensal/Trimestral/Anual) contra
+    # exclusão/renomeação -- com várias empresas, cada uma tem seus
+    # próprios 3 cenários base, com ids reais diferentes.
+    eh_cenario_base = models.BooleanField(default=False, verbose_name='É Cenário Base')
 
     def __str__(self):
-        return "Cenário " + str(self.pk) + '/' + self.cen_nome
+        # 🌟 CORRIGIDO (multi-empresa): usa numero_sequencial (por empresa)
+        # em vez de self.pk (id real da tabela, agora compartilhado entre
+        # várias empresas) -- mantém o "Cenário 28/Nome" que você já usa,
+        # só que o "28" volta a fazer sentido como sequência da empresa.
+        numero_exibido = self.numero_sequencial if self.numero_sequencial is not None else self.pk
+        return "Cenário " + str(numero_exibido) + '/' + self.cen_nome
 
     def clean(self):
         self.cen_nome = self.cen_nome.upper()
@@ -202,6 +231,11 @@ class TbCenarios(models.Model):
         # referência (agora é por usuário). TbCenariosAdmin já tem seu próprio
         # get_ordering (cenário ativo do usuário no topo) -- isso aqui só afeta
         # quem usa TbCenarios.objects.all() sem especificar ordenação.
+        # 🌟 NOVO (multi-empresa): nome do cenário único POR EMPRESA, não
+        # mais global -- substitui o antigo unique=True no campo cen_nome.
+        constraints = [
+            models.UniqueConstraint(fields=['cen_nome', 'empresa'], name='cenario_nome_unico_por_empresa')
+        ]
 
     def status_cenario(self):
         '''
@@ -266,14 +300,48 @@ class TbCenarios(models.Model):
                     self.cen_ativo = True
 
         if status == 'Adicionando':
-            cen_tipo = TbCenarios.objects.get(id=self.cen_copiar_de_id).cen_tipo
-            cen_inicio = TbCenarios.objects.get(id=self.cen_copiar_de_id).cen_inicio
-            cen_fim = TbCenarios.objects.get(id=self.cen_copiar_de_id).cen_fim
+            # 🌟 NOVO (multi-empresa): cenários-base (os 3 criados
+            # automaticamente pra empresa nova) não têm de onde copiar --
+            # eles DEFINEM os próprios tipo/início/fim, em vez de herdar
+            # de outro cenário (que nem existe ainda, no caso da primeira
+            # empresa). Pra qualquer outro cenário, comportamento igual
+            # a sempre: copia tipo/início/fim de cen_copiar_de.
+            if not self.eh_cenario_base:
+                cen_tipo = TbCenarios.objects.get(id=self.cen_copiar_de_id).cen_tipo
+                cen_inicio = TbCenarios.objects.get(id=self.cen_copiar_de_id).cen_inicio
+                cen_fim = TbCenarios.objects.get(id=self.cen_copiar_de_id).cen_fim
+                self.cen_tipo = cen_tipo
+                self.cen_inicio = cen_inicio
+                self.cen_fim = cen_fim
             flag = 0
-            self.cen_tipo = cen_tipo
-            self.cen_inicio = cen_inicio
-            self.cen_fim = cen_fim
             self.flag = flag
+
+            # 🌟 NOVO (multi-empresa, Parte 4): se ninguém já preencheu
+            # "empresa" explicitamente (como faz o sinal que cria os
+            # cenários-base), pega a empresa efetiva do usuário logado
+            # nesse momento -- assim TODO cenário novo criado pelo
+            # Admin/wizard já nasce vinculado à empresa certa, sem
+            # precisar mexer em cada ponto de criação espalhado pelo
+            # sistema.
+            if self.empresa_id is None:
+                usuario = get_usuario_atual()
+                if usuario is not None:
+                    perfil = getattr(usuario, 'perfilusuario', None)
+                    if perfil is not None:
+                        self.empresa_id = perfil.empresa_efetiva_id()
+
+            # 🌟 NOVO (multi-empresa): distribui o número sequencial dessa
+            # empresa pro cenário novo, e já avança o contador -- só roda
+            # se "empresa" já estiver preenchida (isso passa a ser exigido
+            # de verdade quando o isolamento por empresa for concluído;
+            # por enquanto, sem empresa definida, o cenário fica sem
+            # número -- __str__ cai de volta pro id real nesse caso).
+            if self.empresa_id and self.numero_sequencial is None:
+                with transaction.atomic():
+                    empresa_obj = TbEmpresa.objects.select_for_update().get(id=self.empresa_id)
+                    self.numero_sequencial = empresa_obj.proximo_numero_cenario
+                    empresa_obj.proximo_numero_cenario += 1
+                    empresa_obj.save()
 
         if status == 'Modificando':
             if self.cen_inicio != TbCenarios.objects.get(id=self.pk).cen_inicio or self.cen_fim != TbCenarios.objects.get(id=self.pk).cen_fim:
@@ -292,7 +360,7 @@ class TbCenarios(models.Model):
         # usuário que o campo title/title_visible do tema não é usado em
         # nenhum outro lugar antes de remover.
 
-        if status == 'Adicionando':
+        if status == 'Adicionando' and not self.eh_cenario_base:
             lista_tabela = ('tabelas_tbindicadores',
                             'tabelas_tbcambio',
                             'tabelas_tbimpostorenda',
@@ -324,6 +392,11 @@ class TbCenarios(models.Model):
             from .tasks import duplica_tabela_celery
             transaction.on_commit(lambda: duplica_tabela_celery.delay(lista_tabela, self.pk, self.cen_copiar_de_id))
 
+        if status == 'Adicionando':
+            # 🌟 Roda pra QUALQUER cenário novo, inclusive os base -- é o
+            # que cria os registros de período (TbCenariosDaugther) pra
+            # esse cenário; um cenário base também precisa disso, mesmo
+            # sem ter de onde duplicar os outros dados.
             cursor = connection.cursor()
             sql = "call public.verifica_cenario_filha(" + str(self.pk) + ")"
             cursor.execute(sql)
@@ -339,6 +412,74 @@ class TbCenarios(models.Model):
 
         from django.core.cache import cache
         cache.delete('sps-ferbasa.com')
+
+
+# 🌟 NOVO (multi-empresa): ao excluir um cenário, se ele era o ÚLTIMO
+# número distribuído pra essa empresa, devolve esse número pro próximo
+# cenário criado reaproveitar -- reproduz o ajuste manual de sequência que
+# já era feito antes, agora automático e isolado por empresa. Se não for
+# o último (sobrou algum número no meio), não faz nada -- esse número
+# fica "pulado", igual já acontecia.
+from django.db.models.signals import pre_delete
+
+
+def devolver_numero_sequencial_ao_excluir(sender, instance, **kwargs):
+    if instance.empresa_id and instance.numero_sequencial is not None:
+        with transaction.atomic():
+            empresa_obj = TbEmpresa.objects.select_for_update().get(id=instance.empresa_id)
+            if instance.numero_sequencial == empresa_obj.proximo_numero_cenario - 1:
+                empresa_obj.proximo_numero_cenario -= 1
+                empresa_obj.save()
+
+
+pre_delete.connect(devolver_numero_sequencial_ao_excluir, sender=TbCenarios)
+
+
+# 🌟 NOVO (multi-empresa): substitui o mecanismo antigo (código solto no
+# admin.py, rodando uma vez, com ids fixos 1/2/3 -- pensado pra uma única
+# empresa) -- agora, toda vez que uma EMPRESA NOVA é criada, ela ganha
+# automaticamente um grupo "AS IS" e os 3 cenários base (Mensal/
+# Trimestral/Anual) em branco, isolados por empresa, prontos pra servir
+# de ponto de partida (copiar e ajustar).
+from django.db.models.signals import post_save as _post_save_empresa
+
+
+def criar_estrutura_base_para_empresa_nova(sender, instance, created, **kwargs):
+    if not created:
+        return
+
+    # Import local pra evitar import circular (tabelas/models.py importa
+    # TbCenarios daqui, então não dá pra importar tabelas no topo deste
+    # arquivo).
+    from tabelas.models import TbGrupoCenarios
+
+    # 🌟 CORRIGIDO (multi-empresa, Parte 3): agora que TbGrupoCenarios
+    # tem o campo empresa de verdade, ele entra no LOOKUP do
+    # get_or_create (não só nos "defaults") -- sem isso, a segunda
+    # empresa reaproveitaria por engano o grupo "AS IS" da PRIMEIRA
+    # empresa (o lookup antigo checava só o código, ignorando a empresa).
+    grupo, _ = TbGrupoCenarios.objects.get_or_create(
+        gru_cen_codigo='AS IS', empresa=instance,
+    )
+
+    def _criar_cenario_base(nome, tipo, inicio, fim):
+        cenario = TbCenarios(
+            cen_nome=nome,
+            cen_descricao=f'{nome}. Cenário base criado automaticamente pelo sistema!',
+            cen_tipo=tipo, cen_inicio=inicio, cen_fim=fim, cen_ativo=False,
+            cen_grupo=grupo, empresa=instance, eh_cenario_base=True,
+        )
+        cenario.save()
+
+    # 🌟 CORRIGIDO: nome do cenário sem repetir o nome da empresa -- ela
+    # já aparece separada no cabeçalho do Admin ("Empresa: X"), então
+    # incluir de novo aqui só duplicava a informação na mesma linha.
+    _criar_cenario_base('AS IS MENSAL', 'Mensal', '2022/01', '2022/12')
+    _criar_cenario_base('AS IS TRIMESTRAL', 'Trimestral', '2022/01', '2022/04')
+    _criar_cenario_base('AS IS ANUAL', 'Anual', '2022', '2031')
+
+
+_post_save_empresa.connect(criar_estrutura_base_para_empresa_nova, sender=TbEmpresa)
 
 
 class TbCenariosDaugther(models.Model):
@@ -541,6 +682,8 @@ class TbGlossario(models.Model):
     glo_descricao = models.TextField(verbose_name='Descrição', blank=False, null=False)
     glo_imagem = models.ImageField(upload_to='parameters', null=True, blank=True, verbose_name='Imagem')
     glo_fonte = models.FileField(upload_to='parameters', null=True, blank=True, verbose_name='Fonte')
+    # 🌟 NOVO (multi-empresa, Parte 3): tabela independente de cenário.
+    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Empresa')
 
     def __str__(self):
         return self.glo_nome
@@ -557,11 +700,13 @@ class TbGlossario(models.Model):
 
         self.glo_nome = self.glo_nome.upper()
 
+        # 🌟 CORRIGIDO (multi-empresa): checagem POR EMPRESA, não mais
+        # global.
         count = 0
         if self.pk is None:
-            count = TbGlossario.objects.filter(glo_nome=self.glo_nome).count()
+            count = TbGlossario.objects.filter(glo_nome=self.glo_nome, empresa_id=self.empresa_id).count()
         else:
-            count = TbGlossario.objects.filter(glo_nome=self.glo_nome).exclude(id=self.pk).count()
+            count = TbGlossario.objects.filter(glo_nome=self.glo_nome, empresa_id=self.empresa_id).exclude(id=self.pk).count()
 
         if count >= 1:
             raise ValidationError('Glossário ' + self.glo_nome + ' já cadastrado!')
@@ -570,6 +715,18 @@ class TbGlossario(models.Model):
         verbose_name = '  Glossário'
         verbose_name_plural = '  Glossário'
         ordering = ['glo_nome']
+
+    def save(self, *args, **kwargs):
+        # 🌟 NOVO (multi-empresa, Parte 3): preenche empresa
+        # automaticamente na criação, mesmo mecanismo usado em
+        # TbCenarios.save().
+        if self.pk is None and self.empresa_id is None:
+            usuario = get_usuario_atual()
+            if usuario is not None:
+                perfil = getattr(usuario, 'perfilusuario', None)
+                if perfil is not None:
+                    self.empresa_id = perfil.empresa_efetiva_id()
+        super().save(*args, **kwargs)
 
 # Tabelas para o agente de IA
 
@@ -682,6 +839,80 @@ class PerfilUsuario(models.Model):
         verbose_name='Pode trocar cenário ativo',
         help_text='Se desmarcado, o usuário não verá a opção de ativar outro cenário.'
     )
+    # 🌟 NOVO (multi-empresa): "superusuário DA EMPRESA" -- tem os mesmos
+    # poderes de um superusuário de verdade (criar/excluir cenário,
+    # gerenciar usuários), mas restritos à própria empresa: nunca troca
+    # de empresa, nunca vê/mexe em dado de outra. Diferente do
+    # superusuário real, que continua tendo acesso irrestrito a tudo.
+    # Só um superusuário de verdade pode conceder essa flag (ver
+    # get_readonly_fields em PerfilUsuarioInline/Admin).
+    eh_superuser_empresa = models.BooleanField(
+        default=False,
+        verbose_name='Superusuário da Empresa',
+        help_text='Tem todos os poderes de superusuário, mas restritos à própria empresa (não pode trocar de empresa nem ver dados de outras).'
+    )
+    # 🌟 NOVO (multi-empresa, Parte 4):
+    # - "empresa" é FIXA pro usuário comum -- definida no cadastro dele,
+    #   ele só vê/mexe nos dados dela. Não é usada pra superusuário.
+    # - "empresa_ativa" é só pro SUPERUSUÁRIO -- em qual empresa ele está
+    #   trabalhando agora, trocável a qualquer momento (mesmo padrão do
+    #   cenario_ativo acima, só que um nível acima).
+    empresa = models.ForeignKey(
+        TbEmpresa, on_delete=models.PROTECT, null=True, blank=True,
+        related_name='usuarios',
+        verbose_name='Empresa',
+        help_text='A empresa desse usuário -- ele só vê os dados dela. Não se aplica a superusuários.'
+    )
+    empresa_ativa = models.ForeignKey(
+        TbEmpresa, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='superusuarios_com_esta_ativa',
+        verbose_name='Empresa Ativa (superusuário)',
+        help_text='Só usado por superusuários -- em qual empresa ele está trabalhando agora.'
+    )
+    # 🌟 NOVO: lembra, pra cada empresa que o superusuário já trabalhou,
+    # qual era o cenário ativo dele lá -- assim, trocar de empresa e
+    # voltar não obriga escolher o cenário de novo toda vez. Formato:
+    # {"<empresa_id>": <cenario_id>, ...}. Só relevante pra superusuário
+    # (usuário comum tem uma única empresa, não alterna).
+    cenarios_ativos_por_empresa = models.JSONField(
+        default=dict, blank=True,
+        verbose_name='Cenários ativos por empresa (memória)'
+    )
+
+    def lembrar_cenario_ativo_para_empresa_atual(self):
+        """
+        Salva o cenario_ativo atual como "o cenário dessa empresa" antes
+        de trocar de empresa -- chamado logo ANTES de mudar empresa_ativa.
+        """
+        if self.empresa_ativa_id and self.cenario_ativo_id:
+            mapa = dict(self.cenarios_ativos_por_empresa)
+            mapa[str(self.empresa_ativa_id)] = self.cenario_ativo_id
+            self.cenarios_ativos_por_empresa = mapa
+
+    def restaurar_cenario_ativo_para_empresa(self, empresa_id):
+        """
+        Restaura o cenário que estava ativo da última vez que o
+        superusuário trabalhou nessa empresa, se houver e se o cenário
+        ainda pertencer a ela -- senão deixa None (força escolher de
+        novo, como já acontecia antes).
+        """
+        cenario_id = self.cenarios_ativos_por_empresa.get(str(empresa_id))
+        if cenario_id and TbCenarios.objects_real.filter(id=cenario_id, empresa_id=empresa_id).exists():
+            self.cenario_ativo_id = cenario_id
+        else:
+            self.cenario_ativo_id = None
+
+    def empresa_efetiva_id(self):
+        """
+        A empresa que deve valer AGORA pra esse usuário: pra
+        superusuário, é a empresa_ativa (a que ele escolheu); pra usuário
+        comum, é a empresa fixa dele. Ponto único de verdade -- todo
+        filtro por empresa no sistema deve passar por aqui, em vez de
+        cada lugar decidir sozinho qual campo checar.
+        """
+        if self.usuario.is_superuser:
+            return self.empresa_ativa_id
+        return self.empresa_id
 
     def __str__(self):
         return f"Perfil de {self.usuario}"

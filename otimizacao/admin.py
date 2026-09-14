@@ -647,12 +647,17 @@ class TbProdutoMercadoFluxoAdmin(admin.ModelAdmin):
         return retorno
 
     # Vamos ver o tipo de periodo
-    if TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Anual':
-        periodos_fluxos_running.short_description = 'Anos Running (Fluxo)'
-    elif TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Trimestral':
-        periodos_fluxos_running.short_description = 'Trimestres Running (Fluxo)'
-    else:
-        periodos_fluxos_running.short_description = 'Meses Running (Fluxo)'
+    # 🌟 CORRIGIDO: protege contra a tabela/coluna ainda não existir
+    # (acontece durante makemigrations de uma migration ainda não aplicada).
+    try:
+        if TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Anual':
+            periodos_fluxos_running.short_description = 'Anos Running (Fluxo)'
+        elif TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Trimestral':
+            periodos_fluxos_running.short_description = 'Trimestres Running (Fluxo)'
+        else:
+            periodos_fluxos_running.short_description = 'Meses Running (Fluxo)'
+    except Exception:
+        periodos_fluxos_running.short_description = 'Período Running (Fluxo)'
 
     # Vamos criar um campo para mostrar a qtde de periodos que os equipamentos do fluxo está running na tabela filha
     def periodos_equipamentos_running(self, obj):
@@ -681,12 +686,17 @@ class TbProdutoMercadoFluxoAdmin(admin.ModelAdmin):
         return retorno
 
     # Vamos ver o tipo de periodo
-    if TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Anual':
-        periodos_equipamentos_running.short_description = 'Anos Running (Equip.)'
-    elif TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Trimestral':
-        periodos_equipamentos_running.short_description = 'Trimestres Running (Equip.)'
-    else:
-        periodos_equipamentos_running.short_description = 'Meses Running (Equip.)'
+    # 🌟 CORRIGIDO: protege contra a tabela/coluna ainda não existir
+    # (acontece durante makemigrations de uma migration ainda não aplicada).
+    try:
+        if TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Anual':
+            periodos_equipamentos_running.short_description = 'Anos Running (Equip.)'
+        elif TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Trimestral':
+            periodos_equipamentos_running.short_description = 'Trimestres Running (Equip.)'
+        else:
+            periodos_equipamentos_running.short_description = 'Meses Running (Equip.)'
+    except Exception:
+        periodos_equipamentos_running.short_description = 'Período Running (Equip.)'
 
     class vendas(admin.SimpleListFilter):
         # Human-readable title which will be displayed in the
@@ -1049,12 +1059,17 @@ class TbOtimizacaoEquipamentosAdmin(admin.ModelAdmin):
         return retorno
 
     # Vamos ver o tipo de periodo
-    if TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Anual':
-        periodos_running.short_description = 'Anos Running'
-    elif TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Trimestral':
-        periodos_running.short_description = 'Trimestres Running'
-    else:
-        periodos_running.short_description = 'Meses Running'
+    # 🌟 CORRIGIDO: protege contra a tabela/coluna ainda não existir
+    # (acontece durante makemigrations de uma migration ainda não aplicada).
+    try:
+        if TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Anual':
+            periodos_running.short_description = 'Anos Running'
+        elif TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Trimestral':
+            periodos_running.short_description = 'Trimestres Running'
+        else:
+            periodos_running.short_description = 'Meses Running'
+    except Exception:
+        periodos_running.short_description = 'Período Running'
 
 
     actions = ['exportar_excel']
@@ -1341,12 +1356,17 @@ class TbOtimizacaoEquipamentosOrdemAdmin(admin.ModelAdmin):
         return retorno
 
     # Vamos ver o tipo de periodo
-    if TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Anual':
-        periodos_ativa.short_description = 'Anos Ativa'
-    elif TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Trimestral':
-        periodos_ativa.short_description = 'Trimestres Ativa'
-    else:
-        periodos_ativa.short_description = 'Meses Ativa'
+    # 🌟 CORRIGIDO: protege contra a tabela/coluna ainda não existir
+    # (acontece durante makemigrations de uma migration ainda não aplicada).
+    try:
+        if TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Anual':
+            periodos_ativa.short_description = 'Anos Ativa'
+        elif TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Trimestral':
+            periodos_ativa.short_description = 'Trimestres Ativa'
+        else:
+            periodos_ativa.short_description = 'Meses Ativa'
+    except Exception:
+        periodos_ativa.short_description = 'Período Ativa'
 
     actions = ['exportar_excel']
 

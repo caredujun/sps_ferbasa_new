@@ -72,17 +72,18 @@ class TbOtimizacaoProduto(models.Model):
 
     # Temos que primeiro ver se a tabela TbCenarios existe no banco de dados
     all_tables = connection.introspection.table_names()
+    inicio_periodo = ''
+    fim_periodo = ''
     if 'parameters_tbcenarios' in all_tables:
-        # Temos que pegar o inicio e fim do cenário
-        if TbCenarios.objects.filter(cen_ativo=True).count() == 1:
-            inicio_periodo = TbCenarios.objects.get(cen_ativo=True).cen_inicio
-            fim_periodo = TbCenarios.objects.get(cen_ativo=True).cen_fim
-        else:
-            inicio_periodo = ''
-            fim_periodo = ''
-    else:
-        inicio_periodo = ''
-        fim_periodo = ''
+        # 🌟 CORRIGIDO: protege contra a tabela existir mas faltar
+        # coluna nova (acontece durante makemigrations de uma migration
+        # ainda não aplicada).
+        try:
+            if TbCenarios.objects.filter(cen_ativo=True).count() == 1:
+                inicio_periodo = TbCenarios.objects.get(cen_ativo=True).cen_inicio
+                fim_periodo = TbCenarios.objects.get(cen_ativo=True).cen_fim
+        except Exception:
+            pass
 
     vendas_periodo.short_description = 'Vendas (' + inicio_periodo + ' a ' + fim_periodo + ')'
 
@@ -392,17 +393,18 @@ class TbProdutoMercadoFluxo(models.Model):
 
     # Temos que primeiro ver se a tabela TbCenarios existe no banco de dados
     all_tables = connection.introspection.table_names()
+    inicio_periodo = ''
+    fim_periodo = ''
     if 'parameters_tbcenarios' in all_tables:
-        # Temos que pegar o inicio e fim do cenário
-        if TbCenarios.objects.filter(cen_ativo=True).count() == 1:
-            inicio_periodo = TbCenarios.objects.get(cen_ativo=True).cen_inicio
-            fim_periodo = TbCenarios.objects.get(cen_ativo=True).cen_fim
-        else:
-            inicio_periodo = ''
-            fim_periodo = ''
-    else:
-        inicio_periodo = ''
-        fim_periodo = ''
+        # 🌟 CORRIGIDO: protege contra a tabela existir mas faltar
+        # coluna nova (acontece durante makemigrations de uma migration
+        # ainda não aplicada).
+        try:
+            if TbCenarios.objects.filter(cen_ativo=True).count() == 1:
+                inicio_periodo = TbCenarios.objects.get(cen_ativo=True).cen_inicio
+                fim_periodo = TbCenarios.objects.get(cen_ativo=True).cen_fim
+        except Exception:
+            pass
 
     vendas_periodo.short_description = 'Vendas (' + inicio_periodo + ' a ' + fim_periodo + ')'
 
@@ -604,17 +606,18 @@ class TbProdutoMercado(models.Model):
 
     # Temos que primeiro ver se a tabela TbCenarios existe no banco de dados
     all_tables = connection.introspection.table_names()
+    inicio_periodo = ''
+    fim_periodo = ''
     if 'parameters_tbcenarios' in all_tables:
-        # Temos que pegar o inicio e fim do cenário
-        if TbCenarios.objects.filter(cen_ativo=True).count() == 1:
-            inicio_periodo = TbCenarios.objects.get(cen_ativo=True).cen_inicio
-            fim_periodo = TbCenarios.objects.get(cen_ativo=True).cen_fim
-        else:
-            inicio_periodo = ''
-            fim_periodo = ''
-    else:
-        inicio_periodo = ''
-        fim_periodo = ''
+        # 🌟 CORRIGIDO: protege contra a tabela existir mas faltar
+        # coluna nova (acontece durante makemigrations de uma migration
+        # ainda não aplicada).
+        try:
+            if TbCenarios.objects.filter(cen_ativo=True).count() == 1:
+                inicio_periodo = TbCenarios.objects.get(cen_ativo=True).cen_inicio
+                fim_periodo = TbCenarios.objects.get(cen_ativo=True).cen_fim
+        except Exception:
+            pass
 
     vendas_periodo.short_description = 'Vendas (' + inicio_periodo + ' a ' + fim_periodo + ')'
     vendas_minimo_periodo.short_description = 'Vendas Mín. (' + inicio_periodo + ' a ' + fim_periodo + ')'
@@ -910,17 +913,18 @@ class TbOtimizacaoEquipamentos(models.Model):
 
     # Temos que primeiro ver se a tabela TbCenarios existe no banco de dados
     all_tables = connection.introspection.table_names()
+    inicio_periodo = ''
+    fim_periodo = ''
     if 'parameters_tbcenarios' in all_tables:
-        # Temos que pegar o inicio e fim do cenário
-        if TbCenarios.objects.filter(cen_ativo=True).count() == 1:
-            inicio_periodo = TbCenarios.objects.get(cen_ativo=True).cen_inicio
-            fim_periodo = TbCenarios.objects.get(cen_ativo=True).cen_fim
-        else:
-            inicio_periodo = ''
-            fim_periodo = ''
-    else:
-        inicio_periodo = ''
-        fim_periodo = ''
+        # 🌟 CORRIGIDO: protege contra a tabela existir mas faltar
+        # coluna nova (acontece durante makemigrations de uma migration
+        # ainda não aplicada).
+        try:
+            if TbCenarios.objects.filter(cen_ativo=True).count() == 1:
+                inicio_periodo = TbCenarios.objects.get(cen_ativo=True).cen_inicio
+                fim_periodo = TbCenarios.objects.get(cen_ativo=True).cen_fim
+        except Exception:
+            pass
 
     producao_periodo.short_description = 'Produção (' + inicio_periodo + ' a ' + fim_periodo + ')'
 
@@ -994,17 +998,18 @@ class TbOtimizacaoEquipamentos(models.Model):
 
     # Temos que primeiro ver se a tabela TbCenarios existe no banco de dados
     all_tables = connection.introspection.table_names()
+    inicio_periodo = ''
+    fim_periodo = ''
     if 'parameters_tbcenarios' in all_tables:
-        # Temos que pegar o inicio e fim do cenário
-        if TbCenarios.objects.filter(cen_ativo=True).count() == 1:
-            inicio_periodo = TbCenarios.objects.get(cen_ativo=True).cen_inicio
-            fim_periodo = TbCenarios.objects.get(cen_ativo=True).cen_fim
-        else:
-            inicio_periodo = ''
-            fim_periodo = ''
-    else:
-        inicio_periodo = ''
-        fim_periodo = ''
+        # 🌟 CORRIGIDO: protege contra a tabela existir mas faltar
+        # coluna nova (acontece durante makemigrations de uma migration
+        # ainda não aplicada).
+        try:
+            if TbCenarios.objects.filter(cen_ativo=True).count() == 1:
+                inicio_periodo = TbCenarios.objects.get(cen_ativo=True).cen_inicio
+                fim_periodo = TbCenarios.objects.get(cen_ativo=True).cen_fim
+        except Exception:
+            pass
 
     ocupacao_periodo.short_description = '% Ocupação (' + inicio_periodo + ' a ' + fim_periodo + ')'
 
@@ -1157,17 +1162,18 @@ class TbOtimizacaoEquipamentosOrdem(models.Model):
 
     # Temos que primeiro ver se a tabela TbCenarios existe no banco de dados
     all_tables = connection.introspection.table_names()
+    inicio_periodo = ''
+    fim_periodo = ''
     if 'parameters_tbcenarios' in all_tables:
-        # Temos que pegar o inicio e fim do cenário
-        if TbCenarios.objects.filter(cen_ativo=True).count() == 1:
-            inicio_periodo = TbCenarios.objects.get(cen_ativo=True).cen_inicio
-            fim_periodo = TbCenarios.objects.get(cen_ativo=True).cen_fim
-        else:
-            inicio_periodo = ''
-            fim_periodo = ''
-    else:
-        inicio_periodo = ''
-        fim_periodo = ''
+        # 🌟 CORRIGIDO: protege contra a tabela existir mas faltar
+        # coluna nova (acontece durante makemigrations de uma migration
+        # ainda não aplicada).
+        try:
+            if TbCenarios.objects.filter(cen_ativo=True).count() == 1:
+                inicio_periodo = TbCenarios.objects.get(cen_ativo=True).cen_inicio
+                fim_periodo = TbCenarios.objects.get(cen_ativo=True).cen_fim
+        except Exception:
+            pass
 
     producao_periodo.short_description = 'Produção (' + inicio_periodo + ' a ' + fim_periodo + ')'
 
@@ -1211,17 +1217,18 @@ class TbOtimizacaoEquipamentosOrdem(models.Model):
 
     # Temos que primeiro ver se a tabela TbCenarios existe no banco de dados
     all_tables = connection.introspection.table_names()
+    inicio_periodo = ''
+    fim_periodo = ''
     if 'parameters_tbcenarios' in all_tables:
-        # Temos que pegar o inicio e fim do cenário
-        if TbCenarios.objects.filter(cen_ativo=True).count() == 1:
-            inicio_periodo = TbCenarios.objects.get(cen_ativo=True).cen_inicio
-            fim_periodo = TbCenarios.objects.get(cen_ativo=True).cen_fim
-        else:
-            inicio_periodo = ''
-            fim_periodo = ''
-    else:
-        inicio_periodo = ''
-        fim_periodo = ''
+        # 🌟 CORRIGIDO: protege contra a tabela existir mas faltar
+        # coluna nova (acontece durante makemigrations de uma migration
+        # ainda não aplicada).
+        try:
+            if TbCenarios.objects.filter(cen_ativo=True).count() == 1:
+                inicio_periodo = TbCenarios.objects.get(cen_ativo=True).cen_inicio
+                fim_periodo = TbCenarios.objects.get(cen_ativo=True).cen_fim
+        except Exception:
+            pass
 
     percentual_periodo.short_description = '% Prod. Equipamento (' + inicio_periodo + ' a ' + fim_periodo + ')'
 
@@ -2877,12 +2884,19 @@ class TbOtimizacaoShadow(models.Model):
 
         return periodo_str
 
-    if TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Anual':
-        display_order.short_description = 'Ano'
-    elif TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Trimestral':
-        display_order.short_description = 'Ano/Trimestre'
-    else:
-        display_order.short_description = 'Ano/Mês'
+    # 🌟 CORRIGIDO: protege contra a tabela/coluna ainda não existir
+    # (acontece durante makemigrations de uma migration ainda não
+    # aplicada) -- mesmo motivo já corrigido nos outros blocos deste
+    # arquivo.
+    try:
+        if TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Anual':
+            display_order.short_description = 'Ano'
+        elif TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Trimestral':
+            display_order.short_description = 'Ano/Trimestre'
+        else:
+            display_order.short_description = 'Ano/Mês'
+    except Exception:
+        display_order.short_description = 'Período'
 
     class Meta:
         verbose_name = 'Sombra da Otimização Simplex'
