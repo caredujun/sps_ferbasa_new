@@ -1,4 +1,5 @@
 from django import forms
+from django.utils.translation import gettext_lazy as _
 from .models import *
 
 
@@ -44,11 +45,11 @@ class TbFluxoConsumoPadraoDaugtherFormAdmin(forms.ModelForm):
         super(TbFluxoConsumoPadraoDaugtherFormAdmin, self).__init__(*args, **kwargs)
 
         if TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Anual':
-            TbFluxoConsumoPadraoDaugther.display_order.short_description = 'Ano'
+            TbFluxoConsumoPadraoDaugther.display_order.short_description = _('Ano')
         elif TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Trimestral':
-            TbFluxoConsumoPadraoDaugther.display_order.short_description = 'Ano/Trimestre'
+            TbFluxoConsumoPadraoDaugther.display_order.short_description = _('Ano/Trimestre')
         else:
-            TbFluxoConsumoPadraoDaugther.display_order.short_description = 'Ano/Mês'
+            TbFluxoConsumoPadraoDaugther.display_order.short_description = _('Ano/Mês')
 
 
 class TbFluxoProducaoFormAdmin(forms.ModelForm):
@@ -122,11 +123,11 @@ class TbFluxoProducaoDaugther01FormAdmin(forms.ModelForm):
         super(TbFluxoProducaoDaugther01FormAdmin, self).__init__(*args, **kwargs)
 
         if TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Anual':
-            TbFluxoProducaoDaugther01.display_order.short_description = 'Ano'
+            TbFluxoProducaoDaugther01.display_order.short_description = _('Ano')
         elif TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Trimestral':
-            TbFluxoProducaoDaugther01.display_order.short_description = 'Ano/Trimestre'
+            TbFluxoProducaoDaugther01.display_order.short_description = _('Ano/Trimestre')
         else:
-            TbFluxoProducaoDaugther01.display_order.short_description = 'Ano/Mês'
+            TbFluxoProducaoDaugther01.display_order.short_description = _('Ano/Mês')
 
 
 class TbFluxoProducaoInputOutputFormAdmin(forms.ModelForm):
@@ -144,13 +145,13 @@ class TbFluxoProducaoInputOutputDaugtherFormAdmin(forms.ModelForm):
         super(TbFluxoProducaoInputOutputDaugtherFormAdmin, self).__init__(*args, **kwargs)
 
         if TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Anual':
-            TbFluxoProducaoInputOutputDaugther.display_order.short_description = 'Ano'
+            TbFluxoProducaoInputOutputDaugther.display_order.short_description = _('Ano')
         elif TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Trimestral':
-            TbFluxoProducaoInputOutputDaugther.display_order.short_description = 'Ano/Trimestre'
+            TbFluxoProducaoInputOutputDaugther.display_order.short_description = _('Ano/Trimestre')
         else:
-            TbFluxoProducaoInputOutputDaugther.display_order.short_description = 'Ano/Mês'
+            TbFluxoProducaoInputOutputDaugther.display_order.short_description = _('Ano/Mês')
 
-        TbFluxoProducaoInputOutputDaugther.indfun.short_description = 'IF(%)'
+        TbFluxoProducaoInputOutputDaugther.indfun.short_description = _('IF(%)')
 
 class AtualizarFluxoForm(forms.Form):
     _selected_action = forms.CharField(widget=forms.MultipleHiddenInput)
@@ -158,4 +159,3 @@ class AtualizarFluxoForm(forms.Form):
     #ano_mes_fim = forms.CharField(max_length=7, required=False, label='Ano/Mês Fim')
     def __init__(self, *args, **kwargs):
         super(AtualizarFluxoForm, self).__init__(*args, **kwargs)
-

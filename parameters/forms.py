@@ -1,4 +1,5 @@
 from django import forms
+from django.utils.translation import gettext_lazy as _
 from django.contrib import messages
 
 from .models import *
@@ -31,11 +32,11 @@ class TbCenariosDaugtherFormAdmin(forms.ModelForm):
         super(TbCenariosDaugtherFormAdmin, self).__init__(*args, **kwargs)
         if self.instance.dau_order == 1:
             if TbCenarios.objects.get(id=self.instance.mae_id).cen_tipo == 'Anual':
-                TbCenariosDaugther.display_order.short_description = 'Ano'
+                TbCenariosDaugther.display_order.short_description = _('Ano')
             elif TbCenarios.objects.get(id=self.instance.mae_id).cen_tipo == 'Trimestral':
-                TbCenariosDaugther.display_order.short_description = 'Ano/Trimestre'
+                TbCenariosDaugther.display_order.short_description = _('Ano/Trimestre')
             else:
-                TbCenariosDaugther.display_order.short_description = 'Ano/Mês'
+                TbCenariosDaugther.display_order.short_description = _('Ano/Mês')
 
 class TbCenariosFormAdmin(forms.ModelForm):
     def __init__(self, *args, **kwargs):
@@ -44,8 +45,8 @@ class TbCenariosFormAdmin(forms.ModelForm):
             try:
                 self.fields['cen_inicio'].widget.attrs['class'] = 'mask-cenario-1'
                 self.fields['cen_fim'].widget.attrs['class'] = 'mask-cenario-1'
-                self.fields['cen_inicio'].label = 'Ano Início'
-                self.fields['cen_fim'].label = 'Ano Fim'
+                self.fields['cen_inicio'].label = _('Ano Início')
+                self.fields['cen_fim'].label = _('Ano Fim')
             except:
                 pass
 
@@ -54,11 +55,11 @@ class TbCenariosFormAdmin(forms.ModelForm):
                 self.fields['cen_inicio'].widget.attrs['class'] = 'mask-cenario-2'
                 self.fields['cen_fim'].widget.attrs['class'] = 'mask-cenario-2'
                 if self.instance.cen_tipo == 'Mensal':
-                    self.fields['cen_inicio'].label = 'Ano/Mês Início'
-                    self.fields['cen_fim'].label = 'Ano/Mês Fim'
+                    self.fields['cen_inicio'].label = _('Ano/Mês Início')
+                    self.fields['cen_fim'].label = _('Ano/Mês Fim')
                 else:
-                    self.fields['cen_inicio'].label = 'Ano/Trimestre Início'
-                    self.fields['cen_fim'].label = 'Ano/Trimestre Fim'
+                    self.fields['cen_inicio'].label = _('Ano/Trimestre Início')
+                    self.fields['cen_fim'].label = _('Ano/Trimestre Fim')
             except:
                 pass
 

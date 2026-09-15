@@ -2,6 +2,7 @@ import xlwt, time
 from django.forms import TextInput, Textarea
 from django import forms
 from django.template.response import TemplateResponse
+from django.utils.translation import gettext_lazy as _
 
 from fluxos.models import TbFluxoProducaoDaugther01, TbFluxoProducao
 from otimizacao.models import TbProdutoMercadoFluxo, TbProdutoMercadoFluxoDaugther
@@ -105,9 +106,10 @@ class TbCenariosAdmin(DjangoObjectActions, admin.ModelAdmin):
     def ativar_para_mim(self, request, cenario_id):
         perfil = getattr(request.user, 'perfilusuario', None)
         if perfil is None:
-            messages.error(request, 'Seu usuário não tem um Perfil de Usuário. Contate o administrador.')
+            messages.error(request, _('Seu usuário não tem um Perfil de Usuário. Contate o administrador.'))
         elif not perfil.pode_trocar_cenario and not request.user.is_superuser:
-            messages.error(request, 'Seu usuário está bloqueado para trocar de cenário ativo. Contate o administrador.')
+            messages.error(request,
+                           _('Seu usuário está bloqueado para trocar de cenário ativo. Contate o administrador.'))
         else:
             cenario = TbCenarios.objects_real.get(id=cenario_id)
             perfil.cenario_ativo = cenario
@@ -122,7 +124,7 @@ class TbCenariosAdmin(DjangoObjectActions, admin.ModelAdmin):
         perfil = getattr(usuario, 'perfilusuario', None)
         return bool(perfil and perfil.cenario_ativo_id == obj.id)
 
-    ativo.short_description = 'Ativo'
+    ativo.short_description = _('Ativo')
     ativo.boolean = True
 
     def pode_trocar_cenario(self):
@@ -145,7 +147,7 @@ class TbCenariosAdmin(DjangoObjectActions, admin.ModelAdmin):
         url = reverse('admin:parameters_tbcenarios_ativar_para_mim', args=[obj.id])
         return format_html('<a class="button" href="{}">Ativar</a>', url)
 
-    botao_ativar.short_description = 'Ação'
+    botao_ativar.short_description = _('Ação')
 
     def get_ordering(self, request):
         # 🌟 CORRIGIDO: em vez de anotar um campo no get_queryset e ordenar
@@ -246,15 +248,15 @@ class TbCenariosAdmin(DjangoObjectActions, admin.ModelAdmin):
                         remover_cenario_celery.delay(id_list)
                         # remover_cenario_celery(id_list)
                     messages.success(request,
-                                     'Cenário(s) selecionado(s) sendo excluidos em segundo plano. Para verificar o status da exclusão, refresh a tela.')
+                                     _('Cenário(s) selecionado(s) sendo excluidos em segundo plano. Para verificar o status da exclusão, refresh a tela.'))
                 else:
                     messages.error(request,
-                                   'Um ou mais cenários selecionados são cenários base da empresa e não podem ser excluídos')
+                                   _('Um ou mais cenários selecionados são cenários base da empresa e não podem ser excluídos'))
         else:
             messages.error(request,
-                           "Você não tem autorização para excluir cenários. Favor entrar em contato com administrador do sistema!")
+                           _("Você não tem autorização para excluir cenários. Favor entrar em contato com administrador do sistema!"))
 
-    delete_selected.short_description = 'Remover Cenário(s) Selecionado(s)'
+    delete_selected.short_description = _('Remover Cenário(s) Selecionado(s)')
 
     def exportar_excel(self, request, queryset):
         # Só exporta a tabela com os valores selecionados
@@ -379,7 +381,7 @@ class TbCenariosAdmin(DjangoObjectActions, admin.ModelAdmin):
 
         return response
 
-    exportar_excel.short_description = 'Exportar Excel Cenário(s) Selecionado(s)'
+    exportar_excel.short_description = _('Exportar Excel Cenário(s) Selecionado(s)')
 
     # Importa do cenário ativo
     # Usado para pegar os dados de um cenário mensal e lançar num cenário trimestral por exemplo
@@ -388,10 +390,11 @@ class TbCenariosAdmin(DjangoObjectActions, admin.ModelAdmin):
     def importar_ativo(self, request, obj):
         # Vamos verificar se o cenário está ativo. Se está, não pode copiar dele mesmo
         if obj.id == TbCenarios.objects.get(cen_ativo=True).id:
-            messages.error(request, 'Este cenário está ativo. Não pode importar dele mesmo!')
+            messages.error(request, _('Este cenário está ativo. Não pode importar dele mesmo!'))
         else:
             if request.POST.get('post'):
-                messages.success(request, 'Importação do cenário ativo sendo feita em segundo plano. Favor aguardar...')
+                messages.success(request,
+                                 _('Importação do cenário ativo sendo feita em segundo plano. Favor aguardar...'))
 
                 # Vamos montar uma lista das tabelas que queremos importar. Toda vez que for criada nova tabela, temos que atualizar essa lista
                 lista_tabela = ('tabelas_tbcambio',
@@ -599,7 +602,7 @@ class TbCenariosAdmin(DjangoObjectActions, admin.ModelAdmin):
             atualizar_fluxos_celery.delay(obj.id)
 
             messages.success(request,
-                             'Atualização dos Fluxos de Produção sendo realizado em segundo plano. Favor aguardar!')
+                             _('Atualização dos Fluxos de Produção sendo realizado em segundo plano. Favor aguardar!'))
 
         else:
             messages.error(request, 'ESSE CENÁRIO (' + str(
@@ -610,7 +613,8 @@ class TbCenariosAdmin(DjangoObjectActions, admin.ModelAdmin):
     # Action limpar tabelas para novo cálculo da otimização
     def limpar_cenario(self, request, obj):
         if self.tem_fluxo_desatualizado(obj):
-            messages.error(request, 'Existem fluxos de produção com I/O desatualizado. Use "Atualizar Fluxos" antes.')
+            messages.error(request,
+                           _('Existem fluxos de produção com I/O desatualizado. Use "Atualizar Fluxos" antes.'))
             return
         if self.ativo(obj):
 
@@ -618,19 +622,19 @@ class TbCenariosAdmin(DjangoObjectActions, admin.ModelAdmin):
             if TbFluxoProducaoDaugther01.objects.filter(custo_variavel=None, tbcenarios_id=obj.id,
                                                         mae_id__flu_pro_ativo=True).count() > 0:
                 messages.error(request,
-                               'TEMOS FLUXO(S) DE PRODUÇÃO ATIVO(S) SEM O CÁLCULO DOS CUSTOS VARIÁVEIS. FAVOR VERIFICAR!')
+                               _('TEMOS FLUXO(S) DE PRODUÇÃO ATIVO(S) SEM O CÁLCULO DOS CUSTOS VARIÁVEIS. FAVOR VERIFICAR!'))
             else:
                 # Temos que verificar se tem algum fluxo com o I/O desatualizado
                 if TbFluxoProducao.objects.filter(flu_pro_input_output_atualizado=False, tbcenarios_id=obj.id,
                                                   flu_pro_ativo=True).count() > 0:
                     messages.error(request,
-                                   'TEMOS FLUXO(S) DE PRODUÇÃO ATIVO(S) COM I/O DESATUALIZADO(S). FAVOR VERIFICAR!')
+                                   _('TEMOS FLUXO(S) DE PRODUÇÃO ATIVO(S) COM I/O DESATUALIZADO(S). FAVOR VERIFICAR!'))
                 else:
                     # Temos que verificar se tem algum fluxo com o custo variável zerado
                     if TbFluxoProducaoDaugther01.objects.filter(custo_variavel=0, tbcenarios_id=obj.id,
                                                                 mae_id__flu_pro_ativo=True).count() > 0:
                         messages.error(request,
-                                       'TEMOS FLUXO(S) DE PRODUÇÃO ATIVO(S) COM CUSTO VARIÁVEL ZERADO. FAVOR VERIFICAR!')
+                                       _('TEMOS FLUXO(S) DE PRODUÇÃO ATIVO(S) COM CUSTO VARIÁVEL ZERADO. FAVOR VERIFICAR!'))
                     else:
 
                         cursor = connection.cursor()
@@ -651,7 +655,7 @@ class TbCenariosAdmin(DjangoObjectActions, admin.ModelAdmin):
                         # limpar_cenario_celery()
 
                         messages.success(request,
-                                         'LIMPEZA do cenário sendo realizada em segundo plano. Favor aguardar!')
+                                         _('LIMPEZA do cenário sendo realizada em segundo plano. Favor aguardar!'))
 
         else:
             messages.error(request, 'ESSE CENÁRIO (' + str(
@@ -662,7 +666,8 @@ class TbCenariosAdmin(DjangoObjectActions, admin.ModelAdmin):
     # Action otimizar cenário
     def otimizar_cenario(self, request, obj):
         if self.tem_fluxo_desatualizado(obj):
-            messages.error(request, 'Existem fluxos de produção com I/O desatualizado. Use "Atualizar Fluxos" antes.')
+            messages.error(request,
+                           _('Existem fluxos de produção com I/O desatualizado. Use "Atualizar Fluxos" antes.'))
             return
         if self.ativo(obj):
             if obj.flag == 2:  # Significa que foi limpo e está pronto para otimizar
@@ -696,12 +701,12 @@ class TbCenariosAdmin(DjangoObjectActions, admin.ModelAdmin):
                         transaction.on_commit(lambda: otimizar_cenario_celery.delay(i, cen_ativo, total_variaveis))
                         # otimizar_cenario_celery(i, cen_ativo, total_variaveis)
 
-                messages.success(request, 'OTIMIZAÇÃO do cenário sendo realizada em segundo plano. Favor aguardar!')
+                messages.success(request, _('OTIMIZAÇÃO do cenário sendo realizada em segundo plano. Favor aguardar!'))
             else:
                 if obj.flag == 1:
-                    messages.error(request, 'Cenário só pode ser LIMPO!')
+                    messages.error(request, _('Cenário só pode ser LIMPO!'))
                 else:
-                    messages.error(request, 'Cenário só pode ser LIMPO ou CONSOLIDADO!')
+                    messages.error(request, _('Cenário só pode ser LIMPO ou CONSOLIDADO!'))
         else:
             messages.error(request, 'ESSE CENÁRIO (' + str(
                 obj.id) + ') NÃO É O SEU CENÁRIO ATIVO. Operação não pode ser realizada!')
@@ -741,7 +746,8 @@ class TbCenariosAdmin(DjangoObjectActions, admin.ModelAdmin):
     # Action consolidar os resultados do cenário após otimização
     def consolidar_cenario(self, request, obj):
         if self.tem_fluxo_desatualizado(obj):
-            messages.error(request, 'Existem fluxos de produção com I/O desatualizado. Use "Atualizar Fluxos" antes.')
+            messages.error(request,
+                           _('Existem fluxos de produção com I/O desatualizado. Use "Atualizar Fluxos" antes.'))
             return
         if self.ativo(obj):
             if obj.flag == 3:  # 3 significa que o cenário foi otimizado.
@@ -751,25 +757,26 @@ class TbCenariosAdmin(DjangoObjectActions, admin.ModelAdmin):
 
                 consolidar_cenario_celery.delay(obj.id)
 
-                messages.success(request, 'CONSOLIDAÇÃO do cenário sendo realizada em segundo plano. Favor aguardar!')
+                messages.success(request,
+                                 _('CONSOLIDAÇÃO do cenário sendo realizada em segundo plano. Favor aguardar!'))
 
             else:
                 if obj.flag == 1:
-                    messages.error(request, 'Cenário só pode ser LIMPO!')
+                    messages.error(request, _('Cenário só pode ser LIMPO!'))
                 else:
                     if obj.flag == 2:
-                        messages.error(request, 'Cenário só pode ser OTIMIZADO!')
+                        messages.error(request, _('Cenário só pode ser OTIMIZADO!'))
                     else:
                         if obj.flag == 3:
-                            messages.error(request, 'Cenário só pode ser CONSOLIDADO!')
+                            messages.error(request, _('Cenário só pode ser CONSOLIDADO!'))
                         else:
                             if obj.flag == 4:
-                                messages.error(request, 'Cenário só pode ser LIMPO!')
+                                messages.error(request, _('Cenário só pode ser LIMPO!'))
                             else:
                                 if obj.flag == 5:
-                                    messages.error(request, 'Cenário só pode ser LIMPO!')
+                                    messages.error(request, _('Cenário só pode ser LIMPO!'))
                                 else:
-                                    messages.error(request, 'Cenário só pode ser LIMPO!')
+                                    messages.error(request, _('Cenário só pode ser LIMPO!'))
         else:
             messages.error(request, 'ESSE CENÁRIO (' + str(
                 obj.id) + ') NÃO É O SEU CENÁRIO ATIVO. Operação não pode ser realizada!')
@@ -781,10 +788,11 @@ class TbCenariosAdmin(DjangoObjectActions, admin.ModelAdmin):
     def ativar_cenario_action(self, request, obj):
         perfil = getattr(request.user, 'perfilusuario', None)
         if perfil is None:
-            messages.error(request, 'Seu usuário não tem um Perfil de Usuário. Contate o administrador.')
+            messages.error(request, _('Seu usuário não tem um Perfil de Usuário. Contate o administrador.'))
             return
         if not perfil.pode_trocar_cenario and not request.user.is_superuser:
-            messages.error(request, 'Seu usuário está bloqueado para trocar de cenário ativo. Contate o administrador.')
+            messages.error(request,
+                           _('Seu usuário está bloqueado para trocar de cenário ativo. Contate o administrador.'))
             return
         if perfil.cenario_ativo_id == obj.id:
             messages.info(request, f'Cenário {obj.id}/{obj.cen_nome} já é o seu cenário ativo.')
@@ -968,7 +976,7 @@ class TbEmpresaAdmin(admin.ModelAdmin):
 
     def ativar_para_mim(self, request, empresa_id):
         if not request.user.is_superuser:
-            messages.error(request, 'Só superusuários podem trocar de empresa ativa.')
+            messages.error(request, _('Só superusuários podem trocar de empresa ativa.'))
         else:
             perfil, _ = PerfilUsuario.objects.get_or_create(usuario=request.user)
             empresa = TbEmpresa.objects.get(id=empresa_id)
@@ -1005,7 +1013,7 @@ class TbEmpresaAdmin(admin.ModelAdmin):
         perfil = getattr(usuario, 'perfilusuario', None)
         return bool(perfil and perfil.empresa_ativa_id == obj.id)
 
-    ativo.short_description = 'Ativa'
+    ativo.short_description = _('Ativa')
     ativo.boolean = True
 
     def botao_ativar(self, obj):
@@ -1015,7 +1023,7 @@ class TbEmpresaAdmin(admin.ModelAdmin):
         url = reverse('admin:parameters_tbempresa_ativar_para_mim', args=[obj.id])
         return format_html('<a class="button" href="{}">Ativar</a>', url)
 
-    botao_ativar.short_description = 'Ação'
+    botao_ativar.short_description = _('Ação')
 
     def get_ordering(self, request):
         id_empresa_ativa = None

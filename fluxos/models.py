@@ -2,6 +2,7 @@ from django.db import models
 from django.db import connection
 from equipamentos.models import TbEquipamentos, TbEquipamentosDaugther, TbEquipamentosCadastroDaugther, \
     TbEquipamentosCadastro
+from django.utils.translation import gettext_lazy as _
 from parameters.models import TbCenarios, TbEmpresa
 from django.db.models.signals import post_save, pre_save, post_delete, pre_delete
 from django.core.exceptions import ValidationError
@@ -68,20 +69,21 @@ def verifica_filha_3_valor_1_bit(sender, instance, **kwargs):  # passa 03 valore
 
 
 class TbFluxoConsumoPadrao(models.Model):
-    flu_con_pad_descricao = models.CharField(max_length=100, blank=True, null=True, verbose_name='Descrição')
-    flu_con_pad_validado = models.BooleanField(blank=False, null=False, default=False, verbose_name='Validado')
+    flu_con_pad_descricao = models.CharField(max_length=100, blank=True, null=True, verbose_name=_('Descrição'))
+    flu_con_pad_validado = models.BooleanField(blank=False, null=False, default=False, verbose_name=_('Validado'))
     flu_con_pad_from_equipamento = models.ForeignKey(TbEquipamentos, on_delete=models.CASCADE,
-                                                     verbose_name='From',
+                                                     verbose_name=_('From'),
                                                      related_name='flu_con_pad_from_equipamento')
     flu_con_pad_to_equipamento = models.ForeignKey(TbEquipamentos, on_delete=models.CASCADE,
-                                                   verbose_name='To',
+                                                   verbose_name=_('To'),
                                                    related_name='flu_con_pad_to_equipamento')
     flu_con_pad_consumo_especifico = models.ForeignKey(TbConsumoEspecifico, on_delete=models.SET_NULL, blank=True,
                                                        null=True,
-                                                       verbose_name='Consumo Específico')  # SE DELETAR O CONSUMO ESPECÍFICO, O CAMPO MUDA PARA NULL
-    flu_con_pad_observacao = models.TextField(verbose_name='Observação', blank=True, null=True)
-    valor_inicial = models.DecimalField(max_digits=11, decimal_places=4, verbose_name='Valor Inicial Consumo Padrão')
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
+                                                       verbose_name=_(
+                                                           'Consumo Específico'))  # SE DELETAR O CONSUMO ESPECÍFICO, O CAMPO MUDA PARA NULL
+    flu_con_pad_observacao = models.TextField(verbose_name=_('Observação'), blank=True, null=True)
+    valor_inicial = models.DecimalField(max_digits=11, decimal_places=4, verbose_name=_('Valor Inicial Consumo Padrão'))
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
     id_origem = models.IntegerField(blank=True, null=True)  # Origem no caso de duplicação de tabela
 
     def __str__(self):
@@ -95,7 +97,7 @@ class TbFluxoConsumoPadrao(models.Model):
 
         return valor_retorno
 
-    periodo_inicio.short_description = 'Período Inicio'
+    periodo_inicio.short_description = _('Período Inicio')
 
     def periodo_fim(self):  # Mostra o periodo fim do consumo específico
         valor_retorno = ''
@@ -105,7 +107,7 @@ class TbFluxoConsumoPadrao(models.Model):
 
         return valor_retorno
 
-    periodo_fim.short_description = 'Período Fim'
+    periodo_fim.short_description = _('Período Fim')
 
     def valor_indicador(self):  # Mostra o periodo fim do consumo específico
         valor_retorno = 0
@@ -117,7 +119,7 @@ class TbFluxoConsumoPadrao(models.Model):
 
         return valor_retorno
 
-    valor_indicador.short_description = 'Valor Indicador'
+    valor_indicador.short_description = _('Valor Indicador')
 
     def clean(self):
         # Verificando se já foi cadastrado registro
@@ -152,8 +154,8 @@ class TbFluxoConsumoPadrao(models.Model):
             ordem_to)
 
     class Meta:
-        verbose_name = '   Consumo Padrão'
-        verbose_name_plural = '   Consumos Padrões'
+        verbose_name = _('   Consumo Padrão')
+        verbose_name_plural = _('   Consumos Padrões')
         ordering = ['flu_con_pad_from_equipamento', 'flu_con_pad_to_equipamento']
         unique_together = ('flu_con_pad_descricao', 'tbcenarios',)
 
@@ -178,10 +180,10 @@ def ajusta_input_output2(sender, instance, **kwargs):  # Vai atualizar todos os 
 
 
 class TbFluxoConsumoPadraoDaugther(models.Model):
-    dau_order = models.IntegerField(verbose_name='Ano/Mês')
-    dau_valor = models.DecimalField(max_digits=11, decimal_places=4, default=0, verbose_name='Consumo Padrão')
-    mae = models.ForeignKey(TbFluxoConsumoPadrao, on_delete=models.CASCADE, verbose_name='Mãe')
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
+    dau_order = models.IntegerField(verbose_name=_('Ano/Mês'))
+    dau_valor = models.DecimalField(max_digits=11, decimal_places=4, default=0, verbose_name=_('Consumo Padrão'))
+    mae = models.ForeignKey(TbFluxoConsumoPadrao, on_delete=models.CASCADE, verbose_name=_('Mãe'))
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
 
     def __str__(self):
         return ''
@@ -259,11 +261,11 @@ class TbFluxoConsumoPadraoDaugther(models.Model):
 
         return retorno
 
-    custo_variavel.short_description = 'Custo Var. Adicionado'
+    custo_variavel.short_description = _('Custo Var. Adicionado')
 
     class Meta:
-        verbose_name = 'Consumo Padrão Previsto'
-        verbose_name_plural = 'Consumos Padrões Previstos'
+        verbose_name = _('Consumo Padrão Previsto')
+        verbose_name_plural = _('Consumos Padrões Previstos')
         ordering = ['dau_order']
 
 
@@ -288,23 +290,24 @@ def ajusta_input_output3(sender, instance, **kwargs):
 
 
 class TbFluxoProducao(models.Model):
-    flu_pro_descricao = models.CharField(max_length=150, verbose_name='Descrição')
-    flu_pro_nome = models.CharField(max_length=100, null=True, blank=True, verbose_name='Nome')
+    flu_pro_descricao = models.CharField(max_length=150, verbose_name=_('Descrição'))
+    flu_pro_nome = models.CharField(max_length=100, null=True, blank=True, verbose_name=_('Nome'))
     flu_pro_produto = models.ForeignKey(TbProdutos, on_delete=models.CASCADE, null=True, blank=False,
-                                        verbose_name='Produto')
+                                        verbose_name=_('Produto'))
     flu_pro_custo_variavel_medio = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True,
-                                                       verbose_name='Custo Variável Médio')
-    flu_pro_ativo = models.BooleanField(blank=False, null=False, default=True, verbose_name='Ativo')
-    flu_pro_input_output_atualizado = models.BooleanField(default=False, verbose_name='I/O Atualizado')
+                                                       verbose_name=_('Custo Variável Médio'))
+    flu_pro_ativo = models.BooleanField(blank=False, null=False, default=True, verbose_name=_('Ativo'))
+    flu_pro_input_output_atualizado = models.BooleanField(default=False, verbose_name=_('I/O Atualizado'))
     flu_pro_copiar_de = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True,
-                                          verbose_name='Copiar de')
-    flu_pro_observacao = models.TextField(verbose_name='Observação', blank=True, null=True)
-    flu_pro_erro = models.CharField(max_length=3, default='SIM', verbose_name='Tem Erro')
-    flu_pro_pdf_file = models.FileField(upload_to='pdf_file', null=True, blank=True, verbose_name='Fluxo (PDF)')
-    flu_pro_dados_fluxo = models.JSONField(default=dict, verbose_name='Dados Fluxo')
-    flu_pro_data_criacao = models.DateTimeField(auto_now_add=True, null=True, blank=True, verbose_name='Data Criação')
+                                          verbose_name=_('Copiar de'))
+    flu_pro_observacao = models.TextField(verbose_name=_('Observação'), blank=True, null=True)
+    flu_pro_erro = models.CharField(max_length=3, default='SIM', verbose_name=_('Tem Erro'))
+    flu_pro_pdf_file = models.FileField(upload_to='pdf_file', null=True, blank=True, verbose_name=_('Fluxo (PDF)'))
+    flu_pro_dados_fluxo = models.JSONField(default=dict, verbose_name=_('Dados Fluxo'))
+    flu_pro_data_criacao = models.DateTimeField(auto_now_add=True, null=True, blank=True,
+                                                verbose_name=_('Data Criação'))
     flu_pro_data_modificacao = models.DateTimeField(auto_now=True, null=True, blank=True,
-                                                    verbose_name='Data Modificação')
+                                                    verbose_name=_('Data Modificação'))
 
     '''
     nome = models.CharField(max_length=100)
@@ -315,7 +318,7 @@ class TbFluxoProducao(models.Model):
     data_modificacao = models.DateTimeField(auto_now=True)
     '''
 
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
     id_origem = models.IntegerField(blank=True, null=True)  # Origem no caso de duplicação de tabela
 
     def __str__(self):
@@ -378,12 +381,12 @@ class TbFluxoProducao(models.Model):
 
         return retorno
 
-    custo_variavel_medio.short_description = 'Custo Variável Médio'
+    custo_variavel_medio.short_description = _('Custo Variável Médio')
     '''
 
     class Meta:
-        verbose_name = ' Fluxo de Produção'
-        verbose_name_plural = ' Fluxos de Produção'
+        verbose_name = _(' Fluxo de Produção')
+        verbose_name_plural = _(' Fluxos de Produção')
         ordering = ['flu_pro_produto', 'flu_pro_descricao']
 
     def save(self, *args, **kwargs):
@@ -416,27 +419,27 @@ post_save.connect(verifica_filha_boolean, sender=TbFluxoProducao)
 
 class TbFluxoProducao01(TbFluxoProducao):
     class Meta:
-        verbose_name = 'Detalhe Fluxo/Equipamento'
-        verbose_name_plural = 'Detalhes Fluxo/Equipamento'
+        verbose_name = _('Detalhe Fluxo/Equipamento')
+        verbose_name_plural = _('Detalhes Fluxo/Equipamento')
         proxy = True
 
 
 class TbFluxoProducaoDaugther(models.Model):
-    flu_pro_dau_coluna = models.IntegerField(verbose_name='Coluna')
-    flu_pro_dau_linha = models.IntegerField(verbose_name='Linha')
+    flu_pro_dau_coluna = models.IntegerField(verbose_name=_('Coluna'))
+    flu_pro_dau_linha = models.IntegerField(verbose_name=_('Linha'))
     flu_pro_dau_consumo_padrao = models.ForeignKey(TbFluxoConsumoPadrao, on_delete=models.CASCADE,
-                                                   verbose_name='From --> To')
+                                                   verbose_name=_('From --> To'))
     flu_pro_dau_margem_horaria = models.BooleanField(blank=False, null=False, default=False,
-                                                     verbose_name='Margem Horária')
-    mae = models.ForeignKey(TbFluxoProducao, on_delete=models.CASCADE, verbose_name='Mãe')
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
+                                                     verbose_name=_('Margem Horária'))
+    mae = models.ForeignKey(TbFluxoProducao, on_delete=models.CASCADE, verbose_name=_('Mãe'))
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
 
     def __str__(self):
         return ''
 
     class Meta:
-        verbose_name = 'Sequenciamento da Produção'
-        verbose_name_plural = 'Sequenciamento da Produção'
+        verbose_name = _('Sequenciamento da Produção')
+        verbose_name_plural = _('Sequenciamento da Produção')
         ordering = ['flu_pro_dau_coluna', 'flu_pro_dau_linha']
 
     def descricao_consumo_padrao(self):
@@ -478,7 +481,7 @@ class TbFluxoProducaoDaugther(models.Model):
 
         return from_descricao + ' (P=' + output_padrao + ' / R=' + output_real + ')' + ' --> ' + to_descricao
 
-    descricao_consumo_padrao.short_description = 'Descrição'
+    descricao_consumo_padrao.short_description = _('Descrição')
 
     def save(self, *args, **kwargs):
 
@@ -512,18 +515,18 @@ def ajusta_input_output4(sender, instance, **kwargs):
 
 
 class TbFluxoProducaoDaugther01(models.Model):
-    dau_order = models.IntegerField(verbose_name='Ano/Mês')
-    dau_valor = models.BooleanField(blank=False, null=False, default=True, verbose_name='Running')
+    dau_order = models.IntegerField(verbose_name=_('Ano/Mês'))
+    dau_valor = models.BooleanField(blank=False, null=False, default=True, verbose_name=_('Running'))
     custo_variavel = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True,
-                                         verbose_name='Custo Variável')
+                                         verbose_name=_('Custo Variável'))
     custo_variavel_item = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True,
-                                              verbose_name='`Parcela Itens`')
+                                              verbose_name=_('`Parcela Itens`'))
     custo_variavel_inbound = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True,
-                                                 verbose_name='`Parcela Inbound`')
+                                                 verbose_name=_('`Parcela Inbound`'))
     custo_variavel_manutencao = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True,
-                                                    verbose_name='`Parcela Manutencão`')
-    mae = models.ForeignKey(TbFluxoProducao, on_delete=models.CASCADE, verbose_name='Mãe')
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
+                                                    verbose_name=_('`Parcela Manutencão`'))
+    mae = models.ForeignKey(TbFluxoProducao, on_delete=models.CASCADE, verbose_name=_('Mãe'))
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
 
     def __str__(self):
         return ''
@@ -599,7 +602,7 @@ class TbFluxoProducaoDaugther01(models.Model):
 
         return retorno
 
-    custo_variavel.short_description = 'Custo Variável'
+    custo_variavel.short_description = _('Custo Variável')
     '''
     '''
     # Comentamos pois passamos para campo na tabela
@@ -632,7 +635,7 @@ class TbFluxoProducaoDaugther01(models.Model):
 
         return retorno
 
-    custo_variavel_item.short_description = 'Parcela Itens'
+    custo_variavel_item.short_description = _('Parcela Itens')
     '''
     '''
     # Comentamos pois passamos para campo na tabela
@@ -665,7 +668,7 @@ class TbFluxoProducaoDaugther01(models.Model):
 
         return retorno
 
-    custo_variavel_inbound.short_description = 'Parcela Inbound'
+    custo_variavel_inbound.short_description = _('Parcela Inbound')
     '''
     '''
     # Comentamos pois passamos para campo na tabela
@@ -698,7 +701,7 @@ class TbFluxoProducaoDaugther01(models.Model):
 
         return retorno
 
-    custo_variavel_manutencao.short_description = 'Parcela Manutencao'
+    custo_variavel_manutencao.short_description = _('Parcela Manutencao')
     '''
 
     # Vamos criar um campo para o gargalo e a produtividade no gargalo
@@ -718,7 +721,7 @@ class TbFluxoProducaoDaugther01(models.Model):
 
         return retorno
 
-    gargalo_produtividade.short_description = 'Gargalo/Produtividade'
+    gargalo_produtividade.short_description = _('Gargalo/Produtividade')
 
     # Vamos criar um campo para mostrar a produção máxima no gargalo no período (mensal, trimestral ou anual)
     def producao_maxima(self):
@@ -784,25 +787,25 @@ class TbFluxoProducaoDaugther01(models.Model):
 
         return prod_maxima
 
-    producao_maxima.short_description = 'Produção Máxima'
+    producao_maxima.short_description = _('Produção Máxima')
 
     class Meta:
-        verbose_name = 'Detalhes por Período'
-        verbose_name_plural = 'Detalhes por Período'
+        verbose_name = _('Detalhes por Período')
+        verbose_name_plural = _('Detalhes por Período')
         ordering = ['dau_order']
 
 
 class TbFluxoProducaoInputOutput(models.Model):
-    flu_pro_inp_out_coluna = models.IntegerField(verbose_name='Coluna')
-    flu_pro_inp_out_linha = models.IntegerField(verbose_name='Linha')
+    flu_pro_inp_out_coluna = models.IntegerField(verbose_name=_('Coluna'))
+    flu_pro_inp_out_linha = models.IntegerField(verbose_name=_('Linha'))
     flu_pro_inp_out_equipamento = models.ForeignKey(TbEquipamentos, related_name='flu_pro_inp_out_equipamento',
-                                                    on_delete=models.CASCADE, verbose_name='Equipamento')
+                                                    on_delete=models.CASCADE, verbose_name=_('Equipamento'))
     flu_pro_inp_out_envia_para = models.ForeignKey(TbEquipamentos, blank=True, null=True,
                                                    related_name='flu_pro_inp_out_envia_para', on_delete=models.CASCADE,
-                                                   verbose_name='Envia para')
-    flag = models.BooleanField(blank=False, null=False, default=False, verbose_name='Ativo')
-    mae = models.ForeignKey(TbFluxoProducao, on_delete=models.CASCADE, verbose_name='Mãe')
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
+                                                   verbose_name=_('Envia para'))
+    flag = models.BooleanField(blank=False, null=False, default=False, verbose_name=_('Ativo'))
+    mae = models.ForeignKey(TbFluxoProducao, on_delete=models.CASCADE, verbose_name=_('Mãe'))
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
     id_origem = models.IntegerField(blank=True, null=True)  # Origem no caso de duplicação de tabela
 
     def __str__(self):
@@ -810,19 +813,19 @@ class TbFluxoProducaoInputOutput(models.Model):
             self.flu_pro_inp_out_equipamento)
 
     class Meta:
-        verbose_name = 'Detalhamento por Equipamento'
-        verbose_name_plural = 'Detalhamento por Equipamento'
+        verbose_name = _('Detalhamento por Equipamento')
+        verbose_name_plural = _('Detalhamento por Equipamento')
         ordering = ['flu_pro_inp_out_coluna', 'flu_pro_inp_out_linha']
 
 
 class TbFluxoProducaoInputOutputDaugther(models.Model):
-    dau_order = models.IntegerField(verbose_name='Ano/Mês')
-    # dau_valor_1 = models.DecimalField(max_digits=11, decimal_places=4, default=0, verbose_name='Input Padrão')
-    # dau_valor_2 = models.DecimalField(max_digits=11, decimal_places=4, default=0, verbose_name='Input Real')
-    dau_valor_3 = models.DecimalField(max_digits=11, decimal_places=4, default=0, verbose_name='Output Padrão')
-    dau_valor_4 = models.DecimalField(max_digits=11, decimal_places=4, default=0, verbose_name='Output Real')
-    mae = models.ForeignKey(TbFluxoProducaoInputOutput, on_delete=models.CASCADE, verbose_name='Mãe')
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
+    dau_order = models.IntegerField(verbose_name=_('Ano/Mês'))
+    # dau_valor_1 = models.DecimalField(max_digits=11, decimal_places=4, default=0, verbose_name=_('Input Padrão'))
+    # dau_valor_2 = models.DecimalField(max_digits=11, decimal_places=4, default=0, verbose_name=_('Input Real'))
+    dau_valor_3 = models.DecimalField(max_digits=11, decimal_places=4, default=0, verbose_name=_('Output Padrão'))
+    dau_valor_4 = models.DecimalField(max_digits=11, decimal_places=4, default=0, verbose_name=_('Output Real'))
+    mae = models.ForeignKey(TbFluxoProducaoInputOutput, on_delete=models.CASCADE, verbose_name=_('Mãe'))
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
 
     def __str__(self):
         return ''
@@ -920,7 +923,7 @@ class TbFluxoProducaoInputOutputDaugther(models.Model):
             retorno = locale.format_string('%.2f', retorno, True)
         return retorno
 
-    custo_ate_equipamento.short_description = 'Custo Var. Adic.'
+    custo_ate_equipamento.short_description = _('Custo Var. Adic.')
 
     def indfun(self):
         # Vamos pegar o cenário ativo
@@ -974,11 +977,11 @@ class TbFluxoProducaoInputOutputDaugther(models.Model):
         return retorno
         '''
 
-    produtividade_equivalente.short_description = 'Prod. Equivalente'
+    produtividade_equivalente.short_description = _('Prod. Equivalente')
 
     class Meta:
-        verbose_name = 'Detalhe por Período (click e use setas para direita e esquerda)'
-        verbose_name_plural = 'Detalhes por Período (click e use setas para direita e esquerda)'
+        verbose_name = _('Detalhe por Período (click e use setas para direita e esquerda)')
+        verbose_name_plural = _('Detalhes por Período (click e use setas para direita e esquerda)')
         ordering = ['dau_order']
         unique_together = ('mae', 'dau_order', 'tbcenarios',)
 

@@ -1,4 +1,5 @@
 from django import forms
+from django.utils.translation import gettext_lazy as _
 from django.db import connection
 
 from equipamentos.models import TbEquipamentosCadastro
@@ -18,11 +19,11 @@ class TbProdutoMercadoFluxoDaugtherFormAdmin(forms.ModelForm):
         super(TbProdutoMercadoFluxoDaugtherFormAdmin, self).__init__(*args, **kwargs)
 
         if TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Anual':
-            TbProdutoMercadoFluxoDaugther.display_order.short_description = 'Ano'
+            TbProdutoMercadoFluxoDaugther.display_order.short_description = _('Ano')
         elif TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Trimestral':
-            TbProdutoMercadoFluxoDaugther.display_order.short_description = 'Ano/Trimestre'
+            TbProdutoMercadoFluxoDaugther.display_order.short_description = _('Ano/Trimestre')
         else:
-            TbProdutoMercadoFluxoDaugther.display_order.short_description = 'Ano/Mês'
+            TbProdutoMercadoFluxoDaugther.display_order.short_description = _('Ano/Mês')
 
 class TbProdutoMercadoFluxoFormAdmin(forms.ModelForm):
     pass
@@ -35,11 +36,11 @@ class TbOtimizacaoEquipamentosDaugtherFormAdmin(forms.ModelForm):
         super(TbOtimizacaoEquipamentosDaugtherFormAdmin, self).__init__(*args, **kwargs)
 
         if TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Anual':
-            TbOtimizacaoEquipamentosDaugther.display_order.short_description = 'Ano'
+            TbOtimizacaoEquipamentosDaugther.display_order.short_description = _('Ano')
         elif TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Trimestral':
-            TbOtimizacaoEquipamentosDaugther.display_order.short_description = 'Ano/Trimestre'
+            TbOtimizacaoEquipamentosDaugther.display_order.short_description = _('Ano/Trimestre')
         else:
-            TbOtimizacaoEquipamentosDaugther.display_order.short_description = 'Ano/Mês'
+            TbOtimizacaoEquipamentosDaugther.display_order.short_description = _('Ano/Mês')
 
 
 class TbOtimizacaoEquipamentosOrdemFormAdmin(forms.ModelForm):
@@ -51,11 +52,11 @@ class TbOtimizacaoEquipamentosOrdemDaugtherFormAdmin(forms.ModelForm):
         super(TbOtimizacaoEquipamentosOrdemDaugtherFormAdmin, self).__init__(*args, **kwargs)
 
         if TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Anual':
-            TbOtimizacaoEquipamentosOrdemDaugther.display_order.short_description = 'Ano'
+            TbOtimizacaoEquipamentosOrdemDaugther.display_order.short_description = _('Ano')
         elif TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Trimestral':
-            TbOtimizacaoEquipamentosOrdemDaugther.display_order.short_description = 'Ano/Trimestre'
+            TbOtimizacaoEquipamentosOrdemDaugther.display_order.short_description = _('Ano/Trimestre')
         else:
-            TbOtimizacaoEquipamentosOrdemDaugther.display_order.short_description = 'Ano/Mês'
+            TbOtimizacaoEquipamentosOrdemDaugther.display_order.short_description = _('Ano/Mês')
 
 
 class TbProdutoMercadoDaugtherFormAdmin(forms.ModelForm):
@@ -63,11 +64,11 @@ class TbProdutoMercadoDaugtherFormAdmin(forms.ModelForm):
         super(TbProdutoMercadoDaugtherFormAdmin, self).__init__(*args, **kwargs)
 
         if TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Anual':
-            TbProdutoMercadoDaugther.display_order.short_description = 'Ano'
+            TbProdutoMercadoDaugther.display_order.short_description = _('Ano')
         elif TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Trimestral':
-            TbProdutoMercadoDaugther.display_order.short_description = 'Ano/Trimestre'
+            TbProdutoMercadoDaugther.display_order.short_description = _('Ano/Trimestre')
         else:
-            TbProdutoMercadoDaugther.display_order.short_description = 'Ano/Mês'
+            TbProdutoMercadoDaugther.display_order.short_description = _('Ano/Mês')
 
 
 class TbProdutoMercadoFormAdmin(forms.ModelForm):
@@ -82,11 +83,11 @@ class TbOtimizacaoProdutoDaugtherFormAdmin(forms.ModelForm):
         super(TbOtimizacaoProdutoDaugtherFormAdmin, self).__init__(*args, **kwargs)
 
         if TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Anual':
-            TbOtimizacaoProdutoDaugther.display_order.short_description = 'Ano'
+            TbOtimizacaoProdutoDaugther.display_order.short_description = _('Ano')
         elif TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Trimestral':
-            TbOtimizacaoProdutoDaugther.display_order.short_description = 'Ano/Trimestre'
+            TbOtimizacaoProdutoDaugther.display_order.short_description = _('Ano/Trimestre')
         else:
-            TbOtimizacaoProdutoDaugther.display_order.short_description = 'Ano/Mês'
+            TbOtimizacaoProdutoDaugther.display_order.short_description = _('Ano/Mês')
 
 
 class TbOtimizacaoProdutoFormAdmin(forms.ModelForm):
@@ -100,11 +101,11 @@ class TbOtimizacaoConjuntoEquipamentosDaugtherFormAdmin(forms.ModelForm):
         super(TbOtimizacaoConjuntoEquipamentosDaugtherFormAdmin, self).__init__(*args, **kwargs)
 
         if TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Anual':
-            TbOtimizacaoConjuntoEquipamentosDaugther.display_order.short_description = 'Ano'
+            TbOtimizacaoConjuntoEquipamentosDaugther.display_order.short_description = _('Ano')
         elif TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Trimestral':
-            TbOtimizacaoConjuntoEquipamentosDaugther.display_order.short_description = 'Ano/Trimestre'
+            TbOtimizacaoConjuntoEquipamentosDaugther.display_order.short_description = _('Ano/Trimestre')
         else:
-            TbOtimizacaoConjuntoEquipamentosDaugther.display_order.short_description = 'Ano/Mês'
+            TbOtimizacaoConjuntoEquipamentosDaugther.display_order.short_description = _('Ano/Mês')
 
 class TbOtimizacaoConjuntoEquipamentosFormAdmin(forms.ModelForm):
     def __init__(self, *args, **kwargs):
@@ -307,11 +308,11 @@ class TbOtimizacaoCustoItemDaugtherFormAdmin(forms.ModelForm):
         super(TbOtimizacaoCustoItemDaugtherFormAdmin, self).__init__(*args, **kwargs)
 
         if TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Anual':
-            TbOtimizacaoCustoItemDaugther.display_order.short_description = 'Ano'
+            TbOtimizacaoCustoItemDaugther.display_order.short_description = _('Ano')
         elif TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Trimestral':
-            TbOtimizacaoCustoItemDaugther.display_order.short_description = 'Ano/Trimestre'
+            TbOtimizacaoCustoItemDaugther.display_order.short_description = _('Ano/Trimestre')
         else:
-            TbOtimizacaoCustoItemDaugther.display_order.short_description = 'Ano/Mês'
+            TbOtimizacaoCustoItemDaugther.display_order.short_description = _('Ano/Mês')
 
 
 class TbOtimizacaoComparacaoCenariosDaugtherFormAdmin(forms.ModelForm):
@@ -319,11 +320,11 @@ class TbOtimizacaoComparacaoCenariosDaugtherFormAdmin(forms.ModelForm):
         super(TbOtimizacaoComparacaoCenariosDaugtherFormAdmin, self).__init__(*args, **kwargs)
 
         if TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Anual':
-            TbOtimizacaoComparacaoCenariosDaugther.display_order.short_description = 'Ano'
+            TbOtimizacaoComparacaoCenariosDaugther.display_order.short_description = _('Ano')
         elif TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Trimestral':
-            TbOtimizacaoComparacaoCenariosDaugther.display_order.short_description = 'Ano/Trimestre'
+            TbOtimizacaoComparacaoCenariosDaugther.display_order.short_description = _('Ano/Trimestre')
         else:
-            TbOtimizacaoComparacaoCenariosDaugther.display_order.short_description = 'Ano/Mês'
+            TbOtimizacaoComparacaoCenariosDaugther.display_order.short_description = _('Ano/Mês')
 
 
 class TbOtimizacaoComparacaoCenariosFormAdmin(forms.ModelForm):
@@ -345,9 +346,9 @@ class TbOtimizacaoShadowFormAdmin(forms.ModelForm):
         super(TbOtimizacaoShadowFormAdmin, self).__init__(*args, **kwargs)
 
         if TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Anual':
-            TbOtimizacaoShadow.display_order.short_description = 'Ano'
+            TbOtimizacaoShadow.display_order.short_description = _('Ano')
         elif TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Trimestral':
-            TbOtimizacaoShadow.display_order.short_description = 'Ano/Trimestre'
+            TbOtimizacaoShadow.display_order.short_description = _('Ano/Trimestre')
         else:
-            TbOtimizacaoShadow.display_order.short_description = 'Ano/Mês'
+            TbOtimizacaoShadow.display_order.short_description = _('Ano/Mês')
     '''

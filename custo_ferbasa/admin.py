@@ -1,4 +1,5 @@
 import boto3
+from django.utils.translation import gettext_lazy as _
 import xlwt
 import openpyxl
 from boto3 import Session
@@ -111,9 +112,9 @@ class TbItensProducaoAdmin(_CustoFerbasaAdminMixin, admin.ModelAdmin):
 
     def atualizar_genealogia(self, request, queryset):
         atualizar_genealogia_celery.delay()
-        messages.success(request, 'Atualizando genealogia dos Itens de Produção em segundo plano. Favor aguardar!')
+        messages.success(request, _('Atualizando genealogia dos Itens de Produção em segundo plano. Favor aguardar!'))
 
-    atualizar_genealogia.short_description = 'Atualizar Genealogia Itens de Produção (todos)'
+    atualizar_genealogia.short_description = _('Atualizar Genealogia Itens de Produção (todos)')
 
     def changelist_view(self, request, extra_context=None):
         if 'action' in request.POST and request.POST['action'] == 'atualizar_genealogia':
@@ -232,14 +233,14 @@ class TbItensConsumoAdmin(_CustoFerbasaAdminMixin, admin.ModelAdmin):
                     tab_obj.ite_con_observacao = sheet.cell_value(i, 6)
                     tab_obj.save()
 
-            messages.success(request, 'Tabela Itens de Consumo foi atualizada com sucesso!')
+            messages.success(request, _('Tabela Itens de Consumo foi atualizada com sucesso!'))
             s3_client = boto3.client('s3', aws_access_key_id=aws_id, aws_secret_access_key=aws_secret)
             s3_client.delete_object(Bucket=bucket_name, Key=object_key)
 
         else:
-            messages.error(request, 'Cabeçalho da planilha importada não está correto. Favor verificar!')
+            messages.error(request, _('Cabeçalho da planilha importada não está correto. Favor verificar!'))
 
-    importar_excel.short_description = 'Importar Excel'
+    importar_excel.short_description = _('Importar Excel')
 
     def exportar_excel(self, request, queryset):
         cen_ativo = str(TbCenarios.objects.get(cen_ativo=True).id)
@@ -270,11 +271,11 @@ class TbItensConsumoAdmin(_CustoFerbasaAdminMixin, admin.ModelAdmin):
                 ws.write(row_num, col_num, row[col_num], font_style)
 
         wb.save(response)
-        messages.success(request, 'Arquivo gerado com sucesso.')
+        messages.success(request, _('Arquivo gerado com sucesso.'))
 
         return response
 
-    exportar_excel.short_description = 'Exportar Excel'
+    exportar_excel.short_description = _('Exportar Excel')
 
     form = TbItensConsumoFormAdmin
 
@@ -345,7 +346,7 @@ class TbContaContabilCentroCustoAdmin(_CustoFerbasaAdminMixin, admin.ModelAdmin)
         else:
             return '2026-->'
 
-    cc_referencia.short_description = 'Referência CC'
+    cc_referencia.short_description = _('Referência CC')
 
     def get_actions(self, request):
         actions = super().get_actions(request)
@@ -402,11 +403,11 @@ class TbContaContabilCentroCustoAdmin(_CustoFerbasaAdminMixin, admin.ModelAdmin)
                 ws.cell(row=row_num, column=col_num).value = row[col_num - 1]
 
         wb.save(response)
-        messages.success(request, 'Arquivo gerado com sucesso.')
+        messages.success(request, _('Arquivo gerado com sucesso.'))
 
         return response
 
-    exportar_excel.short_description = 'Exportar Excel'
+    exportar_excel.short_description = _('Exportar Excel')
 
     def importar_excel(self, request, queryset):
         aws_id = AWS_ACCESS_KEY_ID
@@ -452,7 +453,7 @@ class TbContaContabilCentroCustoAdmin(_CustoFerbasaAdminMixin, admin.ModelAdmin)
 
             messages.error(request, 'Cabeçalho do arquivo' + nome_arquivo + ' não está correto. Favor verificar!')
 
-    importar_excel.short_description = 'Importar Arquivo Excel da AWS'
+    importar_excel.short_description = _('Importar Arquivo Excel da AWS')
 
 
 admin.site.register(TbContaContabilCentroCusto, TbContaContabilCentroCustoAdmin)
@@ -532,18 +533,18 @@ class TbProducaoMensalAdmin(_CustoFerbasaAdminMixin, admin.ModelAdmin):
                 ws.cell(row=row_num, column=col_num).value = row[col_num - 1]
 
         wb.save(response)
-        messages.success(request, 'Arquivo gerado com sucesso.')
+        messages.success(request, _('Arquivo gerado com sucesso.'))
 
         return response
 
-    exportar_excel.short_description = 'Exportar Excel Registros Selecionados'
+    exportar_excel.short_description = _('Exportar Excel Registros Selecionados')
 
     def importar_excel(self, request, queryset):
 
         importar_excel_producao_mensal_celery.delay()
-        messages.success(request, 'Tabela Produção Mensal sendo atualizada em segundo plano!')
+        messages.success(request, _('Tabela Produção Mensal sendo atualizada em segundo plano!'))
 
-    importar_excel.short_description = 'Importar Arquivo Excel da AWS'
+    importar_excel.short_description = _('Importar Arquivo Excel da AWS')
 
 
 admin.site.register(TbProducaoMensal, TbProducaoMensalAdmin)
@@ -628,11 +629,11 @@ class TbDistribuicaoGGFMensalAdmin(_CustoFerbasaAdminMixin, admin.ModelAdmin):
                 ws.cell(row=row_num, column=col_num).value = row[col_num - 1]
 
         wb.save(response)
-        messages.success(request, 'Arquivo gerado com sucesso.')
+        messages.success(request, _('Arquivo gerado com sucesso.'))
 
         return response
 
-    exportar_excel.short_description = 'Exportar Excel Registros Selecionados'
+    exportar_excel.short_description = _('Exportar Excel Registros Selecionados')
 
     def changelist_view(self, request, extra_context=None):
         if 'action' in request.POST and request.POST['action'] == 'importar_excel':
@@ -647,9 +648,9 @@ class TbDistribuicaoGGFMensalAdmin(_CustoFerbasaAdminMixin, admin.ModelAdmin):
     def importar_excel(self, request, queryset):
 
         importar_excel_distribuicao_ggf_mensal_celery.delay()
-        messages.success(request, 'Distribuição GGF Mensal sendo atualizada em segundo plano!')
+        messages.success(request, _('Distribuição GGF Mensal sendo atualizada em segundo plano!'))
 
-    importar_excel.short_description = 'Importar Arquivo Excel da AWS'
+    importar_excel.short_description = _('Importar Arquivo Excel da AWS')
 
 
 admin.site.register(TbDistribuicaoGGFMensal, TbDistribuicaoGGFMensalAdmin)
@@ -707,7 +708,7 @@ class TbIndicadorConsumoPadraoDaugtherAdmin(admin.TabularInline):
 
         return retorno
 
-    valor_medio_indicador.short_description = 'Valor Médio SPS'
+    valor_medio_indicador.short_description = _('Valor Médio SPS')
 
     def get_queryset(self, request):
         cen_ativo = TbCenarios.objects.get(cen_ativo=True).id
@@ -748,7 +749,7 @@ class TbIndicadorConsumoEspecificoDaugtherAdmin(admin.TabularInline):
 
         return retorno
 
-    valor_medio_indicador.short_description = 'Valor Médio SPS'
+    valor_medio_indicador.short_description = _('Valor Médio SPS')
 
     def get_queryset(self, request):
         cen_ativo = TbCenarios.objects.get(cen_ativo=True).id
@@ -791,7 +792,7 @@ class TbConsumoEspecificoAdmin(_CustoFerbasaAdminMixin, DjangoObjectActions, adm
         else:
             return ''
 
-    valor_medio_indicador_consumo_padrao.short_description = 'Valor Médio SPS (Cons. Padrão)'
+    valor_medio_indicador_consumo_padrao.short_description = _('Valor Médio SPS (Cons. Padrão)')
 
     def valor_medio_indicador_consumo_especifico(self, obj):
 
@@ -814,7 +815,7 @@ class TbConsumoEspecificoAdmin(_CustoFerbasaAdminMixin, DjangoObjectActions, adm
         else:
             return ''
 
-    valor_medio_indicador_consumo_especifico.short_description = 'Valor Médio SPS (Cons. Espec.)'
+    valor_medio_indicador_consumo_especifico.short_description = _('Valor Médio SPS (Cons. Espec.)')
 
     class sps_ListFilter(admin.SimpleListFilter):
         title = 'SPS'
@@ -928,7 +929,7 @@ class TbConsumoEspecificoAdmin(_CustoFerbasaAdminMixin, DjangoObjectActions, adm
 
         return render(request, "admin/consumo_especifico_periodo.html", {'items': queryset, 'form': form})
 
-    calcular_periodo.short_description = 'Calcular / Atualizar Por Período'
+    calcular_periodo.short_description = _('Calcular / Atualizar Por Período')
 
     def validar_consumos_especificos(self, request, queryset):
 
@@ -939,7 +940,7 @@ class TbConsumoEspecificoAdmin(_CustoFerbasaAdminMixin, DjangoObjectActions, adm
             tab_obj.con_esp_validado = 1
             tab_obj.save()
 
-    validar_consumos_especificos.short_description = 'Validar Consumos Esp. Selecionados'
+    validar_consumos_especificos.short_description = _('Validar Consumos Esp. Selecionados')
 
     def desvalidar_consumos_especificos(self, request, queryset):
 
@@ -950,7 +951,7 @@ class TbConsumoEspecificoAdmin(_CustoFerbasaAdminMixin, DjangoObjectActions, adm
             tab_obj.con_esp_validado = 0
             tab_obj.save()
 
-    desvalidar_consumos_especificos.short_description = 'Desvalidar Consumos Esp. Selecionados'
+    desvalidar_consumos_especificos.short_description = _('Desvalidar Consumos Esp. Selecionados')
 
     def exportar_qs_analise_excel(self, request, queryset):
         response = HttpResponse(content_type='application/ms-excel')
@@ -1009,7 +1010,7 @@ class TbConsumoEspecificoAdmin(_CustoFerbasaAdminMixin, DjangoObjectActions, adm
 
         return response
 
-    exportar_qs_analise_excel.short_description = 'Exportar Análise Áreas Excel'
+    exportar_qs_analise_excel.short_description = _('Exportar Análise Áreas Excel')
 
     def exportar_qs_pdf(self, request, queryset):
 
@@ -1212,7 +1213,7 @@ class TbConsumoEspecificoAdmin(_CustoFerbasaAdminMixin, DjangoObjectActions, adm
         buffer.seek(0)
         return FileResponse(buffer, as_attachment=True, filename=nome_arquivo)
 
-    exportar_qs_pdf.short_description = 'Exportar PDF'
+    exportar_qs_pdf.short_description = _('Exportar PDF')
 
     class Media:
         js = ('jquery.mask.min.js', 'custom.js')
@@ -1235,7 +1236,7 @@ class TbConsumoEspecificoAdmin(_CustoFerbasaAdminMixin, DjangoObjectActions, adm
             obj.con_esp_qtde_consumo = 0
             obj.con_esp_indicador = 0
             messages.set_level(request, messages.ERROR)
-            messages.error(request, 'Registro foi alterado com sucesso. Calculando indicadores em segundo plano. Se Status = CALCULANDO, refresh tela para atualizar.')
+            messages.error(request, _('Registro foi alterado com sucesso. Calculando indicadores em segundo plano. Se Status = CALCULANDO, refresh tela para atualizar.'))
 
         super().save_model(request, obj, form, change)
 
@@ -1246,7 +1247,7 @@ class TbConsumoEspecificoAdmin(_CustoFerbasaAdminMixin, DjangoObjectActions, adm
 
     def update_consumos_padroes(self, request, obj):
         update_indicador_consumos_padroes(obj.id)
-        messages.success(request, 'Update dos consumos padrões vinculados realizado com sucesso!')
+        messages.success(request, _('Update dos consumos padrões vinculados realizado com sucesso!'))
 
     update_consumos_padroes.label = "Update Consumos Padrões"
 
@@ -1481,7 +1482,7 @@ class TbConsumoEspecificoAdmin(_CustoFerbasaAdminMixin, DjangoObjectActions, adm
         buffer.seek(0)
         return FileResponse(buffer, as_attachment=True, filename=nome_arquivo)
 
-    exportar_pdf.short_description = 'Exportar PDF'
+    exportar_pdf.short_description = _('Exportar PDF')
 
 admin.site.register(TbConsumoEspecifico, TbConsumoEspecificoAdmin)
 
@@ -1530,7 +1531,7 @@ class TbCustoItemPrecoDaugtherAdmin(admin.TabularInline):
 
         return retorno
 
-    valor_medio_custo_variavel_adicionado.short_description = 'Valor Médio SPS'
+    valor_medio_custo_variavel_adicionado.short_description = _('Valor Médio SPS')
 
     def get_queryset(self, request):
         cen_ativo = TbCenarios.objects.get(cen_ativo=True).id
@@ -1570,7 +1571,7 @@ class TbCustoVariavelAdicionadoAdmin(_CustoFerbasaAdminMixin, DjangoObjectAction
 
         return retorno
 
-    valor_medio_custo_variavel_adicionado.short_description = 'Valor Médio SPS'
+    valor_medio_custo_variavel_adicionado.short_description = _('Valor Médio SPS')
 
 
     class sps_ListFilter(admin.SimpleListFilter):
@@ -1666,9 +1667,9 @@ class TbCustoVariavelAdicionadoAdmin(_CustoFerbasaAdminMixin, DjangoObjectAction
 
         else:
             messages.set_level(request, messages.ERROR)
-            messages.error(request,'TEMOS REGISTRO NA TABELA DE CONTA CONTÁBIL / CENTRO DE CUSTO AGUARDANDO CLASSIFICAÇÃO. FAVOR VERIFICAR!')
+            messages.error(request,_('TEMOS REGISTRO NA TABELA DE CONTA CONTÁBIL / CENTRO DE CUSTO AGUARDANDO CLASSIFICAÇÃO. FAVOR VERIFICAR!'))
 
-    calcular_periodo.short_description = 'Calcular / Atualizar Por Período'
+    calcular_periodo.short_description = _('Calcular / Atualizar Por Período')
 
     def validar_custo_variavel_adicionado(self, request, queryset):
 
@@ -1679,7 +1680,7 @@ class TbCustoVariavelAdicionadoAdmin(_CustoFerbasaAdminMixin, DjangoObjectAction
             tab_obj.cus_var_adi_validado = 1
             tab_obj.save()
 
-    validar_custo_variavel_adicionado.short_description = 'Validar Custos Variáveis AdicionadoS Selecionados'
+    validar_custo_variavel_adicionado.short_description = _('Validar Custos Variáveis AdicionadoS Selecionados')
 
     def desvalidar_custo_variavel_adicionado(self, request, queryset):
 
@@ -1690,7 +1691,7 @@ class TbCustoVariavelAdicionadoAdmin(_CustoFerbasaAdminMixin, DjangoObjectAction
             tab_obj.cus_var_adi_validado = 0
             tab_obj.save()
 
-    desvalidar_custo_variavel_adicionado.short_description = 'Desvalidar Custos Variáveis AdicionadoS Selecionados'
+    desvalidar_custo_variavel_adicionado.short_description = _('Desvalidar Custos Variáveis AdicionadoS Selecionados')
 
     class Media:
         js = ('jquery.mask.min.js', 'custom.js')
@@ -1724,7 +1725,7 @@ class TbCustoVariavelAdicionadoAdmin(_CustoFerbasaAdminMixin, DjangoObjectAction
             if TbContaContabilCentroCusto.objects.filter(con_con_cen_cus_tipo = 'A').count() == 0:
                 obj.cus_var_adi_status = 'CALCULANDO'
                 messages.set_level(request, messages.ERROR)
-                messages.error(request, 'Registro foi alterado com sucesso. Calculando custos em segundo plano. Se Status = CALCULANDO, refresh tela para atualizar.')
+                messages.error(request, _('Registro foi alterado com sucesso. Calculando custos em segundo plano. Se Status = CALCULANDO, refresh tela para atualizar.'))
 
                 super().save_model(request, obj, form, change)
 
@@ -1733,7 +1734,7 @@ class TbCustoVariavelAdicionadoAdmin(_CustoFerbasaAdminMixin, DjangoObjectAction
             else:
                 obj.cus_var_adi_status = 'ERRO'
                 messages.set_level(request, messages.ERROR)
-                messages.error(request, 'TEMOS REGISTRO NA TABELA DE CONTA CONTÁBIL / CENTRO DE CUSTO AGUARDANDO CLASSIFICAÇÃO. FAVOR VERIFICAR!')
+                messages.error(request, _('TEMOS REGISTRO NA TABELA DE CONTA CONTÁBIL / CENTRO DE CUSTO AGUARDANDO CLASSIFICAÇÃO. FAVOR VERIFICAR!'))
                 super().save_model(request, obj, form, change)
 
 
@@ -2074,7 +2075,7 @@ class TbCustoVariavelAdicionadoAdmin(_CustoFerbasaAdminMixin, DjangoObjectAction
         buffer.seek(0)
         return FileResponse(buffer, as_attachment=True, filename=nome_arquivo)
 
-    exportar_pdf.short_description = 'Exportar PDF'
+    exportar_pdf.short_description = _('Exportar PDF')
 
 
 admin.site.register(TbCustoVariavelAdicionado, TbCustoVariavelAdicionadoAdmin)
@@ -2150,7 +2151,7 @@ class TbRegressaoLinearMultiplaAdmin(_CustoFerbasaAdminMixin, DjangoObjectAction
             obj.reg_lin_mul_r2_regressao = 0
             obj.reg_lin_mul_sumario = ''
             messages.set_level(request, messages.ERROR)
-            messages.error(request, 'Registro foi alterado com sucesso. Calculando regressão em segundo plano. Se Status = CALCULANDO, refresh tela para atualizar.')
+            messages.error(request, _('Registro foi alterado com sucesso. Calculando regressão em segundo plano. Se Status = CALCULANDO, refresh tela para atualizar.'))
             from .tasks import atualiza_tabela_variaveis
             transaction.on_commit(lambda: atualiza_tabela_variaveis.delay(obj.pk))
         super().save_model(request, obj, form, change)

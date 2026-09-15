@@ -1,4 +1,5 @@
 import openpyxl  # Para ler Excel xlsx
+from django.utils.translation import gettext_lazy as _
 import io, subprocess
 import xlwt
 from boto3 import Session
@@ -37,7 +38,7 @@ class TbFluxoConsumoPadraoDaugtherAdmin(admin.TabularInline):
     # Tiramos a mensagem pois removemos o método
     def save_model(self, request, obj, form, change):
         # add an additional message
-        messages.info(request, "Atualização dos fluxos de produção está sendo feita em segundo plano.")
+        messages.info(request, _("Atualização dos fluxos de produção está sendo feita em segundo plano."))
         super(TbFluxoConsumoPadraoDaugtherAdmin, self).save_model(request, obj, form, change)
     '''
 
@@ -84,7 +85,7 @@ class TbFluxoConsumoPadraoAdmin(DjangoObjectActions, admin.ModelAdmin):
     # Tiramos a mensagem pois removemos o método
     def save_model(self, request, obj, form, change):
         # add an additional message
-        messages.info(request, "Atualização dos fluxos de produção está sendo feita em segundo plano.")
+        messages.info(request, _("Atualização dos fluxos de produção está sendo feita em segundo plano."))
         super(TbFluxoConsumoPadraoAdmin, self).save_model(request, obj, form, change)
     '''
 
@@ -142,7 +143,7 @@ class TbFluxoConsumoPadraoAdmin(DjangoObjectActions, admin.ModelAdmin):
             else:
                 return ''
 
-    media_consumo.short_description = 'Média Consumo'
+    media_consumo.short_description = _('Média Consumo')
 
     # Vamos criar um campo para mostrar se temos fluxos de produção com input/output desatualizado
     def fluxo_input_output_atualizado_desatualizado(self, obj):
@@ -168,7 +169,7 @@ class TbFluxoConsumoPadraoAdmin(DjangoObjectActions, admin.ModelAdmin):
         else:
             return ''
 
-    fluxo_input_output_atualizado_desatualizado.short_description = 'Fluxos I/O Atualizados'
+    fluxo_input_output_atualizado_desatualizado.short_description = _('Fluxos I/O Atualizados')
 
     actions = ['exportar_excel', 'importar_excel', 'importar_excel_new', 'validar_consumo_padrao',
                'desvalidar_consumo_padrao', 'atualiza_input_output_fluxos', 'update_indicador_geral']
@@ -217,7 +218,7 @@ class TbFluxoConsumoPadraoAdmin(DjangoObjectActions, admin.ModelAdmin):
             return render(request, "admin/fluxos_producao_atualizar_input_output.html",
                           {'items': TbFluxoProducao.objects.filter(id__in=lista), 'form': form})
 
-    atualiza_input_output_fluxos.short_description = "Atualizar Fluxos (Input/Output) Itens Selecionados"
+    atualiza_input_output_fluxos.short_description = _("Atualizar Fluxos (Input/Output) Itens Selecionados")
 
     def update_indicador_geral(self, request,
                                queryset):  # Atualiza os indicadores do consumo padrão de acordo com o consumo específico indicado
@@ -228,9 +229,9 @@ class TbFluxoConsumoPadraoAdmin(DjangoObjectActions, admin.ModelAdmin):
                     id=consumo[0]).flu_con_pad_consumo_especifico:  # Se foi indicado consumo específico
                 update_indicador(consumo[0])
 
-        messages.success(request, 'Update do indicador dos consumos padrões realizado com sucesso!')
+        messages.success(request, _('Update do indicador dos consumos padrões realizado com sucesso!'))
 
-    update_indicador_geral.short_description = "Update Indicador Consumos Padrões Selecionados"
+    update_indicador_geral.short_description = _("Update Indicador Consumos Padrões Selecionados")
 
     def validar_consumo_padrao(self, request, queryset):
 
@@ -241,7 +242,7 @@ class TbFluxoConsumoPadraoAdmin(DjangoObjectActions, admin.ModelAdmin):
             tab_obj.flu_con_pad_validado = 1
             tab_obj.save()
 
-    validar_consumo_padrao.short_description = 'Validar Consumos Padrões Selecionados'
+    validar_consumo_padrao.short_description = _('Validar Consumos Padrões Selecionados')
 
     def desvalidar_consumo_padrao(self, request, queryset):
 
@@ -252,7 +253,7 @@ class TbFluxoConsumoPadraoAdmin(DjangoObjectActions, admin.ModelAdmin):
             tab_obj.flu_con_pad_validado = 0
             tab_obj.save()
 
-    desvalidar_consumo_padrao.short_description = 'Desvalidar Consumos Padrões Selecionados'
+    desvalidar_consumo_padrao.short_description = _('Desvalidar Consumos Padrões Selecionados')
 
     # Removendo opção de importar se o usuário não tiver permissão para editar a tabela
     def get_actions(self, request):
@@ -318,7 +319,7 @@ class TbFluxoConsumoPadraoAdmin(DjangoObjectActions, admin.ModelAdmin):
             if not ok_cenario:
                 # Na realidade poderiamos desconsiderar essa consistência e assumir o cenário ativo.
                 # Estamos fazendo dessa forma para forçar que na coluna de ordem 5 seja informado o cenário ativo.
-                messages.error(request, 'Cenário informado na planilha não é o ativo. Favor verificar!')
+                messages.error(request, _('Cenário informado na planilha não é o ativo. Favor verificar!'))
             else:
                 # Tudo ok até aqui.
                 # Vamos ver se a informação é nova.
@@ -397,7 +398,7 @@ class TbFluxoConsumoPadraoAdmin(DjangoObjectActions, admin.ModelAdmin):
 
                             # Se chegou até aqui tudo ok. Vamos dar a mensagem de sucesso
                             messages.success(request,
-                                             'Novo(s) Consumo(s) Padrão(ões) foi(ram) adicionado(s) com sucesso.')
+                                             _('Novo(s) Consumo(s) Padrão(ões) foi(ram) adicionado(s) com sucesso.'))
                             # Vamos deletar o arquivo no AWS S3. Isso é para evitar reutilização do mesmo
                             try:
                                 bucket_object.delete()
@@ -421,12 +422,12 @@ class TbFluxoConsumoPadraoAdmin(DjangoObjectActions, admin.ModelAdmin):
                         int(sheet.cell_value(i, 4))) + ' cadastrado para esse cenário. Favor verificar!')
 
         else:
-            messages.error(request, 'Cabeçalho do arquivo Excel não está correto. Favor verificar!')
+            messages.error(request, _('Cabeçalho do arquivo Excel não está correto. Favor verificar!'))
 
     # except:
     #    messages.error(request, 'Não foi encontrado o arquivo ' + object_key + ' no AWS S3 Bucket spsferbasa. Favor verificar!')
 
-    importar_excel_new.short_description = 'Importar Excel (Novos)'
+    importar_excel_new.short_description = _('Importar Excel (Novos)')
 
     # Para permitir rodar importar_excel_new sem selecionar nenhum registro
     def changelist_view(self, request, extra_context=None):
@@ -482,7 +483,7 @@ class TbFluxoConsumoPadraoAdmin(DjangoObjectActions, admin.ModelAdmin):
                              'id_origem',
                              'cenarios_id']:
             #  Cabeçalho da mãe está correto. Vamos agora ver a filha
-            # messages.success(request, 'Cabeçalho da aba mãe correto!')
+            # messages.success(request, _('Cabeçalho da aba mãe correto!'))
 
             sheet = wb.sheet_by_index(1)  # Abrindo a filha
             # Vamos montar uma lista com os nomes das colunas para ver se o arquivo está correto
@@ -499,7 +500,7 @@ class TbFluxoConsumoPadraoAdmin(DjangoObjectActions, admin.ModelAdmin):
                                  'cenarios_id']:
 
                 #  Filha também com cabeçalho correto. Podemos continuar
-                # messages.success(request, 'Cabeçalho da aba filha está correto!')
+                # messages.success(request, _('Cabeçalho da aba filha está correto!'))
 
                 #  Vamos ver se o total de lançamentos na filha está de acordo com o total de mães. Vamos precisar do total de períodos do cenário ativo.
                 #  Vamos obter o total de períodos para o cenário ativo
@@ -511,14 +512,14 @@ class TbFluxoConsumoPadraoAdmin(DjangoObjectActions, admin.ModelAdmin):
                 cursor.close()
 
                 if (total_linhas_filha - 1) == (total_linhas_mae - 1) * total_periodos:
-                    # messages.success(request, 'Total de lançamentos na aba filha está correto!')
+                    # messages.success(request, _('Total de lançamentos na aba filha está correto!'))
 
                     #  Vamos ver se o cenário informado na mãe e na filha é o cenário ativo.
                     # Cenário ativo
                     ok_cenario = True
                     cen_ativo = TbCenarios.objects.get(cen_ativo=True).id
 
-                    # messages.success(request, 'Abrindo aba mãe!')
+                    # messages.success(request, _('Abrindo aba mãe!'))
                     sheet = wb.sheet_by_index(0)  # Abrindo a mãe
                     for i in range(total_linhas_mae):  # A coluna do cenário é a de ordem 10 na mãe
                         if i > 0:  # Porque a linha 0 é o cabeçalho
@@ -526,7 +527,7 @@ class TbFluxoConsumoPadraoAdmin(DjangoObjectActions, admin.ModelAdmin):
                                 ok_cenario = False
                                 break
 
-                    # messages.success(request, 'Abrindo aba filha!')
+                    # messages.success(request, _('Abrindo aba filha!'))
                     sheet = wb.sheet_by_index(1)  # Abrindo a filha
                     for i in range(total_linhas_filha):  # A coluna do cenário é a de ordem 4 na filha
                         if i > 0:  # Porque a linha 0 é o cabeçalho
@@ -536,7 +537,7 @@ class TbFluxoConsumoPadraoAdmin(DjangoObjectActions, admin.ModelAdmin):
 
                     if not ok_cenario:
                         messages.error(request,
-                                       'Cenário informado na planilha (aba mãe ou filhas) não é o ativo. Favor verificar!')
+                                       _('Cenário informado na planilha (aba mãe ou filhas) não é o ativo. Favor verificar!'))
                     else:
 
                         #  Tudo ok até aqui. Vamos verificar se no arquivo tem as mães selecionadas. E se tiver, vamos ver se tem as filhas no total do período do cenário.
@@ -643,7 +644,7 @@ class TbFluxoConsumoPadraoAdmin(DjangoObjectActions, admin.ModelAdmin):
                                                     cursor.execute(sql)
                                                     cursor.close()
 
-                                            # messages.success(request, 'Aba mãe atualizada com sucesso!')
+                                            # messages.success(request, _('Aba mãe atualizada com sucesso!'))
 
                                             # Vamos agora atualizar as filhas
                                             sheet = wb.sheet_by_index(1)  # Abrindo as filhas
@@ -660,9 +661,9 @@ class TbFluxoConsumoPadraoAdmin(DjangoObjectActions, admin.ModelAdmin):
                                                     cursor.execute(sql)
                                                     cursor.close()
 
-                                            # messages.success(request, 'Aba filha atualizada com sucesso!')
+                                            # messages.success(request, _('Aba filha atualizada com sucesso!'))
                         if tudo_ok:
-                            messages.success(request, 'Tabela Consumos Padrões foi atualizada com sucesso!')
+                            messages.success(request, _('Tabela Consumos Padrões foi atualizada com sucesso!'))
 
                             # Vamos deletar o arquivo no AWS S3. Isso é para evitar reutilização do mesmo
                             try:
@@ -678,18 +679,18 @@ class TbFluxoConsumoPadraoAdmin(DjangoObjectActions, admin.ModelAdmin):
 
                 else:
                     messages.error(request,
-                                   'Total de lançamentos na aba mãe e/ou filhas não está correto. Favor verificar!')
+                                   _('Total de lançamentos na aba mãe e/ou filhas não está correto. Favor verificar!'))
 
             else:
-                messages.error(request, 'Cabeçalho da aba filha não está correto. Favor verificar!')
+                messages.error(request, _('Cabeçalho da aba filha não está correto. Favor verificar!'))
 
         else:
-            messages.error(request, 'Cabeçalho da aba mãe não está correto. Favor verificar!')
+            messages.error(request, _('Cabeçalho da aba mãe não está correto. Favor verificar!'))
         # except:
         #    messages.error(request,
         #                   'Não foi encontrado o arquivo ' + object_key + ' no AWS S3 Bucket spsferbasa. Favor verificar!')
 
-    importar_excel.short_description = 'Importar Excel'
+    importar_excel.short_description = _('Importar Excel')
 
     def exportar_excel(self, request, queryset):
 
@@ -804,17 +805,17 @@ class TbFluxoConsumoPadraoAdmin(DjangoObjectActions, admin.ModelAdmin):
                 ws.write(row_num, col_num, row[col_num], font_style)
 
         wb.save(response)
-        messages.success(request, 'Arquivo gerado com sucesso.')
+        messages.success(request, _('Arquivo gerado com sucesso.'))
 
         return response
 
-    exportar_excel.short_description = 'Exportar Excel'
+    exportar_excel.short_description = _('Exportar Excel')
 
     # Action
     def update_indicador_consumo_especifico(self, request, obj):
         update_indicador(obj.id)
         # current_datetime(request)
-        messages.success(request, 'Update do indicador de consumo específico realizado com sucesso!')
+        messages.success(request, _('Update do indicador de consumo específico realizado com sucesso!'))
 
     update_indicador_consumo_especifico.label = "Update Indicador"  # optional
 
@@ -949,7 +950,7 @@ class TbFluxoProducaoDaugtherAdmin(admin.TabularInline):
 
     def save_model(self, request, obj, form, change):
         # add an additional message
-        messages.info(request, "Atualização do fluxo de produção está sendo feita em segundo plano.")
+        messages.info(request, _("Atualização do fluxo de produção está sendo feita em segundo plano."))
         super(TbFluxoProducaoDaugtherAdmin, self).save_model(request, obj, form, change)
 
     class Media:
@@ -1107,7 +1108,7 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
     class custo_variavel_zerado(admin.SimpleListFilter):
         # Human-readable title which will be displayed in the
         # right admin sidebar just above the filter options.
-        title = 'Custo Variável Zero/Null'
+        title = 'Custo Variável Zero'
 
         # Parameter for the filter that will be used in the URL query.
         parameter_name = 'custo_variavel_zero'
@@ -1122,7 +1123,7 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
                 # Vamos montar uma lista do fluxos que estão na queryset
                 lista_in = list(queryset.values_list('id', flat=True))
 
-                # Vamos passar essa lista para a procedure que verifica se o fluxo tem custo variavel zerado ou null
+                # Vamos passar essa lista para a procedure que verifica se o fluxo tem custo variavel zerado
                 cursor = connection.cursor()
                 sql = "call public.custo_variavel_zero(array" + str(lista_in) + ", null)"
                 cursor.execute(sql)
@@ -1176,13 +1177,13 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
             # Vamos excluir os fluxos selecionados
             remover_fluxo.delay(lista)
             messages.success(request,
-                             'Fluxo(s) selecionado(s) sendo excluidos em segundo plano. Para verificar o status da exclusão, refresh a tela.')
+                             _('Fluxo(s) selecionado(s) sendo excluidos em segundo plano. Para verificar o status da exclusão, refresh a tela.'))
 
         else:
             messages.error(request,
-                           "Você não tem autorização para excluir fluxo(s). Favor entrar em contato com administrador do sistema!")
+                           _("Você não tem autorização para excluir fluxo(s). Favor entrar em contato com administrador do sistema!"))
 
-    delete_selected.short_description = 'Remover Fluxo(s) Selecionado(s)'
+    delete_selected.short_description = _('Remover Fluxo(s) Selecionado(s)')
 
     def excluir_output_real_zerado(self, request, queryset):
 
@@ -1193,9 +1194,9 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
             lista.append(i)
 
         excluir_output_real_zerado_lista.delay(lista)
-        messages.success(request, 'Sequências zeradas dos fluxos selecionados sendo removidas em segundo plano!')
+        messages.success(request, _('Sequências zeradas dos fluxos selecionados sendo removidas em segundo plano!'))
 
-    excluir_output_real_zerado.short_description = 'Remover Sequências Output Real Zerado Fluxos Selecionados'
+    excluir_output_real_zerado.short_description = _('Remover Sequências Output Real Zerado Fluxos Selecionados')
 
     def ativar_fluxo(self, request, queryset):
         fluxos = queryset.values_list('id', flat=True)
@@ -1205,7 +1206,7 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
             tab_obj.flu_pro_ativo = 1
             tab_obj.save()
 
-    ativar_fluxo.short_description = 'Ativar Fluxos Selecionados'
+    ativar_fluxo.short_description = _('Ativar Fluxos Selecionados')
 
     def verificar_erro_fluxo(self, request, queryset):
         fluxos = queryset.values_list('id', flat=True)
@@ -1217,7 +1218,7 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
             cursor.execute(sql)
             cursor.close()
 
-    verificar_erro_fluxo.short_description = 'Verificar Erros Fluxos Selecionados'
+    verificar_erro_fluxo.short_description = _('Verificar Erros Fluxos Selecionados')
 
     def desativar_fluxo(self, request, queryset):
         fluxos = queryset.values_list('id', flat=True)
@@ -1227,7 +1228,7 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
             tab_obj.flu_pro_ativo = 0
             tab_obj.save()
 
-    desativar_fluxo.short_description = 'Desativar Itens Selecionados'
+    desativar_fluxo.short_description = _('Desativar Itens Selecionados')
 
     def atualizar_fluxo_pdf(self, request, queryset):
         # Vamos transformar o id da queryset numa lista para passar para a função celery no segundo plano. Não aceita passar a queryset
@@ -1237,9 +1238,9 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
             lista.append(i)
 
         update_fluxo_lista.delay(lista)
-        messages.success(request, 'Fluxos PDF sendo atualizados em segundo plano!')
+        messages.success(request, _('Fluxos PDF sendo atualizados em segundo plano!'))
 
-    atualizar_fluxo_pdf.short_description = 'Update Fluxo PDF Itens Selecionados'
+    atualizar_fluxo_pdf.short_description = _('Update Fluxo PDF Itens Selecionados')
 
     def atualizar_fluxo_admin(self, request, queryset):
         # Vamos transformar o id da queryset numa lista para passar para a função celery no segundo plano. Não aceita passar a queryset
@@ -1250,9 +1251,9 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
 
         # print(lista)
         atualizar_fluxo_celery.delay(lista)
-        messages.success(request, 'Fluxos (input/output) sendo atualizados em segundo plano!')
+        messages.success(request, _('Fluxos (input/output) sendo atualizados em segundo plano!'))
 
-    atualizar_fluxo_admin.short_description = 'Atualizar Input/Output/Custos dos Fluxos Selecionados'
+    atualizar_fluxo_admin.short_description = _('Atualizar Input/Output/Custos dos Fluxos Selecionados')
 
     def atualizar_custo_admin(self, request, queryset):
         # Vamos transformar o id da queryset numa lista para passar para a função celery no segundo plano. Não aceita passar a queryset
@@ -1262,9 +1263,9 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
             lista.append(i)
 
         atualizar_custos_celery.delay(lista)
-        messages.success(request, 'Custos sendo atualizados em segundo plano!')
+        messages.success(request, _('Custos sendo atualizados em segundo plano!'))
 
-    atualizar_custo_admin.short_description = 'Atualizar Custos dos Fluxos Selecionados'
+    atualizar_custo_admin.short_description = _('Atualizar Custos dos Fluxos Selecionados')
 
     def importar_excel_new(self, request, queryset):
 
@@ -1375,7 +1376,7 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
 
                 # Vamos informar que o arquivo foi atualizado com sucesso e eliminar o mesmo do AWS S3
                 # Se chegou até aqui tudo ok. Vamos dar a mensagem de sucesso
-                messages.success(request, 'Novo(s) Fluxo(s) de Produção foi(ram) adicionado(s) com sucesso.')
+                messages.success(request, _('Novo(s) Fluxo(s) de Produção foi(ram) adicionado(s) com sucesso.'))
                 # Vamos deletar o arquivo no AWS S3. Isso é para evitar reutilização do mesmo
                 try:
                     bucket_object.delete()
@@ -1386,16 +1387,16 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
 
         else:
             # print(lista_colunas)
-            messages.error(request, 'Cabeçalho do arquivo Excel não está correto. Favor verificar!')
+            messages.error(request, _('Cabeçalho do arquivo Excel não está correto. Favor verificar!'))
 
-    importar_excel_new.short_description = 'Importar Excel/xls 1º Plano (Novos)'
+    importar_excel_new.short_description = _('Importar Excel/xls 1º Plano (Novos)')
 
     def importar_excel_new_segundo(self, request, queryset):
 
         importar_excel_new_segundo_celery.delay()
-        messages.success(request, 'Importação Novos Fluxos de Produção sendo realizada em segundo plano!')
+        messages.success(request, _('Importação Novos Fluxos de Produção sendo realizada em segundo plano!'))
 
-    importar_excel_new_segundo.short_description = 'Importar Excel/xls 2º Plano (Novos)'
+    importar_excel_new_segundo.short_description = _('Importar Excel/xls 2º Plano (Novos)')
 
     def importar_excel_xlsx_new(self, request, queryset):
 
@@ -1506,7 +1507,7 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
 
                 # Vamos informar que o arquivo foi atualizado com sucesso e eliminar o mesmo do AWS S3
                 # Se chegou até aqui tudo ok. Vamos dar a mensagem de sucesso
-                messages.success(request, 'Novo(s) Fluxo(s) de Produção foi(ram) adicionado(s) com sucesso.')
+                messages.success(request, _('Novo(s) Fluxo(s) de Produção foi(ram) adicionado(s) com sucesso.'))
                 # Vamos deletar o arquivo no AWS S3. Isso é para evitar reutilização do mesmo
                 try:
                     bucket_object.delete()
@@ -1516,16 +1517,16 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
                                    'Arquivo ' + object_key + ' não foi removido do AWS S3 Bucket spsferbasa. Favor remover manualmente.')
 
         else:
-            messages.error(request, 'Cabeçalho do arquivo Excel no AWS não está correto. Favor verificar!')
+            messages.error(request, _('Cabeçalho do arquivo Excel no AWS não está correto. Favor verificar!'))
 
-    importar_excel_xlsx_new.short_description = 'Importar Excel/xlsx 1º Plano (Novos)'
+    importar_excel_xlsx_new.short_description = _('Importar Excel/xlsx 1º Plano (Novos)')
 
     def importar_excel_xlsx_new_segundo(self, request, queryset):
 
         importar_excel_xlsx_new_segundo_celery.delay()
-        messages.success(request, 'Importação Novos Fluxos de Produção sendo realizada em segundo plano!')
+        messages.success(request, _('Importação Novos Fluxos de Produção sendo realizada em segundo plano!'))
 
-    importar_excel_xlsx_new_segundo.short_description = 'Importar Excel/xlsx 2º Plano (Novos)'
+    importar_excel_xlsx_new_segundo.short_description = _('Importar Excel/xlsx 2º Plano (Novos)')
 
     # Para permitir rodar importar_excel_new sem selecionar nenhum registro
     def changelist_view(self, request, extra_context=None):
@@ -1548,9 +1549,9 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
             lista.append(i)
 
         importar_excel_fluxo_producao_celery.delay(lista)
-        messages.success(request, 'Tabela Fluxo de Produção sendo atualizada em segundo plano!')
+        messages.success(request, _('Tabela Fluxo de Produção sendo atualizada em segundo plano!'))
 
-    importar_excel.short_description = 'Importar Excel'
+    importar_excel.short_description = _('Importar Excel')
 
     def exportar_excel(self, request, queryset):
         # Só exporta a tabela com os registros selecionados. O relatório será enviado via e-mail ao usuário ao término do processo.
@@ -1563,7 +1564,7 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
         messages.success(request,
                          'Exportação para Excel sendo realizada em segundo plano. Ao terminar o processo o arquivo será enviado ao e-mail ' + user_mail + '. Favor aguardar por volta de 01 minuto e verificar seu e-mail.')
 
-    exportar_excel.short_description = 'Exportar Excel'
+    exportar_excel.short_description = _('Exportar Excel')
 
     # Action
     def atualizar_fluxo(self, request, obj):
@@ -1573,7 +1574,7 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
 
         atualiza_input_output_celery.delay(obj.id)
         messages.success(request,
-                         'Atualização do Fluxo (Input/Output) sendo realizada em segundo plano. Favor aguardar!')
+                         _('Atualização do Fluxo (Input/Output) sendo realizada em segundo plano. Favor aguardar!'))
 
     atualizar_fluxo.label = "Atualizar Fluxo (Input/Output)"
 
@@ -1581,7 +1582,7 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
         update_fluxo_celery.delay(obj.id)
         # update_fluxo_celery(obj.id)
         # current_datetime(request)
-        messages.success(request, 'Update do arquivo PDF do fluxo sendo realizado em segundo plano. Favor aguardar!')
+        messages.success(request, _('Update do arquivo PDF do fluxo sendo realizado em segundo plano. Favor aguardar!'))
 
     update_fluxo.label = "Update Fluxo (PDF)"
 
@@ -1616,7 +1617,7 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
                 obj.id)
         return "Salve o fluxo primeiro para visualizá-lo"
 
-    visualizar_fluxo.short_description = "Visualizar Fluxo"
+    visualizar_fluxo.short_description = _("Visualizar Fluxo")
 
     inlines = [TbFluxoProducaoDaugtherAdmin, TbFluxoProducaoDaugther01Admin]
 

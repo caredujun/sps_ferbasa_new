@@ -1,4 +1,5 @@
 import xlwt
+from django.utils.translation import gettext_lazy as _
 from django.contrib import admin, messages
 from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME
 from django.http import HttpResponse
@@ -285,7 +286,7 @@ class TbOtimizacaoProdutoAdmin(admin.ModelAdmin):
         buffer.seek(0)
         return FileResponse(buffer, as_attachment=True, filename=nome_arquivo)
 
-    exportar_pdf.short_description = 'Exportar PDF'
+    exportar_pdf.short_description = _('Exportar PDF')
 
     def exportar_excel(self, request, queryset):
         # Só exporta a tabela com os valores selecionados.
@@ -412,7 +413,7 @@ class TbOtimizacaoProdutoAdmin(admin.ModelAdmin):
 
         return response
 
-    exportar_excel.short_description = 'Exportar Excel'
+    exportar_excel.short_description = _('Exportar Excel')
 
     def exportar_excel_consolidado(self, request, queryset):
         # Só exporta a tabela com os valores selecionados.
@@ -542,7 +543,7 @@ class TbOtimizacaoProdutoAdmin(admin.ModelAdmin):
 
         return response
 
-    exportar_excel_consolidado.short_description = 'Exportar Excel Consolidado'
+    exportar_excel_consolidado.short_description = _('Exportar Excel Consolidado')
 
     # Para permitir rodar exportar_excel e exportar_pdf sem selecionar nenhum registro
     def changelist_view(self, request, extra_context=None):
@@ -651,13 +652,13 @@ class TbProdutoMercadoFluxoAdmin(admin.ModelAdmin):
     # (acontece durante makemigrations de uma migration ainda não aplicada).
     try:
         if TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Anual':
-            periodos_fluxos_running.short_description = 'Anos Running (Fluxo)'
+            periodos_fluxos_running.short_description = _('Anos Running (Fluxo)')
         elif TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Trimestral':
-            periodos_fluxos_running.short_description = 'Trimestres Running (Fluxo)'
+            periodos_fluxos_running.short_description = _('Trimestres Running (Fluxo)')
         else:
-            periodos_fluxos_running.short_description = 'Meses Running (Fluxo)'
+            periodos_fluxos_running.short_description = _('Meses Running (Fluxo)')
     except Exception:
-        periodos_fluxos_running.short_description = 'Período Running (Fluxo)'
+        periodos_fluxos_running.short_description = _('Período Running (Fluxo)')
 
     # Vamos criar um campo para mostrar a qtde de periodos que os equipamentos do fluxo está running na tabela filha
     def periodos_equipamentos_running(self, obj):
@@ -690,13 +691,13 @@ class TbProdutoMercadoFluxoAdmin(admin.ModelAdmin):
     # (acontece durante makemigrations de uma migration ainda não aplicada).
     try:
         if TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Anual':
-            periodos_equipamentos_running.short_description = 'Anos Running (Equip.)'
+            periodos_equipamentos_running.short_description = _('Anos Running (Equip.)')
         elif TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Trimestral':
-            periodos_equipamentos_running.short_description = 'Trimestres Running (Equip.)'
+            periodos_equipamentos_running.short_description = _('Trimestres Running (Equip.)')
         else:
-            periodos_equipamentos_running.short_description = 'Meses Running (Equip.)'
+            periodos_equipamentos_running.short_description = _('Meses Running (Equip.)')
     except Exception:
-        periodos_equipamentos_running.short_description = 'Período Running (Equip.)'
+        periodos_equipamentos_running.short_description = _('Período Running (Equip.)')
 
     class vendas(admin.SimpleListFilter):
         # Human-readable title which will be displayed in the
@@ -783,7 +784,7 @@ class TbProdutoMercadoFluxoAdmin(admin.ModelAdmin):
 
         exportar_excel_tbprodutomercadofluxo_celery.delay(lista_id, user_mail)
         #exportar_excel_tbprodutomercadofluxo_celery(lista_id, user_mail)
-        messages.success(request, 'Exportação para Excel sendo realizada em segundo plano. Ao terminar (5/10 minutos), será enviado o arquivo ao e-mail cadastrado do usuário no sistema.')
+        messages.success(request, _('Exportação para Excel sendo realizada em segundo plano. Ao terminar (5/10 minutos), será enviado o arquivo ao e-mail cadastrado do usuário no sistema.'))
 
         '''
         # Só exporta a tabela com os valores selecionados
@@ -951,7 +952,7 @@ class TbProdutoMercadoFluxoAdmin(admin.ModelAdmin):
         return response
         '''
 
-    exportar_excel.short_description = 'Exportar Excel'
+    exportar_excel.short_description = _('Exportar Excel')
 
     # Para permitir rodar exportar_excel e exportar_pdf sem selecionar nenhum registro
     def changelist_view(self, request, extra_context=None):
@@ -1063,13 +1064,13 @@ class TbOtimizacaoEquipamentosAdmin(admin.ModelAdmin):
     # (acontece durante makemigrations de uma migration ainda não aplicada).
     try:
         if TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Anual':
-            periodos_running.short_description = 'Anos Running'
+            periodos_running.short_description = _('Anos Running')
         elif TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Trimestral':
-            periodos_running.short_description = 'Trimestres Running'
+            periodos_running.short_description = _('Trimestres Running')
         else:
-            periodos_running.short_description = 'Meses Running'
+            periodos_running.short_description = _('Meses Running')
     except Exception:
-        periodos_running.short_description = 'Período Running'
+        periodos_running.short_description = _('Período Running')
 
 
     actions = ['exportar_excel']
@@ -1191,7 +1192,7 @@ class TbOtimizacaoEquipamentosAdmin(admin.ModelAdmin):
 
         return response
 
-    exportar_excel.short_description = 'Exportar Excel'
+    exportar_excel.short_description = _('Exportar Excel')
 
     # Para permitir rodar exportar_excel e exportar_pdf sem selecionar nenhum registro
     def changelist_view(self, request, extra_context=None):
@@ -1360,13 +1361,13 @@ class TbOtimizacaoEquipamentosOrdemAdmin(admin.ModelAdmin):
     # (acontece durante makemigrations de uma migration ainda não aplicada).
     try:
         if TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Anual':
-            periodos_ativa.short_description = 'Anos Ativa'
+            periodos_ativa.short_description = _('Anos Ativa')
         elif TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Trimestral':
-            periodos_ativa.short_description = 'Trimestres Ativa'
+            periodos_ativa.short_description = _('Trimestres Ativa')
         else:
-            periodos_ativa.short_description = 'Meses Ativa'
+            periodos_ativa.short_description = _('Meses Ativa')
     except Exception:
-        periodos_ativa.short_description = 'Período Ativa'
+        periodos_ativa.short_description = _('Período Ativa')
 
     actions = ['exportar_excel']
 
@@ -1501,7 +1502,7 @@ class TbOtimizacaoEquipamentosOrdemAdmin(admin.ModelAdmin):
 
         return response
 
-    exportar_excel.short_description = 'Exportar Excel'
+    exportar_excel.short_description = _('Exportar Excel')
 
     # Para permitir rodar exportar_excel e exportar_pdf sem selecionar nenhum registro
     def changelist_view(self, request, extra_context=None):
@@ -1760,7 +1761,7 @@ class TbProdutoMercadoAdmin(admin.ModelAdmin):
         buffer.seek(0)
         return FileResponse(buffer, as_attachment=True, filename=nome_arquivo)
 
-    exportar_pdf.short_description = 'Exportar PDF'
+    exportar_pdf.short_description = _('Exportar PDF')
 
     def exportar_excel(self, request, queryset):
         # Só exporta a tabela com os valores selecionados.
@@ -1890,7 +1891,7 @@ class TbProdutoMercadoAdmin(admin.ModelAdmin):
 
         return response
 
-    exportar_excel.short_description = 'Exportar Excel'
+    exportar_excel.short_description = _('Exportar Excel')
 
     # Para permitir rodar exportar_excel e exportar_pdf sem selecionar nenhum registro
     def changelist_view(self, request, extra_context=None):
@@ -2097,7 +2098,7 @@ class TbOtimizacaoCustoItemAdmin(admin.ModelAdmin):
 
         return response
 
-    exportar_excel.short_description = 'Exportar Excel'
+    exportar_excel.short_description = _('Exportar Excel')
 
     # Para permitir rodar exportar_excel e exportar_pdf sem selecionar nenhum registro
     def changelist_view(self, request, extra_context=None):
@@ -2160,21 +2161,21 @@ class TbConsumoEspecificoTipoProducaoAdmin(admin.ModelAdmin):
             return TbConsumoEspecifico.objects.get(id=object.con_esp_tip_pro_ajuste1_id).con_esp_indicador
         else:
             return ''
-    valor_indicador1.short_description = 'Valor Indicador'
+    valor_indicador1.short_description = _('Valor Indicador')
 
     def valor_indicador_referencia(self, object):
         if object.con_esp_tip_pro_indicador_referencia_id is not None:
             return TbConsumoEspecifico.objects.get(id=object.con_esp_tip_pro_indicador_referencia_id).con_esp_indicador
         else:
             return ''
-    valor_indicador_referencia.short_description = 'Referência'
+    valor_indicador_referencia.short_description = _('Referência')
 
     def valor_indicador2(self, object):
         if object.con_esp_tip_pro_ajuste2_id is not None:
             return TbConsumoEspecifico.objects.get(id=object.con_esp_tip_pro_ajuste2_id).con_esp_indicador
         else:
             return ''
-    valor_indicador2.short_description = 'Valor Indicador'
+    valor_indicador2.short_description = _('Valor Indicador')
 
     # Mostra somente os registros do cenário ativo e que flag seja igual a 1
     def get_queryset(self, request):
@@ -2568,7 +2569,7 @@ class TbOtimizacaoComparacaoCenariosAdmin(admin.ModelAdmin):
 
         return response
 
-    exportar_excel.short_description = 'Exportar Excel'
+    exportar_excel.short_description = _('Exportar Excel')
 
     # Para permitir rodar exportar_excel sem selecionar nenhum registro
     def changelist_view(self, request, extra_context=None):

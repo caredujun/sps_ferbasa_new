@@ -40,6 +40,9 @@ msgstr "Entreprise"
 msgid "Empresas"
 msgstr "Entreprises"
 
+msgid "    Empresa"
+msgstr "    Entreprise"
+
 msgid "   Cenário"
 msgstr "   Scénario"
 
@@ -171,6 +174,2152 @@ msgstr "Créer une nouvelle"
 
 msgid "Agente IA"
 msgstr "Agent IA"
+
+msgid "                 Indicador"
+msgstr "                 Indicateur"
+
+msgid "                 Indicadores"
+msgstr "                 Indicateurs"
+
+msgid "Valores Previstos (%)"
+msgstr "Valeurs Prévues (%)"
+
+msgid "               Taxa de Câmbio"
+msgstr "               Taux de Change"
+
+msgid "               Taxas de Câmbio"
+msgstr "               Taux de Change"
+
+msgid "Valores Previstos"
+msgstr "Valeurs Prévues"
+
+msgid "              Imposto de Renda"
+msgstr "              Impôt sur le Revenu"
+
+msgid "             Taxa de Desconto (WACC)"
+msgstr "             Taux d'Actualisation (WACC)"
+
+msgid "            Custo Fixo"
+msgstr "            Coût Fixe"
+
+msgid "            Custos Fixos"
+msgstr "            Coûts Fixes"
+
+msgid "           Deprec./Amortização"
+msgstr "           Amort./Dépréciation"
+
+msgid "           Deprec./Amortizações"
+msgstr "           Amort./Dépréciations"
+
+msgid "          CAPEX"
+msgstr "          CAPEX"
+
+msgid "         Unidade de Produção"
+msgstr "         Unité de Production"
+
+msgid "         Unidades de Produção"
+msgstr "         Unités de Production"
+
+msgid "        Mercado"
+msgstr "        Marché"
+
+msgid "        Mercados"
+msgstr "        Marchés"
+
+msgid "     Custo Variável - Tipo"
+msgstr "     Coût Variable - Type"
+
+msgid "     Custo Variável - Tipos"
+msgstr "     Coût Variable - Types"
+
+msgid "     Custo Variável - Item"
+msgstr "     Coût Variable - Article"
+
+msgid "    Custo Variável - Itens"
+msgstr "    Coût Variable - Articles"
+
+msgid "    Custo Variável - Preço"
+msgstr "    Coût Variable - Prix"
+
+msgid "    Custo Variável - Preços"
+msgstr "    Coût Variable - Prix"
+
+msgid "   Tipo de Produção"
+msgstr "   Type de Production"
+
+msgid "   Tipos de Produção"
+msgstr "   Types de Production"
+
+msgid "  Família de Produto"
+msgstr "  Famille de Produit"
+
+msgid "  Famílias de Produtos"
+msgstr "  Familles de Produits"
+
+msgid " Grupo de Cenários"
+msgstr " Groupe de Scénarios"
+
+msgid " Grupos de Cenários"
+msgstr " Groupes de Scénarios"
+
+msgid "Equação Ajuste Preço"
+msgstr "Équation d'Ajustement de Prix"
+
+msgid "Equações Ajustes Preços"
+msgstr "Équations d'Ajustement de Prix"
+
+msgid "          Item de Consumo"
+msgstr "          Article de Consommation"
+
+msgid "          Itens de Consumo"
+msgstr "          Articles de Consommation"
+
+msgid "           Item de Produção"
+msgstr "           Article de Production"
+
+msgid "           Itens de Produção"
+msgstr "           Articles de Production"
+
+msgid "Arvore Genealógica de Produção"
+msgstr "Arbre Généalogique de Production"
+
+msgid "         Estabelecimento"
+msgstr "         Établissement"
+
+msgid "         Estabelecimentos"
+msgstr "         Établissements"
+
+msgid "        Grupo Máquina"
+msgstr "        Groupe de Machines"
+
+msgid "        Grupos Máquinas"
+msgstr "        Groupes de Machines"
+
+msgid "       Conta Contábil"
+msgstr "       Compte Comptable"
+
+msgid "       Contas Contábeis"
+msgstr "       Comptes Comptables"
+
+msgid "      Centro de Custo"
+msgstr "      Centre de Coût"
+
+msgid "      Centros de Custo"
+msgstr "      Centres de Coût"
+
+msgid "     Conta Contábil/Centro de Custo"
+msgstr "     Compte Comptable/Centre de Coût"
+
+msgid "     Contas Contábeis/Centros de Custo"
+msgstr "     Comptes Comptables/Centres de Coût"
+
+msgid "    Produção Mensal"
+msgstr "    Production Mensuelle"
+
+msgid "   Distribuição GGF Mensal"
+msgstr "   Répartition Mensuelle des GGF"
+
+msgid "  Consumo Específico SPS"
+msgstr "  Consommation Spécifique SPS"
+
+msgid "  Consumos Específicos SPS"
+msgstr "  Consommations Spécifiques SPS"
+
+msgid "Valor Histórico"
+msgstr "Valeur Historique"
+
+msgid "Valores Históricos"
+msgstr "Valeurs Historiques"
+
+msgid "Consumo Específico Complementar"
+msgstr "Consommation Spécifique Complémentaire"
+
+msgid "Consumos Específicos Complementares"
+msgstr "Consommations Spécifiques Complémentaires"
+
+msgid " Custo Variável Adicionado SPS"
+msgstr " Coût Variable Ajouté SPS"
+
+msgid " Custos Variáveis Adicionados SPS"
+msgstr " Coûts Variables Ajoutés SPS"
+
+msgid "Custo Variável Adicional"
+msgstr "Coût Variable Additionnel"
+
+msgid "Custos Variáveis Adicionais"
+msgstr "Coûts Variables Additionnels"
+
+msgid "Regressão Linear Múltipla"
+msgstr "Régression Linéaire Multiple"
+
+msgid "Regressões Lineares Múltiplas"
+msgstr "Régressions Linéaires Multiples"
+
+msgid "Variável"
+msgstr "Variable"
+
+msgid "Variáveis"
+msgstr "Variables"
+
+msgid "Base de Dados"
+msgstr "Base de Données"
+
+msgid "  Cadastro"
+msgstr "  Enregistrement"
+
+msgid " Ordem de Producao"
+msgstr " Ordre de Production"
+
+msgid " Ordem de Produção"
+msgstr " Ordres de Production"
+
+msgid "Consumo Específico"
+msgstr "Consommation Spécifique"
+
+msgid "Consumos Específicos"
+msgstr "Consommations Spécifiques"
+
+msgid "  Produto"
+msgstr "  Produit"
+
+msgid "  Produtos"
+msgstr "  Produits"
+
+msgid "  Volume/Preço por Mercado"
+msgstr "  Volume/Prix par Marché"
+
+msgid "  Volume/Preços por Mercado"
+msgstr "  Volume/Prix par Marché"
+
+msgid "Volume Mín/Máx - Preço Previsto"
+msgstr "Volume Min/Max - Prix Prévu"
+
+msgid "Volumes Mín/Máx - Preços Previstos"
+msgstr "Volumes Min/Max - Prix Prévus"
+
+msgid "Custo Outbound"
+msgstr "Coût Sortant"
+
+msgid "Custos Outbound"
+msgstr "Coûts Sortants"
+
+msgid "   Consumo Padrão"
+msgstr "   Consommation Standard"
+
+msgid "   Consumos Padrões"
+msgstr "   Consommations Standard"
+
+msgid "Consumo Padrão Previsto"
+msgstr "Consommation Standard Prévue"
+
+msgid "Consumos Padrões Previstos"
+msgstr "Consommations Standard Prévues"
+
+msgid " Fluxo de Produção"
+msgstr " Flux de Production"
+
+msgid " Fluxos de Produção"
+msgstr " Flux de Production"
+
+msgid "Detalhe Fluxo/Equipamento"
+msgstr "Détail Flux/Équipement"
+
+msgid "Detalhes Fluxo/Equipamento"
+msgstr "Détails Flux/Équipement"
+
+msgid "Sequenciamento da Produção"
+msgstr "Séquencement de la Production"
+
+msgid "Detalhes por Período"
+msgstr "Détails par Période"
+
+msgid "Detalhamento por Equipamento"
+msgstr "Détail par Équipement"
+
+msgid "Detalhe por Período (click e use setas para direita e esquerda)"
+msgstr "Détail par Période (cliquez et utilisez les flèches gauche/droite)"
+
+msgid "Detalhes por Período (click e use setas para direita e esquerda)"
+msgstr "Détails par Période (cliquez et utilisez les flèches gauche/droite)"
+
+msgid "      Produto"
+msgstr "      Produit"
+
+msgid "      Produtos"
+msgstr "      Produits"
+
+msgid "Detalhe"
+msgstr "Détail"
+
+msgid "Detalhes"
+msgstr "Détails"
+
+msgid "    Produto / Mercado / Fluxo"
+msgstr "    Produit / Marché / Flux"
+
+msgid "    Produtos / Mercados / Fluxos"
+msgstr "    Produits / Marchés / Flux"
+
+msgid "     Produto / Mercado"
+msgstr "     Produit / Marché"
+
+msgid "     Produtos / Mercados"
+msgstr "     Produits / Marchés"
+
+msgid "   Equipamento"
+msgstr "   Équipement"
+
+msgid "   Equipamentos"
+msgstr "   Équipements"
+
+msgid "Detalhe "
+msgstr "Détail "
+
+msgid "  Equipamento/Ordem de Produção"
+msgstr "  Équipement/Ordre de Production"
+
+msgid "  Equipamentos/Ordem de Produção"
+msgstr "  Équipements/Ordres de Production"
+
+msgid "  Equipamento/Conjunto"
+msgstr "  Équipement/Ensemble"
+
+msgid "  Equipamentos/Conjunto"
+msgstr "  Équipements/Ensembles"
+
+msgid "Produção Mínima e Máxima por Periodo"
+msgstr "Production Minimale et Maximale par Période"
+
+msgid "Produções Mínimas e Máximas por Periodo"
+msgstr "Productions Minimales et Maximales par Période"
+
+msgid " Item de Custo/Planta"
+msgstr " Article de Coût/Usine"
+
+msgid " Itens de Custo/Planta"
+msgstr " Articles de Coût/Usine"
+
+msgid " Consumo Específico por Tipo de Produção"
+msgstr " Consommation Spécifique par Type de Production"
+
+msgid " Consumos Específicos por Tipo de Produção"
+msgstr " Consommations Spécifiques par Type de Production"
+
+msgid "Comparação de Cenários"
+msgstr "Comparaison de Scénarios"
+
+msgid "Análise Comparativa Cenário Ativo - Cenário Referência"
+msgstr "Analyse Comparative : Scénario Actif - Scénario de Référence"
+
+msgid "Sombra da Otimização Simplex"
+msgstr "Ombre de l'Optimisation Simplexe"
+
+msgid "Sombras da Otimização Simplex"
+msgstr "Ombres de l'Optimisation Simplexe"
+
+msgid "       PARÂMETROS"
+msgstr "       PARAMÈTRES"
+
+msgid "      TABELAS"
+msgstr "      TABLES"
+
+msgid "     EQUIPAMENTOS"
+msgstr "     ÉQUIPEMENTS"
+
+msgid "    PRODUTOS"
+msgstr "    PRODUITS"
+
+msgid "   Fluxos de Produção"
+msgstr "   Flux de Production"
+
+msgid "  Resultados Otimização"
+msgstr "  Résultats d'Optimisation"
+
+msgid " Custo Ferbasa - CF"
+msgstr " Coût Ferbasa - CF"
+
+msgid "App (nome técnico)"
+msgstr "App (nom technique)"
+
+msgid "Nome de Exibição"
+msgstr "Nom d'Affichage"
+
+msgid "   App Opcional"
+msgstr "   Application Optionnelle"
+
+msgid "Ano/Mês"
+msgstr "Année/Mois"
+
+msgid "Vendas"
+msgstr "Ventes"
+
+msgid "Inbound"
+msgstr "Entrant"
+
+msgid "Outbound"
+msgstr "Sortant"
+
+msgid "Manut."
+msgstr "Maint."
+
+msgid "Margem"
+msgstr "Marge"
+
+msgid "Fixo"
+msgstr "Fixe"
+
+msgid "EBTIDA"
+msgstr "EBTIDA"
+
+msgid "EBTIDA (%)"
+msgstr "EBTIDA (%)"
+
+msgid "D&A"
+msgstr "D&A"
+
+msgid "IR (%)"
+msgstr "Impôt (%)"
+
+msgid "MP"
+msgstr "MP"
+
+msgid "WIP"
+msgstr "WIP"
+
+msgid "PF"
+msgstr "PF"
+
+msgid "Total Est."
+msgstr "Total Est."
+
+msgid "Receber"
+msgstr "À Recevoir"
+
+msgid "Pagar"
+msgstr "À Payer"
+
+msgid "OWCR"
+msgstr "OWCR"
+
+msgid "CAPEX"
+msgstr "CAPEX"
+
+msgid "OFCF"
+msgstr "OFCF"
+
+msgid "Solúção"
+msgstr "Solution"
+
+msgid "Mãe"
+msgstr "Parent"
+
+msgid "Resultado"
+msgstr "Résultat"
+
+msgid "Data"
+msgstr "Date"
+
+msgid "O Que"
+msgstr "Quoi"
+
+msgid "Diário de Bordo"
+msgstr "Journal de Bord"
+
+msgid "Imagem"
+msgstr "Image"
+
+msgid "Fonte"
+msgstr "Source"
+
+msgid "  Glossário"
+msgstr "  Glossaire"
+
+msgid "Instruções"
+msgstr "Instructions"
+
+msgid " Comportamento Agente IA"
+msgstr " Comportement de l'Agent IA"
+
+msgid "Usuário"
+msgstr "Utilisateur"
+
+msgid "Pergunta Usuário"
+msgstr "Question de l'Utilisateur"
+
+msgid "Resposta Agente IA"
+msgstr "Réponse de l'Agent IA"
+
+msgid "Histórico Agente IA"
+msgstr "Historique de l'Agent IA"
+
+msgid "Fluxo em andamento"
+msgstr "Flux en cours"
+
+msgid "Etapa atual"
+msgstr "Étape actuelle"
+
+msgid "Dados coletados"
+msgstr "Données collectées"
+
+msgid "Atualizado em"
+msgstr "Mis à jour le"
+
+msgid "Estado de Conversa do Agente"
+msgstr "État de la Conversation de l'Agent"
+
+msgid "Relatório PDF"
+msgstr "Rapport PDF"
+
+msgid "Ação"
+msgstr "Action"
+
+msgid "Remover Cenário(s) Selecionado(s)"
+msgstr "Supprimer le(s) Scénario(s) Sélectionné(s)"
+
+msgid "Exportar Excel Cenário(s) Selecionado(s)"
+msgstr "Exporter Excel du/des Scénario(s) Sélectionné(s)"
+
+msgid "Ativa"
+msgstr "Actif"
+
+msgid "   Apps Opcionais"
+msgstr "   Applications Optionnelles"
+
+msgid "Resultados"
+msgstr "Résultats"
+
+msgid " Comportamentos Agente IA"
+msgstr " Comportements de l'Agent IA"
+
+msgid "Históricos Agente IA"
+msgstr "Historiques de l'Agent IA"
+
+msgid "Estados de Conversa do Agente"
+msgstr "États de la Conversation de l'Agent"
+
+msgid "Relatórios PDF"
+msgstr "Rapports PDF"
+
+msgid "Precisa bater com o nome real do app Django (ex: \"custo_ferbasa\")."
+msgstr "Doit correspondre au nom réel de l'application Django (ex : \"custo_ferbasa\")."
+
+msgid "Instruções para o Agente IA"
+msgstr "Instructions pour l'Agent IA"
+
+msgid "Se desmarcado, o usuário não verá a opção de ativar outro cenário."
+msgstr "Si décoché, l'utilisateur ne verra pas l'option pour activer un autre scénario."
+
+msgid "Tem todos os poderes de superusuário, mas restritos à própria empresa (não pode trocar de empresa nem ver dados de outras)."
+msgstr "Dispose de tous les pouvoirs de superutilisateur, mais limités à sa propre entreprise (ne peut pas changer d'entreprise ni voir les données d'autres entreprises)."
+
+msgid "Se vazio, usa o idioma padrão da empresa."
+msgstr "Si vide, utilise la langue par défaut de l'entreprise."
+
+msgid "A empresa desse usuário -- ele só vê os dados dela. Não se aplica a superusuários."
+msgstr "L'entreprise de cet utilisateur -- il ne voit que ses données. Ne s'applique pas aux superutilisateurs."
+
+msgid "Só usado por superusuários -- em qual empresa ele está trabalhando agora."
+msgstr "Utilisé uniquement par les superutilisateurs -- l'entreprise dans laquelle ils travaillent actuellement."
+
+msgid "Observação"
+msgstr "Remarque"
+
+msgid "Valor Inicial (%)"
+msgstr "Valeur Initiale (%)"
+
+msgid "Valor (%)"
+msgstr "Valeur (%)"
+
+msgid "Indicador"
+msgstr "Indicateur"
+
+msgid "Valor Inicial"
+msgstr "Valeur Initiale"
+
+msgid "Valor"
+msgstr "Valeur"
+
+msgid "Câmbio"
+msgstr "Taux de Change"
+
+msgid "Imposto de Renda"
+msgstr "Impôt sur le Revenu"
+
+msgid "Taxa de Desconto (WACC)"
+msgstr "Taux d'Actualisation (WACC)"
+
+msgid "Valor Inicial Valor"
+msgstr "Valeur Initiale"
+
+msgid "Valor Inicial Pagamento (dias)"
+msgstr "Valeur Initiale Paiement (jours)"
+
+msgid "Pagamento (dias)"
+msgstr "Paiement (jours)"
+
+msgid "Custo Fixo"
+msgstr "Coût Fixe"
+
+msgid "Recorrente"
+msgstr "Récurrent"
+
+msgid "Depreciação/Amortização"
+msgstr "Amortissement/Dépréciation"
+
+msgid "Localização"
+msgstr "Emplacement"
+
+msgid "Grupo(s) Usuários com Permissão"
+msgstr "Groupe(s) d'Utilisateurs Autorisés"
+
+msgid "Código Interno"
+msgstr "Code Interne"
+
+msgid "Unidade"
+msgstr "Unité"
+
+msgid "Imagem do Item"
+msgstr "Image de l'Article"
+
+msgid "Item de Custo"
+msgstr "Article de Coût"
+
+msgid "Unidade de Produção"
+msgstr "Unité de Production"
+
+msgid "Validado"
+msgstr "Validé"
+
+msgid "Custo Var. Adic. CF"
+msgstr "Coût Var. Add. CF"
+
+msgid "Indicador do Preço"
+msgstr "Indicateur de Prix"
+
+msgid "Moeda do Preço"
+msgstr "Devise du Prix"
+
+msgid "Indicador do Inbound"
+msgstr "Indicateur Entrant"
+
+msgid "Moeda do Inbound"
+msgstr "Devise Entrante"
+
+msgid "Valor Inicial: Preço"
+msgstr "Valeur Initiale : Prix"
+
+msgid "Valor Inicial: Inbound"
+msgstr "Valeur Initiale : Entrant"
+
+msgid "Estoque (dias)"
+msgstr "Stock (jours)"
+
+msgid "Valor Preço"
+msgstr "Valeur Prix"
+
+msgid "Valor Inbound"
+msgstr "Valeur Entrante"
+
+msgid "Família"
+msgstr "Famille"
+
+msgid "Grupo de Cenários"
+msgstr "Groupe de Scénarios"
+
+msgid "A"
+msgstr "A"
+
+msgid "B"
+msgstr "B"
+
+msgid "C"
+msgstr "C"
+
+msgid "D"
+msgstr "D"
+
+msgid "E"
+msgstr "E"
+
+msgid "F"
+msgstr "F"
+
+msgid "Fórmula"
+msgstr "Formule"
+
+msgid "Títulos: Primeiro"
+msgstr "Titres : Premier"
+
+msgid "Segundo"
+msgstr "Deuxième"
+
+msgid "Valor VAR para teste"
+msgstr "Valeur VAR pour test"
+
+msgid "Código"
+msgstr "Code"
+
+msgid "Subproduto"
+msgstr "Sous-produit"
+
+msgid "Ano/Mês Início"
+msgstr "Année/Mois Début"
+
+msgid "Ano/Mês Fim"
+msgstr "Année/Mois Fin"
+
+msgid "Qtde Produzida Real"
+msgstr "Qté Produite Réelle"
+
+msgid "Qtde Produzida Mov./Ext."
+msgstr "Qté Produite Mouv./Ext."
+
+msgid "Perc. Variável GGF (%)"
+msgstr "Pourc. Variable GGF (%)"
+
+msgid "Perc. Fixo/Outros GGF (%)"
+msgstr "Pourc. Fixe/Autres GGF (%)"
+
+msgid "Valor GGF Variável Direto"
+msgstr "Valeur GGF Variable Directe"
+
+msgid "Valor GGF Fixo/Outros Direto"
+msgstr "Valeur GGF Fixe/Autres Directe"
+
+msgid "Valor GGF Variável Prod. Internos"
+msgstr "Valeur GGF Variable Prod. Internes"
+
+msgid "Valor GGF Fixo/Outros Prod. Internos"
+msgstr "Valeur GGF Fixe/Autres Prod. Internes"
+
+msgid "Item Consumo"
+msgstr "Article de Consommation"
+
+msgid "Quantidade Consumida"
+msgstr "Quantité Consommée"
+
+msgid "Valor Material"
+msgstr "Valeur Matière"
+
+msgid "Valor GGF"
+msgstr "Valeur GGF"
+
+msgid "Chave"
+msgstr "Clé"
+
+msgid "Item de Consumo"
+msgstr "Article de Consommation"
+
+msgid "Descricao"
+msgstr "Description"
+
+msgid "Conta de Pessoal"
+msgstr "Compte du Personnel"
+
+msgid "Referência"
+msgstr "Référence"
+
+msgid "Mão-de-obra Direta (MOD)"
+msgstr "Main-d'Œuvre Directe (MOD)"
+
+msgid "Mão-de-obra Indireta (MOI)"
+msgstr "Main-d'Œuvre Indirecte (MOI)"
+
+msgid "Conta Contábil"
+msgstr "Compte Comptable"
+
+msgid "Centro de Custo"
+msgstr "Centre de Coût"
+
+msgid "Estabelecimento"
+msgstr "Établissement"
+
+msgid "Percentual (%)"
+msgstr "Pourcentage (%)"
+
+msgid "Grupo Máquina"
+msgstr "Groupe de Machines"
+
+msgid "Ordem Produção"
+msgstr "Ordre de Production"
+
+msgid "Item Produção"
+msgstr "Article de Production"
+
+msgid "Qtde Produzida"
+msgstr "Qté Produite"
+
+msgid "Qtde Consumo"
+msgstr "Qté Consommée"
+
+msgid "Valor Última Entrada"
+msgstr "Valeur Dernière Entrée"
+
+msgid "Conta Contábil/Centro de Custo"
+msgstr "Compte Comptable/Centre de Coût"
+
+msgid "Área Responsável"
+msgstr "Zone Responsable"
+
+msgid "Criado por"
+msgstr "Créé par"
+
+msgid "Alterado por"
+msgstr "Modifié par"
+
+msgid "Compartilhar"
+msgstr "Partager"
+
+msgid "Ajustar Período Pela Prod. Mínima"
+msgstr "Ajuster Période selon Prod. Minimale"
+
+msgid "Prod. Minima"
+msgstr "Prod. Minimale"
+
+msgid "Status"
+msgstr "Statut"
+
+msgid "Considerar Desvio como Produção (P+D)"
+msgstr "Considérer l'Écart comme Production (P+D)"
+
+msgid "Qtde Desviada"
+msgstr "Qté Détournée"
+
+msgid "Itens de Produção"
+msgstr "Articles de Production"
+
+msgid "Grupos Máquina"
+msgstr "Groupes de Machines"
+
+msgid "Itens de Consumo"
+msgstr "Articles de Consommation"
+
+msgid "Equação Cons. Específico"
+msgstr "Équation Cons. Spécifique"
+
+msgid "Tipo Equação"
+msgstr "Type d'Équation"
+
+msgid "Indicador (SPS)"
+msgstr "Indicateur (SPS)"
+
+msgid "Considerar Subproduto como Produção (Quando Escolhido)"
+msgstr "Considérer le Sous-produit comme Production (Si Sélectionné)"
+
+msgid "Custo Var. Adic. Mat (SPS)"
+msgstr "Coût Var. Add. Mat (SPS)"
+
+msgid "Custo Var. Adic. GGF (SPS)"
+msgstr "Coût Var. Add. GGF (SPS)"
+
+msgid "Custo Var. Adic. Mat (P)"
+msgstr "Coût Var. Add. Mat (P)"
+
+msgid "Custo Var. Adic. GGF (P)"
+msgstr "Coût Var. Add. GGF (P)"
+
+msgid "Custo Var. Adic. Mat (P+D)"
+msgstr "Coût Var. Add. Mat (P+D)"
+
+msgid "Custo Var. Adic. GGF (P+D)"
+msgstr "Coût Var. Add. GGF (P+D)"
+
+msgid "Custo Variável (P)"
+msgstr "Coût Variable (P)"
+
+msgid "Custo Fixo/Outros (P)"
+msgstr "Coût Fixe/Autres (P)"
+
+msgid "Custo Total (P)"
+msgstr "Coût Total (P)"
+
+msgid "Custo Var. GGF Fase (P)"
+msgstr "Coût Var. GGF Phase (P)"
+
+msgid "Custo Variável (P+D)"
+msgstr "Coût Variable (P+D)"
+
+msgid "Custo Fixo/Outros (P+D)"
+msgstr "Coût Fixe/Autres (P+D)"
+
+msgid "Custo Total (P+D)"
+msgstr "Coût Total (P+D)"
+
+msgid "Custo Var. GGF Fase (P+D)"
+msgstr "Coût Var. GGF Phase (P+D)"
+
+msgid "Itens de Consumo para Desconsiderar"
+msgstr "Articles de Consommation à Exclure"
+
+msgid "Custo Varíável (P)"
+msgstr "Coût Variable (P)"
+
+msgid "Custo Varíável (P+D)"
+msgstr "Coût Variable (P+D)"
+
+msgid "Custo Variável Adicionado"
+msgstr "Coût Variable Ajouté"
+
+msgid "Id Item Produção"
+msgstr "Id Article de Production"
+
+msgid "Id Item Consumo"
+msgstr "Id Article de Consommation"
+
+msgid "Flag"
+msgstr "Indicateur"
+
+msgid "Ordem Lançamento"
+msgstr "Ordre de Saisie"
+
+msgid "Equação Regressão"
+msgstr "Équation de Régression"
+
+msgid "R2 Regressão"
+msgstr "R2 de Régression"
+
+msgid "Considerar desvio como produção"
+msgstr "Considérer l'écart comme production"
+
+msgid "Sumário"
+msgstr "Résumé"
+
+msgid "Item de Consumo / Código"
+msgstr "Article de Consommation / Code"
+
+msgid "Classificação"
+msgstr "Classification"
+
+msgid "Mínimo"
+msgstr "Minimum"
+
+msgid "Média"
+msgstr "Moyenne"
+
+msgid "Máximo"
+msgstr "Maximum"
+
+msgid "Tipo Variável"
+msgstr "Type de Variable"
+
+msgid "Agrupamento"
+msgstr "Regroupement"
+
+msgid "Coeficiente"
+msgstr "Coefficient"
+
+msgid "P>|t|"
+msgstr "P>|t|"
+
+msgid "Itens Consumo"
+msgstr "Articles Consommation"
+
+msgid "Equipamento"
+msgstr "Équipement"
+
+msgid "Gargalo"
+msgstr "Goulot d'Étranglement"
+
+msgid "Expedição"
+msgstr "Expédition"
+
+msgid "Output"
+msgstr "Sortie"
+
+msgid "Planta"
+msgstr "Usine"
+
+msgid "Indicador Custo Manutenção"
+msgstr "Indicateur Coût de Maintenance"
+
+msgid "Moeda Custo Manutenção"
+msgstr "Devise Coût de Maintenance"
+
+msgid "Valor Inicial Running"
+msgstr "Valeur Initiale Running"
+
+msgid "Valor Inicial Paradas Programadas (%)"
+msgstr "Valeur Initiale Arrêts Programmés (%)"
+
+msgid "Valor Inicial Manutenção"
+msgstr "Valeur Initiale Maintenance"
+
+msgid "Running"
+msgstr "Running"
+
+msgid "Paradas Programadas (%)"
+msgstr "Arrêts Programmés (%)"
+
+msgid "Custo Manutenção (Moeda/h)"
+msgstr "Coût Maintenance (Devise/h)"
+
+msgid "Tipo Produção"
+msgstr "Type de Production"
+
+msgid "WIP (Dias Produção)"
+msgstr "WIP (Jours Production)"
+
+msgid "Ordem"
+msgstr "Ordre"
+
+msgid "Descrição da Ordem"
+msgstr "Description de l'Ordre"
+
+msgid "Valor Inicial Paradas Não Programadas (%)"
+msgstr "Valeur Initiale Arrêts Non Programmés (%)"
+
+msgid "Valor Inicial Produtividade"
+msgstr "Valeur Initiale Productivité"
+
+msgid "Paradas Não Prog. (%)"
+msgstr "Arrêts Non Prog. (%)"
+
+msgid "Produtividade"
+msgstr "Productivité"
+
+msgid "Equipamentos"
+msgstr "Équipements"
+
+msgid "Equipamento / Ordem / Descrição"
+msgstr "Équipement / Ordre / Description"
+
+msgid "Item de Custo / Planta"
+msgstr "Article de Coût / Usine"
+
+msgid "Consumo Específico CF"
+msgstr "Consommation Spécifique CF"
+
+msgid "Valor Inicial do Consumo Específico"
+msgstr "Valeur Initiale de la Consommation Spécifique"
+
+msgid "Equipamento/Item"
+msgstr "Équipement/Article"
+
+msgid "Produto"
+msgstr "Produit"
+
+msgid "Mercado"
+msgstr "Marché"
+
+msgid "Cód. Interno"
+msgstr "Code Interne"
+
+msgid "Desc. Interna"
+msgstr "Description Interne"
+
+msgid "Estoque (dias venda)"
+msgstr "Stock (jours de vente)"
+
+msgid "Indicador Preço"
+msgstr "Indicateur Prix"
+
+msgid "Indicador Volume: Mín."
+msgstr "Indicateur Volume : Min."
+
+msgid "Máx."
+msgstr "Max."
+
+msgid "Considerar Outbound (se existir...)"
+msgstr "Considérer Sortant (s'il existe...)"
+
+msgid "Equação de Preço"
+msgstr "Équation de Prix"
+
+msgid "Volume Mín. Inicial"
+msgstr "Volume Min. Initial"
+
+msgid "Volume Máx. Inicial"
+msgstr "Volume Max. Initial"
+
+msgid "Preço Inicial"
+msgstr "Prix Initial"
+
+msgid "Volume Mínimo"
+msgstr "Volume Minimum"
+
+msgid "Volume Máximo"
+msgstr "Volume Maximum"
+
+msgid "Preço"
+msgstr "Prix"
+
+msgid "Produto Mercado Preço"
+msgstr "Produit Marché Prix"
+
+msgid "Planta de Produção"
+msgstr "Usine de Production"
+
+msgid "Mercado Outbound"
+msgstr "Marché Sortant"
+
+msgid "From"
+msgstr "From"
+
+msgid "To"
+msgstr "To"
+
+msgid "Valor Inicial Consumo Padrão"
+msgstr "Valeur Initiale Consommation Standard"
+
+msgid "Consumo Padrão"
+msgstr "Consommation Standard"
+
+msgid "Custo Variável Médio"
+msgstr "Coût Variable Moyen"
+
+msgid "I/O Atualizado"
+msgstr "E/S Mis à Jour"
+
+msgid "Copiar de"
+msgstr "Copier de"
+
+msgid "Tem Erro"
+msgstr "A une Erreur"
+
+msgid "Fluxo (PDF)"
+msgstr "Flux (PDF)"
+
+msgid "Dados Fluxo"
+msgstr "Données du Flux"
+
+msgid "Data Criação"
+msgstr "Date de Création"
+
+msgid "Data Modificação"
+msgstr "Date de Modification"
+
+msgid "Coluna"
+msgstr "Colonne"
+
+msgid "Linha"
+msgstr "Ligne"
+
+msgid "From --> To"
+msgstr "De --> À"
+
+msgid "Margem Horária"
+msgstr "Marge Horaire"
+
+msgid "Custo Variável"
+msgstr "Coût Variable"
+
+msgid "`Parcela Itens`"
+msgstr "`Part Articles`"
+
+msgid "`Parcela Inbound`"
+msgstr "`Part Entrant`"
+
+msgid "`Parcela Manutencão`"
+msgstr "`Part Maintenance`"
+
+msgid "Envia para"
+msgstr "Envoie à"
+
+msgid "Input Padrão"
+msgstr "Entrée Standard"
+
+msgid "Input Real"
+msgstr "Entrée Réelle"
+
+msgid "Output Padrão"
+msgstr "Sortie Standard"
+
+msgid "Output Real"
+msgstr "Sortie Réelle"
+
+msgid "Preço Médio"
+msgstr "Prix Moyen"
+
+msgid "Custo Var. Médio"
+msgstr "Coût Var. Moyen"
+
+msgid "Margem Cont. Horária Média"
+msgstr "Marge de Contrib. Horaire Moyenne"
+
+msgid "Fluxo Produção"
+msgstr "Flux de Production"
+
+msgid "Fluxo"
+msgstr "Flux"
+
+msgid "Margem Contrib."
+msgstr "Marge de Contrib."
+
+msgid "Parcela Outbound"
+msgstr "Part Sortante"
+
+msgid "Equip."
+msgstr "Équip."
+
+msgid "Parcela Itens"
+msgstr "Part Articles"
+
+msgid "Parcela Inbound"
+msgstr "Part Entrant"
+
+msgid "Parcela Manutenção"
+msgstr "Part Maintenance"
+
+msgid "Prod.(Volume)"
+msgstr "Prod.(Volume)"
+
+msgid "Loading Time(h)"
+msgstr "Temps de Chargement(h)"
+
+msgid "Ocupação(%)"
+msgstr "Occupation(%)"
+
+msgid "Ocupação Mín.(%)"
+msgstr "Occupation Min.(%)"
+
+msgid "Ocupação Máx.(%)"
+msgstr "Occupation Max.(%)"
+
+msgid "Prod.(Horas)"
+msgstr "Prod.(Heures)"
+
+msgid "Equipamento/Ordem de Produção"
+msgstr "Équipement/Ordre de Production"
+
+msgid "Produção (Volume)"
+msgstr "Production (Volume)"
+
+msgid "Produção (Horas)"
+msgstr "Production (Heures)"
+
+msgid "WIP (Volume)"
+msgstr "WIP (Volume)"
+
+msgid "WIP (Valor)"
+msgstr "WIP (Valeur)"
+
+msgid "Produção Mínima"
+msgstr "Production Minimale"
+
+msgid "Produção Máxima"
+msgstr "Production Maximale"
+
+msgid "Produção"
+msgstr "Production"
+
+msgid "Item de Custo/Unidade de Produção"
+msgstr "Article de Coût/Unité de Production"
+
+msgid "Consumo Mínimo"
+msgstr "Consommation Minimale"
+
+msgid "Consumo Máximo"
+msgstr "Consommation Maximale"
+
+msgid "Consumo Calculado"
+msgstr "Consommation Calculée"
+
+msgid "Estoque (Qtde)"
+msgstr "Stock (Qté)"
+
+msgid "Estoque (Valor)"
+msgstr "Stock (Valeur)"
+
+msgid "Tipo de Produção"
+msgstr "Type de Production"
+
+msgid "Consumo Via Equipamento"
+msgstr "Consommation via Équipement"
+
+msgid "Indicador Ajuste"
+msgstr "Indicateur d'Ajustement"
+
+msgid "Operação"
+msgstr "Opération"
+
+msgid "Consumo Via Item de Consumo"
+msgstr "Consommation via Article de Consommation"
+
+msgid "Cenário Referência"
+msgstr "Scénario de Référence"
+
+msgid "Análise Comparativa Cenário Ativo - Cenário Referência (Valores em "
+msgstr "Analyse Comparative Scénario Actif - Scénario de Référence (Valeurs en "
+
+msgid "Restrição"
+msgstr "Contrainte"
+
+msgid "Id 1"
+msgstr "Id 1"
+
+msgid "Id 2"
+msgstr "Id 2"
+
+msgid "Periodo Order"
+msgstr "Ordre Période"
+
+msgid "Sombra Mín"
+msgstr "Ombre Min"
+
+msgid "Sombra Máx"
+msgstr "Ombre Max"
+
+msgid "Res. Mín"
+msgstr "Rés. Min"
+
+msgid "Res. Máx"
+msgstr "Rés. Max"
+
+msgid "Mín"
+msgstr "Min"
+
+msgid "Máx"
+msgstr "Max"
+
+msgid "Real"
+msgstr "Réel"
+
+msgid "Lim Inf Mín"
+msgstr "Lim Inf Min"
+
+msgid "Lim Sup Mín"
+msgstr "Lim Sup Min"
+
+msgid "Lim Inf Máx"
+msgstr "Lim Inf Max"
+
+msgid "Lim Sup Máx"
+msgstr "Lim Sup Max"
+
+msgid "Conc Reduzir"
+msgstr "Réduire Conc"
+
+msgid "Conc Aumentar"
+msgstr "Augmenter Conc"
+
+msgid "Exportar PDF"
+msgstr "Exporter PDF"
+
+msgid "Importar Excel (Novos)"
+msgstr "Importer Excel (Nouveaux)"
+
+msgid "Importar Excel"
+msgstr "Importer Excel"
+
+msgid "Exportar Excel"
+msgstr "Exporter Excel"
+
+msgid "Validar Custos Variáveis Selecionados"
+msgstr "Valider les Coûts Variables Sélectionnés"
+
+msgid "Desvalidar Custos Variáveis Selecionados"
+msgstr "Invalider les Coûts Variables Sélectionnés"
+
+msgid "Qtde Equip./Ordem"
+msgstr "Qté Équip./Ordre"
+
+msgid "Update Preço/CustoVariável Adicionado Itens Selecionados"
+msgstr "Mettre à Jour Prix/Coût Variable Ajouté Articles Sélectionnés"
+
+msgid "Testar o cálculo"
+msgstr "Tester le calcul"
+
+msgid "Atualizar Genealogia Itens de Produção (todos)"
+msgstr "Mettre à Jour la Généalogie des Articles de Production (tous)"
+
+msgid "Referência CC"
+msgstr "Référence CC"
+
+msgid "Importar Arquivo Excel da AWS"
+msgstr "Importer le Fichier Excel depuis AWS"
+
+msgid "Exportar Excel Registros Selecionados"
+msgstr "Exporter Excel des Enregistrements Sélectionnés"
+
+msgid "Valor Médio SPS"
+msgstr "Valeur Moyenne SPS"
+
+msgid "Valor Médio SPS (Cons. Padrão)"
+msgstr "Valeur Moyenne SPS (Consom. Standard)"
+
+msgid "Valor Médio SPS (Cons. Espec.)"
+msgstr "Valeur Moyenne SPS (Consom. Spéc.)"
+
+msgid "Calcular / Atualizar Por Período"
+msgstr "Calculer / Mettre à Jour par Période"
+
+msgid "Validar Consumos Esp. Selecionados"
+msgstr "Valider les Consommations Spéc. Sélectionnées"
+
+msgid "Desvalidar Consumos Esp. Selecionados"
+msgstr "Invalider les Consommations Spéc. Sélectionnées"
+
+msgid "Exportar Análise Áreas Excel"
+msgstr "Exporter Analyse des Zones Excel"
+
+msgid "Validar Custos Variáveis AdicionadoS Selecionados"
+msgstr "Valider les Coûts Variables Ajoutés Sélectionnés"
+
+msgid "Desvalidar Custos Variáveis AdicionadoS Selecionados"
+msgstr "Invalider les Coûts Variables Ajoutés Sélectionnés"
+
+msgid "Anos Running"
+msgstr "Années Running"
+
+msgid "Trimestres Running"
+msgstr "Trimestres Running"
+
+msgid "Meses Running"
+msgstr "Mois Running"
+
+msgid "Período Running"
+msgstr "Période Running"
+
+msgid "Anos Ativa"
+msgstr "Années Actives"
+
+msgid "Trimestres Ativa"
+msgstr "Trimestres Actifs"
+
+msgid "Meses Ativa"
+msgstr "Mois Actifs"
+
+msgid "Período Ativa"
+msgstr "Période Active"
+
+msgid "Paradas NP (%)"
+msgstr "Arrêts NP (%)"
+
+msgid "Custo Var. Adic."
+msgstr "Coût Var. Add."
+
+msgid "Update Indicador Consumos Específicos Selecionados"
+msgstr "Mettre à Jour l'Indicateur des Consommations Spécifiques Sélectionnées"
+
+msgid "Exportar (Excel) Produtos Selecionados"
+msgstr "Exporter (Excel) Produits Sélectionnés"
+
+msgid "Importar (Excel) Produtos Selecionados"
+msgstr "Importer (Excel) Produits Sélectionnés"
+
+msgid "Ativar Produtos Selecionados"
+msgstr "Activer les Produits Sélectionnés"
+
+msgid "Desativar Produtos Selecionados"
+msgstr "Désactiver les Produits Sélectionnés"
+
+msgid "Validar Prod/Mercado/Preços Selecionados"
+msgstr "Valider Produit/Marché/Prix Sélectionnés"
+
+msgid "Desvalidar Prod/Mercado/Preços Selecionados"
+msgstr "Invalider Produit/Marché/Prix Sélectionnés"
+
+msgid "Média Consumo"
+msgstr "Consommation Moyenne"
+
+msgid "Fluxos I/O Atualizados"
+msgstr "Flux E/S Mis à Jour"
+
+msgid "Validar Consumos Padrões Selecionados"
+msgstr "Valider les Consommations Standard Sélectionnées"
+
+msgid "Desvalidar Consumos Padrões Selecionados"
+msgstr "Invalider les Consommations Standard Sélectionnées"
+
+msgid "Remover Fluxo(s) Selecionado(s)"
+msgstr "Supprimer le(s) Flux Sélectionné(s)"
+
+msgid "Remover Sequências Output Real Zerado Fluxos Selecionados"
+msgstr "Supprimer les Séquences avec Sortie Réelle Nulle des Flux Sélectionnés"
+
+msgid "Ativar Fluxos Selecionados"
+msgstr "Activer les Flux Sélectionnés"
+
+msgid "Verificar Erros Fluxos Selecionados"
+msgstr "Vérifier les Erreurs des Flux Sélectionnés"
+
+msgid "Desativar Itens Selecionados"
+msgstr "Désactiver les Articles Sélectionnés"
+
+msgid "Update Fluxo PDF Itens Selecionados"
+msgstr "Mettre à Jour le Flux PDF des Articles Sélectionnés"
+
+msgid "Atualizar Input/Output/Custos dos Fluxos Selecionados"
+msgstr "Mettre à Jour Entrée/Sortie/Coûts des Flux Sélectionnés"
+
+msgid "Atualizar Custos dos Fluxos Selecionados"
+msgstr "Mettre à Jour les Coûts des Flux Sélectionnés"
+
+msgid "Importar Excel/xls 1º Plano (Novos)"
+msgstr "Importer Excel/xls 1er Plan (Nouveaux)"
+
+msgid "Importar Excel/xls 2º Plano (Novos)"
+msgstr "Importer Excel/xls 2e Plan (Nouveaux)"
+
+msgid "Importar Excel/xlsx 1º Plano (Novos)"
+msgstr "Importer Excel/xlsx 1er Plan (Nouveaux)"
+
+msgid "Importar Excel/xlsx 2º Plano (Novos)"
+msgstr "Importer Excel/xlsx 2e Plan (Nouveaux)"
+
+msgid "Atualizar Fluxos (Input/Output) Itens Selecionados"
+msgstr "Mettre à Jour les Flux (Entrée/Sortie) des Articles Sélectionnés"
+
+msgid "Update Indicador Consumos Padrões Selecionados"
+msgstr "Mettre à Jour l'Indicateur des Consommations Standard Sélectionnées"
+
+msgid "Visualizar Fluxo"
+msgstr "Voir le Flux"
+
+msgid "Exportar Excel Consolidado"
+msgstr "Exporter Excel Consolidé"
+
+msgid "Anos Running (Fluxo)"
+msgstr "Années Running (Flux)"
+
+msgid "Trimestres Running (Fluxo)"
+msgstr "Trimestres Running (Flux)"
+
+msgid "Meses Running (Fluxo)"
+msgstr "Mois Running (Flux)"
+
+msgid "Período Running (Fluxo)"
+msgstr "Période Running (Flux)"
+
+msgid "Anos Running (Equip.)"
+msgstr "Années Running (Équip.)"
+
+msgid "Trimestres Running (Equip.)"
+msgstr "Trimestres Running (Équip.)"
+
+msgid "Meses Running (Equip.)"
+msgstr "Mois Running (Équip.)"
+
+msgid "Período Running (Equip.)"
+msgstr "Période Running (Équip.)"
+
+msgid "Valor Indicador"
+msgstr "Valeur Indicateur"
+
+msgid "Seu usuário não tem um Perfil de Usuário. Contate o administrador."
+msgstr "Votre utilisateur n'a pas de Profil Utilisateur. Contactez l'administrateur."
+
+msgid "Seu usuário está bloqueado para trocar de cenário ativo. Contate o administrador."
+msgstr "Votre utilisateur est bloqué pour changer de scénario actif. Contactez l'administrateur."
+
+msgid "Cenário(s) selecionado(s) sendo excluidos em segundo plano. Para verificar o status da exclusão, refresh a tela."
+msgstr "Scénario(s) sélectionné(s) en cours de suppression en arrière-plan. Pour vérifier le statut, actualisez l'écran."
+
+msgid "Um ou mais cenários selecionados são cenários base da empresa e não podem ser excluídos"
+msgstr "Un ou plusieurs scénarios sélectionnés sont des scénarios de base de l'entreprise et ne peuvent pas être supprimés"
+
+msgid "Este cenário está ativo. Não pode importar dele mesmo!"
+msgstr "Ce scénario est actif. Impossible d'importer depuis lui-même !"
+
+msgid "Importação do cenário ativo sendo feita em segundo plano. Favor aguardar..."
+msgstr "Importation du scénario actif en cours en arrière-plan. Veuillez patienter..."
+
+msgid "Atualização dos Fluxos de Produção sendo realizado em segundo plano. Favor aguardar!"
+msgstr "Mise à jour des Flux de Production en cours en arrière-plan. Veuillez patienter !"
+
+msgid "Existem fluxos de produção com I/O desatualizado. Use \"Atualizar Fluxos\" antes."
+msgstr "Il existe des flux de production avec E/S obsolète. Utilisez \"Mettre à jour les Flux\" d'abord."
+
+msgid "TEMOS FLUXO(S) DE PRODUÇÃO ATIVO(S) SEM O CÁLCULO DOS CUSTOS VARIÁVEIS. FAVOR VERIFICAR!"
+msgstr "IL Y A DES FLUX DE PRODUCTION ACTIFS SANS CALCUL DES COÛTS VARIABLES. VEUILLEZ VÉRIFIER !"
+
+msgid "TEMOS FLUXO(S) DE PRODUÇÃO ATIVO(S) COM I/O DESATUALIZADO(S). FAVOR VERIFICAR!"
+msgstr "IL Y A DES FLUX DE PRODUCTION ACTIFS AVEC E/S OBSOLÈTE(S). VEUILLEZ VÉRIFIER !"
+
+msgid "TEMOS FLUXO(S) DE PRODUÇÃO ATIVO(S) COM CUSTO VARIÁVEL ZERADO. FAVOR VERIFICAR!"
+msgstr "IL Y A DES FLUX DE PRODUCTION ACTIFS AVEC COÛT VARIABLE NUL. VEUILLEZ VÉRIFIER !"
+
+msgid "LIMPEZA do cenário sendo realizada em segundo plano. Favor aguardar!"
+msgstr "NETTOYAGE du scénario en cours en arrière-plan. Veuillez patienter !"
+
+msgid "OTIMIZAÇÃO do cenário sendo realizada em segundo plano. Favor aguardar!"
+msgstr "OPTIMISATION du scénario en cours en arrière-plan. Veuillez patienter !"
+
+msgid "Cenário só pode ser LIMPO!"
+msgstr "Le scénario ne peut être que NETTOYÉ !"
+
+msgid "Cenário só pode ser LIMPO ou CONSOLIDADO!"
+msgstr "Le scénario ne peut être que NETTOYÉ ou CONSOLIDÉ !"
+
+msgid "CONSOLIDAÇÃO do cenário sendo realizada em segundo plano. Favor aguardar!"
+msgstr "CONSOLIDATION du scénario en cours en arrière-plan. Veuillez patienter !"
+
+msgid "Cenário só pode ser OTIMIZADO!"
+msgstr "Le scénario ne peut être qu'OPTIMISÉ !"
+
+msgid "Cenário só pode ser CONSOLIDADO!"
+msgstr "Le scénario ne peut être que CONSOLIDÉ !"
+
+msgid "Só superusuários podem trocar de empresa ativa."
+msgstr "Seuls les superutilisateurs peuvent changer d'entreprise active."
+
+msgid "Você não tem autorização para excluir cenários. Favor entrar em contato com administrador do sistema!"
+msgstr "Vous n'êtes pas autorisé à supprimer des scénarios. Veuillez contacter l'administrateur système !"
+
+msgid "Cenário informado na planilha não é o ativo. Favor verificar!"
+msgstr "Le scénario indiqué dans le fichier n'est pas le scénario actif. Veuillez vérifier !"
+
+msgid "Novo(s) indicador(es) foram adicionados com sucesso."
+msgstr "Nouveau(x) indicateur(s) ajouté(s) avec succès."
+
+msgid "Cabeçalho do arquivo Excel não está correto. Favor verificar!"
+msgstr "L'en-tête du fichier Excel n'est pas correct. Veuillez vérifier !"
+
+msgid "Não foi encontrado o arquivo indicadores_new.xls no diretório c:\\sps\\excel ou AWS S3. Favor verificar!"
+msgstr "Fichier indicadores_new.xls introuvable dans le répertoire c:\\sps\\excel ou AWS S3. Veuillez vérifier !"
+
+msgid "Cenário informado na planilha na aba mãe não é o cenário ativo. Favor verificar!"
+msgstr "Le scénario indiqué dans l'onglet parent du fichier n'est pas le scénario actif. Veuillez vérifier !"
+
+msgid "Tabela Indicadores foi atualizada com sucesso!"
+msgstr "La table des Indicateurs a été mise à jour avec succès !"
+
+msgid "Total de lançamentos na aba mãe e/ou filhas não está correto. Favor verificar!"
+msgstr "Le total des entrées dans l'onglet parent et/ou enfant(s) n'est pas correct. Veuillez vérifier !"
+
+msgid "Cabeçalho da aba filha não está correto. Favor verificar!"
+msgstr "L'en-tête de l'onglet enfant n'est pas correct. Veuillez vérifier !"
+
+msgid "Cabeçalho da aba mãe não está correto. Favor verificar!"
+msgstr "L'en-tête de l'onglet parent n'est pas correct. Veuillez vérifier !"
+
+msgid "Arquivo gerado com sucesso."
+msgstr "Fichier généré avec succès."
+
+msgid "Novos itens de custo variável foram adicionados com sucesso."
+msgstr "Nouveaux articles de coût variable ajoutés avec succès."
+
+msgid "Tabela Custo Variável - Itens atualizada com sucesso!"
+msgstr "La table Coût Variable - Articles a été mise à jour avec succès !"
+
+msgid "Não foi encontrado o arquivo custoitem.xls no diretório c:\\sps\\excel ou AWS S3. Favor verificar!"
+msgstr "Fichier custoitem.xls introuvable dans le répertoire c:\\sps\\excel ou AWS S3. Veuillez vérifier !"
+
+msgid "Update do preço pelo valor do custo variável adicionado realizado com sucesso para os itens selecionados!"
+msgstr "Mise à jour du prix par la valeur du coût variable ajouté effectuée avec succès pour les articles sélectionnés !"
+
+msgid "Novos itens de custo com preços foram adicionados com sucesso."
+msgstr "Nouveaux articles de coût avec prix ajoutés avec succès."
+
+msgid "Cenário informado na planilha (aba mãe ou filhas) não é o ativo. Favor verificar!"
+msgstr "Le scénario indiqué dans le fichier (onglet parent ou enfants) n'est pas le scénario actif. Veuillez vérifier !"
+
+msgid "Tabela Custo Item Preço foi atualizada com sucesso!"
+msgstr "La table Coût Article Prix a été mise à jour avec succès !"
+
+msgid "Ocorreu um erro na importação dos dados. Favor contatar a equipe de suporte da SPS Consultoria."
+msgstr "Une erreur s'est produite lors de l'importation des données. Veuillez contacter l'équipe de support de SPS Consultoria."
+
+msgid "Update do preço pelo valor do custo variável adicionado realizado com sucesso!"
+msgstr "Mise à jour du prix par la valeur du coût variable ajouté effectuée avec succès !"
+
+msgid "Atualizando genealogia dos Itens de Produção em segundo plano. Favor aguardar!"
+msgstr "Mise à jour de la généalogie des Articles de Production en arrière-plan. Veuillez patienter !"
+
+msgid "Tabela Itens de Consumo foi atualizada com sucesso!"
+msgstr "La table Articles de Consommation a été mise à jour avec succès !"
+
+msgid "Cabeçalho da planilha importada não está correto. Favor verificar!"
+msgstr "L'en-tête du fichier importé n'est pas correct. Veuillez vérifier !"
+
+msgid "Tabela Produção Mensal sendo atualizada em segundo plano!"
+msgstr "Table Production Mensuelle en cours de mise à jour en arrière-plan !"
+
+msgid "Distribuição GGF Mensal sendo atualizada em segundo plano!"
+msgstr "Répartition Mensuelle des GGF en cours de mise à jour en arrière-plan !"
+
+msgid "Registro foi alterado com sucesso. Calculando indicadores em segundo plano. Se Status = CALCULANDO, refresh tela para atualizar."
+msgstr "Enregistrement modifié avec succès. Calcul des indicateurs en arrière-plan. Si Statut = EN CALCUL, actualisez l'écran."
+
+msgid "Update dos consumos padrões vinculados realizado com sucesso!"
+msgstr "Mise à jour des consommations standard liées effectuée avec succès !"
+
+msgid "TEMOS REGISTRO NA TABELA DE CONTA CONTÁBIL / CENTRO DE CUSTO AGUARDANDO CLASSIFICAÇÃO. FAVOR VERIFICAR!"
+msgstr "IL Y A DES ENREGISTREMENTS DANS LA TABLE COMPTE COMPTABLE / CENTRE DE COÛT EN ATTENTE DE CLASSIFICATION. VEUILLEZ VÉRIFIER !"
+
+msgid "Registro foi alterado com sucesso. Calculando custos em segundo plano. Se Status = CALCULANDO, refresh tela para atualizar."
+msgstr "Enregistrement modifié avec succès. Calcul des coûts en arrière-plan. Si Statut = EN CALCUL, actualisez l'écran."
+
+msgid "Registro foi alterado com sucesso. Calculando regressão em segundo plano. Se Status = CALCULANDO, refresh tela para atualizar."
+msgstr "Enregistrement modifié avec succès. Calcul de la régression en arrière-plan. Si Statut = EN CALCUL, actualisez l'écran."
+
+msgid "Tabela Equipamentos foi atualizada com sucesso!"
+msgstr "La table Équipements a été mise à jour avec succès !"
+
+msgid "Update do indicador dos consumos especvíficos realizado com sucesso!"
+msgstr "Mise à jour de l'indicateur des consommations spécifiques effectuée avec succès !"
+
+msgid "Novos equipamentos/ordem e item de custo/preço foram adicionados com sucesso."
+msgstr "Nouveaux équipements/ordre et articles de coût/prix ajoutés avec succès."
+
+msgid "Tabela Equipamentos/Consumos Específicos foi atualizada com sucesso!"
+msgstr "La table Équipements/Consommations Spécifiques a été mise à jour avec succès !"
+
+msgid "Update do indicador de consumo específico realizado com sucesso!"
+msgstr "Mise à jour de l'indicateur de consommation spécifique effectuée avec succès !"
+
+msgid "Tabela Produtos atualizada com sucesso!"
+msgstr "La table Produits a été mise à jour avec succès !"
+
+msgid "Cabeçalho da aba produtos (primeira aba) não está correto. Favor verificar!"
+msgstr "L'en-tête de l'onglet produits (premier onglet) n'est pas correct. Veuillez vérifier !"
+
+msgid "Tabela Produtos/Volume/Preços por Mercado foi atualizada com sucesso!"
+msgstr "La table Produits/Volume/Prix par Marché a été mise à jour avec succès !"
+
+msgid "Não foi encontrado o arquivo 'produtos.xls' no diretório no AWS S3. Favor verificar!"
+msgstr "Fichier 'produtos.xls' introuvable dans le répertoire AWS S3. Veuillez vérifier !"
+
+msgid "Update do indicador dos consumos padrões realizado com sucesso!"
+msgstr "Mise à jour de l'indicateur des consommations standard effectuée avec succès !"
+
+msgid "Novo(s) Consumo(s) Padrão(ões) foi(ram) adicionado(s) com sucesso."
+msgstr "Nouvelle(s) Consommation(s) Standard ajoutée(s) avec succès."
+
+msgid "Cabeçalho da aba mãe correto!"
+msgstr "En-tête de l'onglet parent correct !"
+
+msgid "Cabeçalho da aba filha está correto!"
+msgstr "L'en-tête de l'onglet enfant est correct !"
+
+msgid "Total de lançamentos na aba filha está correto!"
+msgstr "Le total des entrées dans l'onglet enfant est correct !"
+
+msgid "Abrindo aba mãe!"
+msgstr "Ouverture de l'onglet parent !"
+
+msgid "Abrindo aba filha!"
+msgstr "Ouverture de l'onglet enfant !"
+
+msgid "Aba mãe atualizada com sucesso!"
+msgstr "Onglet parent mis à jour avec succès !"
+
+msgid "Aba filha atualizada com sucesso!"
+msgstr "Onglet enfant mis à jour avec succès !"
+
+msgid "Tabela Consumos Padrões foi atualizada com sucesso!"
+msgstr "La table Consommations Standard a été mise à jour avec succès !"
+
+msgid "Fluxo(s) selecionado(s) sendo excluidos em segundo plano. Para verificar o status da exclusão, refresh a tela."
+msgstr "Flux sélectionné(s) en cours de suppression en arrière-plan. Pour vérifier le statut, actualisez l'écran."
+
+msgid "Sequências zeradas dos fluxos selecionados sendo removidas em segundo plano!"
+msgstr "Séquences nulles des flux sélectionnés en cours de suppression en arrière-plan !"
+
+msgid "Fluxos PDF sendo atualizados em segundo plano!"
+msgstr "PDFs des Flux en cours de mise à jour en arrière-plan !"
+
+msgid "Fluxos (input/output) sendo atualizados em segundo plano!"
+msgstr "Flux (entrée/sortie) en cours de mise à jour en arrière-plan !"
+
+msgid "Custos sendo atualizados em segundo plano!"
+msgstr "Coûts en cours de mise à jour en arrière-plan !"
+
+msgid "Novo(s) Fluxo(s) de Produção foi(ram) adicionado(s) com sucesso."
+msgstr "Nouveau(x) Flux de Production ajouté(s) avec succès."
+
+msgid "Importação Novos Fluxos de Produção sendo realizada em segundo plano!"
+msgstr "Importation de Nouveaux Flux de Production en cours en arrière-plan !"
+
+msgid "Cabeçalho do arquivo Excel no AWS não está correto. Favor verificar!"
+msgstr "L'en-tête du fichier Excel sur AWS n'est pas correct. Veuillez vérifier !"
+
+msgid "Tabela Fluxo de Produção sendo atualizada em segundo plano!"
+msgstr "Table Flux de Production en cours de mise à jour en arrière-plan !"
+
+msgid "Atualização do Fluxo (Input/Output) sendo realizada em segundo plano. Favor aguardar!"
+msgstr "Mise à jour du Flux (Entrée/Sortie) en cours en arrière-plan. Veuillez patienter !"
+
+msgid "Update do arquivo PDF do fluxo sendo realizado em segundo plano. Favor aguardar!"
+msgstr "Mise à jour du fichier PDF du flux en cours en arrière-plan. Veuillez patienter !"
+
+msgid "Atualização dos fluxos de produção está sendo feita em segundo plano."
+msgstr "La mise à jour des flux de production est effectuée en arrière-plan."
+
+msgid "Atualização do fluxo de produção está sendo feita em segundo plano."
+msgstr "La mise à jour du flux de production est effectuée en arrière-plan."
+
+msgid "Você não tem autorização para excluir fluxo(s). Favor entrar em contato com administrador do sistema!"
+msgstr "Vous n'êtes pas autorisé à supprimer le(s) flux. Veuillez contacter l'administrateur système !"
+
+msgid "Exportação para Excel sendo realizada em segundo plano. Ao terminar (5/10 minutos), será enviado o arquivo ao e-mail cadastrado do usuário no sistema."
+msgstr "Exportation vers Excel en cours en arrière-plan. Une fois terminée (5/10 minutes), le fichier sera envoyé à l'e-mail enregistré de l'utilisateur dans le système."
+
+msgid "Ano"
+msgstr "Année"
+
+msgid "Ano/Trimestre"
+msgstr "Année/Trimestre"
+
+msgid "Ano Início"
+msgstr "Année Début"
+
+msgid "Ano Fim"
+msgstr "Année Fin"
+
+msgid "Ano/Trimestre Início"
+msgstr "Année/Trimestre Début"
+
+msgid "Ano/Trimestre Fim"
+msgstr "Année/Trimestre Fin"
+
+#, python-format
+msgid "Valor (%(unidade)s)"
+msgstr "Valeur (%(unidade)s)"
+
+#, python-format
+msgid "Custo Manutenção (%(moeda)s/h)"
+msgstr "Coût Maintenance (%(moeda)s/h)"
+
+#, python-format
+msgid "Produtividade (%(unidade)s/h)"
+msgstr "Productivité (%(unidade)s/h)"
+
+#, python-format
+msgid "WIP (%(unidade)s)"
+msgstr "WIP (%(unidade)s)"
+
+#, python-format
+msgid "Preço (%(moeda)s%(t1)s/%(t2)s)"
+msgstr "Prix (%(moeda)s%(t1)s/%(t2)s)"
+
+#, python-format
+msgid "Preço (%(moeda)s)"
+msgstr "Prix (%(moeda)s)"
+
+msgid "IF(%)"
+msgstr "IF(%)"
+
+msgid "Solução"
+msgstr "Solution"
+
+msgid "Total Estoque"
+msgstr "Stock Total"
+
+msgid "Capex"
+msgstr "Capex"
+
+#, python-format
+msgid "Valor (%(moeda)s)"
+msgstr "Valeur (%(moeda)s)"
+
+msgid "Período Inicio"
+msgstr "Période Début"
+
+msgid "Período Fim"
+msgstr "Période Fin"
+
+msgid "Valor Custo Var. Adicionado"
+msgstr "Valeur Coût Variable Ajouté"
+
+msgid "Bonificação"
+msgstr "Bonification"
+
+msgid "Qtde Produzida Total"
+msgstr "Qté Produite Totale"
+
+msgid "(D+P)"
+msgstr "(D+P)"
+
+msgid "Desvio (%)"
+msgstr "Écart (%)"
+
+msgid "SPS"
+msgstr "SPS"
+
+msgid "Indicador (P)"
+msgstr "Indicateur (P)"
+
+msgid "Indicador (P+D)"
+msgstr "Indicateur (P+D)"
+
+msgid "Indicador Atual"
+msgstr "Indicateur Actuel"
+
+msgid "Custo Var. Adic. Tot. (P)"
+msgstr "Coût Var. Add. Tot. (P)"
+
+msgid "Custo Var. Adic. Tot. (P+D)"
+msgstr "Coût Var. Add. Tot. (P+D)"
+
+msgid "Custo Var. Adic. Total (SPS)"
+msgstr "Coût Var. Add. Total (SPS)"
+
+msgid "Custo Var. Adic. Total (P)"
+msgstr "Coût Var. Add. Total (P)"
+
+msgid "Custo Var. Adic. Total (P+D)"
+msgstr "Coût Var. Add. Total (P+D)"
+
+msgid "Valor Atual"
+msgstr "Valeur Actuelle"
+
+msgid "Ordens"
+msgstr "Ordres"
+
+msgid "Itens"
+msgstr "Articles"
+
+msgid "Parc. Itens"
+msgstr "Part Articles"
+
+msgid "Parc. Inbound"
+msgstr "Part Entrant"
+
+msgid "Parc. Manutenção"
+msgstr "Part Maintenance"
+
+msgid "Parcela Preço"
+msgstr "Part Prix"
+
+msgid "Total (Preço + Inbound)"
+msgstr "Total (Prix + Entrant)"
+
+msgid "Mercados"
+msgstr "Marchés"
+
+msgid "Fluxos Total"
+msgstr "Flux Total"
+
+msgid "Fluxos Ativos"
+msgstr "Flux Actifs"
+
+msgid "Existe Outbound"
+msgstr "A un Sortant"
+
+msgid "Custo Var. Adicionado"
+msgstr "Coût Variable Ajouté"
+
+msgid "Parcela Manutencao"
+msgstr "Part Maintenance"
+
+msgid "Gargalo/Produtividade"
+msgstr "Goulot/Productivité"
+
+msgid "Prod. Equivalente"
+msgstr "Prod. Équivalente"
+
+msgid "Margem Contrib. Média"
+msgstr "Marge de Contrib. Moyenne"
+
+msgid "Margem Contrib. (%)"
+msgstr "Marge de Contrib. (%)"
+
+msgid "Margem Horária Média"
+msgstr "Marge Horaire Moyenne"
+
+msgid "Margem Cont. Bruta Média"
+msgstr "Marge de Contrib. Brute Moyenne"
+
+msgid "Custo Médio"
+msgstr "Coût Moyen"
+
+msgid "Margem Média"
+msgstr "Marge Moyenne"
+
+msgid "Margem Contrib.(%) Média"
+msgstr "Marge de Contrib.(%) Moyenne"
+
+msgid "Part. (%)"
+msgstr "Part (%)"
+
+msgid "VPL"
+msgstr "VAN"
+
+msgid "Payback Descontado"
+msgstr "Délai de Récupération Actualisé"
+
+msgid "TIR (%)"
+msgstr "TRI (%)"
+
+msgid "OFCF Referência"
+msgstr "OFCF Référence"
+
+msgid "OFCF Ativo"
+msgstr "OFCF Actif"
+
+msgid "Delta OFCF"
+msgstr "Delta OFCF"
+
+msgid "WACC (%)"
+msgstr "WACC (%)"
+
+msgid "Delta OFCF Descontado"
+msgstr "Delta OFCF Actualisé"
+
+msgid "Vendas Referência"
+msgstr "Ventes Référence"
+
+msgid "Vendas Ativo"
+msgstr "Ventes Actif"
+
+msgid "Delta Vendas"
+msgstr "Delta Ventes"
+
+msgid "Variável Referência"
+msgstr "Variable Référence"
+
+msgid "Variável Ativo"
+msgstr "Variable Actif"
+
+msgid "Delta Variável"
+msgstr "Delta Variable"
+
+msgid "Inbound Referência"
+msgstr "Entrant Référence"
+
+msgid "Inbound Ativo"
+msgstr "Entrant Actif"
+
+msgid "Delta Inbound"
+msgstr "Delta Entrant"
+
+msgid "Outbound Referência"
+msgstr "Sortant Référence"
+
+msgid "Outbound Ativo"
+msgstr "Sortant Actif"
+
+msgid "Delta Outbound"
+msgstr "Delta Sortant"
+
+msgid "Manutenção Referência"
+msgstr "Maintenance Référence"
+
+msgid "Manutenção Ativo"
+msgstr "Maintenance Actif"
+
+msgid "Delta Manutenção"
+msgstr "Delta Maintenance"
+
+msgid "Margem Cont. Referência"
+msgstr "Marge de Contrib. Référence"
+
+msgid "Margem Cont. Ativo"
+msgstr "Marge de Contrib. Actif"
+
+msgid "Delta Margem Cont."
+msgstr "Delta Marge de Contrib."
+
+msgid "Custo Fixo Referência"
+msgstr "Coût Fixe Référence"
+
+msgid "Custo Fixo Ativo"
+msgstr "Coût Fixe Actif"
+
+msgid "Delta Custo Fixo"
+msgstr "Delta Coût Fixe"
+
+msgid "EBITDA Referência"
+msgstr "EBITDA Référence"
+
+msgid "EBITDA Ativo"
+msgstr "EBITDA Actif"
+
+msgid "Delta EBITDA"
+msgstr "Delta EBITDA"
+
+msgid "EBITDA (%) Referência"
+msgstr "EBITDA (%) Référence"
+
+msgid "EBITDA (%) Ativo"
+msgstr "EBITDA (%) Actif"
+
+msgid "Delta EBITDA (%)"
+msgstr "Delta EBITDA (%)"
+
+msgid "D&A Referência"
+msgstr "D&A Référence"
+
+msgid "D&A Ativo"
+msgstr "D&A Actif"
+
+msgid "Delta D&A"
+msgstr "Delta D&A"
+
+msgid "IR (%) Referência"
+msgstr "Impôt (%) Référence"
+
+msgid "IR (%) Ativo"
+msgstr "Impôt (%) Actif"
+
+msgid "Delta IR (%)"
+msgstr "Delta Impôt (%)"
+
+msgid "MP Referência"
+msgstr "MP Référence"
+
+msgid "MP Ativo"
+msgstr "MP Actif"
+
+msgid "Delta MP"
+msgstr "Delta MP"
+
+msgid "WIP Referência"
+msgstr "WIP Référence"
+
+msgid "WIP Ativo"
+msgstr "WIP Actif"
+
+msgid "Delta WIP"
+msgstr "Delta WIP"
+
+msgid "PF Referência"
+msgstr "PF Référence"
+
+msgid "PF Ativo"
+msgstr "PF Actif"
+
+msgid "Delta PF"
+msgstr "Delta PF"
+
+msgid "estoque Referência"
+msgstr "stock Référence"
+
+msgid "estoque Ativo"
+msgstr "stock Actif"
+
+msgid "Delta estoque"
+msgstr "Delta stock"
+
+msgid "Receber Referência"
+msgstr "À Recevoir Référence"
+
+msgid "Receber Ativo"
+msgstr "À Recevoir Actif"
+
+msgid "Delta Receber"
+msgstr "Delta À Recevoir"
+
+msgid "pagar Referência"
+msgstr "à payer Référence"
+
+msgid "pagar Ativo"
+msgstr "à payer Actif"
+
+msgid "Delta pagar"
+msgstr "Delta à payer"
+
+msgid "OWCR Referência"
+msgstr "OWCR Référence"
+
+msgid "OWCR Ativo"
+msgstr "OWCR Actif"
+
+msgid "Delta OWCR"
+msgstr "Delta OWCR"
+
+msgid "capex Referência"
+msgstr "capex Référence"
+
+msgid "capex Ativo"
+msgstr "capex Actif"
+
+msgid "Delta capex"
+msgstr "Delta capex"
+
+msgid "Período"
+msgstr "Période"
 
 #, python-format
 msgid "Olá %(nome_usuario)s! O que posso fazer por você hoje?"

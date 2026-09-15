@@ -1,6 +1,7 @@
 from parameters.models import TbCenarios, TbEmpresa
 from parameters.contexto_usuario import get_usuario_atual
 from custo_ferbasa.models import TbCustoVariavelAdicionado
+from django.utils.translation import gettext_lazy as _
 from django.db import models
 from django.db import connection
 from decimal import Decimal
@@ -69,11 +70,11 @@ def atualiza_cenario(sender, instance, **kwargs):
 # Divisor de tabelas .....................................................................
 
 class TbIndicadores(models.Model):
-    ind_nome = models.CharField(max_length=25, verbose_name='Nome')
-    ind_observacao = models.TextField(verbose_name='Observação', blank=True, null=True)
-    ind_fonte = models.FileField(upload_to='fontes', null=True, blank=True, verbose_name='Fonte')
-    valor_inicial = models.DecimalField(max_digits=8, decimal_places=4, verbose_name='Valor Inicial (%)', default=0.00)
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
+    ind_nome = models.CharField(max_length=25, verbose_name=_('Nome'))
+    ind_observacao = models.TextField(verbose_name=_('Observação'), blank=True, null=True)
+    ind_fonte = models.FileField(upload_to='fontes', null=True, blank=True, verbose_name=_('Fonte'))
+    valor_inicial = models.DecimalField(max_digits=8, decimal_places=4, verbose_name=_('Valor Inicial (%)'), default=0.00)
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
     id_origem = models.IntegerField(blank=True, null=True)  # Origem no caso de duplicação de tabela
 
     def __str__(self):
@@ -97,8 +98,8 @@ class TbIndicadores(models.Model):
             raise ValidationError('Indicador ' + self.ind_nome + ' já cadastrado para esse cenário!')
 
     class Meta:
-        verbose_name = '                 Indicador'
-        verbose_name_plural = '                 Indicadores'
+        verbose_name = _('                 Indicador')
+        verbose_name_plural = _('                 Indicadores')
         ordering = ['ind_nome']
 
     def save(self, *args, **kwargs):
@@ -124,10 +125,10 @@ class TbIndicadores(models.Model):
 post_save.connect(verifica_filha, sender=TbIndicadores)
 
 class TbIndicadoresDaugther(models.Model):
-    dau_order = models.IntegerField(verbose_name='Ano/Mês')
-    dau_valor = models.DecimalField(max_digits=8, decimal_places=4, verbose_name='Valor (%)', default=0.0000)
-    mae = models.ForeignKey(TbIndicadores, on_delete=models.CASCADE, verbose_name='Indicador')
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
+    dau_order = models.IntegerField(verbose_name=_('Ano/Mês'))
+    dau_valor = models.DecimalField(max_digits=8, decimal_places=4, verbose_name=_('Valor (%)'), default=0.0000)
+    mae = models.ForeignKey(TbIndicadores, on_delete=models.CASCADE, verbose_name=_('Indicador'))
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
 
     def __str__(self):
         return ''
@@ -187,8 +188,8 @@ class TbIndicadoresDaugther(models.Model):
         cursor.close()
 
     class Meta:
-        verbose_name = 'Valores Previstos (%)'
-        verbose_name_plural = 'Valores Previstos (%)'
+        verbose_name = _('Valores Previstos (%)')
+        verbose_name_plural = _('Valores Previstos (%)')
         ordering = ['dau_order']
 
 class TbCambio(models.Model):
@@ -228,12 +229,12 @@ class TbCambio(models.Model):
         )
 
     cam_moeda = models.CharField(max_length=3, choices=cam_moeda_choice, null=False, blank=False, default='BRL',
-                                 verbose_name='Moeda')
-    cam_moeda_imagem = models.ImageField(upload_to='tabelas', null=True, blank=True, verbose_name='Imagem da Moeda')
-    cam_observacao = models.TextField(verbose_name='Observação', blank=True, null=True)
-    cam_fonte = models.FileField(upload_to='fontes', null=True, blank=True, verbose_name='Fonte')
-    valor_inicial = models.DecimalField(max_digits=10, decimal_places=4, verbose_name='Valor Inicial', null=True)
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
+                                 verbose_name=_('Moeda'))
+    cam_moeda_imagem = models.ImageField(upload_to='tabelas', null=True, blank=True, verbose_name=_('Imagem da Moeda'))
+    cam_observacao = models.TextField(verbose_name=_('Observação'), blank=True, null=True)
+    cam_fonte = models.FileField(upload_to='fontes', null=True, blank=True, verbose_name=_('Fonte'))
+    valor_inicial = models.DecimalField(max_digits=10, decimal_places=4, verbose_name=_('Valor Inicial'), null=True)
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
     id_origem = models.IntegerField(blank=True, null=True)  # Origem no caso de duplicação de tabela
 
     def __str__(self):
@@ -245,7 +246,7 @@ class TbCambio(models.Model):
         else:
             return 'Sem imagem!'
 
-    cam_moeda_imagem_tag.short_description = ''
+    cam_moeda_imagem_tag.short_description = _('')
 
     def clean(self):
 
@@ -264,8 +265,8 @@ class TbCambio(models.Model):
             raise ValidationError('Taxa de Câmbio ' + self.cam_moeda + ' já cadastrado!')
 
     class Meta:
-        verbose_name = '               Taxa de Câmbio'
-        verbose_name_plural = '               Taxas de Câmbio'
+        verbose_name = _('               Taxa de Câmbio')
+        verbose_name_plural = _('               Taxas de Câmbio')
         ordering = ['cam_moeda']
         # constraints = [
         #              models.UniqueConstraint(fields=['cam_moeda', 'tbcenarios'], name='Moeda / Cenário')
@@ -286,10 +287,10 @@ class TbCambio(models.Model):
 post_save.connect(verifica_filha, sender=TbCambio)
 
 class TbCambioDaugther(models.Model):
-    dau_order = models.IntegerField(verbose_name='Ano/Mês')
-    dau_valor = models.DecimalField(max_digits=10, decimal_places=4, verbose_name='Valor')
-    mae = models.ForeignKey(TbCambio, on_delete=models.CASCADE, verbose_name='Câmbio')
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
+    dau_order = models.IntegerField(verbose_name=_('Ano/Mês'))
+    dau_valor = models.DecimalField(max_digits=10, decimal_places=4, verbose_name=_('Valor'))
+    mae = models.ForeignKey(TbCambio, on_delete=models.CASCADE, verbose_name=_('Câmbio'))
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
 
     def __str__(self):
         return ''
@@ -336,31 +337,31 @@ class TbCambioDaugther(models.Model):
         return periodo_str
 
     class Meta:
-        verbose_name = 'Valores Previstos'
-        verbose_name_plural = 'Valores Previstos'
+        verbose_name = _('Valores Previstos')
+        verbose_name_plural = _('Valores Previstos')
         ordering = ['dau_order']
 
 class TbImpostoRenda(models.Model):
-    imp_observacao = models.TextField(verbose_name='Imposto de Renda', blank=True, null=True)
-    valor_inicial = models.DecimalField(max_digits=6, decimal_places=2, default=32.00, verbose_name='Valor Inicial')
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
+    imp_observacao = models.TextField(verbose_name=_('Imposto de Renda'), blank=True, null=True)
+    valor_inicial = models.DecimalField(max_digits=6, decimal_places=2, default=32.00, verbose_name=_('Valor Inicial'))
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
     id_origem = models.IntegerField(blank=True, null=True)  # Origem no caso de duplicação de tabela
 
     def __str__(self):
         return ''
 
     class Meta:
-        verbose_name = '              Imposto de Renda'
-        verbose_name_plural = '              Imposto de Renda'
+        verbose_name = _('              Imposto de Renda')
+        verbose_name_plural = _('              Imposto de Renda')
 
 # Signals a serem executados na tabela TbImpostoRenda
 post_save.connect(verifica_filha, sender=TbImpostoRenda)
 
 class TbImpostoRendaDaugther(models.Model):
-    dau_order = models.IntegerField(verbose_name='Ano/Mês')
-    dau_valor = models.DecimalField(max_digits=6, decimal_places=2, verbose_name='Valor (%)')
-    mae = models.ForeignKey(TbImpostoRenda, on_delete=models.CASCADE, verbose_name='Imposto de Renda')
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
+    dau_order = models.IntegerField(verbose_name=_('Ano/Mês'))
+    dau_valor = models.DecimalField(max_digits=6, decimal_places=2, verbose_name=_('Valor (%)'))
+    mae = models.ForeignKey(TbImpostoRenda, on_delete=models.CASCADE, verbose_name=_('Imposto de Renda'))
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
 
     def __str__(self):
         return ''
@@ -407,31 +408,31 @@ class TbImpostoRendaDaugther(models.Model):
         return periodo_str
 
     class Meta:
-        verbose_name = 'Valores Previstos (%)'
-        verbose_name_plural = 'Valores Previstos (%)'
+        verbose_name = _('Valores Previstos (%)')
+        verbose_name_plural = _('Valores Previstos (%)')
         ordering = ['dau_order']
 
 class TbTaxaDesconto(models.Model):
-    tax_observacao = models.TextField(verbose_name='Taxa de Desconto (WACC)', blank=True, null=True)
-    valor_inicial = models.DecimalField(max_digits=6, decimal_places=2, default=10.00, verbose_name='Valor Inicial')
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
+    tax_observacao = models.TextField(verbose_name=_('Taxa de Desconto (WACC)'), blank=True, null=True)
+    valor_inicial = models.DecimalField(max_digits=6, decimal_places=2, default=10.00, verbose_name=_('Valor Inicial'))
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
     id_origem = models.IntegerField(blank=True, null=True)  # Origem no caso de duplicação de tabela
 
     def __str__(self):
         return ''
 
     class Meta:
-        verbose_name = '             Taxa de Desconto (WACC)'
-        verbose_name_plural = '             Taxa de Desconto (WACC)'
+        verbose_name = _('             Taxa de Desconto (WACC)')
+        verbose_name_plural = _('             Taxa de Desconto (WACC)')
 
 # Signals a serem executados na tabela TbTaxaDesconto
 post_save.connect(verifica_filha, sender=TbTaxaDesconto)
 
 class TbTaxaDescontoDaugther(models.Model):
-    dau_order = models.IntegerField(verbose_name='Ano/Mês')
-    dau_valor = models.DecimalField(max_digits=6, decimal_places=2, verbose_name='Valor (%)')
-    mae = models.ForeignKey(TbTaxaDesconto, on_delete=models.CASCADE, verbose_name='Taxa de Desconto (WACC)')
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
+    dau_order = models.IntegerField(verbose_name=_('Ano/Mês'))
+    dau_valor = models.DecimalField(max_digits=6, decimal_places=2, verbose_name=_('Valor (%)'))
+    mae = models.ForeignKey(TbTaxaDesconto, on_delete=models.CASCADE, verbose_name=_('Taxa de Desconto (WACC)'))
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
 
     def __str__(self):
         return ''
@@ -478,8 +479,8 @@ class TbTaxaDescontoDaugther(models.Model):
         return periodo_str
 
     class Meta:
-        verbose_name = 'Valores Previstos (%)'
-        verbose_name_plural = 'Valores Previstos (%)'
+        verbose_name = _('Valores Previstos (%)')
+        verbose_name_plural = _('Valores Previstos (%)')
         ordering = ['dau_order']
 
 class TbCustoFixo(models.Model):
@@ -488,14 +489,14 @@ class TbCustoFixo(models.Model):
         USD = ('USD', 'DÓLAR')
         EUR = ('EUR', 'EURO')
 
-    fix_nome = models.CharField(max_length=50, verbose_name='Nome')
-    fix_indicador = models.ForeignKey(TbIndicadores, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Indicador')
-    fix_moeda = models.CharField(max_length=3, choices=FixMoedaChoices.choices, null=False, blank=False, default='BRL', verbose_name='Moeda')
-    fix_observacao = models.TextField(verbose_name='Observação', blank=True, null=True)
-    fix_fonte = models.FileField(upload_to='fontes', null=True, blank=True, verbose_name='Fonte')
-    valor_inicial_1 = models.DecimalField(max_digits=18, decimal_places=2, verbose_name='Valor Inicial Valor')
-    valor_inicial_2 = models.IntegerField(verbose_name='Valor Inicial Pagamento (dias)')
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
+    fix_nome = models.CharField(max_length=50, verbose_name=_('Nome'))
+    fix_indicador = models.ForeignKey(TbIndicadores, null=True, blank=True, on_delete=models.PROTECT, verbose_name=_('Indicador'))
+    fix_moeda = models.CharField(max_length=3, choices=FixMoedaChoices.choices, null=False, blank=False, default='BRL', verbose_name=_('Moeda'))
+    fix_observacao = models.TextField(verbose_name=_('Observação'), blank=True, null=True)
+    fix_fonte = models.FileField(upload_to='fontes', null=True, blank=True, verbose_name=_('Fonte'))
+    valor_inicial_1 = models.DecimalField(max_digits=18, decimal_places=2, verbose_name=_('Valor Inicial Valor'))
+    valor_inicial_2 = models.IntegerField(verbose_name=_('Valor Inicial Pagamento (dias)'))
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
     id_origem = models.IntegerField(blank=True, null=True)  # Origem no caso de duplicação de tabela
 
     def __str__(self):
@@ -527,8 +528,8 @@ class TbCustoFixo(models.Model):
             raise ValidationError('Custo Fixo ' + self.fix_nome + ' já cadastrado!')
 
     class Meta:
-        verbose_name = '            Custo Fixo'
-        verbose_name_plural = '            Custos Fixos'
+        verbose_name = _('            Custo Fixo')
+        verbose_name_plural = _('            Custos Fixos')
         ordering = ['fix_nome']
 
     def save(self, *args, **kwargs):
@@ -562,11 +563,11 @@ class TbCustoFixo(models.Model):
 #post_save.connect(verifica_filha, sender=TbCustoFixo)
 
 class TbCustoFixoDaugther(models.Model):
-    dau_order = models.IntegerField(verbose_name='Ano/Mês')
-    dau_valor_1 = models.DecimalField(max_digits=18, decimal_places=2, verbose_name='Valor')
-    dau_valor_2 = models.IntegerField(verbose_name='Pagamento (dias)')
-    mae = models.ForeignKey(TbCustoFixo, on_delete=models.CASCADE, verbose_name='Custo Fixo')
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
+    dau_order = models.IntegerField(verbose_name=_('Ano/Mês'))
+    dau_valor_1 = models.DecimalField(max_digits=18, decimal_places=2, verbose_name=_('Valor'))
+    dau_valor_2 = models.IntegerField(verbose_name=_('Pagamento (dias)'))
+    mae = models.ForeignKey(TbCustoFixo, on_delete=models.CASCADE, verbose_name=_('Custo Fixo'))
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
 
     def __str__(self):
         return ''
@@ -636,7 +637,7 @@ class TbCustoFixoDaugther(models.Model):
         # tabela existir mas faltar coluna nova (migration em andamento).
         try:
             if TbEmpresa.objects.filter(id=1).count() > 0:
-                valor_moeda_empresa.short_description = 'Valor (' + TbEmpresa.objects.get(id=1).emp_moeda + ')'
+                valor_moeda_empresa.short_description = _('Valor (%(moeda)s)') % {'moeda': TbEmpresa.objects.get(id=1).emp_moeda}
         except Exception:
             pass
 
@@ -665,8 +666,8 @@ class TbCustoFixoDaugther(models.Model):
         cursor.close()
 
     class Meta:
-        verbose_name = 'Valores Previstos'
-        verbose_name_plural = 'Valores Previstos'
+        verbose_name = _('Valores Previstos')
+        verbose_name_plural = _('Valores Previstos')
         ordering = ['dau_order']
 
 class TbDepreAmorti(models.Model):
@@ -675,14 +676,14 @@ class TbDepreAmorti(models.Model):
         USD = ('USD', 'DÓLAR')
         EUR = ('EUR', 'EURO')
 
-    dep_nome = models.CharField(max_length=50, verbose_name='Nome')
-    dep_recorrente = models.BooleanField(blank=False, null=False, default=False, verbose_name='Recorrente')
-    dep_indicador = models.ForeignKey(TbIndicadores, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Indicador')
-    dep_moeda = models.CharField(max_length=3, choices=DepMoedaChoices.choices, null=False, blank=False, default='BRL', verbose_name='Moeda')
-    dep_observacao = models.TextField(verbose_name='Observação', blank=True, null=True)
-    dep_fonte = models.FileField(upload_to='fontes', null=True, blank=True, verbose_name='Fonte')
-    valor_inicial = models.DecimalField(max_digits=18, decimal_places=2, verbose_name='Valor Inicial')
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
+    dep_nome = models.CharField(max_length=50, verbose_name=_('Nome'))
+    dep_recorrente = models.BooleanField(blank=False, null=False, default=False, verbose_name=_('Recorrente'))
+    dep_indicador = models.ForeignKey(TbIndicadores, null=True, blank=True, on_delete=models.PROTECT, verbose_name=_('Indicador'))
+    dep_moeda = models.CharField(max_length=3, choices=DepMoedaChoices.choices, null=False, blank=False, default='BRL', verbose_name=_('Moeda'))
+    dep_observacao = models.TextField(verbose_name=_('Observação'), blank=True, null=True)
+    dep_fonte = models.FileField(upload_to='fontes', null=True, blank=True, verbose_name=_('Fonte'))
+    valor_inicial = models.DecimalField(max_digits=18, decimal_places=2, verbose_name=_('Valor Inicial'))
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
     id_origem = models.IntegerField(blank=True, null=True)  # Origem no caso de duplicação de tabela
 
     def __str__(self):
@@ -715,8 +716,8 @@ class TbDepreAmorti(models.Model):
             raise ValidationError('Depreciação/Amortização ' + self.dep_nome + ' já cadastrada!')
 
     class Meta:
-        verbose_name = '           Deprec./Amortização'
-        verbose_name_plural = '           Deprec./Amortizações'
+        verbose_name = _('           Deprec./Amortização')
+        verbose_name_plural = _('           Deprec./Amortizações')
         ordering = ['dep_nome']
 
     def save(self, *args, **kwargs):
@@ -750,10 +751,10 @@ class TbDepreAmorti(models.Model):
 #post_save.connect(verifica_filha, sender=TbDepreAmorti)
 
 class TbDepreAmortiDaugther(models.Model):
-    dau_order = models.IntegerField(verbose_name='Ano/Mês')
-    dau_valor = models.DecimalField(max_digits=18, decimal_places=2, verbose_name='Valor')
-    mae = models.ForeignKey(TbDepreAmorti, on_delete=models.CASCADE, verbose_name='Depreciação/Amortização')
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
+    dau_order = models.IntegerField(verbose_name=_('Ano/Mês'))
+    dau_valor = models.DecimalField(max_digits=18, decimal_places=2, verbose_name=_('Valor'))
+    mae = models.ForeignKey(TbDepreAmorti, on_delete=models.CASCADE, verbose_name=_('Depreciação/Amortização'))
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
 
     def __str__(self):
         return ''
@@ -823,11 +824,11 @@ class TbDepreAmortiDaugther(models.Model):
         # tabela existir mas faltar coluna nova (migration em andamento).
         try:
             if TbEmpresa.objects.filter(id=1) == 1:
-                valor_moeda_empresa.short_description = 'Valor (' + TbEmpresa.objects.get(id=1).emp_moeda + ')'
+                valor_moeda_empresa.short_description = _('Valor (%(moeda)s)') % {'moeda': TbEmpresa.objects.get(id=1).emp_moeda}
             else:
-                valor_moeda_empresa.short_description = ''
+                valor_moeda_empresa.short_description = _('')
         except Exception:
-            valor_moeda_empresa.short_description = ''
+            valor_moeda_empresa.short_description = _('')
 
     def save(self, *args, **kwargs):
 
@@ -851,8 +852,8 @@ class TbDepreAmortiDaugther(models.Model):
         cursor.close()
 
     class Meta:
-        verbose_name = 'Valores Previstos'
-        verbose_name_plural = 'Valores Previstos'
+        verbose_name = _('Valores Previstos')
+        verbose_name_plural = _('Valores Previstos')
         ordering = ['dau_order']
 
 class TbCapex(models.Model):
@@ -861,14 +862,14 @@ class TbCapex(models.Model):
         USD = ('USD', 'DÓLAR')
         EUR = ('EUR', 'EURO')
 
-    cap_nome = models.CharField(max_length=50, verbose_name='Nome')
-    cap_recorrente = models.BooleanField(blank=False, null=False, default=False, verbose_name='Recorrente')
-    cap_indicador = models.ForeignKey(TbIndicadores, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Indicador')
-    cap_moeda = models.CharField(max_length=3, choices=CapMoedaChoices.choices, null=False, blank=False, default='BRL', verbose_name='Moeda')
-    cap_observacao = models.TextField(verbose_name='Observação', blank=True, null=True)
-    cap_fonte = models.FileField(upload_to='fontes', null=True, blank=True, verbose_name='Fonte')
-    valor_inicial = models.DecimalField(max_digits=18, decimal_places=2, verbose_name='Valor Inicial')
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
+    cap_nome = models.CharField(max_length=50, verbose_name=_('Nome'))
+    cap_recorrente = models.BooleanField(blank=False, null=False, default=False, verbose_name=_('Recorrente'))
+    cap_indicador = models.ForeignKey(TbIndicadores, null=True, blank=True, on_delete=models.PROTECT, verbose_name=_('Indicador'))
+    cap_moeda = models.CharField(max_length=3, choices=CapMoedaChoices.choices, null=False, blank=False, default='BRL', verbose_name=_('Moeda'))
+    cap_observacao = models.TextField(verbose_name=_('Observação'), blank=True, null=True)
+    cap_fonte = models.FileField(upload_to='fontes', null=True, blank=True, verbose_name=_('Fonte'))
+    valor_inicial = models.DecimalField(max_digits=18, decimal_places=2, verbose_name=_('Valor Inicial'))
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
     id_origem = models.IntegerField(blank=True, null=True)  # Origem no caso de duplicação de tabela
 
     def __str__(self):
@@ -901,8 +902,8 @@ class TbCapex(models.Model):
             raise ValidationError('CAPEX ' + self.cap_nome + ' já cadastrado!')
 
     class Meta:
-        verbose_name = '          CAPEX'
-        verbose_name_plural = '          CAPEX'
+        verbose_name = _('          CAPEX')
+        verbose_name_plural = _('          CAPEX')
         ordering = ['cap_nome']
 
     def save(self, *args, **kwargs):
@@ -936,10 +937,10 @@ class TbCapex(models.Model):
 #post_save.connect(verifica_filha, sender=TbCapex)
 
 class TbCapexDaugther(models.Model):
-    dau_order = models.IntegerField(verbose_name='Ano/Mês')
-    dau_valor = models.DecimalField(max_digits=18, decimal_places=2, verbose_name='Valor')
-    mae = models.ForeignKey(TbCapex, on_delete=models.CASCADE, verbose_name='Depreciação/Amortização')
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
+    dau_order = models.IntegerField(verbose_name=_('Ano/Mês'))
+    dau_valor = models.DecimalField(max_digits=18, decimal_places=2, verbose_name=_('Valor'))
+    mae = models.ForeignKey(TbCapex, on_delete=models.CASCADE, verbose_name=_('Depreciação/Amortização'))
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
 
     def __str__(self):
         return ''
@@ -1009,11 +1010,11 @@ class TbCapexDaugther(models.Model):
         # tabela existir mas faltar coluna nova (migration em andamento).
         try:
             if TbEmpresa.objects.filter(id=1) == 1:
-                valor_moeda_empresa.short_description = 'Valor (' + TbEmpresa.objects.get(id=1).emp_moeda + ')'
+                valor_moeda_empresa.short_description = _('Valor (%(moeda)s)') % {'moeda': TbEmpresa.objects.get(id=1).emp_moeda}
             else:
-                valor_moeda_empresa.short_description = ''
+                valor_moeda_empresa.short_description = _('')
         except Exception:
-            valor_moeda_empresa.short_description = ''
+            valor_moeda_empresa.short_description = _('')
 
     def save(self, *args, **kwargs):
 
@@ -1037,18 +1038,18 @@ class TbCapexDaugther(models.Model):
         cursor.close()
 
     class Meta:
-        verbose_name = 'Valores Previstos'
-        verbose_name_plural = 'Valores Previstos'
+        verbose_name = _('Valores Previstos')
+        verbose_name_plural = _('Valores Previstos')
         ordering = ['dau_order']
 
 class TbUnidadeProducao(models.Model): # Independe do cenário. Não é necessário duplicar ao copiar cenário.
-    uni_nome = models.CharField(max_length=40, null=False, blank=False, verbose_name='Nome')
-    uni_imagem = models.ImageField(upload_to='tabelas', null=True, blank=True, verbose_name='Imagem')
-    uni_localizacao = models.ImageField(upload_to='tabelas', null=True, blank=True, verbose_name='Localização')
-    uni_observacao = models.TextField(verbose_name='Observação', blank=True, null=True)
+    uni_nome = models.CharField(max_length=40, null=False, blank=False, verbose_name=_('Nome'))
+    uni_imagem = models.ImageField(upload_to='tabelas', null=True, blank=True, verbose_name=_('Imagem'))
+    uni_localizacao = models.ImageField(upload_to='tabelas', null=True, blank=True, verbose_name=_('Localização'))
+    uni_observacao = models.TextField(verbose_name=_('Observação'), blank=True, null=True)
     # 🌟 NOVO (multi-empresa, Parte 3): tabela independente de cenário --
     # precisa do próprio campo empresa direto.
-    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Empresa')
+    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name=_('Empresa'))
 
     def __str__(self):
         return self.uni_nome
@@ -1059,7 +1060,7 @@ class TbUnidadeProducao(models.Model): # Independe do cenário. Não é necessá
         else:
             return 'Sem imagem!'
 
-    uni_imagem_tag.short_description = ''
+    uni_imagem_tag.short_description = _('')
 
     def uni_imagem_tag_small(self):
         if self.uni_imagem:
@@ -1067,7 +1068,7 @@ class TbUnidadeProducao(models.Model): # Independe do cenário. Não é necessá
         else:
             return 'Sem imagem!'
 
-    uni_imagem_tag_small.short_description = ''
+    uni_imagem_tag_small.short_description = _('')
 
     def uni_localizacao_tag(self):
         if self.uni_localizacao:
@@ -1075,7 +1076,7 @@ class TbUnidadeProducao(models.Model): # Independe do cenário. Não é necessá
         else:
             return 'Sem imagem!'
 
-    uni_localizacao_tag.short_description = ''
+    uni_localizacao_tag.short_description = _('')
 
     def uni_localizacao_tag_small(self):
         if self.uni_localizacao:
@@ -1083,7 +1084,7 @@ class TbUnidadeProducao(models.Model): # Independe do cenário. Não é necessá
         else:
             return 'Sem imagem!'
 
-    uni_localizacao_tag_small.short_description = ''
+    uni_localizacao_tag_small.short_description = _('')
 
     def clean(self):
 
@@ -1102,8 +1103,8 @@ class TbUnidadeProducao(models.Model): # Independe do cenário. Não é necessá
             raise ValidationError('Planta de Produção ' + self.uni_nome + ' já cadastrada!')
 
     class Meta:
-        verbose_name = '         Unidade de Produção'
-        verbose_name_plural = '         Unidades de Produção'
+        verbose_name = _('         Unidade de Produção')
+        verbose_name_plural = _('         Unidades de Produção')
         ordering = ['uni_nome']
 
     def save(self, *args, **kwargs):
@@ -1111,12 +1112,12 @@ class TbUnidadeProducao(models.Model): # Independe do cenário. Não é necessá
         super().save(*args, **kwargs)
 
 class TbMercado(models.Model): # Independe do cenário. Não é necessário duplicar ao copiar cenário.
-    mer_nome = models.CharField(max_length=40, null=False, blank=False, verbose_name='Nome')
-    mer_imagem = models.ImageField(upload_to='tabelas', null=True, blank=True, verbose_name='Imagem')
-    mer_observacao = models.TextField(verbose_name='Observação', blank=True, null=True)
+    mer_nome = models.CharField(max_length=40, null=False, blank=False, verbose_name=_('Nome'))
+    mer_imagem = models.ImageField(upload_to='tabelas', null=True, blank=True, verbose_name=_('Imagem'))
+    mer_observacao = models.TextField(verbose_name=_('Observação'), blank=True, null=True)
     # 🌟 NOVO (multi-empresa, Parte 3): também escapou do levantamento
     # original -- não tem tbcenarios, precisa do campo empresa direto.
-    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Empresa')
+    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name=_('Empresa'))
 
     def __str__(self):
         return self.mer_nome
@@ -1127,7 +1128,7 @@ class TbMercado(models.Model): # Independe do cenário. Não é necessário dupl
         else:
             return 'Sem imagem!'
 
-    mer_imagem_tag.short_description = ''
+    mer_imagem_tag.short_description = _('')
 
     def mer_imagem_tag_small(self):
         if self.mer_imagem:
@@ -1135,7 +1136,7 @@ class TbMercado(models.Model): # Independe do cenário. Não é necessário dupl
         else:
             return 'Sem imagem!'
 
-    mer_imagem_tag_small.short_description = ''
+    mer_imagem_tag_small.short_description = _('')
 
     # Mostra somente os registros do cenário ativo
     def get_queryset(self, request):
@@ -1159,8 +1160,8 @@ class TbMercado(models.Model): # Independe do cenário. Não é necessário dupl
             raise ValidationError('Mercado ' + self.mer_nome + ' já cadastrado!')
 
     class Meta:
-        verbose_name = '        Mercado'
-        verbose_name_plural = '        Mercados'
+        verbose_name = _('        Mercado')
+        verbose_name_plural = _('        Mercados')
         ordering = ['mer_nome']
 
     def save(self, *args, **kwargs):
@@ -1168,11 +1169,11 @@ class TbMercado(models.Model): # Independe do cenário. Não é necessário dupl
         super().save(*args, **kwargs)
 
 class TbCustoTipo(models.Model): # Independe do cenário. Não é necessário duplicar ao copiar cenário.
-    cus_tip_nome = models.CharField(max_length=25, null=False, blank=False, verbose_name='Nome')
-    cus_tip_group = models.ManyToManyField(Group, blank=True, verbose_name='Grupo(s) Usuários com Permissão')
-    cus_tip_observacao = models.TextField(verbose_name='Observação', blank=True, null=True)
+    cus_tip_nome = models.CharField(max_length=25, null=False, blank=False, verbose_name=_('Nome'))
+    cus_tip_group = models.ManyToManyField(Group, blank=True, verbose_name=_('Grupo(s) Usuários com Permissão'))
+    cus_tip_observacao = models.TextField(verbose_name=_('Observação'), blank=True, null=True)
     # 🌟 NOVO (multi-empresa, Parte 3): tabela independente de cenário.
-    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Empresa')
+    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name=_('Empresa'))
 
     def __str__(self):
         return self.cus_tip_nome
@@ -1195,8 +1196,8 @@ class TbCustoTipo(models.Model): # Independe do cenário. Não é necessário du
             raise ValidationError('Tipo de Custo ' + self.cus_tip_nome + ' já cadastrado!')
 
     class Meta:
-        verbose_name = '     Custo Variável - Tipo'
-        verbose_name_plural = '     Custo Variável - Tipos'
+        verbose_name = _('     Custo Variável - Tipo')
+        verbose_name_plural = _('     Custo Variável - Tipos')
         ordering = ['cus_tip_nome']
 
     def save(self, *args, **kwargs):
@@ -1222,14 +1223,14 @@ class TbCustoItem(models.Model): # Independe do cenário. Não é necessário du
         Mw = ('Mw', 'Mw')
         Mwh = ('Mwh', 'Mwh')
 
-    cus_ite_nome = models.CharField(max_length=60, verbose_name='Nome')
-    cus_ite_codigo_interno = models.CharField(max_length=15, blank=True, null=True, verbose_name='Código Interno')
-    cus_ite_unidade = models.CharField(max_length=3, choices=UnidadeItemChoices.choices, verbose_name='Unidade')
-    cus_ite_tipo = models.ForeignKey(TbCustoTipo, null=True, blank=True, verbose_name='Tipo', on_delete=models.CASCADE)
-    cus_ite_imagem = models.ImageField(upload_to='tabelas', null=True, blank=True, verbose_name='Imagem do Item')
-    cus_ite_observacao = models.TextField(verbose_name='Observação', blank=True, null=True)
+    cus_ite_nome = models.CharField(max_length=60, verbose_name=_('Nome'))
+    cus_ite_codigo_interno = models.CharField(max_length=15, blank=True, null=True, verbose_name=_('Código Interno'))
+    cus_ite_unidade = models.CharField(max_length=3, choices=UnidadeItemChoices.choices, verbose_name=_('Unidade'))
+    cus_ite_tipo = models.ForeignKey(TbCustoTipo, null=True, blank=True, verbose_name=_('Tipo'), on_delete=models.CASCADE)
+    cus_ite_imagem = models.ImageField(upload_to='tabelas', null=True, blank=True, verbose_name=_('Imagem do Item'))
+    cus_ite_observacao = models.TextField(verbose_name=_('Observação'), blank=True, null=True)
     # 🌟 NOVO (multi-empresa, Parte 3): tabela independente de cenário.
-    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Empresa')
+    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name=_('Empresa'))
 
     def __str__(self):
         return self.cus_ite_nome
@@ -1240,7 +1241,7 @@ class TbCustoItem(models.Model): # Independe do cenário. Não é necessário du
         else:
             return 'Sem imagem!'
 
-    cus_ite_imagem_tag.short_description = ''
+    cus_ite_imagem_tag.short_description = _('')
 
     def cus_ite_imagem_tag_small(self):
         if self.cus_ite_imagem:
@@ -1248,7 +1249,7 @@ class TbCustoItem(models.Model): # Independe do cenário. Não é necessário du
         else:
             return 'Sem imagem!'
 
-    cus_ite_imagem_tag_small.short_description = ''
+    cus_ite_imagem_tag_small.short_description = _('')
 
     def clean(self):
 
@@ -1267,8 +1268,8 @@ class TbCustoItem(models.Model): # Independe do cenário. Não é necessário du
             raise ValidationError('Item ' + self.cus_ite_nome + ' já cadastrado!')
 
     class Meta:
-        verbose_name = '     Custo Variável - Item'
-        verbose_name_plural = '    Custo Variável - Itens'
+        verbose_name = _('     Custo Variável - Item')
+        verbose_name_plural = _('    Custo Variável - Itens')
         ordering = ['cus_ite_nome']
 
     def save(self, *args, **kwargs):
@@ -1287,21 +1288,21 @@ class TbCustoItemPreco(models.Model):
         USD = ('USD', 'DÓLAR')
         EUR = ('EUR', 'EURO')
 
-    cus_ite_pre_item = models.ForeignKey(TbCustoItem, on_delete=models.CASCADE, verbose_name='Item de Custo')
-    cus_ite_pre_unidade_producao = models.ForeignKey(TbUnidadeProducao, on_delete=models.CASCADE,  verbose_name='Unidade de Produção')
-    cus_ite_pre_validado = models.BooleanField(blank=False, null=False, default=False, verbose_name='Validado')
-    cus_ite_pre_custo_variavel_adiconado = models.ForeignKey(TbCustoVariavelAdicionado, on_delete=models.SET_NULL, null=True, blank=True, verbose_name='Custo Var. Adic. CF')
-    cus_ite_pre_indicador_preco = models.ForeignKey(TbIndicadores, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Indicador do Preço', related_name='cus_ite_pre_indicador_preco')
-    cus_ite_pre_moeda_preco = models.CharField(max_length=3, choices=ItemPrecoMoedaChoices.choices, verbose_name='Moeda do Preço')
-    cus_ite_pre_indicador_inbound = models.ForeignKey(TbIndicadores, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Indicador do Inbound', related_name='cus_ite_pre_indicador_inbound')
-    cus_ite_pre_moeda_inbound = models.CharField(max_length=3, choices=ItemPrecoMoedaChoices.choices, verbose_name='Moeda do Inbound')
-    cus_ite_pre_observacao = models.TextField(verbose_name='Observação', blank=True, null=True)
-    valor_inicial_1 = models.DecimalField(max_digits=18, decimal_places=2, verbose_name='Valor Inicial: Preço')
-    valor_inicial_2 = models.DecimalField(max_digits=18, decimal_places=2, verbose_name='Valor Inicial: Inbound')
-    valor_inicial_3 = models.IntegerField(verbose_name='Pagamento (dias)')
-    valor_inicial_4 = models.IntegerField(verbose_name='Pagamento (dias)')
-    valor_inicial_5 = models.IntegerField(verbose_name='Estoque (dias)')
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
+    cus_ite_pre_item = models.ForeignKey(TbCustoItem, on_delete=models.CASCADE, verbose_name=_('Item de Custo'))
+    cus_ite_pre_unidade_producao = models.ForeignKey(TbUnidadeProducao, on_delete=models.CASCADE,  verbose_name=_('Unidade de Produção'))
+    cus_ite_pre_validado = models.BooleanField(blank=False, null=False, default=False, verbose_name=_('Validado'))
+    cus_ite_pre_custo_variavel_adiconado = models.ForeignKey(TbCustoVariavelAdicionado, on_delete=models.SET_NULL, null=True, blank=True, verbose_name=_('Custo Var. Adic. CF'))
+    cus_ite_pre_indicador_preco = models.ForeignKey(TbIndicadores, null=True, blank=True, on_delete=models.PROTECT, verbose_name=_('Indicador do Preço'), related_name='cus_ite_pre_indicador_preco')
+    cus_ite_pre_moeda_preco = models.CharField(max_length=3, choices=ItemPrecoMoedaChoices.choices, verbose_name=_('Moeda do Preço'))
+    cus_ite_pre_indicador_inbound = models.ForeignKey(TbIndicadores, null=True, blank=True, on_delete=models.PROTECT, verbose_name=_('Indicador do Inbound'), related_name='cus_ite_pre_indicador_inbound')
+    cus_ite_pre_moeda_inbound = models.CharField(max_length=3, choices=ItemPrecoMoedaChoices.choices, verbose_name=_('Moeda do Inbound'))
+    cus_ite_pre_observacao = models.TextField(verbose_name=_('Observação'), blank=True, null=True)
+    valor_inicial_1 = models.DecimalField(max_digits=18, decimal_places=2, verbose_name=_('Valor Inicial: Preço'))
+    valor_inicial_2 = models.DecimalField(max_digits=18, decimal_places=2, verbose_name=_('Valor Inicial: Inbound'))
+    valor_inicial_3 = models.IntegerField(verbose_name=_('Pagamento (dias)'))
+    valor_inicial_4 = models.IntegerField(verbose_name=_('Pagamento (dias)'))
+    valor_inicial_5 = models.IntegerField(verbose_name=_('Estoque (dias)'))
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
     id_origem = models.IntegerField(blank=True, null=True)  # Origem no caso de duplicação de tabela
 
     def __str__(self):
@@ -1314,7 +1315,7 @@ class TbCustoItemPreco(models.Model):
             return mark_safe('<img src="%s" style="width: 50px; height:60px;" />' % item_imagem.url)
         else:
             return 'Sem imagem!'
-    cus_ite_imagem_tag_small.short_description = 'Imagem'
+    cus_ite_imagem_tag_small.short_description = _('Imagem')
     cus_ite_imagem_tag_small.allow_tags = True
 
     # Campo para mostrar a unidade do item de custo (kg, m3, un, etc)
@@ -1325,7 +1326,7 @@ class TbCustoItemPreco(models.Model):
         else:
             return '?'
 
-    cus_item_unidade.short_description = 'Unidade'
+    cus_item_unidade.short_description = _('Unidade')
 
     # Campo para mostrar o tipo de custo do item de custo
     def cus_item_tipo(self):
@@ -1335,7 +1336,7 @@ class TbCustoItemPreco(models.Model):
         else:
             return '?'
 
-    cus_item_tipo.short_description = 'Tipo'
+    cus_item_tipo.short_description = _('Tipo')
 
     def clean(self):
         # Vamos pegar o cenário ativo
@@ -1392,7 +1393,7 @@ class TbCustoItemPreco(models.Model):
             #print(valor_retorno)
 
         return valor_retorno
-    periodo_inicio.short_description = 'Período Inicio'
+    periodo_inicio.short_description = _('Período Inicio')
 
     def periodo_fim(self):  # Mostra o periodo fim do custo variável adicionado
         valor_retorno = ''
@@ -1401,7 +1402,7 @@ class TbCustoItemPreco(models.Model):
 
         return valor_retorno
 
-    periodo_fim.short_description = 'Período Fim'
+    periodo_fim.short_description = _('Período Fim')
 
     def valor_custo_variavel_adicionado(self): # Mostra o valor do custo variavel adicionado
         valor_retorno = 0
@@ -1413,7 +1414,7 @@ class TbCustoItemPreco(models.Model):
 
         return valor_retorno
 
-    valor_custo_variavel_adicionado.short_description = 'Valor Custo Var. Adicionado'
+    valor_custo_variavel_adicionado.short_description = _('Valor Custo Var. Adicionado')
 
     def preco_medio(self):
         cursor = connection.cursor()
@@ -1429,11 +1430,11 @@ class TbCustoItemPreco(models.Model):
         else:
             return ''
 
-    preco_medio.short_description = 'Preço Médio'
+    preco_medio.short_description = _('Preço Médio')
 
     class Meta:
-        verbose_name = '    Custo Variável - Preço'
-        verbose_name_plural = '    Custo Variável - Preços'
+        verbose_name = _('    Custo Variável - Preço')
+        verbose_name_plural = _('    Custo Variável - Preços')
         ordering = ['cus_ite_pre_item']
 
     def save(self, *args, **kwargs):
@@ -1469,14 +1470,14 @@ class TbCustoItemPreco(models.Model):
         cursor.close()
 
 class TbCustoItemPrecoDaugther(models.Model):
-    dau_order = models.IntegerField(verbose_name='Ano/Mês')
-    dau_valor_1 = models.DecimalField(max_digits=18, decimal_places=2, verbose_name='Valor Preço')
-    dau_valor_2 = models.DecimalField(max_digits=18, decimal_places=2, verbose_name='Valor Inbound')
-    dau_valor_3 = models.IntegerField(verbose_name='Pagamento (dias)')
-    dau_valor_4 = models.IntegerField(verbose_name='Pagamento (dias)')
-    dau_valor_5 = models.IntegerField(verbose_name='Estoque (dias)')
-    mae = models.ForeignKey(TbCustoItemPreco, on_delete=models.CASCADE, verbose_name='Mãe')
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
+    dau_order = models.IntegerField(verbose_name=_('Ano/Mês'))
+    dau_valor_1 = models.DecimalField(max_digits=18, decimal_places=2, verbose_name=_('Valor Preço'))
+    dau_valor_2 = models.DecimalField(max_digits=18, decimal_places=2, verbose_name=_('Valor Inbound'))
+    dau_valor_3 = models.IntegerField(verbose_name=_('Pagamento (dias)'))
+    dau_valor_4 = models.IntegerField(verbose_name=_('Pagamento (dias)'))
+    dau_valor_5 = models.IntegerField(verbose_name=_('Estoque (dias)'))
+    mae = models.ForeignKey(TbCustoItemPreco, on_delete=models.CASCADE, verbose_name=_('Mãe'))
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
 
     def __str__(self):
         return ''
@@ -1548,16 +1549,16 @@ class TbCustoItemPrecoDaugther(models.Model):
         cursor.close()
 
     class Meta:
-        verbose_name = 'Valores Previstos'
-        verbose_name_plural = 'Valores Previstos'
+        verbose_name = _('Valores Previstos')
+        verbose_name_plural = _('Valores Previstos')
         ordering = ['dau_order']
 
 class TbTipoProducao(models.Model): # Independe do cenário. Não é necessário duplicar ao copiar cenário.
-    tip_nome = models.CharField(max_length=50, null=False, blank=False, verbose_name='Nome')
-    tip_imagem = models.ImageField(upload_to='tabelas', null=True, blank=True, verbose_name='Imagem')
-    tip_observacao = models.TextField(verbose_name='Observação', blank=True, null=True)
+    tip_nome = models.CharField(max_length=50, null=False, blank=False, verbose_name=_('Nome'))
+    tip_imagem = models.ImageField(upload_to='tabelas', null=True, blank=True, verbose_name=_('Imagem'))
+    tip_observacao = models.TextField(verbose_name=_('Observação'), blank=True, null=True)
     # 🌟 NOVO (multi-empresa, Parte 3): tabela independente de cenário.
-    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Empresa')
+    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name=_('Empresa'))
 
     def __str__(self):
         return self.tip_nome
@@ -1568,7 +1569,7 @@ class TbTipoProducao(models.Model): # Independe do cenário. Não é necessário
         else:
             return 'Sem imagem!'
 
-    tip_imagem_tag.short_description = ''
+    tip_imagem_tag.short_description = _('')
 
     def clean(self):
 
@@ -1588,8 +1589,8 @@ class TbTipoProducao(models.Model): # Independe do cenário. Não é necessário
             raise ValidationError('Tipo de Produção ' + self.tip_nome + ' já cadastrado!')
 
     class Meta:
-        verbose_name = '   Tipo de Produção'
-        verbose_name_plural = '   Tipos de Produção'
+        verbose_name = _('   Tipo de Produção')
+        verbose_name_plural = _('   Tipos de Produção')
         ordering = ['tip_nome']
 
     def save(self, *args, **kwargs):
@@ -1597,9 +1598,9 @@ class TbTipoProducao(models.Model): # Independe do cenário. Não é necessário
         super().save(*args, **kwargs)
 
 class TbFamiliaProduto(models.Model): # Independe do cenário. Não é necessário duplicar ao copiar cenário.
-    fam_pro_codigo = models.CharField(max_length=35, null=False, blank=False, verbose_name='Família')
+    fam_pro_codigo = models.CharField(max_length=35, null=False, blank=False, verbose_name=_('Família'))
     # 🌟 NOVO (multi-empresa, Parte 3): tabela independente de cenário.
-    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Empresa')
+    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name=_('Empresa'))
 
     def __str__(self):
         return self.fam_pro_codigo
@@ -1621,8 +1622,8 @@ class TbFamiliaProduto(models.Model): # Independe do cenário. Não é necessár
             raise ValidationError('Família de Produto ' + self.fam_pro_codigo + ' já cadastrada!')
 
     class Meta:
-        verbose_name = '  Família de Produto'
-        verbose_name_plural = '  Famílias de Produtos'
+        verbose_name = _('  Família de Produto')
+        verbose_name_plural = _('  Famílias de Produtos')
         ordering = ['fam_pro_codigo']
 
     def save(self, *args, **kwargs):
@@ -1630,12 +1631,12 @@ class TbFamiliaProduto(models.Model): # Independe do cenário. Não é necessár
         super().save(*args, **kwargs)
 
 class TbGrupoCenarios(models.Model): # Independe do cenário. Não é necessário duplicar ao copiar cenário.
-    gru_cen_codigo = models.CharField(max_length=35, null=False, blank=False, verbose_name='Grupo de Cenários')
+    gru_cen_codigo = models.CharField(max_length=35, null=False, blank=False, verbose_name=_('Grupo de Cenários'))
     # 🌟 NOVO (multi-empresa, Parte 3): tabela independente de cenário --
     # e essa em especial é usada pelo sinal que cria a estrutura base de
     # cada empresa nova (parameters.models.criar_estrutura_base_para_
     # empresa_nova), que já foi ajustado pra usar esse campo.
-    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Empresa')
+    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name=_('Empresa'))
 
     def __str__(self):
         return self.gru_cen_codigo
@@ -1661,8 +1662,8 @@ class TbGrupoCenarios(models.Model): # Independe do cenário. Não é necessári
             raise ValidationError('Grupo de Cenários ' + self.gru_cen_codigo+ ' já cadastrado!')
 
     class Meta:
-        verbose_name = ' Grupo de Cenários'
-        verbose_name_plural = ' Grupos de Cenários'
+        verbose_name = _(' Grupo de Cenários')
+        verbose_name_plural = _(' Grupos de Cenários')
         ordering = ['gru_cen_codigo']
 
     def save(self, *args, **kwargs):
@@ -1675,28 +1676,28 @@ class TbEquacaoAjustePreco(models.Model): # Independe do cenário. Não é neces
         USD = ('USD', 'DÓLAR')
         EUR = ('EUR', 'EURO')
 
-    equ_aju_pre_descricao = models.CharField(max_length=40, null=False, blank=False, verbose_name='Descrição')
-    equ_aju_pre_moeda = models.CharField(max_length=3, choices=MoedaChoices.choices, verbose_name='Moeda do Preço')
-    equ_aju_pre_constante_a = models.DecimalField(max_digits=12, decimal_places=6, null=True, blank=True, default=0, verbose_name='A')
+    equ_aju_pre_descricao = models.CharField(max_length=40, null=False, blank=False, verbose_name=_('Descrição'))
+    equ_aju_pre_moeda = models.CharField(max_length=3, choices=MoedaChoices.choices, verbose_name=_('Moeda do Preço'))
+    equ_aju_pre_constante_a = models.DecimalField(max_digits=12, decimal_places=6, null=True, blank=True, default=0, verbose_name=_('A'))
     equ_aju_pre_observacao_a = models.CharField(max_length=50, null=True, blank=True, verbose_name='')
-    equ_aju_pre_constante_b = models.DecimalField(max_digits=12, decimal_places=6, null=True, blank=True, default=0, verbose_name='B')
+    equ_aju_pre_constante_b = models.DecimalField(max_digits=12, decimal_places=6, null=True, blank=True, default=0, verbose_name=_('B'))
     equ_aju_pre_observacao_b = models.CharField(max_length=50, null=True, blank=True, verbose_name='')
-    equ_aju_pre_constante_c = models.DecimalField(max_digits=12, decimal_places=6, null=True, blank=True, default=0, verbose_name='C')
+    equ_aju_pre_constante_c = models.DecimalField(max_digits=12, decimal_places=6, null=True, blank=True, default=0, verbose_name=_('C'))
     equ_aju_pre_observacao_c = models.CharField(max_length=50, null=True, blank=True, verbose_name='')
-    equ_aju_pre_constante_d = models.DecimalField(max_digits=12, decimal_places=6, null=True, blank=True, default=0, verbose_name='D')
+    equ_aju_pre_constante_d = models.DecimalField(max_digits=12, decimal_places=6, null=True, blank=True, default=0, verbose_name=_('D'))
     equ_aju_pre_observacao_d = models.CharField(max_length=50, null=True, blank=True, verbose_name='')
-    equ_aju_pre_constante_e = models.DecimalField(max_digits=12, decimal_places=6, null=True, blank=True, default=0, verbose_name='E')
+    equ_aju_pre_constante_e = models.DecimalField(max_digits=12, decimal_places=6, null=True, blank=True, default=0, verbose_name=_('E'))
     equ_aju_pre_observacao_e = models.CharField(max_length=50, null=True, blank=True, verbose_name='')
-    equ_aju_pre_constante_f = models.DecimalField(max_digits=12, decimal_places=6, null=True, blank=True, default=0, verbose_name='F')
+    equ_aju_pre_constante_f = models.DecimalField(max_digits=12, decimal_places=6, null=True, blank=True, default=0, verbose_name=_('F'))
     equ_aju_pre_observacao_f = models.CharField(max_length=50, null=True, blank=True, verbose_name='')
-    equ_aju_pre_formula = models.CharField(max_length=50, null=False, blank=False, verbose_name='Fórmula')
-    equ_aju_pre_primeiro_titulo = models.CharField(max_length=6, null=True, blank=True, verbose_name='Títulos: Primeiro')
-    equ_aju_pre_segundo_titulo = models.CharField(max_length=6, null=True, blank=True, verbose_name='Segundo')
-    equ_aju_pre_var = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='Valor VAR para teste')
+    equ_aju_pre_formula = models.CharField(max_length=50, null=False, blank=False, verbose_name=_('Fórmula'))
+    equ_aju_pre_primeiro_titulo = models.CharField(max_length=6, null=True, blank=True, verbose_name=_('Títulos: Primeiro'))
+    equ_aju_pre_segundo_titulo = models.CharField(max_length=6, null=True, blank=True, verbose_name=_('Segundo'))
+    equ_aju_pre_var = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name=_('Valor VAR para teste'))
     equ_aju_pre_valor1 = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0, verbose_name='')
     equ_aju_pre_valor2 = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0, verbose_name='')
     # 🌟 NOVO (multi-empresa, Parte 3): tabela independente de cenário.
-    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Empresa')
+    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name=_('Empresa'))
 
     # Atenção. Essa tabela nao tem o campo tbcenarios, pois é utilizada por todos os cenários
 
@@ -1814,8 +1815,8 @@ class TbEquacaoAjustePreco(models.Model): # Independe do cenário. Não é neces
                 self.equ_aju_pre_valor2 = 0
 
     class Meta:
-        verbose_name = 'Equação Ajuste Preço'
-        verbose_name_plural = 'Equações Ajustes Preços'
+        verbose_name = _('Equação Ajuste Preço')
+        verbose_name_plural = _('Equações Ajustes Preços')
         ordering = ['equ_aju_pre_descricao']
 
     def save(self, *args, **kwargs):

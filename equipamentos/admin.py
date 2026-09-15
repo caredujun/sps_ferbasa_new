@@ -1,4 +1,5 @@
 import boto3
+from django.utils.translation import gettext_lazy as _
 import xlwt
 from boto3 import Session
 from django.contrib import admin, messages
@@ -121,13 +122,13 @@ class TbEquipamentosCadastroAdmin(admin.ModelAdmin):
     # (acontece durante makemigrations de uma migration ainda não aplicada).
     try:
         if TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Anual':
-            periodos_running.short_description = 'Anos Running'
+            periodos_running.short_description = _('Anos Running')
         elif TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Trimestral':
-            periodos_running.short_description = 'Trimestres Running'
+            periodos_running.short_description = _('Trimestres Running')
         else:
-            periodos_running.short_description = 'Meses Running'
+            periodos_running.short_description = _('Meses Running')
     except Exception:
-        periodos_running.short_description = 'Período Running'
+        periodos_running.short_description = _('Período Running')
 
     formfield_overrides = {
         # models.CharField: {'widget': TextInput(attrs={'size': '15'})},
@@ -285,13 +286,13 @@ class TbEquipamentosAdmin(DjangoObjectActions, admin.ModelAdmin):
     # (acontece durante makemigrations de uma migration ainda não aplicada).
     try:
         if TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Anual':
-            periodos_ativa.short_description = 'Anos Ativa'
+            periodos_ativa.short_description = _('Anos Ativa')
         elif TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Trimestral':
-            periodos_ativa.short_description = 'Trimestres Ativa'
+            periodos_ativa.short_description = _('Trimestres Ativa')
         else:
-            periodos_ativa.short_description = 'Meses Ativa'
+            periodos_ativa.short_description = _('Meses Ativa')
     except Exception:
-        periodos_ativa.short_description = 'Período Ativa'
+        periodos_ativa.short_description = _('Período Ativa')
 
     # Vamos criar um campo para mostrar a média das paradas não programadas previstas
     def media_paradas_np(self, obj):
@@ -303,7 +304,7 @@ class TbEquipamentosAdmin(DjangoObjectActions, admin.ModelAdmin):
         cursor.close()
         return locale.format_string('%.2f', retorno, True)
 
-    media_paradas_np.short_description = 'Paradas NP (%)'
+    media_paradas_np.short_description = _('Paradas NP (%)')
 
     # Vamos criar um campo para mostrar a média das produtividades previstas
     def media_prod(self, obj):
@@ -315,7 +316,7 @@ class TbEquipamentosAdmin(DjangoObjectActions, admin.ModelAdmin):
         cursor.close()
         return locale.format_string('%.2f', retorno, True)
 
-    media_prod.short_description = 'Produtividade'
+    media_prod.short_description = _('Produtividade')
 
     # Vamos criar um campo para mostrar a média do custo variável adicionado
     def media_custo_var_adi(self, obj):
@@ -342,7 +343,7 @@ class TbEquipamentosAdmin(DjangoObjectActions, admin.ModelAdmin):
 
         return retorno
 
-    media_custo_var_adi.short_description = 'Custo Var. Adic.'
+    media_custo_var_adi.short_description = _('Custo Var. Adic.')
 
     # Removendo opção de importar se o usuário não tiver permissão para editar a tabela
     def get_actions(self, request):
@@ -461,7 +462,7 @@ class TbEquipamentosAdmin(DjangoObjectActions, admin.ModelAdmin):
                                     break
                         if not ok_cenario:
                             messages.error(request,
-                                           'Cenário informado na planilha (aba mãe ou filhas) não é o ativo. Favor verificar!')
+                                           _('Cenário informado na planilha (aba mãe ou filhas) não é o ativo. Favor verificar!'))
                         else:
                             #  Tudo ok até aqui. Vamos verificar se no arquivo tem as mães selecionadas. E se tiver, vamos ver se tem as filhas no total do período do cenário.
                             #  Vamos pegar o id das mães selecionadas.
@@ -569,7 +570,7 @@ class TbEquipamentosAdmin(DjangoObjectActions, admin.ModelAdmin):
                                                         tab_obj.save()
 
                             if tudo_ok:
-                                messages.success(request, 'Tabela Equipamentos foi atualizada com sucesso!')
+                                messages.success(request, _('Tabela Equipamentos foi atualizada com sucesso!'))
 
                                 # Vamos deletar o arquivo no AWS S3. Isso é para evitar reutilização do mesmo
                                 try:
@@ -585,18 +586,18 @@ class TbEquipamentosAdmin(DjangoObjectActions, admin.ModelAdmin):
 
                     else:
                         messages.error(request,
-                                       'Total de lançamentos na aba mãe e/ou filhas não está correto. Favor verificar!')
+                                       _('Total de lançamentos na aba mãe e/ou filhas não está correto. Favor verificar!'))
 
                 else:
-                    messages.error(request, 'Cabeçalho da aba filha não está correto. Favor verificar!')
+                    messages.error(request, _('Cabeçalho da aba filha não está correto. Favor verificar!'))
 
             else:
-                messages.error(request, 'Cabeçalho da aba mãe não está correto. Favor verificar!')
+                messages.error(request, _('Cabeçalho da aba mãe não está correto. Favor verificar!'))
         except:
             messages.error(request,
                            'Não foi encontrado o arquivo ' + object_key + ' no AWS S3 Bucket spsferbasa. Favor verificar!')
 
-    importar_excel.short_description = 'Importar Excel'
+    importar_excel.short_description = _('Importar Excel')
 
     def exportar_excel(self, request, queryset):
 
@@ -713,11 +714,11 @@ class TbEquipamentosAdmin(DjangoObjectActions, admin.ModelAdmin):
                 ws.write(row_num, col_num, row[col_num], font_style)
 
         wb.save(response)
-        messages.success(request, 'Arquivo gerado com sucesso.')
+        messages.success(request, _('Arquivo gerado com sucesso.'))
 
         return response
 
-    exportar_excel.short_description = 'Exportar Excel'
+    exportar_excel.short_description = _('Exportar Excel')
 
     form = TbEquipamentosFormAdmin
 
@@ -806,9 +807,9 @@ class TbEquipamentosConsumoEspecificoAdmin(DjangoObjectActions, admin.ModelAdmin
             if TbEquipamentosConsumoEspecifico.objects.get(id=consumo[0]).equ_con_consumo_especifico: # Se foi indicado consumo específico calculado no módulo CF
                update_indicador(consumo[0])
 
-        messages.success(request, 'Update do indicador dos consumos especvíficos realizado com sucesso!')
+        messages.success(request, _('Update do indicador dos consumos especvíficos realizado com sucesso!'))
 
-    update_indicador_geral.short_description = "Update Indicador Consumos Específicos Selecionados"
+    update_indicador_geral.short_description = _("Update Indicador Consumos Específicos Selecionados")
 
     # Removendo opção de importar se o usuário não tiver permissão para editar a tabela
     def get_actions(self, request):
@@ -880,7 +881,7 @@ class TbEquipamentosConsumoEspecificoAdmin(DjangoObjectActions, admin.ModelAdmin
                         break
 
             if not ok_cenario:
-                messages.error(request, 'Cenário informado na planilha não é o ativo. Favor verificar!')
+                messages.error(request, _('Cenário informado na planilha não é o ativo. Favor verificar!'))
             else:
                 # Tudo ok até aqui.
                 # Vamos ver se a informação é nova.
@@ -955,7 +956,7 @@ class TbEquipamentosConsumoEspecificoAdmin(DjangoObjectActions, admin.ModelAdmin
                                         cursor.close()
 
                                 messages.success(request,
-                                                 'Novos equipamentos/ordem e item de custo/preço foram adicionados com sucesso.')
+                                                 _('Novos equipamentos/ordem e item de custo/preço foram adicionados com sucesso.'))
 
                             else:
                                 messages.error(request, 'UNIDADE DE PRODUÇÃO do equipamento/ordem(' + str(
@@ -979,9 +980,9 @@ class TbEquipamentosConsumoEspecificoAdmin(DjangoObjectActions, admin.ModelAdmin
                         int(sheet.cell_value(i, 2))) + ' já cadastrados para esse cenário. Favor verificar!')
 
         else:
-            messages.error(request, 'Cabeçalho do arquivo Excel não está correto. Favor verificar!')
+            messages.error(request, _('Cabeçalho do arquivo Excel não está correto. Favor verificar!'))
 
-    importar_excel_new.short_description = 'Importar Excel (Novos)'
+    importar_excel_new.short_description = _('Importar Excel (Novos)')
 
     # Para permitir rodar importar_excel_new sem selecionar nenhum registro
     def changelist_view(self, request, extra_context=None):
@@ -1081,7 +1082,7 @@ class TbEquipamentosConsumoEspecificoAdmin(DjangoObjectActions, admin.ModelAdmin
                                 break
                     if not ok_cenario:
                         messages.error(request,
-                                       'Cenário informado na planilha (aba mãe ou filhas) não é o ativo. Favor verificar!')
+                                       _('Cenário informado na planilha (aba mãe ou filhas) não é o ativo. Favor verificar!'))
                     else:
                         #  Tudo ok até aqui. Vamos verificar se no arquivo tem as mães selecionadas. E se tiver, vamos ver se tem as filhas no total do período do cenário.
                         #  Vamos pegar o id das mães selecionadas.
@@ -1175,22 +1176,22 @@ class TbEquipamentosConsumoEspecificoAdmin(DjangoObjectActions, admin.ModelAdmin
 
                         if tudo_ok:
                             messages.success(request,
-                                             'Tabela Equipamentos/Consumos Específicos foi atualizada com sucesso!')
+                                             _('Tabela Equipamentos/Consumos Específicos foi atualizada com sucesso!'))
 
                 else:
                     messages.error(request,
-                                   'Total de lançamentos na aba mãe e/ou filhas não está correto. Favor verificar!')
+                                   _('Total de lançamentos na aba mãe e/ou filhas não está correto. Favor verificar!'))
 
             else:
-                messages.error(request, 'Cabeçalho da aba filha não está correto. Favor verificar!')
+                messages.error(request, _('Cabeçalho da aba filha não está correto. Favor verificar!'))
 
         else:
-            messages.error(request, 'Cabeçalho da aba mãe não está correto. Favor verificar!')
+            messages.error(request, _('Cabeçalho da aba mãe não está correto. Favor verificar!'))
 
     # except:
     #    messages.error(request, 'Não foi encontrado o arquivo ' + object_key + ' no diretório c:\sps\excel. Favor verificar!')
 
-    importar_excel.short_description = 'Importar Excel'
+    importar_excel.short_description = _('Importar Excel')
 
     def exportar_excel(self, request, queryset):
 
@@ -1286,16 +1287,16 @@ class TbEquipamentosConsumoEspecificoAdmin(DjangoObjectActions, admin.ModelAdmin
                 ws.write(row_num, col_num, row[col_num], font_style)
 
         wb.save(response)
-        messages.success(request, 'Arquivo gerado com sucesso.')
+        messages.success(request, _('Arquivo gerado com sucesso.'))
 
         return response
 
-    exportar_excel.short_description = 'Exportar Excel'
+    exportar_excel.short_description = _('Exportar Excel')
 
     # Action
     def update_indicador_consumo_especifico(self, request, obj):
         update_indicador(obj.id)
-        messages.success(request, 'Update do indicador de consumo específico realizado com sucesso!')
+        messages.success(request, _('Update do indicador de consumo específico realizado com sucesso!'))
 
     update_indicador_consumo_especifico.label = "Update Indicador"  # optional
 
@@ -1312,7 +1313,7 @@ class TbEquipamentosConsumoEspecificoAdmin(DjangoObjectActions, admin.ModelAdmin
     # Action
     def update_indicador_consumo_especifico(self, request, obj):
         update_indicador(obj.id)
-        messages.success(request, 'Update do indicador de consumo específico realizado com sucesso!')
+        messages.success(request, _('Update do indicador de consumo específico realizado com sucesso!'))
 
     update_indicador_consumo_especifico.label = "Update Indicador"  # optional
 

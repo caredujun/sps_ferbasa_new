@@ -1,4 +1,5 @@
 import csv
+from django.utils.translation import gettext_lazy as _
 import os
 import boto3
 import \
@@ -287,7 +288,7 @@ class TbIndicadoresAdmin(admin.ModelAdmin):
         buffer.seek(0)
         return FileResponse(buffer, as_attachment=True, filename=nome_arquivo)
 
-    exportar_pdf.short_description = 'Exportar PDF'
+    exportar_pdf.short_description = _('Exportar PDF')
 
     def importar_excel_new(self, request, queryset):
         try:
@@ -348,7 +349,7 @@ class TbIndicadoresAdmin(admin.ModelAdmin):
                 if not ok_cenario:
                     # Na realidade poderiamos desconsiderar essa consistência e assumir o cenário ativo.
                     # Estamos fazendo dessa forma para forçar que na coluna de ordem 5 seja informado o cenário ativo.
-                    messages.error(request, 'Cenário informado na planilha não é o ativo. Favor verificar!')
+                    messages.error(request, _('Cenário informado na planilha não é o ativo. Favor verificar!'))
                 else:
                     # Tudo ok até aqui.
                     # Vamos ver se a informação é nova.
@@ -383,7 +384,7 @@ class TbIndicadoresAdmin(admin.ModelAdmin):
                                 cursor.execute(sql)
                                 cursor.close()
 
-                        messages.success(request, 'Novo(s) indicador(es) foram adicionados com sucesso.')
+                        messages.success(request, _('Novo(s) indicador(es) foram adicionados com sucesso.'))
                         # Deletando arquivo no AWS S3
                         s3_client = boto3.client('s3', aws_access_key_id=aws_id, aws_secret_access_key=aws_secret)
                         s3_client.delete_object(Bucket=bucket_name, Key=object_key)
@@ -393,13 +394,13 @@ class TbIndicadoresAdmin(admin.ModelAdmin):
                                                                                             1) + ' cadastrado para esse cenário. Favor verificar!')
 
             else:
-                messages.error(request, 'Cabeçalho do arquivo Excel não está correto. Favor verificar!')
+                messages.error(request, _('Cabeçalho do arquivo Excel não está correto. Favor verificar!'))
 
         except:
             messages.error(request,
-                           'Não foi encontrado o arquivo indicadores_new.xls no diretório c:\sps\excel ou AWS S3. Favor verificar!')
+                           _('Não foi encontrado o arquivo indicadores_new.xls no diretório c:\sps\excel ou AWS S3. Favor verificar!'))
 
-    importar_excel_new.short_description = 'Importar Excel (Novos)'
+    importar_excel_new.short_description = _('Importar Excel (Novos)')
 
     def importar_excel(self, request, queryset):
         # try:
@@ -500,7 +501,7 @@ class TbIndicadoresAdmin(admin.ModelAdmin):
 
                     if not ok_cenario:
                         messages.error(request,
-                                       'Cenário informado na planilha na aba mãe não é o cenário ativo. Favor verificar!')
+                                       _('Cenário informado na planilha na aba mãe não é o cenário ativo. Favor verificar!'))
                     else:
                         #  Tudo ok até aqui. Vamos verificar se no arquivo tem as mães selecionadas. E se tiver, vamos ver se tem as filhas no total do período do cenário.
                         #  Vamos pegar o id das mães selecionadas.
@@ -607,7 +608,7 @@ class TbIndicadoresAdmin(admin.ModelAdmin):
                                             cursor.close()
                                             '''
                         if tudo_ok:
-                            messages.success(request, 'Tabela Indicadores foi atualizada com sucesso!')
+                            messages.success(request, _('Tabela Indicadores foi atualizada com sucesso!'))
                             # Deletando arquivo no AWS S3
                             s3_client = boto3.client('s3', aws_access_key_id=aws_id, aws_secret_access_key=aws_secret)
                             s3_client.delete_object(Bucket=bucket_name, Key=object_key)
@@ -615,18 +616,18 @@ class TbIndicadoresAdmin(admin.ModelAdmin):
 
                 else:
                     messages.error(request,
-                                   'Total de lançamentos na aba mãe e/ou filhas não está correto. Favor verificar!')
+                                   _('Total de lançamentos na aba mãe e/ou filhas não está correto. Favor verificar!'))
 
             else:
-                messages.error(request, 'Cabeçalho da aba filha não está correto. Favor verificar!')
+                messages.error(request, _('Cabeçalho da aba filha não está correto. Favor verificar!'))
 
         else:
-            messages.error(request, 'Cabeçalho da aba mãe não está correto. Favor verificar!')
+            messages.error(request, _('Cabeçalho da aba mãe não está correto. Favor verificar!'))
 
         # except:
         #    messages.error(request, 'Não foi encontrado o arquivo ' + nome_arquivo + ' no AWS S3. Favor verificar!')
 
-    importar_excel.short_description = 'Importar Excel'
+    importar_excel.short_description = _('Importar Excel')
 
     def exportar_excel(self, request, queryset):
         # Só exporta a tabela com os registros selecionados.
@@ -692,11 +693,11 @@ class TbIndicadoresAdmin(admin.ModelAdmin):
                 ws.write(row_num, col_num, row[col_num], font_style)
 
         wb.save(response)
-        messages.success(request, 'Arquivo gerado com sucesso.')
+        messages.success(request, _('Arquivo gerado com sucesso.'))
 
         return response
 
-    exportar_excel.short_description = 'Exportar Excel'
+    exportar_excel.short_description = _('Exportar Excel')
 
     form = TbIndicadoresFormAdmin
 
@@ -946,7 +947,7 @@ class TbCambioAdmin(admin.ModelAdmin):
         buffer.seek(0)
         return FileResponse(buffer, as_attachment=True, filename=nome_arquivo)
 
-    exportar_pdf.short_description = 'Exportar PDF'
+    exportar_pdf.short_description = _('Exportar PDF')
 
     form = TbCambioFormAdmin
 
@@ -1666,7 +1667,7 @@ class TbCustoItemAdmin(_EmpresaFiltradaAdminMixin, admin.ModelAdmin):
                                     # Essa tabela não tem o campo cenário e tabela filha
                                     # Observar que não usamos a coluna 'id' (ordem 0).
 
-                            messages.success(request, 'Novos itens de custo variável foram adicionados com sucesso.')
+                            messages.success(request, _('Novos itens de custo variável foram adicionados com sucesso.'))
 
                         else:
                             messages.error(request,
@@ -1684,13 +1685,13 @@ class TbCustoItemAdmin(_EmpresaFiltradaAdminMixin, admin.ModelAdmin):
                         i) + ' da planilha não é considerada no sistema. Favor verificar!')
 
             else:
-                messages.error(request, 'Cabeçalho do arquivo Excel não está correto. Favor verificar!')
+                messages.error(request, _('Cabeçalho do arquivo Excel não está correto. Favor verificar!'))
 
         except:
             messages.error(request,
                            'Não foi encontrado o arquivo ' + object_key + ' no diretório c:\sps\excel ou AWS S3. Favor verificar!')
 
-    importar_excel_new.short_description = 'Importar Excel (Novos)'
+    importar_excel_new.short_description = _('Importar Excel (Novos)')
 
     # Para permitir rodar importar_excel_new sem selecionar nenhum registro
     def changelist_view(self, request, extra_context=None):
@@ -1814,19 +1815,19 @@ class TbCustoItemAdmin(_EmpresaFiltradaAdminMixin, admin.ModelAdmin):
                                     break
 
                     if cus_ite_tipo_id_ok:
-                        messages.success(request, 'Tabela Custo Variável - Itens atualizada com sucesso!')
+                        messages.success(request, _('Tabela Custo Variável - Itens atualizada com sucesso!'))
 
                 else:
                     messages.error(request, 'Unidade do item na linha ' + str(
                         i) + ' da planilha não é considerada no sistema. Favor verificar!')
             else:
-                messages.error(request, 'Cabeçalho da aba mãe não está correto. Favor verificar!')
+                messages.error(request, _('Cabeçalho da aba mãe não está correto. Favor verificar!'))
 
         except:
             messages.error(request,
-                           'Não foi encontrado o arquivo custoitem.xls no diretório c:\sps\excel ou AWS S3. Favor verificar!')
+                           _('Não foi encontrado o arquivo custoitem.xls no diretório c:\sps\excel ou AWS S3. Favor verificar!'))
 
-    importar_excel.short_description = 'Importar Excel'
+    importar_excel.short_description = _('Importar Excel')
 
     def exportar_excel(self, request, queryset):
 
@@ -1859,11 +1860,11 @@ class TbCustoItemAdmin(_EmpresaFiltradaAdminMixin, admin.ModelAdmin):
                 ws.write(row_num, col_num, row[col_num], font_style)
 
         wb.save(response)
-        messages.success(request, 'Arquivo gerado com sucesso.')
+        messages.success(request, _('Arquivo gerado com sucesso.'))
 
         return response
 
-    exportar_excel.short_description = 'Exportar Excel'
+    exportar_excel.short_description = _('Exportar Excel')
 
     formfield_overrides = {
         # models.CharField: {'widget': TextInput(attrs={'size': '15'})},
@@ -2024,7 +2025,7 @@ class TbCustoItemPrecoAdmin(DjangoObjectActions, admin.ModelAdmin):
             tab_obj.cus_ite_pre_validado = 1
             tab_obj.save()
 
-    validar_custo_item_preco.short_description = 'Validar Custos Variáveis Selecionados'
+    validar_custo_item_preco.short_description = _('Validar Custos Variáveis Selecionados')
 
     def desvalidar_custo_item_preco(self, request, queryset):
 
@@ -2035,16 +2036,16 @@ class TbCustoItemPrecoAdmin(DjangoObjectActions, admin.ModelAdmin):
             tab_obj.cus_ite_pre_validado = 0
             tab_obj.save()
 
-    desvalidar_custo_item_preco.short_description = 'Desvalidar Custos Variáveis Selecionados'
+    desvalidar_custo_item_preco.short_description = _('Desvalidar Custos Variáveis Selecionados')
 
     def update_valor_custo_variavel_adicionado_geral(self, request, queryset):
         custos = queryset.values_list('id', )
         for custo in custos:
             if TbCustoItemPreco.objects.get(id=custo[0]).cus_ite_pre_custo_variavel_adiconado:  # Se foi indicado custo variável adicionado
                 update_custo_variavel_adicionado(custo[0])
-        messages.success(request, 'Update do preço pelo valor do custo variável adicionado realizado com sucesso para os itens selecionados!')
+        messages.success(request, _('Update do preço pelo valor do custo variável adicionado realizado com sucesso para os itens selecionados!'))
 
-    update_valor_custo_variavel_adicionado_geral.short_description = "Update Preço/CustoVariável Adicionado Itens Selecionados"  # optional
+    update_valor_custo_variavel_adicionado_geral.short_description = _("Update Preço/CustoVariável Adicionado Itens Selecionados")  # optional
 
     # Removendo opção de importar se o usuário não tiver permissão para editar a tabela
     def get_actions(self, request):
@@ -2133,7 +2134,7 @@ class TbCustoItemPrecoAdmin(DjangoObjectActions, admin.ModelAdmin):
                         break
 
             if not ok_cenario:
-                messages.error(request, 'Cenário informado na planilha não é o ativo. Favor verificar!')
+                messages.error(request, _('Cenário informado na planilha não é o ativo. Favor verificar!'))
             else:
                 # Tudo ok até aqui.
                 # Vamos ver se a informação é nova.
@@ -2286,7 +2287,7 @@ class TbCustoItemPrecoAdmin(DjangoObjectActions, admin.ModelAdmin):
                                                     cursor.close()
                                                     '''
                                             messages.success(request,
-                                                             'Novos itens de custo com preços foram adicionados com sucesso.')
+                                                             _('Novos itens de custo com preços foram adicionados com sucesso.'))
                                         else:
                                             messages.error(request,
                                                            'Moeda informada para o preço do item de custo ' + sheet.cell_value(
@@ -2321,12 +2322,12 @@ class TbCustoItemPrecoAdmin(DjangoObjectActions, admin.ModelAdmin):
                         int(sheet.cell_value(i, 3))) + ' já cadastrados para esse cenário. Favor verificar!')
 
         else:
-            messages.error(request, 'Cabeçalho do arquivo Excel não está correto. Favor verificar!')
+            messages.error(request, _('Cabeçalho do arquivo Excel não está correto. Favor verificar!'))
 
         # except:
         #    messages.error(request, 'Não foi encontrado o arquivo ' + object_key + ' no diretório c:\sps\excel. Favor verificar!')
 
-    importar_excel_new.short_description = 'Importar Excel (Novos)'
+    importar_excel_new.short_description = _('Importar Excel (Novos)')
 
     # Para permitir rodar importar_excel_new sem selecionar nenhum registro
     def changelist_view(self, request, extra_context=None):
@@ -2439,7 +2440,7 @@ class TbCustoItemPrecoAdmin(DjangoObjectActions, admin.ModelAdmin):
                                     break
                         if not ok_cenario:
                             messages.error(request,
-                                           'Cenário informado na planilha (aba mãe ou filhas) não é o ativo. Favor verificar!')
+                                           _('Cenário informado na planilha (aba mãe ou filhas) não é o ativo. Favor verificar!'))
                         else:
                             #  Tudo ok até aqui. Vamos verificar se no arquivo tem as mães selecionadas. E se tiver, vamos ver se tem as filhas no total do período do cenário.
                             #  Vamos pegar o id das mães selecionadas.
@@ -2553,22 +2554,22 @@ class TbCustoItemPrecoAdmin(DjangoObjectActions, admin.ModelAdmin):
                                                         tab_obj.save()
 
                             if tudo_ok:
-                                messages.success(request, 'Tabela Custo Item Preço foi atualizada com sucesso!')
+                                messages.success(request, _('Tabela Custo Item Preço foi atualizada com sucesso!'))
 
                     else:
                         messages.error(request,
-                                       'Total de lançamentos na aba mãe e/ou filhas não está correto. Favor verificar!')
+                                       _('Total de lançamentos na aba mãe e/ou filhas não está correto. Favor verificar!'))
 
                 else:
-                    messages.error(request, 'Cabeçalho da aba filha não está correto. Favor verificar!')
+                    messages.error(request, _('Cabeçalho da aba filha não está correto. Favor verificar!'))
 
             else:
-                messages.error(request, 'Cabeçalho da aba mãe não está correto. Favor verificar!')
+                messages.error(request, _('Cabeçalho da aba mãe não está correto. Favor verificar!'))
 
         except:
-            messages.error(request, 'Ocorreu um erro na importação dos dados. Favor contatar a equipe de suporte da SPS Consultoria.')
+            messages.error(request, _('Ocorreu um erro na importação dos dados. Favor contatar a equipe de suporte da SPS Consultoria.'))
 
-    importar_excel.short_description = 'Importar Excel'
+    importar_excel.short_description = _('Importar Excel')
 
     def exportar_excel(self, request, queryset):
 
@@ -2710,16 +2711,16 @@ class TbCustoItemPrecoAdmin(DjangoObjectActions, admin.ModelAdmin):
                 ws.write(row_num, col_num, row[col_num], font_style)
 
         wb.save(response)
-        messages.success(request, 'Arquivo gerado com sucesso.')
+        messages.success(request, _('Arquivo gerado com sucesso.'))
 
         return response
 
-    exportar_excel.short_description = 'Exportar Excel'
+    exportar_excel.short_description = _('Exportar Excel')
 
     # Action
     def update_valor_custo_variavel_adicionado(self, request, obj):
         update_custo_variavel_adicionado(obj.id)
-        messages.success(request, 'Update do preço pelo valor do custo variável adicionado realizado com sucesso!')
+        messages.success(request, _('Update do preço pelo valor do custo variável adicionado realizado com sucesso!'))
 
     update_valor_custo_variavel_adicionado.label = "Update Preço/CustoVariável Adicionado"  # optional
 
@@ -2890,7 +2891,7 @@ class TbTipoProducaoAdmin(_EmpresaFiltradaAdminMixin, admin.ModelAdmin):
         else:
             return ''
 
-    ordem_usando.short_description = 'Qtde Equip./Ordem'
+    ordem_usando.short_description = _('Qtde Equip./Ordem')
 
     formfield_overrides = {
         # models.CharField: {'widget': TextInput(attrs={'size': '15'})},
@@ -2949,7 +2950,7 @@ class TbEquacaoAjustePrecoAdmin(_EmpresaFiltradaAdminMixin, DjangoObjectActions,
         print('Botão Testar foi pressionado')
 
     testar.label = "Testar"  # optional
-    testar.short_description = "Testar o cálculo"  # optional
+    testar.short_description = _("Testar o cálculo")  # optional
 
     change_actions = ('testar',)
     """
@@ -2957,3 +2958,7 @@ class TbEquacaoAjustePrecoAdmin(_EmpresaFiltradaAdminMixin, DjangoObjectActions,
 
 # Registrando
 admin.site.register(TbEquacaoAjustePreco, TbEquacaoAjustePrecoAdmin)
+
+
+
+

@@ -1,4 +1,5 @@
 from django import forms
+from django.utils.translation import gettext_lazy as _
 from .models import *
 
 class TbEquipamentosCadastroOrdemDaugtherFormAdmin(forms.ModelForm):
@@ -14,11 +15,11 @@ class TbEquipamentosCadastroDaugtherFormAdmin(forms.ModelForm):
 
         if self.instance.dau_order == 1:  # Para não rodar em todos os registros da filha
             if TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Anual':
-                TbEquipamentosCadastroDaugther.display_order.short_description = 'Ano'
+                TbEquipamentosCadastroDaugther.display_order.short_description = _('Ano')
             elif TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Trimestral':
-                TbEquipamentosCadastroDaugther.display_order.short_description = 'Ano/Trimestre'
+                TbEquipamentosCadastroDaugther.display_order.short_description = _('Ano/Trimestre')
             else:
-                TbEquipamentosCadastroDaugther.display_order.short_description = 'Ano/Mês'
+                TbEquipamentosCadastroDaugther.display_order.short_description = _('Ano/Mês')
 
             # Vamos pegar a moeda da manutenção para mostrar na coluna da filha
             # Vamos pegar o id do equipamento
@@ -28,9 +29,9 @@ class TbEquipamentosCadastroDaugtherFormAdmin(forms.ModelForm):
 
         if self.instance.dau_order is None:
             try:
-                self.fields['dau_valor_3'].label = 'Custo Manutenção (' + TbEquipamentosCadastroDaugther.dau_valor_3.label + '/h)'
+                self.fields['dau_valor_3'].label = _('Custo Manutenção (%(moeda)s/h)') % {'moeda': TbEquipamentosCadastroDaugther.dau_valor_3.label}
             except:
-                self.fields['dau_valor_3'].label = 'Custo Manutenção (Moeda/h)'
+                self.fields['dau_valor_3'].label = _('Custo Manutenção (Moeda/h)')
 
 
 class TbEquipamentosCadastroFormAdmin(forms.ModelForm):
@@ -107,11 +108,11 @@ class TbEquipamentosDaugtherFormAdmin(forms.ModelForm):
 
         if self.instance.dau_order == 1:
             if TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Anual':
-                TbEquipamentosDaugther.display_order.short_description = 'Ano'
+                TbEquipamentosDaugther.display_order.short_description = _('Ano')
             elif TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Trimestral':
-                TbEquipamentosDaugther.display_order.short_description = 'Ano/Trimestre'
+                TbEquipamentosDaugther.display_order.short_description = _('Ano/Trimestre')
             else:
-                TbEquipamentosDaugther.display_order.short_description = 'Ano/Mês'
+                TbEquipamentosDaugther.display_order.short_description = _('Ano/Mês')
 
 
         # Vamos mudar o nome de algumas colunas na daugther
@@ -124,13 +125,13 @@ class TbEquipamentosDaugtherFormAdmin(forms.ModelForm):
         # Vamos mudar a coluna de campos da daugther. Temos que deixar chegar no final do dau_order para alterar. Coisa de maluco mesmo.
         if self.instance.dau_order is None:  # Chegou no final do dau_order. Vamos mudar o label da coluna da filha
             try:
-                self.fields['dau_valor_2'].label = 'Produtividade (' + TbEquipamentosDaugther.wip_volume.short_description + '/h)'
+                self.fields['dau_valor_2'].label = _('Produtividade (%(unidade)s/h)') % {'unidade': TbEquipamentosDaugther.wip_volume.short_description}
             except:
-                self.fields['dau_valor_2'].label = 'Produtividade'
+                self.fields['dau_valor_2'].label = _('Produtividade')
 
             # Mudando o short_description
             try:
-                TbEquipamentosDaugther.wip_volume.short_description = 'WIP (' + TbEquipamentosDaugther.wip_volume.short_description + ')'
+                TbEquipamentosDaugther.wip_volume.short_description = _('WIP (%(unidade)s)') % {'unidade': TbEquipamentosDaugther.wip_volume.short_description}
             except:
                 pass
 
@@ -171,8 +172,8 @@ class TbEquipamentosConsumoEspecificoDaugtherFormAdmin(forms.ModelForm):
 
         if self.instance.dau_order == 1:  # Para não rodar em todos os registros da filha
             if TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Anual':
-                TbEquipamentosConsumoEspecificoDaugther.display_order.short_description = 'Ano'
+                TbEquipamentosConsumoEspecificoDaugther.display_order.short_description = _('Ano')
             elif TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Trimestral':
-                TbEquipamentosConsumoEspecificoDaugther.display_order.short_description = 'Ano/Trimestre'
+                TbEquipamentosConsumoEspecificoDaugther.display_order.short_description = _('Ano/Trimestre')
             else:
-                TbEquipamentosConsumoEspecificoDaugther.display_order.short_description = 'Ano/Mês'
+                TbEquipamentosConsumoEspecificoDaugther.display_order.short_description = _('Ano/Mês')

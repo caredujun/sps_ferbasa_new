@@ -1,8 +1,7 @@
 from django.db import models
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
-from django.db import connection, \
-    transaction  # para ter acesso as tabelas e stored procedures do banco de dados e executar celery task após commit
+from django.db import connection, transaction # para ter acesso as tabelas e stored procedures do banco de dados e executar celery task após commit
 from django.core.exceptions import ValidationError
 
 from admin_interface.models import Theme
@@ -12,10 +11,11 @@ import locale
 from django.conf import settings
 from .contexto_usuario import get_usuario_atual
 
-locale.setlocale(locale.LC_ALL, 'pt_BR.utf8')  # Estou usando esse pois Heroku não aceita pt_BR
+locale.setlocale(locale.LC_ALL, 'pt_BR.utf8')  #  Estou usando esse pois Heroku não aceita pt_BR
 
 from pypdf import PdfReader  # 🌟 Biblioteca oficial para extração de texto
 import os
+
 
 # 🌟 NOVO (multi-idioma, Fase 1): idiomas suportados pela interface --
 # reaproveitado tanto no idioma padrão da empresa (TbEmpresa) quanto no
@@ -41,26 +41,27 @@ class AppOpcional(models.Model):
     empresa: (1) cadastra ele aqui uma vez, (2) marca na empresa que deve
     ter acesso.
     """
-    app_label = models.CharField(max_length=50, unique=True, verbose_name='App (nome técnico)',
-                                 help_text='Precisa bater com o nome real do app Django (ex: "custo_ferbasa").')
-    nome_exibicao = models.CharField(max_length=100, verbose_name='Nome de Exibição')
+    app_label = models.CharField(max_length=50, unique=True, verbose_name=_('App (nome técnico)'),
+                                 help_text=_('Precisa bater com o nome real do app Django (ex: "custo_ferbasa").'))
+    nome_exibicao = models.CharField(max_length=100, verbose_name=_('Nome de Exibição'))
 
     def __str__(self):
         return self.nome_exibicao
 
     class Meta:
-        verbose_name = '   App Opcional'
-        verbose_name_plural = '   Apps Opcionais'
+        verbose_name = _('   App Opcional')
+        verbose_name_plural = _('   Apps Opcionais')
         ordering = ['nome_exibicao']
 
 
 class TbEmpresa(models.Model):
-    emp_tipo_choice = (
-        ('G', 'Greenfield'),
-        ('B', 'Brownfield')
-    )
 
-    # Choices na forma de classe. Assim podemos montar em tempo de execução
+    emp_tipo_choice = (
+                      ('G', 'Greenfield'),
+                      ('B', 'Brownfield')
+                      )
+
+    #Choices na forma de classe. Assim podemos montar em tempo de execução
     class EmpMoedaChoice(models.TextChoices):
         BRL = ('BRL', 'REAL')
         USD = ('USD', 'DÓLAR')
@@ -69,16 +70,14 @@ class TbEmpresa(models.Model):
     emp_nome = models.CharField(max_length=50, null=False, blank=False, verbose_name=_('Nome'))
     emp_tipo = models.CharField(max_length=10, choices=emp_tipo_choice, null=False, blank=False, verbose_name=_('Tipo'))
     emp_descricao = models.TextField(null=True, blank=False, verbose_name=_('Descrição'))
-    emp_moeda = models.CharField(max_length=3, choices=EmpMoedaChoice.choices, null=False, blank=False, default='BRL',
-                                 verbose_name=_('Moeda'))
+    emp_moeda = models.CharField(max_length=3, choices=EmpMoedaChoice.choices, null=False, blank=False, default='BRL', verbose_name=_('Moeda'))
     emp_moeda_imagem = models.ImageField(upload_to='empresa/', null=True, blank=True, verbose_name=_('Imagem da Moeda'))
     emp_logo = models.ImageField(upload_to='empresa/', null=True, blank=True, verbose_name=_('Logo'))
     emp_fluxo = models.ImageField(upload_to='empresa/', null=True, blank=True, verbose_name=_('Fluxo de Produção'))
     # 🌟 NOVO (multi-idioma, Fase 1): idioma padrão dessa empresa -- todo
     # usuário novo dela nasce com esse idioma (PerfilUsuario.idioma
     # vazio), mas pode trocar o próprio a qualquer momento.
-    idioma_padrao = models.CharField(max_length=10, choices=IDIOMA_CHOICES, default='pt-br',
-                                     verbose_name=_('Idioma Padrão'))
+    idioma_padrao = models.CharField(max_length=10, choices=IDIOMA_CHOICES, default='pt-br', verbose_name=_('Idioma Padrão'))
     # 🌟 NOVO (multi-empresa): próximo número a distribuir pra um cenário
     # novo DESSA empresa -- substitui o uso do id real da tabela (que
     # agora é compartilhado entre várias empresas) como "número visível"
@@ -91,8 +90,8 @@ class TbEmpresa(models.Model):
     apps_habilitados = models.ManyToManyField(AppOpcional, blank=True, verbose_name=_('Apps Habilitados'))
 
     class Meta:
-        verbose_name = _('Empresa')
-        verbose_name_plural = _('Empresas')
+        verbose_name        = _('    Empresa')
+        verbose_name_plural = _('    Empresa')
 
     def __str__(self):
         return self.emp_nome
@@ -103,7 +102,7 @@ class TbEmpresa(models.Model):
         else:
             return 'Sem imagem!'
 
-    emp_moeda_imagem_tag.short_description = ''
+    emp_moeda_imagem_tag.short_description = _('')
     emp_moeda_imagem_tag.allow_tags = True
 
     def emp_logo_tag(self):
@@ -115,7 +114,7 @@ class TbEmpresa(models.Model):
                 return 'Sem imagem!'
 
     emp_logo_tag.allow_tags = True
-    emp_logo_tag.short_description = ''
+    emp_logo_tag.short_description = _('')
 
     def emp_fluxo_tag(self):
         all_tables = connection.introspection.table_names()
@@ -125,13 +124,8 @@ class TbEmpresa(models.Model):
             else:
                 return 'Sem imagem!'
 
-    emp_fluxo_tag.short_description = ''
+    emp_fluxo_tag.short_description = _('')
     emp_fluxo_tag.allow_tags = True
-
-    class Meta:
-        verbose_name        = _('Empresa')
-        verbose_name_plural = _('Empresas')
-
 
 class TbCenariosManager(models.Manager):
     """
@@ -197,13 +191,13 @@ class TbCenariosManager(models.Manager):
     def filter(self, *args, **kwargs):
         return super().filter(*args, **self._resolver_kwargs(kwargs))
 
-
 class TbCenarios(models.Model):
+
     cen_tipo_choice = (
-        ('Mensal', 'Mensal'),
-        ('Trimestral', 'Trimestral'),
-        ('Anual', 'Anual')
-    )
+                      ('Mensal', 'Mensal'),
+                      ('Trimestral', 'Trimestral'),
+                      ('Anual', 'Anual')
+                      )
 
     # 🌟 CORRIGIDO (multi-empresa): unique=True tirado -- era uma trava
     # GLOBAL (só podia existir "AS IS ANUAL" uma vez em TODO o sistema,
@@ -220,10 +214,8 @@ class TbCenarios(models.Model):
     # interna de invariante (save() abaixo). Nunca use
     # este fora daqui — o resto do sistema deve continuar
     # usando "objects" (por usuário).
-    cen_grupo = models.ForeignKey('tabelas.TbGrupoCenarios', blank=True, null=True, on_delete=models.CASCADE,
-                                  verbose_name=_('Grupo'))
-    cen_copiar_de = models.ForeignKey('self', null=True, blank=False, on_delete=models.SET_NULL,
-                                      verbose_name=_('Copiar de '))
+    cen_grupo = models.ForeignKey('tabelas.TbGrupoCenarios', blank=True, null=True, on_delete=models.CASCADE, verbose_name=_('Grupo'))
+    cen_copiar_de = models.ForeignKey('self', null=True, blank=False, on_delete=models.SET_NULL, verbose_name=_('Copiar de '))
     flag = models.IntegerField(blank=True, null=True, verbose_name=_('Controle'))
     # 🌟 NOVO (multi-empresa): a que empresa esse cenário pertence -- fica
     # opcional (null=True) só na transição, pra não quebrar cenários já
@@ -273,15 +265,14 @@ class TbCenarios(models.Model):
         if self.cen_tipo == 'Trimestral':
             trimestre_inicio = int(self.cen_inicio[5:])
             if trimestre_inicio < 1 or trimestre_inicio > 4:
-                raise ValidationError(
-                    'Trimestre informado no Campo "Ano/Trimestre Início" deve ficar no intervalo 01/04')
+                raise ValidationError('Trimestre informado no Campo "Ano/Trimestre Início" deve ficar no intervalo 01/04')
 
             trimestre_fim = int(self.cen_fim[5:])
             if trimestre_fim < 1 or trimestre_fim > 4:
                 raise ValidationError('Trimestre informado no Campo "Ano/Trimestre Fim" deve ficar no intervalo 01/04')
 
     class Meta:
-        verbose_name = _('   Cenário')
+        verbose_name        = _('   Cenário')
         verbose_name_plural = _('   Cenários')
         ordering = ['id']  # 🌟 SIMPLIFICADO: antes era ['-cen_ativo', '-cen_grupo', 'id'] --
         # "-cen_ativo" não faz mais sentido sem um único cenário "ativo" global de
@@ -337,7 +328,7 @@ class TbCenarios(models.Model):
                                         else:
                                             return 'NÃO DEFINIDO'
 
-    status_cenario.short_description = 'Status'
+    status_cenario.short_description = _('Status')
 
     def save(self, *args, **kwargs):
         if self.pk is None:
@@ -401,8 +392,7 @@ class TbCenarios(models.Model):
                     empresa_obj.save()
 
         if status == 'Modificando':
-            if self.cen_inicio != TbCenarios.objects.get(
-                    id=self.pk).cen_inicio or self.cen_fim != TbCenarios.objects.get(id=self.pk).cen_fim:
+            if self.cen_inicio != TbCenarios.objects.get(id=self.pk).cen_inicio or self.cen_fim != TbCenarios.objects.get(id=self.pk).cen_fim:
                 periodo_mudou = True
             else:
                 periodo_mudou = False
@@ -492,6 +482,7 @@ def devolver_numero_sequencial_ao_excluir(sender, instance, **kwargs):
 
 pre_delete.connect(devolver_numero_sequencial_ao_excluir, sender=TbCenarios)
 
+
 # 🌟 NOVO (multi-empresa): substitui o mecanismo antigo (código solto no
 # admin.py, rodando uma vez, com ids fixos 1/2/3 -- pensado pra uma única
 # empresa) -- agora, toda vez que uma EMPRESA NOVA é criada, ela ganha
@@ -540,30 +531,30 @@ _post_save_empresa.connect(criar_estrutura_base_para_empresa_nova, sender=TbEmpr
 
 
 class TbCenariosDaugther(models.Model):
-    dau_order = models.IntegerField(blank=True, null=True, verbose_name='Ano/Mês')
-    otimizar = models.BooleanField(default=True, verbose_name='Otimizar')
-    dau_valor_1 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name='Vendas', default=0)
-    dau_valor_2 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name='Variável', default=0.00)
-    dau_valor_3 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name='Inbound', default=0.00)
-    dau_valor_4 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name='Outbound', default=0.00)
-    dau_valor_5 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name='Manut.', default=0.00)
-    dau_valor_6 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name='Margem', default=0.00)
-    dau_valor_7 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name='Fixo', default=0.00)
-    dau_valor_8 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name='EBTIDA', default=0.00)
-    dau_valor_9 = models.DecimalField(max_digits=6, decimal_places=2, verbose_name='EBTIDA (%)', default=0.00)
-    dau_valor_10 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name='D&A', default=0.00)
-    dau_valor_11 = models.DecimalField(max_digits=6, decimal_places=2, verbose_name='IR (%)', default=0.00)
-    dau_valor_12 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name='MP', default=0.00)
-    dau_valor_13 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name='WIP', default=0.00)
-    dau_valor_14 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name='PF', default=0.00)
-    dau_valor_15 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name='Total Est.', default=0.00)
-    dau_valor_16 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name='Receber', default=0.00)
-    dau_valor_17 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name='Pagar', default=0.00)
-    dau_valor_18 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name='OWCR', default=0.00)
-    dau_valor_19 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name='CAPEX', default=0.00)
-    dau_valor_20 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name='OFCF', default=0.00)
-    flag = models.IntegerField(blank=True, null=True, verbose_name='Solúção')
-    mae = models.ForeignKey('TbCenarios', on_delete=models.CASCADE, verbose_name='Mãe')
+    dau_order = models.IntegerField(blank=True, null=True, verbose_name=_('Ano/Mês'))
+    otimizar = models.BooleanField(default=True, verbose_name=_('Otimizar'))
+    dau_valor_1 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name=_('Vendas'), default=0)
+    dau_valor_2 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name=_('Variável'), default=0.00)
+    dau_valor_3 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name=_('Inbound'), default=0.00)
+    dau_valor_4 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name=_('Outbound'), default=0.00)
+    dau_valor_5 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name=_('Manut.'), default=0.00)
+    dau_valor_6 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name=_('Margem'), default=0.00)
+    dau_valor_7 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name=_('Fixo'), default=0.00)
+    dau_valor_8 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name=_('EBTIDA'), default=0.00)
+    dau_valor_9 = models.DecimalField(max_digits=6, decimal_places=2, verbose_name=_('EBTIDA (%)'),  default=0.00)
+    dau_valor_10 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name=_('D&A'), default=0.00)
+    dau_valor_11 = models.DecimalField(max_digits=6, decimal_places=2, verbose_name=_('IR (%)'), default=0.00)
+    dau_valor_12 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name=_('MP'), default=0.00)
+    dau_valor_13 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name=_('WIP'), default=0.00)
+    dau_valor_14 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name=_('PF'), default=0.00)
+    dau_valor_15 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name=_('Total Est.'), default=0.00)
+    dau_valor_16 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name=_('Receber'), default=0.00)
+    dau_valor_17 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name=_('Pagar'), default=0.00)
+    dau_valor_18 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name=_('OWCR'), default=0.00)
+    dau_valor_19 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name=_('CAPEX'), default=0.00)
+    dau_valor_20 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name=_('OFCF'), default=0.00)
+    flag = models.IntegerField(blank=True, null=True, verbose_name=_('Solúção'))
+    mae = models.ForeignKey('TbCenarios', on_delete=models.CASCADE, verbose_name=_('Mãe'))
 
     def __str__(self):
         return ''
@@ -619,7 +610,7 @@ class TbCenariosDaugther(models.Model):
                         return 'Limpando. Aguarde ...'
                     else:
                         if self.flag == 4:
-                            return 'Otimizando. Aguarde ...'
+                           return 'Otimizando. Aguarde ...'
                         else:
                             if self.flag == 5:
                                 return 'Consolidando. Aguarde ...'
@@ -632,136 +623,115 @@ class TbCenariosDaugther(models.Model):
                                     else:
                                         return 'Não definido ...'
 
-    solucao_otima.short_description = 'Solução'
+    solucao_otima.short_description = _('Solução')
 
     def str_dau_valor_1(self):
-        return locale.format_string('%.0f', self.dau_valor_1, True)
-
-    str_dau_valor_1.short_description = 'Vendas'
+        return locale.format_string('%.0f', self.dau_valor_1,True)
+    str_dau_valor_1.short_description = _('Vendas')
 
     def str_dau_valor_2(self):
-        return locale.format_string('%.0f', self.dau_valor_2, True)
-
-    str_dau_valor_2.short_description = 'Variável'
+        return locale.format_string('%.0f', self.dau_valor_2,True)
+    str_dau_valor_2.short_description = _('Variável')
 
     def str_dau_valor_3(self):
-        return locale.format_string('%.0f', self.dau_valor_3, True)
-
-    str_dau_valor_3.short_description = 'Inbound'
+        return locale.format_string('%.0f', self.dau_valor_3,True)
+    str_dau_valor_3.short_description = _('Inbound')
 
     def str_dau_valor_4(self):
-        return locale.format_string('%.0f', self.dau_valor_4, True)
-
-    str_dau_valor_4.short_description = 'Outbound'
+        return locale.format_string('%.0f', self.dau_valor_4,True)
+    str_dau_valor_4.short_description = _('Outbound')
 
     def str_dau_valor_5(self):
-        return locale.format_string('%.0f', self.dau_valor_5, True)
-
-    str_dau_valor_5.short_description = 'Manut.'
+        return locale.format_string('%.0f', self.dau_valor_5,True)
+    str_dau_valor_5.short_description = _('Manut.')
 
     def str_dau_valor_6(self):
-        return locale.format_string('%.0f', self.dau_valor_6, True)
-
-    str_dau_valor_6.short_description = 'Margem'
+        return locale.format_string('%.0f', self.dau_valor_6,True)
+    str_dau_valor_6.short_description = _('Margem')
 
     def str_dau_valor_7(self):
-        return locale.format_string('%.0f', self.dau_valor_7, True)
-
-    str_dau_valor_7.short_description = 'Fixo'
+        return locale.format_string('%.0f', self.dau_valor_7,True)
+    str_dau_valor_7.short_description = _('Fixo')
 
     def str_dau_valor_8(self):
-        return locale.format_string('%.0f', self.dau_valor_8, True)
-
-    str_dau_valor_8.short_description = 'EBTIDA'
+        return locale.format_string('%.0f', self.dau_valor_8,True)
+    str_dau_valor_8.short_description = _('EBTIDA')
 
     def str_dau_valor_9(self):
-        return locale.format_string('%.0f', self.dau_valor_9, True)
-
-    str_dau_valor_9.short_description = 'EBTIDA (%)'
+        return locale.format_string('%.0f', self.dau_valor_9,True)
+    str_dau_valor_9.short_description = _('EBTIDA (%)')
 
     def str_dau_valor_10(self):
-        return locale.format_string('%.0f', self.dau_valor_10, True)
-
-    str_dau_valor_10.short_description = 'D&A'
+        return locale.format_string('%.0f', self.dau_valor_10,True)
+    str_dau_valor_10.short_description = _('D&A')
 
     def str_dau_valor_11(self):
-        return locale.format_string('%.0f', self.dau_valor_11, True)
-
-    str_dau_valor_11.short_description = 'IR (%)'
+        return locale.format_string('%.0f', self.dau_valor_11,True)
+    str_dau_valor_11.short_description = _('IR (%)')
 
     def str_dau_valor_12(self):
-        return locale.format_string('%.0f', self.dau_valor_12, True)
-
-    str_dau_valor_12.short_description = 'MP'
+        return locale.format_string('%.0f', self.dau_valor_12,True)
+    str_dau_valor_12.short_description = _('MP')
 
     def str_dau_valor_13(self):
-        return locale.format_string('%.0f', self.dau_valor_13, True)
-
-    str_dau_valor_13.short_description = 'WIP'
+        return locale.format_string('%.0f', self.dau_valor_13,True)
+    str_dau_valor_13.short_description = _('WIP')
 
     def str_dau_valor_14(self):
-        return locale.format_string('%.0f', self.dau_valor_14, True)
-
-    str_dau_valor_14.short_description = 'PF'
+        return locale.format_string('%.0f', self.dau_valor_14,True)
+    str_dau_valor_14.short_description = _('PF')
 
     def str_dau_valor_15(self):
-        return locale.format_string('%.0f', self.dau_valor_15, True)
-
-    str_dau_valor_15.short_description = 'Total Estoque'
+        return locale.format_string('%.0f', self.dau_valor_15,True)
+    str_dau_valor_15.short_description = _('Total Estoque')
 
     def str_dau_valor_16(self):
-        return locale.format_string('%.0f', self.dau_valor_16, True)
-
-    str_dau_valor_16.short_description = 'Receber'
+        return locale.format_string('%.0f', self.dau_valor_16,True)
+    str_dau_valor_16.short_description = _('Receber')
 
     def str_dau_valor_17(self):
-        return locale.format_string('%.0f', self.dau_valor_17, True)
-
-    str_dau_valor_17.short_description = 'Pagar'
+        return locale.format_string('%.0f', self.dau_valor_17,True)
+    str_dau_valor_17.short_description = _('Pagar')
 
     def str_dau_valor_18(self):
-        return locale.format_string('%.0f', self.dau_valor_18, True)
-
-    str_dau_valor_18.short_description = 'OWCR'
+        return locale.format_string('%.0f', self.dau_valor_18,True)
+    str_dau_valor_18.short_description = _('OWCR')
 
     def str_dau_valor_19(self):
-        return locale.format_string('%.0f', self.dau_valor_19, True)
-
-    str_dau_valor_19.short_description = 'Capex'
+        return locale.format_string('%.0f', self.dau_valor_19,True)
+    str_dau_valor_19.short_description = _('Capex')
 
     def str_dau_valor_20(self):
-        return locale.format_string('%.0f', self.dau_valor_20, True)
-
-    str_dau_valor_20.short_description = 'OFCF'
+        return locale.format_string('%.0f', self.dau_valor_20,True)
+    str_dau_valor_20.short_description = _('OFCF')
 
     class Meta:
-        verbose_name = 'Resultado'
-        verbose_name_plural = 'Resultados'
+        verbose_name = _('Resultado')
+        verbose_name_plural = _('Resultados')
         ordering = ['dau_order']
 
+class TbCenariosDaugther1(models.Model): # Diário de Bordo
+    data = models.DateField(verbose_name=_('Data'))
+    o_que = models.TextField(verbose_name=_('O Que'))
 
-class TbCenariosDaugther1(models.Model):  # Diário de Bordo
-    data = models.DateField(verbose_name='Data')
-    o_que = models.TextField(verbose_name='O Que')
-
-    mae = models.ForeignKey('TbCenarios', on_delete=models.CASCADE, verbose_name='Mãe')
+    mae = models.ForeignKey('TbCenarios', on_delete=models.CASCADE, verbose_name=_('Mãe'))
 
     def __str__(self):
         return ''
 
+
     class Meta:
-        verbose_name = 'Diário de Bordo'
-        verbose_name_plural = 'Diário de Bordo'
+        verbose_name = _('Diário de Bordo')
+        verbose_name_plural = _('Diário de Bordo')
         ordering = ['-data']
 
-
 class TbGlossario(models.Model):
-    glo_nome = models.CharField(max_length=50, null=False, blank=False, verbose_name='Nome')
-    glo_descricao = models.TextField(verbose_name='Descrição', blank=False, null=False)
-    glo_imagem = models.ImageField(upload_to='parameters', null=True, blank=True, verbose_name='Imagem')
-    glo_fonte = models.FileField(upload_to='parameters', null=True, blank=True, verbose_name='Fonte')
+    glo_nome = models.CharField(max_length=50, null=False, blank=False, verbose_name=_('Nome'))
+    glo_descricao = models.TextField(verbose_name=_('Descrição'), blank=False, null=False)
+    glo_imagem = models.ImageField(upload_to='parameters', null=True, blank=True, verbose_name=_('Imagem'))
+    glo_fonte = models.FileField(upload_to='parameters', null=True, blank=True, verbose_name=_('Fonte'))
     # 🌟 NOVO (multi-empresa, Parte 3): tabela independente de cenário.
-    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Empresa')
+    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name=_('Empresa'))
 
     def __str__(self):
         return self.glo_nome
@@ -772,7 +742,7 @@ class TbGlossario(models.Model):
         else:
             return 'Sem imagem!'
 
-    glo_imagem_tag.short_description = ''
+    glo_imagem_tag.short_description = _('')
 
     def clean(self):
 
@@ -784,15 +754,14 @@ class TbGlossario(models.Model):
         if self.pk is None:
             count = TbGlossario.objects.filter(glo_nome=self.glo_nome, empresa_id=self.empresa_id).count()
         else:
-            count = TbGlossario.objects.filter(glo_nome=self.glo_nome, empresa_id=self.empresa_id).exclude(
-                id=self.pk).count()
+            count = TbGlossario.objects.filter(glo_nome=self.glo_nome, empresa_id=self.empresa_id).exclude(id=self.pk).count()
 
         if count >= 1:
             raise ValidationError('Glossário ' + self.glo_nome + ' já cadastrado!')
 
     class Meta:
-        verbose_name = '  Glossário'
-        verbose_name_plural = '  Glossário'
+        verbose_name = _('  Glossário')
+        verbose_name_plural = _('  Glossário')
         ordering = ['glo_nome']
 
     def save(self, *args, **kwargs):
@@ -807,12 +776,11 @@ class TbGlossario(models.Model):
                     self.empresa_id = perfil.empresa_efetiva_id()
         super().save(*args, **kwargs)
 
-
 # Tabelas para o agente de IA
 
 class AgenteConfig(models.Model):
-    nome = models.CharField(max_length=100, verbose_name='Nome')
-    prompt_sistema = models.TextField(help_text="Instruções para o Agente IA", verbose_name='Instruções')
+    nome = models.CharField(max_length=100, verbose_name=_('Nome'))
+    prompt_sistema = models.TextField(help_text=_("Instruções para o Agente IA"), verbose_name=_('Instruções'))
     ativo = models.BooleanField(default=True)
 
     def save(self, *args, **kwargs):
@@ -824,29 +792,28 @@ class AgenteConfig(models.Model):
         return "Comportamento Agente IA"
 
     class Meta:
-        verbose_name = ' Comportamento Agente IA'
-        verbose_name_plural = ' Comportamentos Agente IA'
+        verbose_name        = _(' Comportamento Agente IA')
+        verbose_name_plural = _(' Comportamentos Agente IA')
         ordering = ['nome']
 
-
 class HistoricoAgente(models.Model):
-    data = models.DateTimeField(auto_now_add=True, verbose_name='Data')
+    data = models.DateTimeField(auto_now_add=True, verbose_name=_('Data'))
     usuario = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        verbose_name='Usuário'
+        verbose_name=_('Usuário')
     )
-    comando_usuario = models.TextField(verbose_name='Pergunta Usuário')
-    resposta_ia = models.TextField(verbose_name='Resposta Agente IA')
+    comando_usuario = models.TextField(verbose_name=_('Pergunta Usuário'))
+    resposta_ia = models.TextField(verbose_name=_('Resposta Agente IA'))
 
     def __str__(self):
         return "Histórico Agente IA"
 
     class Meta:
-        verbose_name = 'Histórico Agente IA'
-        verbose_name_plural = 'Históricos Agente IA'
+        verbose_name        = _('Histórico Agente IA')
+        verbose_name_plural = _('Históricos Agente IA')
         ordering = ['-data']
 
 
@@ -858,11 +825,11 @@ class RelatorioPDF(models.Model):
     # 🌟 NOVO (multi-empresa): cada empresa só deve ver/usar os próprios
     # relatórios no Agente IA -- antes esse campo não existia, e todo
     # mundo via os relatórios de todas as empresas misturados.
-    empresa = models.ForeignKey('TbEmpresa', null=True, blank=True, on_delete=models.PROTECT, verbose_name='Empresa')
+    empresa = models.ForeignKey('TbEmpresa', null=True, blank=True, on_delete=models.PROTECT, verbose_name=_('Empresa'))
 
     class Meta:
-        verbose_name = "Relatório PDF"
-        verbose_name_plural = "Relatórios PDF"
+        verbose_name = _("Relatório PDF")
+        verbose_name_plural = _("Relatórios PDF")
 
     def __str__(self):
         return self.titulo
@@ -898,11 +865,11 @@ class EstadoConversaAgente(models.Model):
     usuario = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     fluxo_ativo = models.CharField(
         max_length=30, choices=FLUXO_CHOICES, null=True, blank=True,
-        verbose_name='Fluxo em andamento'
+        verbose_name=_('Fluxo em andamento')
     )
-    etapa_atual = models.CharField(max_length=50, null=True, blank=True, verbose_name='Etapa atual')
-    dados_coletados = models.JSONField(default=dict, blank=True, verbose_name='Dados coletados')
-    atualizado_em = models.DateTimeField(auto_now=True, verbose_name='Atualizado em')
+    etapa_atual = models.CharField(max_length=50, null=True, blank=True, verbose_name=_('Etapa atual'))
+    dados_coletados = models.JSONField(default=dict, blank=True, verbose_name=_('Dados coletados'))
+    atualizado_em = models.DateTimeField(auto_now=True, verbose_name=_('Atualizado em'))
 
     def __str__(self):
         if self.fluxo_ativo:
@@ -910,8 +877,8 @@ class EstadoConversaAgente(models.Model):
         return f"{self.usuario} -- sem fluxo ativo"
 
     class Meta:
-        verbose_name = 'Estado de Conversa do Agente'
-        verbose_name_plural = 'Estados de Conversa do Agente'
+        verbose_name = _('Estado de Conversa do Agente')
+        verbose_name_plural = _('Estados de Conversa do Agente')
 
 
 class PerfilUsuario(models.Model):
@@ -933,7 +900,7 @@ class PerfilUsuario(models.Model):
     pode_trocar_cenario = models.BooleanField(
         default=True,
         verbose_name=_('Pode trocar cenário ativo'),
-        help_text='Se desmarcado, o usuário não verá a opção de ativar outro cenário.'
+        help_text=_('Se desmarcado, o usuário não verá a opção de ativar outro cenário.')
     )
     # 🌟 NOVO (multi-empresa): "superusuário DA EMPRESA" -- tem os mesmos
     # poderes de um superusuário de verdade (criar/excluir cenário,
@@ -945,7 +912,7 @@ class PerfilUsuario(models.Model):
     eh_superuser_empresa = models.BooleanField(
         default=False,
         verbose_name=_('Superusuário da Empresa'),
-        help_text='Tem todos os poderes de superusuário, mas restritos à própria empresa (não pode trocar de empresa nem ver dados de outras).'
+        help_text=_('Tem todos os poderes de superusuário, mas restritos à própria empresa (não pode trocar de empresa nem ver dados de outras).')
     )
     # 🌟 NOVO (multi-idioma, Fase 1): idioma PESSOAL do usuário -- se
     # vazio, usa o idioma padrão da empresa dele (ver idioma_efetivo()).
@@ -955,7 +922,7 @@ class PerfilUsuario(models.Model):
     idioma = models.CharField(
         max_length=10, choices=IDIOMA_CHOICES, null=True, blank=True,
         verbose_name=_('Idioma'),
-        help_text='Se vazio, usa o idioma padrão da empresa.'
+        help_text=_('Se vazio, usa o idioma padrão da empresa.')
     )
     # 🌟 NOVO (multi-empresa, Parte 4):
     # - "empresa" é FIXA pro usuário comum -- definida no cadastro dele,
@@ -967,13 +934,13 @@ class PerfilUsuario(models.Model):
         TbEmpresa, on_delete=models.PROTECT, null=True, blank=True,
         related_name='usuarios',
         verbose_name=_('Empresa'),
-        help_text='A empresa desse usuário -- ele só vê os dados dela. Não se aplica a superusuários.'
+        help_text=_('A empresa desse usuário -- ele só vê os dados dela. Não se aplica a superusuários.')
     )
     empresa_ativa = models.ForeignKey(
         TbEmpresa, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='superusuarios_com_esta_ativa',
         verbose_name=_('Empresa Ativa (superusuário)'),
-        help_text='Só usado por superusuários -- em qual empresa ele está trabalhando agora.'
+        help_text=_('Só usado por superusuários -- em qual empresa ele está trabalhando agora.')
     )
     # 🌟 NOVO: lembra, pra cada empresa que o superusuário já trabalhou,
     # qual era o cenário ativo dele lá -- assim, trocar de empresa e
@@ -1042,7 +1009,6 @@ class PerfilUsuario(models.Model):
     class Meta:
         verbose_name = _('Perfil de Usuário')
         verbose_name_plural = _('Perfis de Usuário')
-
 
 from django.contrib.auth import get_user_model
 from django.db.models.signals import post_save

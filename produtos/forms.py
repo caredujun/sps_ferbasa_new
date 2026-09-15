@@ -1,4 +1,5 @@
 from django import forms
+from django.utils.translation import gettext_lazy as _
 from fluxos.models import TbFluxoProducao
 from .models import *
 from parameters.models import TbCenarios
@@ -10,7 +11,7 @@ class TbProdutoFluxoProducaoDaugtherFormAdmin(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super(TbProdutoFluxoProducaoDaugtherFormAdmin, self).__init__(*args, **kwargs)
 
-        TbFluxoProducao.display_descricao.short_description = ''
+        TbFluxoProducao.display_descricao.short_description = _('')
         # Alterando a altura de campo
         # self.fields['display_descricao'].widget.attrs['style'] = 'height: 60px'
 
@@ -81,11 +82,11 @@ class TbProdutoMercadoPrecoDaugtherFormAdmin(forms.ModelForm):
         # self.fields['preco_moeda'].widget.attrs['class'] = 'mask-moeda'
 
         if TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Anual':
-            TbProdutoMercadoPrecoDaugther.display_order.short_description = 'Ano'
+            TbProdutoMercadoPrecoDaugther.display_order.short_description = _('Ano')
         elif TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Trimestral':
-            TbProdutoMercadoPrecoDaugther.display_order.short_description = 'Ano/Trimestre'
+            TbProdutoMercadoPrecoDaugther.display_order.short_description = _('Ano/Trimestre')
         else:
-            TbProdutoMercadoPrecoDaugther.display_order.short_description = 'Ano/Mês'
+            TbProdutoMercadoPrecoDaugther.display_order.short_description = _('Ano/Mês')
 
         # Vamos ver a moeda que a empresa está usando
         moeda_empresa = ''
@@ -110,12 +111,12 @@ class TbProdutoMercadoPrecoDaugtherFormAdmin(forms.ModelForm):
                 titulo_segundo = TbEquacaoAjustePreco.objects.get(
                     equ_aju_pre_descricao=equacao).equ_aju_pre_segundo_titulo
                 moeda_equacao = TbEquacaoAjustePreco.objects.get(equ_aju_pre_descricao=equacao).equ_aju_pre_moeda
-                titulo = 'Preço (' + moeda_produto + titulo_primeiro + '/' + titulo_segundo + ')'
+                titulo = _('Preço (%(moeda)s%(t1)s/%(t2)s)') % {'moeda': moeda_produto, 't1': titulo_primeiro, 't2': titulo_segundo}
             else:
-                titulo = 'Preço (' + moeda_produto + ')'
+                titulo = _('Preço (%(moeda)s)') % {'moeda': moeda_produto}
 
-            TbProdutoMercadoPrecoDaugther.preco_moeda.short_description = 'Preço (' + moeda_produto + ')'
-            TbProdutoMercadoPrecoDaugther.preco_moeda_empresa.short_description = 'Preço (' + moeda_empresa + ')'
+            TbProdutoMercadoPrecoDaugther.preco_moeda.short_description = _('Preço (%(moeda)s)') % {'moeda': moeda_produto}
+            TbProdutoMercadoPrecoDaugther.preco_moeda_empresa.short_description = _('Preço (%(moeda)s)') % {'moeda': moeda_empresa}
 
 
 class TbMercadoOutboundFormAdmin(forms.ModelForm):
@@ -150,12 +151,11 @@ class TbMercadoOutboundDaugtherFormAdmin(forms.ModelForm):
         super(TbMercadoOutboundDaugtherFormAdmin, self).__init__(*args, **kwargs)
 
         if TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Anual':
-            TbMercadoOutboundDaugther.display_order.short_description = 'Ano'
+            TbMercadoOutboundDaugther.display_order.short_description = _('Ano')
         elif TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Trimestral':
-            TbMercadoOutboundDaugther.display_order.short_description = 'Ano/Trimestre'
+            TbMercadoOutboundDaugther.display_order.short_description = _('Ano/Trimestre')
         else:
-            TbMercadoOutboundDaugther.display_order.short_description = 'Ano/Mês'
-
+            TbMercadoOutboundDaugther.display_order.short_description = _('Ano/Mês')
 
 
 

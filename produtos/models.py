@@ -1,6 +1,7 @@
 from django.db import models
 from django.db import connection
 from django.db.models.signals import post_save, pre_save
+from django.utils.translation import gettext_lazy as _
 from django.utils.safestring import mark_safe
 from django.core.exceptions import ValidationError
 from tabelas.models import TbFamiliaProduto, TbMercado, TbEquacaoAjustePreco, TbEmpresa, TbCambio, atualiza_cenario, \
@@ -86,15 +87,15 @@ class TbProdutos(models.Model):  # NÃO TEM CAMPO DO CENÁRIO. SERÁ USADO POR T
         kwh = ('kwh', 'kwh')
         Mwh = ('Mwh', 'Mwh')
 
-    pro_codigo = models.CharField(max_length=25, verbose_name='Código')
-    pro_descricao = models.CharField(max_length=51, verbose_name='Descrição')
-    pro_ativo = models.BooleanField(blank=False, null=False, default=True, verbose_name='Ativo')
+    pro_codigo = models.CharField(max_length=25, verbose_name=_('Código'))
+    pro_descricao = models.CharField(max_length=51, verbose_name=_('Descrição'))
+    pro_ativo = models.BooleanField(blank=False, null=False, default=True, verbose_name=_('Ativo'))
     pro_unidade_producao = models.CharField(max_length=3, choices=UnidadeProducaoChoices.choices,
-                                            verbose_name='Unidade')
-    pro_familia = models.ForeignKey(TbFamiliaProduto, on_delete=models.CASCADE, verbose_name='Família')
-    pro_imagem = models.ImageField(upload_to='produtos', null=True, blank=True, verbose_name='Imagem')
-    pro_observacao = models.TextField(verbose_name='Observação', blank=True, null=True)
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
+                                            verbose_name=_('Unidade'))
+    pro_familia = models.ForeignKey(TbFamiliaProduto, on_delete=models.CASCADE, verbose_name=_('Família'))
+    pro_imagem = models.ImageField(upload_to='produtos', null=True, blank=True, verbose_name=_('Imagem'))
+    pro_observacao = models.TextField(verbose_name=_('Observação'), blank=True, null=True)
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
     id_origem = models.IntegerField(blank=True, null=True)  # Origem no caso de duplicação de tabela
 
     def __str__(self):
@@ -106,28 +107,28 @@ class TbProdutos(models.Model):  # NÃO TEM CAMPO DO CENÁRIO. SERÁ USADO POR T
         else:
             return 'Sem imagem!'
 
-    pro_imagem_tag.short_description = ''
+    pro_imagem_tag.short_description = _('')
 
     # Vamos criar um campo para mostrar o total de mercados cadastrados para o produto
     def total_mercados(self):
         retorno = TbProdutoMercadoPreco.objects.filter(pro_mer_pre_produto_id=self.id).count()
         return retorno
 
-    total_mercados.short_description = 'Mercados'
+    total_mercados.short_description = _('Mercados')
 
     # Vamos criar um campo para mostrar o total de fluxos de produção cadastrados para o produto
     def total_fluxos(self):
         retorno = fluxos.models.TbFluxoProducao.objects.filter(flu_pro_produto_id=self.id).count()
         return retorno
 
-    total_fluxos.short_description = 'Fluxos Total'
+    total_fluxos.short_description = _('Fluxos Total')
 
     # Vamos criar um campo para mostrar o total de fluxos de produção ativos cadastrados para o produto
     def total_fluxos_ativos(self):
         retorno = fluxos.models.TbFluxoProducao.objects.filter(flu_pro_produto_id=self.id, flu_pro_ativo=True).count()
         return retorno
 
-    total_fluxos_ativos.short_description = 'Fluxos Ativos'
+    total_fluxos_ativos.short_description = _('Fluxos Ativos')
 
     def clean(self):
         # Vamos pegar o cenário ativo
@@ -147,8 +148,8 @@ class TbProdutos(models.Model):  # NÃO TEM CAMPO DO CENÁRIO. SERÁ USADO POR T
             raise ValidationError('Produto ' + self.pro_codigo + ' já cadastrado para esse cenário!')
 
     class Meta:
-        verbose_name = '  Produto'
-        verbose_name_plural = '  Produtos'
+        verbose_name = _('  Produto')
+        verbose_name_plural = _('  Produtos')
         ordering = ['pro_codigo']
 
     def save(self, *args, **kwargs):
@@ -167,33 +168,35 @@ class TbProdutoMercadoPreco(models.Model):
         USD = ('USD', 'DÓLAR')
         EUR = ('EUR', 'EURO')
 
-    pro_mer_pre_produto = models.ForeignKey(TbProdutos, on_delete=models.CASCADE, verbose_name='Produto')
-    pro_mer_pre_mercado = models.ForeignKey(TbMercado, on_delete=models.CASCADE, verbose_name='Mercado')
-    pro_mer_pre_codigo_interno = models.CharField(max_length=8, blank=True, null=True, verbose_name='Cód. Interno')
-    pro_mer_pre_descricao_interna = models.CharField(max_length=51, blank=True, null=True, verbose_name='Desc. Interna')
-    pro_mer_pre_estoque = models.IntegerField(verbose_name='Estoque (dias venda)')
-    pro_mer_pre_validado = models.BooleanField(default=0, verbose_name='Validado')
-    pro_mer_pre_ativo = models.BooleanField(blank=False, null=False, default=True, verbose_name='Ativo')
+    pro_mer_pre_produto = models.ForeignKey(TbProdutos, on_delete=models.CASCADE, verbose_name=_('Produto'))
+    pro_mer_pre_mercado = models.ForeignKey(TbMercado, on_delete=models.CASCADE, verbose_name=_('Mercado'))
+    pro_mer_pre_codigo_interno = models.CharField(max_length=8, blank=True, null=True, verbose_name=_('Cód. Interno'))
+    pro_mer_pre_descricao_interna = models.CharField(max_length=51, blank=True, null=True,
+                                                     verbose_name=_('Desc. Interna'))
+    pro_mer_pre_estoque = models.IntegerField(verbose_name=_('Estoque (dias venda)'))
+    pro_mer_pre_validado = models.BooleanField(default=0, verbose_name=_('Validado'))
+    pro_mer_pre_ativo = models.BooleanField(blank=False, null=False, default=True, verbose_name=_('Ativo'))
     pro_mer_pre_indicador = models.ForeignKey(TbIndicadores, null=True, blank=True, on_delete=models.PROTECT,
-                                              verbose_name='Indicador Preço', related_name='pro_mer_pre_indicador')
+                                              verbose_name=_('Indicador Preço'), related_name='pro_mer_pre_indicador')
     pro_mer_pre_indicador_vol_min = models.ForeignKey(TbIndicadores, null=True, blank=True, on_delete=models.PROTECT,
-                                                      verbose_name='Indicador Volume: Mín.',
+                                                      verbose_name=_('Indicador Volume: Mín.'),
                                                       related_name='pro_mer_pre_indicador_vol_min')
     pro_mer_pre_indicador_vol_max = models.ForeignKey(TbIndicadores, null=True, blank=True, on_delete=models.PROTECT,
-                                                      verbose_name='Máx.', related_name='pro_mer_pre_indicador_vol_max')
+                                                      verbose_name=_('Máx.'),
+                                                      related_name='pro_mer_pre_indicador_vol_max')
     pro_mer_pre_moeda = models.CharField(max_length=3, choices=ProMerPre.choices, null=False, blank=False,
-                                         default='BRL', verbose_name='Moeda')
+                                         default='BRL', verbose_name=_('Moeda'))
     pro_mer_pre_outbound = models.BooleanField(blank=False, null=False, default=True,
-                                               verbose_name='Considerar Outbound (se existir...)')
+                                               verbose_name=_('Considerar Outbound (se existir...)'))
     pro_mer_pre_equacao = models.ForeignKey(TbEquacaoAjustePreco, null=True, blank=True, on_delete=models.CASCADE,
-                                            verbose_name='Equação de Preço')
-    pro_mer_pre_observacao = models.TextField(verbose_name='Observação', blank=True, null=True)
-    pro_mer_pre_fonte = models.FileField(upload_to='fontes', null=True, blank=True, verbose_name='Fonte')
-    valor_inicial_1 = models.DecimalField(max_digits=18, decimal_places=2, verbose_name='Volume Mín. Inicial')
-    valor_inicial_2 = models.DecimalField(max_digits=18, decimal_places=2, verbose_name='Volume Máx. Inicial')
-    valor_inicial_3 = models.DecimalField(max_digits=18, decimal_places=2, verbose_name='Preço Inicial')
-    valor_inicial_4 = models.IntegerField(verbose_name='Pagamento (dias)')
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
+                                            verbose_name=_('Equação de Preço'))
+    pro_mer_pre_observacao = models.TextField(verbose_name=_('Observação'), blank=True, null=True)
+    pro_mer_pre_fonte = models.FileField(upload_to='fontes', null=True, blank=True, verbose_name=_('Fonte'))
+    valor_inicial_1 = models.DecimalField(max_digits=18, decimal_places=2, verbose_name=_('Volume Mín. Inicial'))
+    valor_inicial_2 = models.DecimalField(max_digits=18, decimal_places=2, verbose_name=_('Volume Máx. Inicial'))
+    valor_inicial_3 = models.DecimalField(max_digits=18, decimal_places=2, verbose_name=_('Preço Inicial'))
+    valor_inicial_4 = models.IntegerField(verbose_name=_('Pagamento (dias)'))
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
     id_origem = models.IntegerField(blank=True, null=True)  # Origem no caso de duplicação de tabela
 
     def __str__(self):
@@ -207,7 +210,7 @@ class TbProdutoMercadoPreco(models.Model):
         else:
             return 'Sem imagem!'
 
-    produto_imagem_tag_small.short_description = 'Imagem'
+    produto_imagem_tag_small.short_description = _('Imagem')
     produto_imagem_tag_small.allow_tags = True
 
     def clean(self):
@@ -248,13 +251,13 @@ class TbProdutoMercadoPreco(models.Model):
         else:
             return True
 
-    tem_outbound.short_description = 'Existe Outbound'
+    tem_outbound.short_description = _('Existe Outbound')
     # Para mostrar um icon e não True/False
     tem_outbound.boolean = True
 
     class Meta:
-        verbose_name = '  Volume/Preço por Mercado'
-        verbose_name_plural = '  Volume/Preços por Mercado'
+        verbose_name = _('  Volume/Preço por Mercado')
+        verbose_name_plural = _('  Volume/Preços por Mercado')
         ordering = ['pro_mer_pre_produto', 'pro_mer_pre_mercado']
 
     def save(self, *args, **kwargs):
@@ -307,13 +310,13 @@ class TbProdutoMercadoPreco(models.Model):
 # post_save.connect(verifica_filha_4, sender=TbProdutoMercadoPreco)
 
 class TbProdutoMercadoPrecoDaugther(models.Model):
-    dau_order = models.IntegerField(verbose_name='Ano/Mês')
-    dau_valor_1 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name='Volume Mínimo')
-    dau_valor_2 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name='Volume Máximo')
-    dau_valor_3 = models.DecimalField(max_digits=18, decimal_places=2, verbose_name='Preço')
-    dau_valor_4 = models.IntegerField(verbose_name='Pagamento (dias)')
-    mae = models.ForeignKey(TbProdutoMercadoPreco, on_delete=models.CASCADE, verbose_name='Produto Mercado Preço')
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
+    dau_order = models.IntegerField(verbose_name=_('Ano/Mês'))
+    dau_valor_1 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name=_('Volume Mínimo'))
+    dau_valor_2 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name=_('Volume Máximo'))
+    dau_valor_3 = models.DecimalField(max_digits=18, decimal_places=2, verbose_name=_('Preço'))
+    dau_valor_4 = models.IntegerField(verbose_name=_('Pagamento (dias)'))
+    mae = models.ForeignKey(TbProdutoMercadoPreco, on_delete=models.CASCADE, verbose_name=_('Produto Mercado Preço'))
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
 
     def __str__(self):
         return ''
@@ -458,8 +461,8 @@ class TbProdutoMercadoPrecoDaugther(models.Model):
         cursor.close()
 
     class Meta:
-        verbose_name = 'Volume Mín/Máx - Preço Previsto'
-        verbose_name_plural = 'Volumes Mín/Máx - Preços Previstos'
+        verbose_name = _('Volume Mín/Máx - Preço Previsto')
+        verbose_name_plural = _('Volumes Mín/Máx - Preços Previstos')
         ordering = ['dau_order']
 
 
@@ -469,16 +472,17 @@ class TbMercadoOutbound(models.Model):
         USD = ('USD', 'DÓLAR')
         EUR = ('EUR', 'EURO')
 
-    mer_out_mercado = models.ForeignKey(TbMercado, on_delete=models.CASCADE, verbose_name='Mercado')
-    mer_out_unidade = models.ForeignKey(TbUnidadeProducao, on_delete=models.CASCADE, verbose_name='Planta de Produção')
-    mer_out_produto = models.ForeignKey(TbProdutos, on_delete=models.CASCADE, verbose_name='Produto')
+    mer_out_mercado = models.ForeignKey(TbMercado, on_delete=models.CASCADE, verbose_name=_('Mercado'))
+    mer_out_unidade = models.ForeignKey(TbUnidadeProducao, on_delete=models.CASCADE,
+                                        verbose_name=_('Planta de Produção'))
+    mer_out_produto = models.ForeignKey(TbProdutos, on_delete=models.CASCADE, verbose_name=_('Produto'))
     mer_out_indicador = models.ForeignKey(TbIndicadores, null=True, blank=True, on_delete=models.PROTECT,
-                                          verbose_name='Indicador')
+                                          verbose_name=_('Indicador'))
     mer_out_moeda = models.CharField(max_length=3, choices=MerOutChoices.choices, null=False, blank=False,
-                                     default='BRL', verbose_name='Moeda')
-    mer_out_observacao = models.TextField(max_length=80, verbose_name='Observação', blank=True, null=True)
-    valor_inicial = models.DecimalField(max_digits=18, decimal_places=2, verbose_name='Valor Inicial')
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
+                                     default='BRL', verbose_name=_('Moeda'))
+    mer_out_observacao = models.TextField(max_length=80, verbose_name=_('Observação'), blank=True, null=True)
+    valor_inicial = models.DecimalField(max_digits=18, decimal_places=2, verbose_name=_('Valor Inicial'))
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
     id_origem = models.IntegerField(blank=True, null=True)  # Origem no caso de duplicação de tabela
 
     def __str__(self):
@@ -516,8 +520,8 @@ class TbMercadoOutbound(models.Model):
                 self.mer_out_produto) + ' já cadastrados!')
 
     class Meta:
-        verbose_name = 'Custo Outbound'
-        verbose_name_plural = 'Custos Outbound'
+        verbose_name = _('Custo Outbound')
+        verbose_name_plural = _('Custos Outbound')
         ordering = ['mer_out_mercado']
 
     def save(self, *args, **kwargs):
@@ -553,10 +557,10 @@ post_save.connect(verifica_filha, sender=TbMercadoOutbound)
 
 
 class TbMercadoOutboundDaugther(models.Model):
-    dau_order = models.IntegerField(verbose_name='Ano/Mês')
-    dau_valor = models.DecimalField(max_digits=18, decimal_places=2, verbose_name='Valor')
-    mae = models.ForeignKey(TbMercadoOutbound, on_delete=models.CASCADE, verbose_name='Mercado Outbound')
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
+    dau_order = models.IntegerField(verbose_name=_('Ano/Mês'))
+    dau_valor = models.DecimalField(max_digits=18, decimal_places=2, verbose_name=_('Valor'))
+    mae = models.ForeignKey(TbMercadoOutbound, on_delete=models.CASCADE, verbose_name=_('Mercado Outbound'))
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
 
     def __str__(self):
         return ''
@@ -626,6 +630,11 @@ class TbMercadoOutboundDaugther(models.Model):
         cursor.close()
 
     class Meta:
-        verbose_name = 'Valores Previstos'
-        verbose_name_plural = 'Valores Previstos'
+        verbose_name = _('Valores Previstos')
+        verbose_name_plural = _('Valores Previstos')
         ordering = ['dau_order']
+
+
+
+
+

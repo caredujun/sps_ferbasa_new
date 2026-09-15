@@ -109,6 +109,23 @@ def _gerar_resposta_com_busca_web(system_instruction, mensagem_usuario, historic
         # tokens/dia, o mesmo tanto pro gpt-oss-120b quanto pro -20b).
         reasoning_effort="low",
     )
+
+    # 🌟 NOVO (diagnóstico): registra no log do servidor se a busca na
+    # internet foi REALMENTE usada nessa resposta -- sem isso, só dá pra
+    # desconfiar pelo texto que o modelo escreveu, sem confirmação de
+    # verdade. Se não aparecer nenhuma ferramenta usada bem quando o
+    # usuário perguntar algo atual, é sinal de que a Groq não está
+    # honrando a ferramenta pra essa conta (cota do dia estourada, tier
+    # sem acesso, etc.) -- não é bug daqui. Não sabemos de antemão o nome
+    # exato do campo nessa versão do SDK, então imprimimos a mensagem
+    # inteira -- fica visível de um jeito ou de outro.
+    try:
+        mensagem_bruta = response.choices[0].message.model_dump()
+    except Exception:
+        mensagem_bruta = str(response.choices[0].message)
+    print(f"[agente_ia][busca_web] finish_reason={response.choices[0].finish_reason!r}")
+    print(f"[agente_ia][busca_web] mensagem_completa={mensagem_bruta!r}")
+
     conteudo = response.choices[0].message.content
     # 🌟 NOVO: a Browser Search injeta marcações de citação bruta no texto
     # (tipo "【2†L6-L10】"), sem virar link clicável de verdade -- melhor
