@@ -2322,5 +2322,37 @@ msgid "Período"
 msgstr "期间"
 
 #, python-format
+msgid "(%(moeda)s%(t1)s/%(t2)s)"
+msgstr "(%(moeda)s%(t1)s/%(t2)s)"
+
+#, python-format
+msgid "(%(moeda)s)"
+msgstr "(%(moeda)s)"
+
+msgid "Importar Ativo"
+msgstr "导入当前"
+
+msgid "Exportar Excel Itens Custo Variável"
+msgstr "导出变动成本项目 Excel"
+
+#, python-format
+msgid "Perfil de %(usuario)s"
+msgstr "%(usuario)s 的资料"
+
+#, python-format
+msgid "Produto/Mercado: %(produto)s/%(mercado)s"
+msgstr "产品/市场：%(produto)s/%(mercado)s"
+
+#, python-format
+msgid "Mercado: %(mercado)s/Unidade de Produção: %(unidade)s/Produto: %(produto)s"
+msgstr "市场：%(mercado)s/生产单元：%(unidade)s/产品：%(produto)s"
+
+msgid "<a class=\"button\" href=\"{}\">Ativar</a>"
+msgstr "<a class=\"button\" href=\"{}\">激活</a>"
+
+msgid "<a href=\"/fluxo_producao/editor/{0}/\" class=\"button\" target=\"_blank\">Visualizar / Editar Fluxo</a>"
+msgstr "<a href=\"/fluxo_producao/editor/{0}/\" class=\"button\" target=\"_blank\">查看/编辑流程</a>"
+
+#, python-format
 msgid "Olá %(nome_usuario)s! O que posso fazer por você hoje?"
 msgstr "你好，%(nome_usuario)s！今天我能为您做些什么？"

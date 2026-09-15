@@ -11,7 +11,7 @@ class TbProdutoFluxoProducaoDaugtherFormAdmin(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super(TbProdutoFluxoProducaoDaugtherFormAdmin, self).__init__(*args, **kwargs)
 
-        TbFluxoProducao.display_descricao.short_description = _('')
+        TbFluxoProducao.display_descricao.short_description = ''
         # Alterando a altura de campo
         # self.fields['display_descricao'].widget.attrs['style'] = 'height: 60px'
 

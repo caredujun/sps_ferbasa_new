@@ -1004,7 +1004,7 @@ class PerfilUsuario(models.Model):
         return empresa.idioma_padrao if empresa else 'pt-br'
 
     def __str__(self):
-        return f"Perfil de {self.usuario}"
+        return _('Perfil de %(usuario)s') % {'usuario': self.usuario}
 
     class Meta:
         verbose_name = _('Perfil de Usuário')

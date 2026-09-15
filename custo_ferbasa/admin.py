@@ -29,7 +29,7 @@ from fluxos.models import TbFluxoConsumoPadrao
 from .tasks import importar_excel_producao_mensal_celery, importar_excel_distribuicao_ggf_mensal_celery, update_indicador_consumos_padroes, atualizar_genealogia_celery, calcular_consumo_especifico_periodo, calcular_custo_variavel_adicionado_periodo
 from django.shortcuts import render
 from django.db.models import Q
-from parameters.contexto_usuario import empresa_tem_app_habilitado
+from parameters.contexto_usuario import empresa_tem_app_habilitado, get_usuario_atual
 
 
 class _CustoFerbasaAdminMixin:
@@ -694,8 +694,11 @@ class TbIndicadorConsumoPadraoDaugtherAdmin(admin.TabularInline):
 
     def valor_medio_indicador(self, obj):
 
+        # 🌟 CORRIGIDO: a procedure passou a exigir o cenário como
+        # primeiro parâmetro -- usamos o cenário do próprio registro
+        # (mais preciso que o cenário ativo do usuário aqui).
         cursor = connection.cursor()
-        sql = "call public.valor_medio_indicador_consumo_padrao(" + str(obj.id) + ", 0)"
+        sql = "call public.valor_medio_indicador_consumo_padrao(" + str(obj.tbcenarios_id) + ", " + str(obj.id) + ", 0)"
         cursor.execute(sql)
         retorno = cursor.fetchone()[0]
         cursor.close()
@@ -733,8 +736,9 @@ class TbIndicadorConsumoEspecificoDaugtherAdmin(admin.TabularInline):
 
     def valor_medio_indicador(self, obj):
 
+        # 🌟 CORRIGIDO: mesma mudança de assinatura -- cenário do próprio registro.
         cursor = connection.cursor()
-        sql = "call public.valor_medio_indicador_consumo_especifico_equipamento(" + str(obj.id) + ", 0)"
+        sql = "call public.valor_medio_indicador_consumo_especifico_equipamento(" + str(obj.tbcenarios_id) + ", " + str(obj.id) + ", 0)"
         cursor.execute(sql)
         retorno = cursor.fetchone()[0]
         cursor.close()
@@ -774,8 +778,16 @@ class TbConsumoEspecificoAdmin(_CustoFerbasaAdminMixin, DjangoObjectActions, adm
 
     def valor_medio_indicador_consumo_padrao(self, obj):
 
+        # 🌟 CORRIGIDO: a procedure passou a exigir o cenário (p_id_cenario)
+        # como primeiro parâmetro -- antes só recebia o id do consumo
+        # específico. Pegamos o cenário ativo do usuário logado (mesmo
+        # mecanismo usado em todo o resto do sistema desde a Parte 4).
+        usuario = get_usuario_atual()
+        perfil = getattr(usuario, 'perfilusuario', None) if usuario else None
+        id_cenario = perfil.cenario_ativo_id if perfil else None
+
         cursor = connection.cursor()
-        sql = "call public.valor_medio_indicador_consumo_padrao_consumo_especifico(" + str(obj.id) + ", 0)"
+        sql = "call public.valor_medio_indicador_consumo_padrao_consumo_especifico(" + str(id_cenario) + ", " + str(obj.id) + ", 0)"
         cursor.execute(sql)
         retorno = cursor.fetchone()[0]
         cursor.close()
@@ -796,8 +808,14 @@ class TbConsumoEspecificoAdmin(_CustoFerbasaAdminMixin, DjangoObjectActions, adm
 
     def valor_medio_indicador_consumo_especifico(self, obj):
 
+        # 🌟 CORRIGIDO: mesma mudança de assinatura da procedure irmã
+        # acima -- agora exige o cenário ativo como primeiro parâmetro.
+        usuario = get_usuario_atual()
+        perfil = getattr(usuario, 'perfilusuario', None) if usuario else None
+        id_cenario = perfil.cenario_ativo_id if perfil else None
+
         cursor = connection.cursor()
-        sql = "call public.valor_medio_indicador_consumo_especifico_equipamento_consumo_especifico(" + str(obj.id) + ", 0)"
+        sql = "call public.valor_medio_indicador_consumo_especifico_equipamento_consumo_especifico(" + str(id_cenario) + ", " + str(obj.id) + ", 0)"
         cursor.execute(sql)
         retorno = cursor.fetchone()[0]
         cursor.close()
@@ -981,6 +999,13 @@ class TbConsumoEspecificoAdmin(_CustoFerbasaAdminMixin, DjangoObjectActions, adm
 
         queryset = sorted(queryset, key=operator.attrgetter('con_esp_area_responsavel'))
 
+        # 🌟 CORRIGIDO: as procedures abaixo passaram a exigir o cenário
+        # como primeiro parâmetro -- e a coluna "ID CENÁRIO SPS" usava o
+        # antigo padrão global "cen_ativo=True", que não existe mais
+        # (cenário agora é por usuário, não mais global).
+        perfil_req = getattr(request.user, 'perfilusuario', None)
+        id_cenario = perfil_req.cenario_ativo_id if perfil_req else None
+
         for qs in queryset:
             row_num = row_num + 1
             ws.write(row_num, 0, qs.get_con_esp_area_responsavel_display())
@@ -991,20 +1016,20 @@ class TbConsumoEspecificoAdmin(_CustoFerbasaAdminMixin, DjangoObjectActions, adm
             ws.write(row_num, 5, qs.con_esp_indicador)
 
             cursor = connection.cursor()
-            sql = "call public.valor_medio_indicador_consumo_padrao_base_id(" + str(qs.id) + ", 0)"
+            sql = "call public.valor_medio_indicador_consumo_padrao_base_id(" + str(id_cenario) + ", " + str(qs.id) + ", 0)"
             cursor.execute(sql)
             retorno = cursor.fetchone()[0]
             cursor.close()
             ws.write(row_num, 6, retorno)
 
             cursor = connection.cursor()
-            sql = "call public.valor_medio_indicador_consumo_especifico_equipamento_base_id(" + str(qs.id) + ", 0)"
+            sql = "call public.valor_medio_indicador_consumo_especifico_equipamento_base_id(" + str(id_cenario) + ", " + str(qs.id) + ", 0)"
             cursor.execute(sql)
             retorno = cursor.fetchone()[0]
             cursor.close()
             ws.write(row_num, 7, retorno)
 
-            ws.write(row_num, 8, TbCenarios.objects.get(cen_ativo=True).id)
+            ws.write(row_num, 8, id_cenario)
 
         wb.save(response)
 
@@ -1072,7 +1097,7 @@ class TbConsumoEspecificoAdmin(_CustoFerbasaAdminMixin, DjangoObjectActions, adm
                 p.drawString(390, line_number, str(lista_consumo_padrao.flu_con_pad_to_equipamento))
 
                 cursor = connection.cursor()
-                sql = "call public.valor_medio_indicador_consumo_padrao(" + str(lista_consumo_padrao.id) + ", 0)"
+                sql = "call public.valor_medio_indicador_consumo_padrao(" + str(lista_consumo_padrao.tbcenarios_id) + ", " + str(lista_consumo_padrao.id) + ", 0)"
                 cursor.execute(sql)
                 retorno = cursor.fetchone()[0]
                 cursor.close()
@@ -1317,7 +1342,7 @@ class TbConsumoEspecificoAdmin(_CustoFerbasaAdminMixin, DjangoObjectActions, adm
 
         return response
 
-    exportar_excel.label = 'Exportar Excel'
+    exportar_excel.label = _('Exportar Excel')
 
     def exportar_pdf(self, request, obj):
 
@@ -1521,8 +1546,9 @@ class TbCustoItemPrecoDaugtherAdmin(admin.TabularInline):
     model = TbCustoItemPreco
 
     def valor_medio_custo_variavel_adicionado(self, obj):
+        # 🌟 CORRIGIDO: procedure passou a exigir o cenário como primeiro parâmetro.
         cursor = connection.cursor()
-        sql = "call public.valor_medio_custo_variavel_adicionado_custo_item_preco(" + str(obj.id) + ", 0)"
+        sql = "call public.valor_medio_custo_variavel_adicionado_custo_item_preco(" + str(obj.tbcenarios_id) + ", " + str(obj.id) + ", 0)"
         cursor.execute(sql)
         retorno = cursor.fetchone()[0]
         cursor.close()
@@ -1558,8 +1584,15 @@ class TbCustoVariavelAdicionadoAdmin(_CustoFerbasaAdminMixin, DjangoObjectAction
     search_fields = ['cus_var_adi_descricao', ]
 
     def valor_medio_custo_variavel_adicionado(self, obj):
+        # 🌟 CORRIGIDO: procedure passou a exigir o cenário como primeiro
+        # parâmetro -- esse registro não tem cenário próprio (é
+        # independente), então usamos o cenário ativo do usuário logado.
+        usuario = get_usuario_atual()
+        perfil = getattr(usuario, 'perfilusuario', None) if usuario else None
+        id_cenario = perfil.cenario_ativo_id if perfil else None
+
         cursor = connection.cursor()
-        sql = "call public.valor_medio_custo_variavel_adicionado_custo_variavel_adicionado(" + str(obj.id) + ", 0)"
+        sql = "call public.valor_medio_custo_variavel_adicionado_custo_variavel_adicionado(" + str(id_cenario) + ", " + str(obj.id) + ", 0)"
         cursor.execute(sql)
         retorno = cursor.fetchone()[0]
         cursor.close()
@@ -1835,7 +1868,7 @@ class TbCustoVariavelAdicionadoAdmin(_CustoFerbasaAdminMixin, DjangoObjectAction
 
         return response
 
-    exportar_itens_consumo_excel.label = 'Exportar Excel Itens Custo Variável'
+    exportar_itens_consumo_excel.label = _('Exportar Excel Itens Custo Variável')
 
     def exportar_excel(self, request, obj):
         response = HttpResponse(content_type='application/ms-excel')
@@ -1909,7 +1942,7 @@ class TbCustoVariavelAdicionadoAdmin(_CustoFerbasaAdminMixin, DjangoObjectAction
 
         return response
 
-    exportar_excel.label = 'Exportar Excel'
+    exportar_excel.label = _('Exportar Excel')
 
     def exportar_pdf(self, request, obj):
 

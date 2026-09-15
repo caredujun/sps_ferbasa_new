@@ -1613,7 +1613,7 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
         if obj.id:
             from django.utils.html import format_html
             return format_html(
-                '<a href="/fluxo_producao/editor/{0}/" class="button" target="_blank">Visualizar / Editar Fluxo</a>',
+                _('<a href="/fluxo_producao/editor/{0}/" class="button" target="_blank">Visualizar / Editar Fluxo</a>'),
                 obj.id)
         return "Salve o fluxo primeiro para visualizá-lo"
 

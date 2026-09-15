@@ -200,7 +200,8 @@ class TbProdutoMercadoPreco(models.Model):
     id_origem = models.IntegerField(blank=True, null=True)  # Origem no caso de duplicação de tabela
 
     def __str__(self):
-        return 'Produto/Mercado: ' + str(self.pro_mer_pre_produto) + '/' + str(self.pro_mer_pre_mercado)
+        return _('Produto/Mercado: %(produto)s/%(mercado)s') % {'produto': self.pro_mer_pre_produto,
+                                                                'mercado': self.pro_mer_pre_mercado}
 
     # Campo para mostrar a imagem do produto
     def produto_imagem_tag_small(self):
@@ -486,8 +487,8 @@ class TbMercadoOutbound(models.Model):
     id_origem = models.IntegerField(blank=True, null=True)  # Origem no caso de duplicação de tabela
 
     def __str__(self):
-        return 'Mercado: ' + str(self.mer_out_mercado) + '/' + 'Unidade de Produção: ' + str(
-            self.mer_out_unidade) + '/' + 'Produto: ' + str(self.mer_out_produto)
+        return _('Mercado: %(mercado)s/Unidade de Produção: %(unidade)s/Produto: %(produto)s') % {
+            'mercado': self.mer_out_mercado, 'unidade': self.mer_out_unidade, 'produto': self.mer_out_produto}
 
     def clean(self):
         # Vamos pegar o cenário ativo

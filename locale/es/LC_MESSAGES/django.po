@@ -2322,5 +2322,37 @@ msgid "Período"
 msgstr "Período"
 
 #, python-format
+msgid "(%(moeda)s%(t1)s/%(t2)s)"
+msgstr "(%(moeda)s%(t1)s/%(t2)s)"
+
+#, python-format
+msgid "(%(moeda)s)"
+msgstr "(%(moeda)s)"
+
+msgid "Importar Ativo"
+msgstr "Importar Activo"
+
+msgid "Exportar Excel Itens Custo Variável"
+msgstr "Exportar Excel Ítems Costo Variable"
+
+#, python-format
+msgid "Perfil de %(usuario)s"
+msgstr "Perfil de %(usuario)s"
+
+#, python-format
+msgid "Produto/Mercado: %(produto)s/%(mercado)s"
+msgstr "Producto/Mercado: %(produto)s/%(mercado)s"
+
+#, python-format
+msgid "Mercado: %(mercado)s/Unidade de Produção: %(unidade)s/Produto: %(produto)s"
+msgstr "Mercado: %(mercado)s/Unidad de Producción: %(unidade)s/Producto: %(produto)s"
+
+msgid "<a class=\"button\" href=\"{}\">Ativar</a>"
+msgstr "<a class=\"button\" href=\"{}\">Activar</a>"
+
+msgid "<a href=\"/fluxo_producao/editor/{0}/\" class=\"button\" target=\"_blank\">Visualizar / Editar Fluxo</a>"
+msgstr "<a href=\"/fluxo_producao/editor/{0}/\" class=\"button\" target=\"_blank\">Ver / Editar Flujo</a>"
+
+#, python-format
 msgid "Olá %(nome_usuario)s! O que posso fazer por você hoje?"
 msgstr "¡Hola %(nome_usuario)s! ¿Qué puedo hacer por ti hoy?"

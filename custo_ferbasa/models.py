@@ -485,7 +485,7 @@ class TbConsumoEspecifico(models.Model):
     con_esp_qtde_produzida = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name=_('Qtde Produzida'))
     con_esp_qtde_desviada = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name=_('Qtde Desviada'))
     con_esp_qtde_consumo = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name=_('Qtde Consumo'))
-    con_esp_indicador = models.DecimalField(max_digits=12, null=True, blank=True, decimal_places=4, verbose_name=format_html('<b style="color:{};">{}</b>', 'blue', 'Indicador (SPS)'))
+    con_esp_indicador = models.DecimalField(max_digits=12, null=True, blank=True, decimal_places=4, verbose_name=format_html('<b style="color:{};">{}</b>', 'blue', _('Indicador (SPS)')))
     con_esp_item_producao = models.ManyToManyField(TbItensProducao, verbose_name=_('Itens de Produção'))
     con_esp_grupo_maquina = models.ManyToManyField(TbGruposMaquinas, blank=True, verbose_name=_('Grupos Máquina'))
     con_esp_item_consumo = models.ManyToManyField(TbItensConsumo, blank=True, verbose_name=_('Itens de Consumo'))
@@ -595,7 +595,7 @@ class TbConsumoEspecifico(models.Model):
         else:
             return ''
 
-    indicador_sps.short_description = format_html('<b style="color:{};">{}</b>', 'blue', 'Indicador (SPS)')
+    indicador_sps.short_description = format_html('<b style="color:{};">{}</b>', 'blue', _('Indicador (SPS)'))
 
     def indicador_d_0(self):
         if self.con_esp_qtde_produzida != None:
@@ -870,7 +870,7 @@ class TbCustoVariavelAdicionado(models.Model):
 
         return format_html('<b style="color:{};">{}</b>', 'blue', valor_retorno,)
 
-    custo_variavel_adicionado_total.short_description = format_html('<b style="color:{};">{}</b>', 'blue', 'Custo Var. Adic. Tot. (SPS)')
+    custo_variavel_adicionado_total.short_description = format_html('<b style="color:{};">{}</b>', 'blue', _('Custo Var. Adic. Tot. (SPS)'))
 
     def custo_variavel_adicionado_total_p(self):
         if self.cus_var_adi_custo_variavel_adicionado_material_p != None and self.cus_var_adi_custo_variavel_adicionado_ggf_p != None:

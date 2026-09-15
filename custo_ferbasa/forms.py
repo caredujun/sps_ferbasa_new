@@ -1,4 +1,5 @@
 from django import forms
+from django.utils.translation import gettext_lazy as _
 
 from custo_ferbasa.models import TbProducaoMensal, TbGruposMaquinas, TbItensConsumo, TbItensProducao, TbConsumoEspecifico
 
@@ -107,14 +108,14 @@ class TbProducaoMensalFormAdmin(forms.ModelForm):
             self.fields['pro_men_ano_mes'].widget.attrs['style'] = 'width: 60px;'
             self.fields['pro_men_ordem_producao'].widget.attrs['style'] = 'width: 70px;'
             self.fields['pro_men_ano_mes'].widget.attrs['class'] = 'mask-cenario-2'
-            self.fields['pro_men_qtde_produzida'].label = 'Qtde Produzida'
-            self.fields['pro_men_qtde_consumo'].label = 'Qtde Consumo'
+            self.fields['pro_men_qtde_produzida'].label = _('Qtde Produzida')
+            self.fields['pro_men_qtde_consumo'].label = _('Qtde Consumo')
             self.fields['pro_men_valor_material'].widget.attrs['style'] = 'width: 80px;'
-            self.fields['pro_men_valor_material'].label = 'Valor Material'
+            self.fields['pro_men_valor_material'].label = _('Valor Material')
             self.fields['pro_men_valor_ggf'].widget.attrs['style'] = 'width: 80px;'
-            self.fields['pro_men_valor_ggf'].label = 'Valor GGF'
+            self.fields['pro_men_valor_ggf'].label = _('Valor GGF')
             self.fields['pro_men_valor_ultima_entrada'].widget.attrs['style'] = 'width: 80px;'
-            self.fields['pro_men_valor_ultima_entrada'].label = 'Valor Última Entrada'
+            self.fields['pro_men_valor_ultima_entrada'].label = _('Valor Última Entrada')
         except:
             pass
 
@@ -134,8 +135,8 @@ class TbDistribuicaoGGFMensalFormAdmin(forms.ModelForm):
             self.fields['dis_ggf_men_ordem_producao'].widget.attrs['style'] = 'width: 70px;'
             self.fields['dis_ggf_men_ano_mes'].widget.attrs['class'] = 'mask-cenario-2'
             self.fields['dis_ggf_men_qtde_produzida'].widget.attrs['class'] = 'mask-moeda'
-            self.fields['dis_ggf_men_qtde_produzida'].label = 'Qtde Produzida'
-            self.fields['dis_ggf_men_valor'].label = 'Valor'
+            self.fields['dis_ggf_men_qtde_produzida'].label = _('Qtde Produzida')
+            self.fields['dis_ggf_men_valor'].label = _('Valor')
         except:
             pass
 
@@ -158,7 +159,7 @@ class TbConsumoEspecificoDaugther1FormAdmin(forms.ModelForm):
 
 class TbConsumoEspecificoFormAdmin(forms.ModelForm):
 
-    con_esp_producao_minima = forms.DecimalField(max_digits=10, decimal_places=0, localize=True, label='Prod. Minima')
+    con_esp_producao_minima = forms.DecimalField(max_digits=10, decimal_places=0, localize=True, label=_('Prod. Minima'))
 
     def __init__(self, *args, **kwargs):
         self.request = kwargs.pop('request', None) # Para ter acesso ao user
@@ -304,7 +305,7 @@ class TbCustoVariavelAdicionadoDaugther1FormAdmin(forms.ModelForm):
 
 class TbCustoVariavelAdicionadoFormAdmin(forms.ModelForm):
 
-    cus_var_adi_producao_minima = forms.DecimalField(max_digits=10, decimal_places=0, localize=True, label='Prod. Minima')
+    cus_var_adi_producao_minima = forms.DecimalField(max_digits=10, decimal_places=0, localize=True, label=_('Prod. Minima'))
 
     def __init__(self, *args, **kwargs):
         super(TbCustoVariavelAdicionadoFormAdmin, self).__init__(*args, **kwargs)
@@ -527,8 +528,8 @@ class TbRegressaoLinearMultiplaFormAdmin(forms.ModelForm):
 
 class CalcularPeriodoForm(forms.Form):
     _selected_action = forms.CharField(widget=forms.MultipleHiddenInput)
-    ano_mes_inicio = forms.CharField(max_length=7, required=False, label='Ano/Mês Início')
-    ano_mes_fim = forms.CharField(max_length=7, required=False, label='Ano/Mês Fim')
+    ano_mes_inicio = forms.CharField(max_length=7, required=False, label=_('Ano/Mês Início'))
+    ano_mes_fim = forms.CharField(max_length=7, required=False, label=_('Ano/Mês Fim'))
     def __init__(self, *args, **kwargs):
         super(CalcularPeriodoForm, self).__init__(*args, **kwargs)
         self.fields['ano_mes_inicio'].widget.attrs['class'] = 'mask-cenario-2'

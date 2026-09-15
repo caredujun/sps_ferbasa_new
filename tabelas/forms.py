@@ -295,13 +295,13 @@ class TbTipoProducaoFormAdmin(forms.ModelForm):
 class TbEquacaoAjustePrecoFormAdmin(forms.ModelForm):
     # Quando não tem filha, coloca o localize aqui, antes do def __init__
 
-    equ_aju_pre_constante_a = forms.DecimalField(localize=True, label='A')
-    equ_aju_pre_constante_b = forms.DecimalField(localize=True, label='B')
-    equ_aju_pre_constante_c = forms.DecimalField(localize=True, label='C')
-    equ_aju_pre_constante_d = forms.DecimalField(localize=True, label='D')
-    equ_aju_pre_constante_e = forms.DecimalField(localize=True, label='E')
-    equ_aju_pre_constante_f = forms.DecimalField(localize=True, label='F')
-    equ_aju_pre_var = forms.DecimalField(localize=True, label='Valor VAR para teste')
+    equ_aju_pre_constante_a = forms.DecimalField(localize=True, label=_('A'))
+    equ_aju_pre_constante_b = forms.DecimalField(localize=True, label=_('B'))
+    equ_aju_pre_constante_c = forms.DecimalField(localize=True, label=_('C'))
+    equ_aju_pre_constante_d = forms.DecimalField(localize=True, label=_('D'))
+    equ_aju_pre_constante_e = forms.DecimalField(localize=True, label=_('E'))
+    equ_aju_pre_constante_f = forms.DecimalField(localize=True, label=_('F'))
+    equ_aju_pre_var = forms.DecimalField(localize=True, label=_('Valor VAR para teste'))
     equ_aju_pre_valor1 = forms.DecimalField(max_digits=10, decimal_places=2, required=False, disabled=True,
                                             localize=True, label='')
     equ_aju_pre_valor2 = forms.DecimalField(max_digits=10, decimal_places=2, required=False, disabled=True,
@@ -329,8 +329,8 @@ class TbEquacaoAjustePrecoFormAdmin(forms.ModelForm):
                 self.instance.equ_aju_pre_segundo_titulo = ''
 
             try:
-                self.fields['equ_aju_pre_var'].help_text = '(' + self.instance.equ_aju_pre_moeda + self.instance.equ_aju_pre_primeiro_titulo + '/' + self.instance.equ_aju_pre_segundo_titulo + ')'
-                self.fields['equ_aju_pre_valor1'].help_text = '(' + self.instance.equ_aju_pre_moeda + ')'
+                self.fields['equ_aju_pre_var'].help_text = _('(%(moeda)s%(t1)s/%(t2)s)') % {'moeda': self.instance.equ_aju_pre_moeda, 't1': self.instance.equ_aju_pre_primeiro_titulo, 't2': self.instance.equ_aju_pre_segundo_titulo}
+                self.fields['equ_aju_pre_valor1'].help_text = _('(%(moeda)s)') % {'moeda': self.instance.equ_aju_pre_moeda}
             except:
                 pass
 
@@ -348,6 +348,6 @@ class TbEquacaoAjustePrecoFormAdmin(forms.ModelForm):
             moeda_empresa = ''
 
         try:
-            self.fields['equ_aju_pre_valor2'].help_text = '(' + moeda_empresa + ')'
+            self.fields['equ_aju_pre_valor2'].help_text = _('(%(moeda)s)') % {'moeda': moeda_empresa}
         except:
             pass

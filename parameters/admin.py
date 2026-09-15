@@ -145,7 +145,7 @@ class TbCenariosAdmin(DjangoObjectActions, admin.ModelAdmin):
         if self.ativo(obj) or not self.pode_trocar_cenario():
             return '—'
         url = reverse('admin:parameters_tbcenarios_ativar_para_mim', args=[obj.id])
-        return format_html('<a class="button" href="{}">Ativar</a>', url)
+        return format_html(_('<a class="button" href="{}">Ativar</a>'), url)
 
     botao_ativar.short_description = _('Ação')
 
@@ -449,7 +449,7 @@ class TbCenariosAdmin(DjangoObjectActions, admin.ModelAdmin):
                 request.current_app = self.admin_site.name
                 return TemplateResponse(request, "my_action_confirmation.html")
 
-    importar_ativo.label = 'Importar Ativo'
+    importar_ativo.label = _('Importar Ativo')
 
     def exportar_excel_cenario(self, request, obj):
         # Só exporta o cenário selecionado
@@ -570,7 +570,7 @@ class TbCenariosAdmin(DjangoObjectActions, admin.ModelAdmin):
 
         return response
 
-    exportar_excel_cenario.label = 'Exportar Excel'
+    exportar_excel_cenario.label = _('Exportar Excel')
 
     # Action Atualizar Fluxos de produção para garantir que eventuais ajustes nos consumos padrões serão atualizados
     def update_fluxos(self, request, obj):
@@ -1021,7 +1021,7 @@ class TbEmpresaAdmin(admin.ModelAdmin):
         if usuario is None or not usuario.is_superuser or self.ativo(obj):
             return '—'
         url = reverse('admin:parameters_tbempresa_ativar_para_mim', args=[obj.id])
-        return format_html('<a class="button" href="{}">Ativar</a>', url)
+        return format_html(_('<a class="button" href="{}">Ativar</a>'), url)
 
     botao_ativar.short_description = _('Ação')
 
