@@ -1298,7 +1298,7 @@ class TbEquipamentosConsumoEspecificoAdmin(DjangoObjectActions, admin.ModelAdmin
         update_indicador(obj.id)
         messages.success(request, _('Update do indicador de consumo específico realizado com sucesso!'))
 
-    update_indicador_consumo_especifico.label = "Update Indicador"  # optional
+    update_indicador_consumo_especifico.label = _("Update Indicador")  # optional
 
     change_actions = ('update_indicador_consumo_especifico',)
 
@@ -1315,7 +1315,7 @@ class TbEquipamentosConsumoEspecificoAdmin(DjangoObjectActions, admin.ModelAdmin
         update_indicador(obj.id)
         messages.success(request, _('Update do indicador de consumo específico realizado com sucesso!'))
 
-    update_indicador_consumo_especifico.label = "Update Indicador"  # optional
+    update_indicador_consumo_especifico.label = _("Update Indicador")  # optional
 
     change_actions = ('update_indicador_consumo_especifico',)
 

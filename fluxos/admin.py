@@ -817,7 +817,7 @@ class TbFluxoConsumoPadraoAdmin(DjangoObjectActions, admin.ModelAdmin):
         # current_datetime(request)
         messages.success(request, _('Update do indicador de consumo específico realizado com sucesso!'))
 
-    update_indicador_consumo_especifico.label = "Update Indicador"  # optional
+    update_indicador_consumo_especifico.label = _("Update Indicador")  # optional
 
     change_actions = ('update_indicador_consumo_especifico',)
 
@@ -1576,7 +1576,7 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
         messages.success(request,
                          _('Atualização do Fluxo (Input/Output) sendo realizada em segundo plano. Favor aguardar!'))
 
-    atualizar_fluxo.label = "Atualizar Fluxo (Input/Output)"
+    atualizar_fluxo.label = _("Atualizar Fluxo (Input/Output)")
 
     def update_fluxo(self, request, obj):
         update_fluxo_celery.delay(obj.id)
@@ -1584,7 +1584,7 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
         # current_datetime(request)
         messages.success(request, _('Update do arquivo PDF do fluxo sendo realizado em segundo plano. Favor aguardar!'))
 
-    update_fluxo.label = "Update Fluxo (PDF)"
+    update_fluxo.label = _("Update Fluxo (PDF)")
 
     change_actions = ('atualizar_fluxo', 'update_fluxo',)
     form = TbFluxoProducaoFormAdmin

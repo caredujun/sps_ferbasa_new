@@ -2722,7 +2722,7 @@ class TbCustoItemPrecoAdmin(DjangoObjectActions, admin.ModelAdmin):
         update_custo_variavel_adicionado(obj.id)
         messages.success(request, _('Update do preço pelo valor do custo variável adicionado realizado com sucesso!'))
 
-    update_valor_custo_variavel_adicionado.label = "Update Preço/CustoVariável Adicionado"  # optional
+    update_valor_custo_variavel_adicionado.label = _("Update Preço/CustoVariável Adicionado")  # optional
 
     change_actions = ('update_valor_custo_variavel_adicionado',)
 
@@ -2949,7 +2949,7 @@ class TbEquacaoAjustePrecoAdmin(_EmpresaFiltradaAdminMixin, DjangoObjectActions,
     def testar(self, request, obj):
         print('Botão Testar foi pressionado')
 
-    testar.label = "Testar"  # optional
+    testar.label = _("Testar")  # optional
     testar.short_description = _("Testar o cálculo")  # optional
 
     change_actions = ('testar',)

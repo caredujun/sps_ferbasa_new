@@ -3,6 +3,7 @@
  Para ativar e acompanhar worker no celery beat no Heroku:heroku run python -m celery -A sps beat --scheduler django_celery_beat.schedulers:DatabaseScheduler -l info
 
 # Para ativar o celery quando estiver rodando local: python -m celery -A sps worker -l info
+# Ver o celery rodando no terminal: tail -n 300 -f celery_worker.log
 # Para ativar o celery + beat quando estiver rodando local: python -m celery -A sps worker --scheduler django_celery_beat.schedulers:DatabaseScheduler -E -B -l info
 
 # link para ajustar redis no heroku : https://devcenter.heroku.com/articles/managing-heroku-redis-using-cli#redis-credentials

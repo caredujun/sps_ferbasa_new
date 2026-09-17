@@ -1274,7 +1274,7 @@ class TbConsumoEspecificoAdmin(_CustoFerbasaAdminMixin, DjangoObjectActions, adm
         update_indicador_consumos_padroes(obj.id)
         messages.success(request, _('Update dos consumos padrões vinculados realizado com sucesso!'))
 
-    update_consumos_padroes.label = "Update Consumos Padrões"
+    update_consumos_padroes.label = _("Update Consumos Padrões")
 
     def exportar_excel(self, request, obj):
         response = HttpResponse(content_type='application/ms-excel')
@@ -1508,6 +1508,7 @@ class TbConsumoEspecificoAdmin(_CustoFerbasaAdminMixin, DjangoObjectActions, adm
         return FileResponse(buffer, as_attachment=True, filename=nome_arquivo)
 
     exportar_pdf.short_description = _('Exportar PDF')
+    exportar_pdf.label = _('Exportar PDF')
 
 admin.site.register(TbConsumoEspecifico, TbConsumoEspecificoAdmin)
 
@@ -2109,6 +2110,7 @@ class TbCustoVariavelAdicionadoAdmin(_CustoFerbasaAdminMixin, DjangoObjectAction
         return FileResponse(buffer, as_attachment=True, filename=nome_arquivo)
 
     exportar_pdf.short_description = _('Exportar PDF')
+    exportar_pdf.label = _('Exportar PDF')
 
 
 admin.site.register(TbCustoVariavelAdicionado, TbCustoVariavelAdicionadoAdmin)

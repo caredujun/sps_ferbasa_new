@@ -43,11 +43,25 @@ INSTALLED_APPS = [
     'storages',
 ]
 
-'''
+# 🌟 NOVO: detecta automaticamente se está rodando no Heroku (a
+# variável DYNO é definida pelo próprio Heroku em todo dyno, não existe
+# localmente) -- substitui a alternância manual de comentar/descomentar
+# os blocos "RODAR HEROKU" / "RODAR LOCAL" que existia antes.
+RODANDO_NO_HEROKU = bool(os.environ.get('DYNO'))
 
-# INÍCIO DO RODAR HEROKU
 # Configurações para o celery
-CELERY_BROKER_URL = os.environ.get('REDIS_URL')
+if RODANDO_NO_HEROKU:
+    CELERY_BROKER_URL = os.environ.get('REDIS_URL')
+else:
+    CELERY_BROKER_URL = 'redis://localhost:6379'
+    # 🌟 CORRIGIDO: voltamos pro Celery assíncrono de verdade também em
+    # desenvolvimento -- o modo síncrono (CELERY_TASK_ALWAYS_EAGER)
+    # resolvia o "esqueci de ligar o worker", mas quebrava a experiência
+    # de "roda em segundo plano" (a tela ficava travada até a tarefa
+    # inteira terminar, e a mensagem de "clique em Verificar" só
+    # aparecia depois que já tinha acabado mesmo). Resolvemos o
+    # "esqueci de ligar" de outro jeito agora: iniciando o worker
+    # automaticamente (veja parameters/apps.py).
 
 # Configurações para o celery results
 CELERY_RESULT_BACKEND = 'django-db'
@@ -58,40 +72,12 @@ X_FRAME_OPTIONS = "SAMEORIGIN"
 
 SILENCED_SYSTEM_CHECKS = ["security.W019"]
 
-MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    # Para forçar o uso do https ao invés de http
-    'django.middleware.security.SecurityMiddleware',
-]
-
-# Para forçar o uso do https ao invés de http
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-SECURE_SSL_REDIRECT = True
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
-# FIM DO RODAR HEROKU
-
-'''
-
-# INÍCIO DO RODAR LOCAL
-# Configuraçẽs para o celery
-CELERY_BROKER_URL = 'redis://localhost:6379'
-
-# Configuraçẽs para o celery results
-CELERY_RESULT_BACKEND = 'django-db'
-CELERY_CACHE_BACKEND = 'django-cache'
-CELERY_RESULT_EXTENDED = True
-
-X_FRAME_OPTIONS = "SAMEORIGIN"
-
-SILENCED_SYSTEM_CHECKS = ["security.W019"]
-
+# 🌟 CORRIGIDO: essa lista agora é ÚNICA pros dois ambientes (antes, a
+# versão do bloco Heroku estava desatualizada -- não tinha o
+# LocaleMiddleware nem o DefinirUsuarioAtualMiddleware adicionados nas
+# sessões de multi-idioma/multi-empresa, o que quebraria tradução e
+# contexto de empresa/usuário se fosse usada em produção do jeito que
+# estava).
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -108,15 +94,19 @@ MIDDLEWARE = [
     'parameters.middleware.DefinirUsuarioAtualMiddleware',  # 🌟 novo, depois do Authentication
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    # Para forçar o uso do https ao invés de http
-    #'django.middleware.security.SecurityMiddleware',
 ]
 
-#Desenvolvimento
-SECURE_SSL_REDIRECT = False
-SESSION_COOKIE_SECURE = False
-CSRF_COOKIE_SECURE = False
-# FIM DO RODAR LOCAL
+if RODANDO_NO_HEROKU:
+    # Para forçar o uso do https ao invés de http
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+else:
+    # Desenvolvimento
+    SECURE_SSL_REDIRECT = False
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
 
 ROOT_URLCONF = 'sps.urls'
 

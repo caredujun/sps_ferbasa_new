@@ -279,11 +279,14 @@ class TbCenariosAdmin(DjangoObjectActions, admin.ModelAdmin):
         font_style = xlwt.XFStyle()
         font_style.font.bold = True
 
-        ws.write(row_num, 0, 'RESULTADOS POR CENÁRIO', font_style)
+        ws.write(row_num, 0, str(_('RESULTADOS POR CENÁRIO')), font_style)
 
-        columns = ['Id Cenário', 'Nome Cenário', 'Período', 'Solução Ótima', 'Vendas', 'Variável', 'Inbound',
-                   'Outbound', 'Manut.', 'Margem', 'Fixo', 'EBTIDA', 'EBTIDA (%)', 'D&A', 'IR (%)', 'MP', 'WIP', 'PF',
-                   'Total Est.', 'Receber', 'Pagar', 'OWCR', 'CAPEX', 'OFCF']
+        columns = [str(c) for c in [
+            _('Id Cenário'), _('Nome Cenário'), _('Período'), _('Solução Ótima'), _('Vendas'), _('Variável'),
+            _('Inbound'), _('Outbound'), _('Manut.'), _('Margem'), _('Fixo'), _('EBTIDA'), _('EBTIDA (%)'),
+            _('D&A'), _('IR (%)'), _('MP'), _('WIP'), _('PF'), _('Total Est.'), _('Receber'), _('Pagar'),
+            _('OWCR'), _('CAPEX'), _('OFCF'),
+        ]]
 
         row_num += 1
         for col_num in range(len(columns)):
@@ -304,18 +307,18 @@ class TbCenariosAdmin(DjangoObjectActions, admin.ModelAdmin):
         for row in rows:
             id_mae = row[21]
             if row[22] == 1:  # Encontrou solução
-                solucao = 'Sim'
+                solucao = str(_('Sim'))
             else:
                 if row[22] == 0:  # Não encontrou solução
-                    solucao = 'Não'
+                    solucao = str(_('Não'))
                 else:
                     if row[22] == 2:
-                        solucao = 'Limpo'
+                        solucao = str(_('Limpo'))
                     else:
                         if row[22] == 3:
-                            solucao = 'Limpando'
+                            solucao = str(_('Limpando'))
                         else:
-                            solucao = 'Otimizando'
+                            solucao = str(_('Otimizando'))
 
             # Vamos pegar o nome do cenário
             nome_cenario = TbCenarios.objects.get(id=id_mae).cen_nome
@@ -473,11 +476,14 @@ class TbCenariosAdmin(DjangoObjectActions, admin.ModelAdmin):
         # Vamos pegar o nome do cenário
         nome_cenario = TbCenarios.objects.get(id=obj.id).cen_nome
 
-        ws.write(row_num, 0, 'RESULTADOS CENÁRIO ' + str(obj.id) + '/' + nome_cenario, font_style)
+        ws.write(row_num, 0, str(_('RESULTADOS CENÁRIO ')) + str(obj.id) + '/' + nome_cenario, font_style)
 
-        columns = ['Período', 'Solução Ótima', 'Vendas', 'Variável', 'Inbound', 'Outbound', 'Manut.', 'Margem', 'Fixo',
-                   'EBTIDA', 'EBTIDA (%)', 'D&A', 'IR (%)', 'MP', 'WIP', 'PF', 'Total Est.', 'Receber', 'Pagar', 'OWCR',
-                   'CAPEX', 'OFCF']
+        columns = [str(c) for c in [
+            _('Período'), _('Solução Ótima'), _('Vendas'), _('Variável'), _('Inbound'), _('Outbound'),
+            _('Manut.'), _('Margem'), _('Fixo'), _('EBTIDA'), _('EBTIDA (%)'), _('D&A'), _('IR (%)'),
+            _('MP'), _('WIP'), _('PF'), _('Total Est.'), _('Receber'), _('Pagar'), _('OWCR'),
+            _('CAPEX'), _('OFCF'),
+        ]]
 
         row_num += 1
         for col_num in range(len(columns)):
@@ -498,18 +504,18 @@ class TbCenariosAdmin(DjangoObjectActions, admin.ModelAdmin):
         for row in rows:
             id_mae = row[21]
             if row[22] == 1:  # Encontrou solução
-                solucao = 'Sim'
+                solucao = str(_('Sim'))
             else:
                 if row[22] == 0:  # Não encontrou solução
-                    solucao = 'Não'
+                    solucao = str(_('Não'))
                 else:
                     if row[22] == 2:
-                        solucao = 'Limpo'
+                        solucao = str(_('Limpo'))
                     else:
                         if row[22] == 3:
-                            solucao = 'Limpando'
+                            solucao = str(_('Limpando'))
                         else:
-                            solucao = 'Otimizando'
+                            solucao = str(_('Otimizando'))
 
             # Inserindo na lista new_rows
             list_aux = list(rows[linha_num])
@@ -608,7 +614,7 @@ class TbCenariosAdmin(DjangoObjectActions, admin.ModelAdmin):
             messages.error(request, 'ESSE CENÁRIO (' + str(
                 obj.id) + ') NÃO É O SEU CENÁRIO ATIVO. Operação não pode ser realizada!')
 
-    update_fluxos.label = "Atualizar Fluxos"  # optional
+    update_fluxos.label = _("Atualizar Fluxos")  # optional
 
     # Action limpar tabelas para novo cálculo da otimização
     def limpar_cenario(self, request, obj):
@@ -661,7 +667,7 @@ class TbCenariosAdmin(DjangoObjectActions, admin.ModelAdmin):
             messages.error(request, 'ESSE CENÁRIO (' + str(
                 obj.id) + ') NÃO É O SEU CENÁRIO ATIVO. Operação não pode ser realizada!')
 
-    limpar_cenario.label = "Limpar"  # optional
+    limpar_cenario.label = _("Limpar")  # optional
 
     # Action otimizar cenário
     def otimizar_cenario(self, request, obj):
@@ -711,7 +717,7 @@ class TbCenariosAdmin(DjangoObjectActions, admin.ModelAdmin):
             messages.error(request, 'ESSE CENÁRIO (' + str(
                 obj.id) + ') NÃO É O SEU CENÁRIO ATIVO. Operação não pode ser realizada!')
 
-    otimizar_cenario.label = "Otimizar"  # optional
+    otimizar_cenario.label = _("Otimizar")  # optional
 
     # Action status da otimização
     def status_otimizacao(self, request, obj):
@@ -741,7 +747,7 @@ class TbCenariosAdmin(DjangoObjectActions, admin.ModelAdmin):
                            'ESSE CENÁRIO (' + str(
                                obj.id) + ') NÃO É O SEU CENÁRIO ATIVO. Operação não pode ser realizada!')
 
-    status_otimizacao.label = "Status Otimização"  # optional
+    status_otimizacao.label = _("Status Otimização")  # optional
 
     # Action consolidar os resultados do cenário após otimização
     def consolidar_cenario(self, request, obj):
@@ -781,7 +787,7 @@ class TbCenariosAdmin(DjangoObjectActions, admin.ModelAdmin):
             messages.error(request, 'ESSE CENÁRIO (' + str(
                 obj.id) + ') NÃO É O SEU CENÁRIO ATIVO. Operação não pode ser realizada!')
 
-    consolidar_cenario.label = "Consolidar"  # optional
+    consolidar_cenario.label = _("Consolidar")  # optional
 
     # 🌟 NOVO: botão "Ativar Este Cenário" dentro do próprio registro,
     # reaproveitando a mesma lógica do botão da listagem.
@@ -801,7 +807,7 @@ class TbCenariosAdmin(DjangoObjectActions, admin.ModelAdmin):
         perfil.save()
         messages.success(request, f'Cenário {obj.id}/{obj.cen_nome} agora é o seu cenário ativo.')
 
-    ativar_cenario_action.label = "Ativar Este Cenário"
+    ativar_cenario_action.label = _("Ativar Este Cenário")
 
     change_actions = ('ativar_cenario_action', 'update_fluxos', 'limpar_cenario', 'otimizar_cenario',
                       'status_otimizacao', 'consolidar_cenario', 'exportar_excel_cenario')
@@ -1135,7 +1141,7 @@ admin.site.register(TbGlossario, TbGlossarioAdmin)
 class DefinirCenarioAtivoForm(forms.Form):
     _selected_action = forms.CharField(widget=forms.MultipleHiddenInput)
     cenario = forms.ModelChoiceField(
-        queryset=TbCenarios.objects.order_by('id'), label='Cenário', required=True
+        queryset=TbCenarios.objects.order_by('id'), label=_('Cenário'), required=True
     )
 
 

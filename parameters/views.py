@@ -1,13 +1,14 @@
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.contrib import messages
+from django.utils.translation import gettext as _
 from .agents import executar_agente_com_prompt_do_admin
-from .fluxo_criar_cenario import usuario_esta_em_fluxo
+from .fluxo_criar_cenario import usuario_esta_em_fluxo, MENSAGENS_FLAG
 from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from functools import wraps
-from .models import RelatorioPDF, HistoricoAgente, IDIOMA_CHOICES
+from .models import RelatorioPDF, HistoricoAgente, IDIOMA_CHOICES, TbEmpresa, TbCenarios
 from .contexto_usuario import eh_superuser_ou_superuser_empresa
 import datetime
 import re
@@ -44,6 +45,17 @@ def exige_acesso_ao_agente_ia(view_func):
             raise PermissionDenied("Você não tem permissão para acessar o Agente de IA.")
         return view_func(request, *args, **kwargs)
     return wrapper
+
+
+# 🌟 NOVO: conjunto fechado de palavras-chave que aparecem como VALOR de
+# botão nos fluxos do Agente IA -- sempre as mesmas palavras, em
+# português, reconhecidas por casamento exato no backend. Usado pra
+# gerar um rótulo traduzido só pra exibição, sem mudar o valor.
+_PALAVRAS_CHAVE_BOTAO = {
+    'Cancelar', 'Manter', 'Nenhum', 'Manual', 'Planilha', 'Sim', 'Não',
+    'Verificar', 'Já enviei a planilha', 'Gráfico de linha', 'Gráfico de barra',
+    'Concluir',
+}
 
 
 def _extrair_opcoes_clicaveis(texto):
@@ -133,6 +145,8 @@ def _extrair_opcoes_clicaveis(texto):
         opcoes.append('Cancelar')
     if re.search(r'"nenhum[oa]?"', texto, re.IGNORECASE) and 'Nenhum' not in opcoes:
         opcoes.append('Nenhum')
+    if re.search(r'"concluir"', texto, re.IGNORECASE) and 'Concluir' not in opcoes:
+        opcoes.append('Concluir')
 
     return opcoes[:12]
 
@@ -193,11 +207,17 @@ def chat_view(request):
 
         # Executa o agente passando a mensagem, os arquivos escolhidos e o usuário logado
         # (usado para isolar a memória de curto prazo e o histórico salvo por conta)
-        resposta, fontes = executar_agente_com_prompt_do_admin(mensagem, pdf_ids, request.user)
+        resposta, fontes, resposta_original = executar_agente_com_prompt_do_admin(mensagem, pdf_ids, request.user)
 
-        # 🌟 NOVO: extrai opções clicáveis do próprio texto da resposta,
-        # pra virarem botões no chat em vez do usuário ter que digitar.
-        opcoes = _extrair_opcoes_clicaveis(resposta)
+        # 🌟 CORRIGIDO: extrai as opções clicáveis do texto ORIGINAL (em
+        # português), não do texto já traduzido -- a extração procura
+        # frases exatas em português ("Indicadores cadastrados:", "(sim /
+        # não)", etc.), e um texto traduzido nunca bate com esse padrão.
+        # O VALOR de cada botão continua em português de propósito (é o
+        # que volta pro backend quando o usuário clica, e os fluxos
+        # reconhecem esse valor por casamento de texto em português --
+        # mesma lógica das "Ações Comuns" do menu lateral).
+        opcoes = _extrair_opcoes_clicaveis(resposta_original)
 
         # 🌟 CORRIGIDO: garante o botão "Cancelar" sempre que ainda existir
         # um fluxo em andamento DE VERDADE (checando o estado, não o texto
@@ -207,10 +227,24 @@ def chat_view(request):
         if usuario_esta_em_fluxo(request.user) and 'Cancelar' not in opcoes:
             opcoes.append('Cancelar')
 
+        # 🌟 CORRIGIDO (generalizado): os VALORES de "Manual", "Planilha",
+        # "Cancelar", "Manter", "Nenhum", "Sim", "Não", "Verificar" e "Já
+        # enviei a planilha" continuam em português de propósito -- são
+        # os textos que os fluxos reconhecem por casamento exato quando o
+        # usuário clica. Mas mandamos também um RÓTULO traduzido pra cada
+        # uma dessas palavras-chave conhecidas, que o front-end usa só
+        # pra exibição, sem mudar o valor que é enviado de volta.
+        rotulos_opcoes = {}
+        for opcao in opcoes:
+            rotulo = _(opcao) if opcao in _PALAVRAS_CHAVE_BOTAO else None
+            if rotulo:
+                rotulos_opcoes[opcao] = rotulo
+
         return JsonResponse({
             "resposta": resposta,
             "fontes": fontes,
-            "opcoes": opcoes
+            "opcoes": opcoes,
+            "rotulos_opcoes": rotulos_opcoes,
         })
 
     # No GET, renderiza a página trazendo os relatórios da empresa efetiva do usuário
@@ -223,6 +257,24 @@ def chat_view(request):
     else:
         relatorios = RelatorioPDF.objects.filter(ativo=True, empresa_id=empresa_id).order_by('-id')
 
+    # 🌟 NOVO: nome da empresa efetiva e do cenário ativo, pra mostrar no
+    # topo do chat -- o usuário sempre sabe em qual contexto está
+    # trabalhando, sem precisar ir noutra tela conferir.
+    nome_empresa = None
+    nome_cenario = None
+    status_cenario = None
+    if empresa_id is not None:
+        empresa_obj = TbEmpresa.objects.filter(id=empresa_id).first()
+        nome_empresa = empresa_obj.emp_nome if empresa_obj else None
+    if perfil and perfil.cenario_ativo_id:
+        cenario_obj = TbCenarios.objects_real.filter(id=perfil.cenario_ativo_id).first()
+        if cenario_obj:
+            nome_cenario = f"{cenario_obj.id}/{cenario_obj.cen_nome}"
+            if cenario_obj.flag is None:
+                status_cenario = _("Ainda não processado")
+            else:
+                status_cenario = _(MENSAGENS_FLAG.get(cenario_obj.flag, f"Desconhecido (flag={cenario_obj.flag})"))
+
     # 🌟 NOVO (multi-idioma, Fase 1): manda o idioma atual e a lista de
     # opções pro seletor de idioma no template.
     idioma_atual = perfil.idioma_efetivo() if perfil else 'pt-br'
@@ -230,6 +282,9 @@ def chat_view(request):
         "relatorios": relatorios,
         "idioma_atual": idioma_atual,
         "idioma_opcoes": IDIOMA_CHOICES,
+        "nome_empresa": nome_empresa,
+        "nome_cenario": nome_cenario,
+        "status_cenario": status_cenario,
     })
 
 

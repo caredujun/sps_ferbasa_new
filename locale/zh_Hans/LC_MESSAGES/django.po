@@ -667,8 +667,8 @@ msgstr "更新时间"
 msgid "Estado de Conversa do Agente"
 msgstr "助手对话状态"
 
-msgid "Relatório PDF"
-msgstr "PDF 报告"
+msgid "Relatório Consulta IA"
+msgstr "AI 查询报告"
 
 msgid "Ação"
 msgstr "操作"
@@ -697,8 +697,8 @@ msgstr "人工智能助手历史记录"
 msgid "Estados de Conversa do Agente"
 msgstr "助手对话状态"
 
-msgid "Relatórios PDF"
-msgstr "PDF 报告"
+msgid "Relatórios Consulta IA"
+msgstr "AI 查询报告"
 
 msgid "Precisa bater com o nome real do app Django (ex: \"custo_ferbasa\")."
 msgstr "必须与 Django 应用的真实名称一致（例如 \"custo_ferbasa\"）。"
@@ -2352,6 +2352,186 @@ msgstr "<a class=\"button\" href=\"{}\">激活</a>"
 
 msgid "<a href=\"/fluxo_producao/editor/{0}/\" class=\"button\" target=\"_blank\">Visualizar / Editar Fluxo</a>"
 msgstr "<a href=\"/fluxo_producao/editor/{0}/\" class=\"button\" target=\"_blank\">查看/编辑流程</a>"
+
+msgid "Atualizar Fluxos"
+msgstr "更新流程"
+
+msgid "Status Otimização"
+msgstr "优化状态"
+
+msgid "Ativar Este Cenário"
+msgstr "激活此方案"
+
+msgid "Update Preço/CustoVariável Adicionado"
+msgstr "更新价格/附加变动成本"
+
+msgid "Testar"
+msgstr "测试"
+
+msgid "Update Consumos Padrões"
+msgstr "更新标准消耗"
+
+msgid "Update Indicador"
+msgstr "更新指标"
+
+msgid "Atualizar Fluxo (Input/Output)"
+msgstr "更新流程（输入/输出）"
+
+msgid "Update Fluxo (PDF)"
+msgstr "更新流程（PDF）"
+
+msgid "Central de IA do SPS"
+msgstr "SPS 人工智能中心"
+
+msgid "Limpar Hoje"
+msgstr "清除今天"
+
+msgid "Limpar Últimos 7 dias"
+msgstr "清除最近7天"
+
+msgid "Limpar Todo o Histórico"
+msgstr "清除全部历史记录"
+
+msgid "Intervalo de Datas"
+msgstr "日期范围"
+
+msgid "até"
+msgstr "至"
+
+msgid "Executar Limpeza"
+msgstr "执行清理"
+
+msgid "Confirma a exclusão das mensagens do período selecionado?"
+msgstr "确认删除所选期间的消息吗？"
+
+msgid "⚠️ ATENÇÃO: Tem certeza de que deseja apagar permanentemente TODO o histórico?"
+msgstr "⚠️ 警告：您确定要永久删除全部历史记录吗？"
+
+msgid "Por favor, selecione as duas datas no calendário."
+msgstr "请在日历中选择两个日期。"
+
+msgid "A data de início não pode ser depois da data de fim."
+msgstr "开始日期不能晚于结束日期。"
+
+msgid "Erro: "
+msgstr "错误："
+
+msgid "Erro na comunicação com o servidor."
+msgstr "与服务器通信时出错。"
+
+msgid "Histórico limpo! Olá"
+msgstr "历史记录已清除！你好"
+
+msgid "o que posso fazer por você agora?"
+msgstr "现在我能为您做些什么？"
+
+msgid "Cancelar"
+msgstr "取消"
+
+msgid "Você"
+msgstr "您"
+
+msgid "Manual"
+msgstr "手动"
+
+msgid "Planilha"
+msgstr "电子表格"
+
+msgid "Sim"
+msgstr "是"
+
+msgid "Não"
+msgstr "否"
+
+msgid "Verificar"
+msgstr "检查"
+
+msgid "Já enviei a planilha"
+msgstr "我已经发送了表格"
+
+msgid "Manter"
+msgstr "保留"
+
+msgid "Nenhum"
+msgstr "无"
+
+msgid "Gráfico de linha"
+msgstr "折线图"
+
+msgid "Gráfico de barra"
+msgstr "柱状图"
+
+msgid "Plotar Gráfico"
+msgstr "绘制图表"
+
+msgid "Excluir Cenário"
+msgstr "删除方案"
+
+msgid "Concluir"
+msgstr "完成"
+
+msgid "CONSOLIDADO"
+msgstr "已整合"
+
+msgid "LIMPO"
+msgstr "已清理"
+
+msgid "OTIMIZADO"
+msgstr "已优化"
+
+msgid "OTIMIZANDO"
+msgstr "优化中"
+
+msgid "LIMPANDO"
+msgstr "清理中"
+
+msgid "CONSOLIDANDO"
+msgstr "整合中"
+
+msgid "ATUALIZANDO FLUXOS"
+msgstr "更新流程中"
+
+msgid "Ainda não processado"
+msgstr "尚未处理"
+
+msgid "Solução Ótima"
+msgstr "最优解"
+
+msgid "Limpo"
+msgstr "已清理"
+
+msgid "Limpando"
+msgstr "清理中"
+
+msgid "Otimizando"
+msgstr "优化中"
+
+msgid "RESULTADOS CENÁRIO "
+msgstr "方案结果 "
+
+msgid "RESULTADOS POR CENÁRIO"
+msgstr "按方案划分的结果"
+
+msgid "Id Cenário"
+msgstr "方案编号"
+
+msgid "Nome Cenário"
+msgstr "方案名称"
+
+msgid "Exportar Excel do Cenário Ativo"
+msgstr "导出当前方案 Excel"
+
+msgid "Resultados Cenário"
+msgstr "方案结果"
+
+msgid "Título do Relatório"
+msgstr "报告标题"
+
+msgid "Disponível para a IA"
+msgstr "对 AI 可用"
+
+msgid "Arquivo"
+msgstr "文件"
 
 #, python-format
 msgid "Olá %(nome_usuario)s! O que posso fazer por você hoje?"

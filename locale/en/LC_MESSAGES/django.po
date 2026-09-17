@@ -667,8 +667,8 @@ msgstr "Updated on"
 msgid "Estado de Conversa do Agente"
 msgstr "Agent Conversation State"
 
-msgid "Relatório PDF"
-msgstr "PDF Report"
+msgid "Relatório Consulta IA"
+msgstr "AI Query Report"
 
 msgid "Ação"
 msgstr "Action"
@@ -697,8 +697,8 @@ msgstr "AI Agent Histories"
 msgid "Estados de Conversa do Agente"
 msgstr "Agent Conversation States"
 
-msgid "Relatórios PDF"
-msgstr "PDF Reports"
+msgid "Relatórios Consulta IA"
+msgstr "AI Query Reports"
 
 msgid "Precisa bater com o nome real do app Django (ex: \"custo_ferbasa\")."
 msgstr "Needs to match the real Django app name (ex: \"custo_ferbasa\")."
@@ -2352,6 +2352,186 @@ msgstr "<a class=\"button\" href=\"{}\">Activate</a>"
 
 msgid "<a href=\"/fluxo_producao/editor/{0}/\" class=\"button\" target=\"_blank\">Visualizar / Editar Fluxo</a>"
 msgstr "<a href=\"/fluxo_producao/editor/{0}/\" class=\"button\" target=\"_blank\">View / Edit Flow</a>"
+
+msgid "Atualizar Fluxos"
+msgstr "Update Flows"
+
+msgid "Status Otimização"
+msgstr "Optimization Status"
+
+msgid "Ativar Este Cenário"
+msgstr "Activate This Scenario"
+
+msgid "Update Preço/CustoVariável Adicionado"
+msgstr "Update Price/Added Variable Cost"
+
+msgid "Testar"
+msgstr "Test"
+
+msgid "Update Consumos Padrões"
+msgstr "Update Standard Consumptions"
+
+msgid "Update Indicador"
+msgstr "Update Indicator"
+
+msgid "Atualizar Fluxo (Input/Output)"
+msgstr "Update Flow (Input/Output)"
+
+msgid "Update Fluxo (PDF)"
+msgstr "Update Flow (PDF)"
+
+msgid "Central de IA do SPS"
+msgstr "SPS AI Hub"
+
+msgid "Limpar Hoje"
+msgstr "Clear Today"
+
+msgid "Limpar Últimos 7 dias"
+msgstr "Clear Last 7 Days"
+
+msgid "Limpar Todo o Histórico"
+msgstr "Clear Entire History"
+
+msgid "Intervalo de Datas"
+msgstr "Date Range"
+
+msgid "até"
+msgstr "to"
+
+msgid "Executar Limpeza"
+msgstr "Run Cleanup"
+
+msgid "Confirma a exclusão das mensagens do período selecionado?"
+msgstr "Confirm deletion of messages from the selected period?"
+
+msgid "⚠️ ATENÇÃO: Tem certeza de que deseja apagar permanentemente TODO o histórico?"
+msgstr "⚠️ WARNING: Are you sure you want to permanently delete the ENTIRE history?"
+
+msgid "Por favor, selecione as duas datas no calendário."
+msgstr "Please select both dates in the calendar."
+
+msgid "A data de início não pode ser depois da data de fim."
+msgstr "The start date cannot be after the end date."
+
+msgid "Erro: "
+msgstr "Error: "
+
+msgid "Erro na comunicação com o servidor."
+msgstr "Error communicating with the server."
+
+msgid "Histórico limpo! Olá"
+msgstr "History cleared! Hello"
+
+msgid "o que posso fazer por você agora?"
+msgstr "what can I do for you now?"
+
+msgid "Cancelar"
+msgstr "Cancel"
+
+msgid "Você"
+msgstr "You"
+
+msgid "Manual"
+msgstr "Manual"
+
+msgid "Planilha"
+msgstr "Spreadsheet"
+
+msgid "Sim"
+msgstr "Yes"
+
+msgid "Não"
+msgstr "No"
+
+msgid "Verificar"
+msgstr "Check"
+
+msgid "Já enviei a planilha"
+msgstr "I already sent the spreadsheet"
+
+msgid "Manter"
+msgstr "Keep"
+
+msgid "Nenhum"
+msgstr "None"
+
+msgid "Gráfico de linha"
+msgstr "Line chart"
+
+msgid "Gráfico de barra"
+msgstr "Bar chart"
+
+msgid "Plotar Gráfico"
+msgstr "Plot Chart"
+
+msgid "Excluir Cenário"
+msgstr "Delete Scenario"
+
+msgid "Concluir"
+msgstr "Done"
+
+msgid "CONSOLIDADO"
+msgstr "CONSOLIDATED"
+
+msgid "LIMPO"
+msgstr "CLEANED"
+
+msgid "OTIMIZADO"
+msgstr "OPTIMIZED"
+
+msgid "OTIMIZANDO"
+msgstr "OPTIMIZING"
+
+msgid "LIMPANDO"
+msgstr "CLEANING"
+
+msgid "CONSOLIDANDO"
+msgstr "CONSOLIDATING"
+
+msgid "ATUALIZANDO FLUXOS"
+msgstr "UPDATING FLOWS"
+
+msgid "Ainda não processado"
+msgstr "Not processed yet"
+
+msgid "Solução Ótima"
+msgstr "Optimal Solution"
+
+msgid "Limpo"
+msgstr "Cleaned"
+
+msgid "Limpando"
+msgstr "Cleaning"
+
+msgid "Otimizando"
+msgstr "Optimizing"
+
+msgid "RESULTADOS CENÁRIO "
+msgstr "SCENARIO RESULTS "
+
+msgid "RESULTADOS POR CENÁRIO"
+msgstr "RESULTS BY SCENARIO"
+
+msgid "Id Cenário"
+msgstr "Scenario Id"
+
+msgid "Nome Cenário"
+msgstr "Scenario Name"
+
+msgid "Exportar Excel do Cenário Ativo"
+msgstr "Export Active Scenario Excel"
+
+msgid "Resultados Cenário"
+msgstr "Scenario Results"
+
+msgid "Título do Relatório"
+msgstr "Report Title"
+
+msgid "Disponível para a IA"
+msgstr "Available for the AI"
+
+msgid "Arquivo"
+msgstr "File"
 
 #, python-format
 msgid "Olá %(nome_usuario)s! O que posso fazer por você hoje?"

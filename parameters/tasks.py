@@ -13,8 +13,8 @@ from otimizacao.models import TbProdutoMercadoFluxo, TbProdutoMercadoFluxoDaugth
     TbProdutoMercado, TbProdutoMercadoDaugther, TbOtimizacaoCustoItemDaugther, TbOtimizacaoCustoItem, \
     TbOtimizacaoEquipamentosDaugther, TbOtimizacaoProduto, TbOtimizacaoProdutoDaugther, \
     TbOtimizacaoConjuntoEquipamentos, TbOtimizacaoShadow, TbOtimizacaoConjuntoEquipamentosDaugther
-from produtos.models import TbProdutos
-from tabelas.models import TbMercado, TbCustoItemPreco, TbCustoItem
+from produtos.models import TbProdutos, TbProdutoMercadoPreco, TbMercadoOutbound
+from tabelas.models import TbMercado, TbCustoItemPreco, TbCustoItem, TbCustoFixo, TbDepreAmorti, TbCapex
 from .models import *
 from django.db.models import Q
 
@@ -29,30 +29,6 @@ def verifica_filhas(self, id):
     transaction.commit()
 
     cursor = connection.cursor()
-
-    # 🌟 NOVO: ANALYZE (não confundir com VACUUM, que não pode rodar dentro
-    # de uma transação) nas tabelas que já confirmamos sofrerem com
-    # estatísticas desatualizadas em dias de uso intenso (muitas
-    # criações/exclusões/mudanças de período no mesmo cenário) --
-    # fluxos_tbfluxoproducao* e fluxos_tbfluxoproducaoinputoutput*. Sem
-    # isso, o Postgres pode escolher um plano de execução ruim pras
-    # consultas grandes que vêm a seguir, fazendo o processo levar de
-    # segundos a quase 1 hora, mesmo com os índices certos no lugar.
-    for tabela_para_analisar in (
-        'fluxos_tbfluxoproducao',
-        'fluxos_tbfluxoproducao01',
-        'fluxos_tbfluxoproducaodaugther',
-        'fluxos_tbfluxoproducaodaugther01',
-        'fluxos_tbfluxoproducaoinputoutput',
-        'fluxos_tbfluxoproducaoinputoutputdaugther',
-    ):
-        try:
-            cursor.execute(f"ANALYZE {tabela_para_analisar}")
-        except Exception as analyze_err:
-            # Não deixa uma tabela com nome errado ou temporariamente
-            # indisponível derrubar a task inteira -- só loga e segue.
-            print(f"⚠️ Não foi possível fazer ANALYZE em {tabela_para_analisar}: {analyze_err}")
-
     # Montando a expressão sql para rodar o Stored Procedure Verifica_Filha
 
     nome_tabela = 'tabelas_tbindicadores'
@@ -171,6 +147,31 @@ def remover_cenario_celery(self, id):
 
     # Dessa forma ativa todos os post e pode demorar
     cenario = TbCenarios.objects.get(id=id)
+
+    # 🌟 NOVO: vários campos apontam pra TbIndicadores com
+    # on_delete=PROTECT (pra evitar exclusão acidental de um indicador
+    # ainda em uso) -- isso bloqueia o cenario.delete() abaixo quando
+    # o cenário tem indicadores vinculados a esses registros. Como
+    # esses registros TAMBÉM pertencem a esse mesmo cenário (têm seu
+    # próprio tbcenarios_id), é seguro desfazer só esses vínculos
+    # específicos antes de excluir -- o resto do registro (e o próprio
+    # registro) é excluído normalmente logo em seguida, junto com o
+    # cenário.
+    TbProdutoMercadoPreco.objects.filter(tbcenarios_id=id).update(
+        pro_mer_pre_indicador=None,
+        pro_mer_pre_indicador_vol_min=None,
+        pro_mer_pre_indicador_vol_max=None,
+    )
+    TbMercadoOutbound.objects.filter(tbcenarios_id=id).update(mer_out_indicador=None)
+    TbEquipamentosCadastro.objects.filter(tbcenarios_id=id).update(equ_cad_indicador_manutencao=None)
+    TbCustoFixo.objects.filter(tbcenarios_id=id).update(fix_indicador=None)
+    TbDepreAmorti.objects.filter(tbcenarios_id=id).update(dep_indicador=None)
+    TbCapex.objects.filter(tbcenarios_id=id).update(cap_indicador=None)
+    TbCustoItemPreco.objects.filter(tbcenarios_id=id).update(
+        cus_ite_pre_indicador_preco=None,
+        cus_ite_pre_indicador_inbound=None,
+    )
+
     cenario.delete()
 
     # Vamos ajustar a sequência
@@ -504,81 +505,59 @@ def otimizar_cenario_celery(self, periodo, cen_ativo, total_variaveis):
     b_ub.extend(new_b_ub_function)
 
     # *******************************
-    # RESTRIÇÕES DE ITENS DE CUSTO VARIÁVEL POR PLANTA DE PRODUÇÃO / VESÃO ANTIGA / NÃO FIZEMOS FUNÇÃO NO BANCO DE DADOS PARA ESSE CASO
+    # RESTRIÇÕES DE ITENS DE CUSTO VARIÁVEL POR PLANTA DE PRODUÇÃO / VERSÃO NOVA
     # *******************************
-    # Podemos ter a nível de planta de produção restrição de volume de consumo para os itens de custo variável.
-    # Na tabela otimizacao_tbotimizacaocustoitem temos os itens de custo que poderão ser usados nessa otimização, e na filha otimizacao_tbotimizacaocustoitemdaugther
-    # temos se é para considerar os limites mínimos e máximos informados (campo Ativo) e o valores dos limites.
-    # Temos que abrir a tabela otimizacao_tbotimizacaocustoitemdaugther, e ir montando a lista de restrição para cada um dos itens por período.
-    # Vamos ver quantos itens de custo por planta nós temos na tabela otimizacao_tbotimizacaocustoitemdaugther que estão ativos(que devem ser considerados na restrição).
-    # Cada itens irá gerar duas linhas de restrições.
-    total_item_custo = TbOtimizacaoCustoItemDaugther.objects.filter(tbcenarios_id=cen_ativo, flag=True, dau_order=i + 1, dau_valor_4=True).count()
+    cursor = connection.cursor()
+    sql = "SELECT * from public.oti_restricao_custo_item_a_ub(" + str(i + 1) + ", " + str(cen_ativo) + ")"
+    cursor.execute(sql)
+    a_ub_function = cursor.fetchall()
+    cursor.close()
+    new_a_ub_function = []
 
+    for a_list in a_ub_function:
+        new = str(a_list).replace('([', '[')
+        new = new.replace('],)', ']')
+        new = new.replace("Decimal('0')", '0')
+        new = new.replace("Decimal('", '')
+        new = new.replace("')", '')
+        new = json.loads(new)
+        new_a_ub_function.append(new)
 
-    qs_item_custo    = TbOtimizacaoCustoItemDaugther.objects.filter(tbcenarios_id=cen_ativo, flag=True, dau_order=i + 1, dau_valor_4=True).order_by('id')
+    cursor = connection.cursor()
+    sql = "SELECT * from public.oti_restricao_custo_item_b_ub(" + str(i + 1) + ", " + str(cen_ativo) + ")"
+    cursor.execute(sql)
+    b_ub_function = cursor.fetchall()
+    cursor.close()
+    new_b_ub_function = []
 
-    for j in range(total_item_custo):
+    id_restricao_array = []
+    contador = 1
 
-        restricao_minimo = []
-        restricao_maximo = []
+    for b_list in b_ub_function:
+        new = str(b_list)
+        new = new.replace("(Decimal('", '')
+        new = new.replace("'),)", '')
+        if contador == 1:
+            id_restricao_array.append(int(new))
+        else:
+            new_b_ub_function.append(float(new))
 
-        # id_mae_custo_item_preco = TbOtimizacaoCustoItemDaugther.objects.get(id=qs_item_custo[j].id, dau_order=i + 1, flag=True).mae_id
-        id_mae_custo_item_preco = qs_item_custo[j].mae_id
-        id_custo_item_preco = TbOtimizacaoCustoItem.objects.get(id=id_mae_custo_item_preco).oti_cus_ite_item_id
+        contador += 1
+        if contador == 4:
+            # Significa que já lançou na array o mínimo e máximo do item de custo.
+            contador = 1
 
-        # Vamos pegar o id na Tabela de Custo Item
+    for id_restricao in id_restricao_array:
+        # id_restricao aqui é o id na tabela TbOtimizacaoCustoItem (a "mãe" do
+        # item de custo pra esse cenário) -- navega até o nome de exibição de
+        # verdade (TbCustoItem), igual a versão antiga fazia.
+        id_custo_item_preco = TbOtimizacaoCustoItem.objects.get(id=id_restricao).oti_cus_ite_item_id
         id_custo_item = TbCustoItemPreco.objects.get(id=id_custo_item_preco).cus_ite_pre_item_id
-
-        # Vamos pegar o nome do item de custo
         nome_item_custo = TbCustoItem.objects.get(id=id_custo_item).cus_ite_nome
+        nome_restricao_array.append([nome_item_custo, 'IC', id_restricao, id_restricao])
 
-        limite_minimo = (-1.0) * float(qs_item_custo[j].dau_valor_1)
-        limite_maximo = (+1.0) * float(qs_item_custo[j].dau_valor_2)
-
-        nome_restricao_array.append([nome_item_custo, 'IC', id_mae_custo_item_preco, id_mae_custo_item_preco]) # o penúltimo  é o id do item de custo na tabela TbOtimizacaoCustoItem, e o último é o id do item de custo na tabela TbOtimizacaoCustoItem
-
-        # Temos que agora ir na tabela das variáveis e verificar se o fluxo de produção está usando esse item de custo e somar o output real. O mesmo item pode
-        # estar sendo usando em diferentes equipamentos do fluxo de produção.
-        for k in range(total_variaveis):
-            coeficiente_variavel = 0
-            # id_fluxo = TbProdutoMercadoFluxo.objects.get(id=qs_mae[k].id).pro_mer_flu_produto_id
-            id_fluxo = qs_mae[k].pro_mer_flu_fluxo_producao_id
-            # Vamos percorrer os equipamentos do fluxo e verificar se está usando o item de custo.
-            # Temos os equipamentos/order (order de produção) na tabela fluxos_tbfluxoproducaoinputoutput, campo flu_pro_inp_out_equipamento_id para campo mae_id = id_fluxo (id do fluxo de produção).
-            # Vamos criar uma query_set para termos os equipamentos do fluxo
-            qs_equipamentos_fluxo = TbFluxoProducaoInputOutput.objects.filter(tbcenarios_id=cen_ativo, mae_id=id_fluxo)
-
-            # Vamos montar um query_set só com o id e id do equipamento/order
-            qs_equipamento_order = qs_equipamentos_fluxo.values_list('id', 'flu_pro_inp_out_equipamento_id', )
-            for qs in qs_equipamento_order:
-
-                id_equipamento_mae = qs[0]
-                id_equipamento_order = qs[1]
-
-                # Vamos ver se esse equipamento usa o item de custo.
-                if TbEquipamentosConsumoEspecifico.objects.filter(
-                        equ_con_esp_equipamento_id=id_equipamento_order,
-                        equ_con_esp_custoitempreco_id=id_custo_item_preco).count() > 0:
-                    id_mae_equipamento_consumo_especifico = TbEquipamentosConsumoEspecifico.objects.get(
-                        equ_con_esp_equipamento_id=id_equipamento_order,
-                        equ_con_esp_custoitempreco_id=id_custo_item_preco).id
-                    # O equipamento está usando o item de custo. Temos que pegar o consumo especifico e output real nas filhas correspondentes
-                    consumo_específico = TbEquipamentosConsumoEspecificoDaugther.objects.get(
-                        mae_id=id_mae_equipamento_consumo_especifico, dau_order=i + 1).dau_valor
-                    # Vamos agora pegar o outputreal do equipamento no fluxo de produção
-                    output_real_equipamento = TbFluxoProducaoInputOutputDaugther.objects.get(
-                        mae_id=id_equipamento_mae, dau_order=i + 1).dau_valor_4
-                    coeficiente_variavel = coeficiente_variavel + consumo_específico * output_real_equipamento
-
-            # sempre o mínimo e depois o máximo
-            restricao_minimo.append((-1) * coeficiente_variavel)
-            restricao_maximo.append(coeficiente_variavel)
-
-        A_ub.append(restricao_minimo)
-        b_ub.append(limite_minimo)
-
-        A_ub.append(restricao_maximo)
-        b_ub.append(limite_maximo)
+    A_ub.extend(new_a_ub_function)
+    b_ub.extend(new_b_ub_function)
 
     if c:  # c é a lista com a função objetivo. Se estiver vazia significa que não tem nada para otimizar.
         # Vamos resolver

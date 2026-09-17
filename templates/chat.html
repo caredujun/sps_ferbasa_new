@@ -7,9 +7,10 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/l10n/pt.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
     <style>
         body { font-family: "Roboto", Arial, sans-serif; background-color: #f8f9fa; margin: 0; padding: 20px; display: flex; justify-content: center; }
-        .app-container { display: flex; gap: 20px; max-width: 1350px; width: 100%; margin: 40px auto; }
+        .app-container { display: flex; gap: 20px; max-width: 1650px; width: 100%; margin: 40px auto; }
 
         .sidebar { width: 280px; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); padding: 20px; height: fit-content; }
         .chat-container { flex: 1; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); padding: 20px; }
@@ -149,24 +150,40 @@
         <div class="chat-container">
             <!-- PAINEL DE CONTROLE DE LIMPEZA INTEGRADO NO TOPO -->
             <div style="display: flex; gap: 10px; align-items: center; background: #fff; padding: 10px; border-radius: 6px; border: 1px solid #eee; margin-bottom: 15px; flex-wrap: wrap;">
-                <h2 style="margin: 0; padding: 0; border: none; flex: 1; font-size: 20px;">🤖 Central de IA do SPS</h2>
+                <h2 style="margin: 0; padding: 0; border: none; flex: 1; font-size: 20px;">🤖 {% trans "Central de IA do SPS" %}</h2>
 
                 <select id="seletor-periodo" style="padding: 6px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px; cursor: pointer; background: #fff;">
-                    <option value="hoje">Limpar Hoje</option>
-                    <option value="7_dias">Limpar Últimos 7 dias</option>
-                    <option value="tudo">Limpar Todo o Histórico</option>
-                    <option value="personalizado">Intervalo de Datas</option>
+                    <option value="hoje">{% trans "Limpar Hoje" %}</option>
+                    <option value="7_dias">{% trans "Limpar Últimos 7 dias" %}</option>
+                    <option value="tudo">{% trans "Limpar Todo o Histórico" %}</option>
+                    <option value="personalizado">{% trans "Intervalo de Datas" %}</option>
                 </select>
 
                 <!-- Campos de data com calendário nativo do navegador -->
                 <div id="campos-datas-personalizadas" style="display: none; gap: 6px; align-items: center;">
                     <input type="text" id="data-inicio" class="input-data" placeholder="dd/mm/aaaa" readonly>
-                    <span style="font-size: 12px; color: #777;">até</span>
+                    <span style="font-size: 12px; color: #777;">{% trans "até" %}</span>
                     <input type="text" id="data-fim" class="input-data" placeholder="dd/mm/aaaa" readonly>
                 </div>
 
-                <button type="button" id="btn-limpar" style="padding: 7px 14px; background-color: #d32f2f; font-size: 12px; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Executar Limpeza</button>
+                <button type="button" id="btn-limpar" style="padding: 7px 14px; background-color: #d32f2f; font-size: 12px; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">{% trans "Executar Limpeza" %}</button>
             </div>
+
+            <!-- 🌟 NOVO: barra de contexto -- empresa, cenário ativo e status,
+            pra o usuário sempre saber onde está trabalhando dentro do SPS. -->
+            {% if nome_empresa or nome_cenario %}
+            <div style="display: flex; gap: 16px; align-items: center; justify-content: center; background: #fff3b0; padding: 8px 12px; border-radius: 6px; border: 1px solid #e8d878; margin-bottom: 15px; font-size: 13px; color: #5c4d00; font-weight: bold; flex-wrap: nowrap; overflow-x: auto; white-space: nowrap;">
+                {% if nome_empresa %}
+                <span>🏢 <strong>{% trans "Empresa" %}:</strong> {{ nome_empresa }}</span>
+                {% endif %}
+                {% if nome_cenario %}
+                <span>📊 <strong>{% trans "Cenário Ativo" %}:</strong> {{ nome_cenario }}</span>
+                {% endif %}
+                {% if status_cenario %}
+                <span>🚦 <strong>{% trans "Status" %}:</strong> {{ status_cenario }}</span>
+                {% endif %}
+            </div>
+            {% endif %}
 
             <div id="chat-box">
                 <p id="placeholder-text" style="color: gray;"><em>{% blocktrans with nome_usuario=user.first_name|default:user.username %}Olá {{ nome_usuario }}! O que posso fazer por você hoje?{% endblocktrans %}</em></p>
@@ -202,6 +219,8 @@
                     <option value="otimizar cenário">{% trans "Otimizar" %}</option>
                     <option value="consolidar cenário">{% trans "Consolidar" %}</option>
                     <option value="limpar, otimizar e consolidar o cenário">{% trans "Ciclo completo (limpar, otimizar e consolidar)" %}</option>
+                    <option value="excluir um cenário">{% trans "Excluir Cenário" %}</option>
+                    <option value="exportar o cenário ativo em excel">{% trans "Exportar Excel do Cenário Ativo" %}</option>
                 </select>
             </div>
 
@@ -213,6 +232,7 @@
                     <option value="criar um indicador novo">{% trans "Criar novo" %}</option>
                     <option value="reajustar indicador em massa">{% trans "Reajuste em massa" %}</option>
                     <option value="eliminar um indicador">{% trans "Eliminar" %}</option>
+                    <option value="plotar gráfico de um indicador">{% trans "Plotar Gráfico" %}</option>
                 </select>
             </div>
 
@@ -224,6 +244,7 @@
                     <option value="criar uma taxa de câmbio nova">{% trans "Criar nova" %}</option>
                     <option value="reajustar câmbio em massa">{% trans "Reajuste em massa" %}</option>
                     <option value="eliminar uma taxa de câmbio">{% trans "Eliminar" %}</option>
+                    <option value="plotar gráfico de uma taxa de câmbio">{% trans "Plotar Gráfico" %}</option>
                 </select>
             </div>
         </div>
@@ -231,6 +252,29 @@
     <script>
         // Nome do usuário logado, escapado com segurança para uso dentro de strings JS
         var NOME_USUARIO = "{{ user.first_name|default:user.username|escapejs }}";
+
+        // Textos traduzidos usados nos alertas/confirmações de limpeza de histórico
+        {% trans "Confirma a exclusão das mensagens do período selecionado?" as MSG_CONFIRMA_PERIODO %}
+        {% trans "⚠️ ATENÇÃO: Tem certeza de que deseja apagar permanentemente TODO o histórico?" as MSG_CONFIRMA_TUDO %}
+        {% trans "Por favor, selecione as duas datas no calendário." as MSG_SELECIONE_DATAS %}
+        {% trans "A data de início não pode ser depois da data de fim." as MSG_DATA_INVALIDA %}
+        {% trans "Erro: " as MSG_ERRO_PREFIXO %}
+        {% trans "Erro na comunicação com o servidor." as MSG_ERRO_SERVIDOR %}
+        {% trans "Histórico limpo! Olá" as MSG_HISTORICO_LIMPO %}
+        {% trans "o que posso fazer por você agora?" as MSG_O_QUE_POSSO_FAZER %}
+        {% trans "Você" as ROTULO_VOCE %}
+        {% trans "Agente IA" as ROTULO_AGENTE %}
+        var MSG_CONFIRMA_PERIODO = "{{ MSG_CONFIRMA_PERIODO|escapejs }}";
+        var MSG_CONFIRMA_TUDO = "{{ MSG_CONFIRMA_TUDO|escapejs }}";
+        var MSG_SELECIONE_DATAS = "{{ MSG_SELECIONE_DATAS|escapejs }}";
+        var MSG_DATA_INVALIDA = "{{ MSG_DATA_INVALIDA|escapejs }}";
+        var MSG_ERRO_PREFIXO = "{{ MSG_ERRO_PREFIXO|escapejs }}";
+        var MSG_ERRO_SERVIDOR = "{{ MSG_ERRO_SERVIDOR|escapejs }}";
+        var MSG_HISTORICO_LIMPO = "{{ MSG_HISTORICO_LIMPO|escapejs }}";
+        var MSG_O_QUE_POSSO_FAZER = "{{ MSG_O_QUE_POSSO_FAZER|escapejs }}";
+        var ROTULO_VOCE = "{{ ROTULO_VOCE|escapejs }}";
+        var ROTULO_AGENTE = "{{ ROTULO_AGENTE|escapejs }}";
+
         function escapeHtml(str) {
             return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         }
@@ -238,6 +282,14 @@
         // 🌟 NOVO: chamada pelo onclick dos botões de opção clicável --
         // preenche o campo de mensagem com a opção escolhida e envia,
         // como se o usuário tivesse digitado e apertado Enter.
+        // 🌟 NOVO: quando a mensagem vem de um dropdown de "Ações Comuns",
+        // o VALOR enviado ao servidor precisa continuar em português (é
+        // reconhecido por casamento de texto), mas o texto MOSTRADO no
+        // chat como "Você: ..." deve ser o rótulo traduzido que já
+        // aparecia no próprio menu. Essa variável guarda esse rótulo só
+        // pra próxima mensagem enviada; reseta logo em seguida.
+        var rotuloExibicaoOverride = null;
+
         function escolherOpcao(opcao) {
             var botoes = document.querySelectorAll('.botao-opcao');
             botoes.forEach(function(b) { b.disabled = true; b.style.opacity = '0.5'; b.style.cursor = 'default'; });
@@ -253,6 +305,10 @@
         function dispararAcaoDropdown(select) {
             var valor = select.value;
             if (!valor) return;
+            // Captura o texto visível da opção escolhida (já traduzido,
+            // vem da tag de tradução do próprio <option>) pra mostrar no chat
+            // no lugar do valor em português.
+            rotuloExibicaoOverride = select.options[select.selectedIndex].text;
             escolherOpcao(valor);
             select.selectedIndex = 0;
         }
@@ -310,6 +366,14 @@
 
             return { html: html, proximoIndice: j };
         }
+        // 🌟 NOVO: gráficos que o Agente IA pediu pra desenhar nessa resposta.
+        // processarRespostaCompleta só monta o HTML (com um <canvas> vazio,
+        // de placeholder); o Chart.js só consegue desenhar de verdade DEPOIS
+        // que esse HTML já estiver no DOM -- por isso guardamos a config aqui
+        // e desenhamos os gráficos logo depois de inserir o HTML no chat.
+        var graficosPendentes = [];
+        var proximoIdGrafico = 0;
+
         function processarRespostaCompleta(texto) {
             if (!texto) return "";
             var linhas = texto.split('\n');
@@ -330,6 +394,33 @@
             while (i < linhas.length) {
                 var linhaRaw = linhas[i];
                 var linha = linhaRaw.trim();
+
+                // 🌟 NOVO: bloco ```chart ... ``` -- o Agente IA usa esse
+                // formato quando um gráfico ajuda mais que texto/tabela.
+                if (linha.indexOf('```chart') === 0) {
+                    fecharLista();
+                    var linhasJson = [];
+                    var j = i + 1;
+                    while (j < linhas.length && linhas[j].trim() !== '```') {
+                        linhasJson.push(linhas[j]);
+                        j++;
+                    }
+                    try {
+                        var config = JSON.parse(linhasJson.join('\n'));
+                        var idCanvas = 'grafico-agente-' + (proximoIdGrafico++);
+                        graficosPendentes.push({ id: idCanvas, config: config });
+                        saida.push(
+                            '<div style="max-width: 560px; margin: 10px 0; background:#fff; border:1px solid #eee; border-radius:8px; padding:12px;">' +
+                            '<canvas id="' + idCanvas + '"></canvas></div>'
+                        );
+                    } catch (erroGrafico) {
+                        // JSON malformado (raro) -- não quebra o resto da resposta,
+                        // só não mostra o gráfico dessa parte.
+                        console.error('[chart] JSON inválido:', erroGrafico);
+                    }
+                    i = (j < linhas.length) ? j + 1 : j;
+                    continue;
+                }
 
                 if (!linha) {
                     fecharLista();
@@ -387,6 +478,23 @@
             return saida.join('');
         }
 
+        // 🌟 NOVO: desenha de verdade, via Chart.js, cada gráfico que o
+        // Agente IA pediu na resposta -- precisa rodar DEPOIS do HTML (com
+        // os <canvas> vazios) já estar inserido no chat, senão o elemento
+        // ainda não existe no DOM e o Chart.js não tem onde desenhar.
+        function desenharGraficosPendentes() {
+            graficosPendentes.forEach(function(item) {
+                var canvas = document.getElementById(item.id);
+                if (!canvas || typeof Chart === 'undefined') return;
+                try {
+                    new Chart(canvas.getContext('2d'), item.config);
+                } catch (erroDesenho) {
+                    console.error('[chart] erro ao desenhar:', erroDesenho);
+                }
+            });
+            graficosPendentes = [];
+        }
+
         function inlineMatchOli(str) {
             return str.match(/^(\s*)(\d+)\.\s+(.*)/);
         }
@@ -417,9 +525,9 @@
             e.stopImmediatePropagation();
 
             var seletorPeriodo = document.getElementById('seletor-periodo').value;
-            var confirmacaoTexto = 'Confirma a exclusão das mensagens do período selecionado?';
+            var confirmacaoTexto = MSG_CONFIRMA_PERIODO;
             if (seletorPeriodo === 'tudo') {
-                confirmacaoTexto = '⚠️ ATENÇÃO: Tem certeza de que deseja apagar permanentemente TODO o histórico?';
+                confirmacaoTexto = MSG_CONFIRMA_TUDO;
             }
             if (!confirm(confirmacaoTexto)) return;
 
@@ -432,11 +540,11 @@
                 var campoDataFim = inputFim.value;     // formato yyyy-mm-dd
 
                 if (!campoDataInicio || !campoDataFim) {
-                    alert('Por favor, selecione as duas datas no calendário.');
+                    alert(MSG_SELECIONE_DATAS);
                     return;
                 }
                 if (campoDataInicio > campoDataFim) {
-                    alert('A data de início não pode ser depois da data de fim.');
+                    alert(MSG_DATA_INVALIDA);
                     return;
                 }
 
@@ -454,14 +562,14 @@
                 if (data.status === 'sucesso') {
                     var box = document.getElementById('chat-box');
                     if (box) {
-                        box.innerHTML = '<p id="placeholder-text" style="color: gray;"><em>Histórico limpo! Olá ' + NOME_USUARIO + ', o que posso fazer por você agora?</em></p>';
+                        box.innerHTML = '<p id="placeholder-text" style="color: gray;"><em>' + MSG_HISTORICO_LIMPO + ' ' + NOME_USUARIO + ', ' + MSG_O_QUE_POSSO_FAZER + '</em></p>';
                     }
                 } else {
-                    alert('Erro: ' + data.mensagem);
+                    alert(MSG_ERRO_PREFIXO + data.mensagem);
                 }
             })
             .catch(function(error) {
-                alert('Erro na comunicação com o servidor.');
+                alert(MSG_ERRO_SERVIDOR);
             });
         });
 
@@ -568,10 +676,17 @@
             var textoMensagem = input.value.trim();
             if (!textoMensagem) return;
 
+            // 🌟 NOVO: se essa mensagem veio de um dropdown de "Ações
+            // Comuns", mostra o rótulo traduzido em vez do valor em
+            // português -- o valor continua sendo o que é enviado no
+            // POST (textoMensagem, mais abaixo), só a exibição muda.
+            var textoExibicaoUsuario = rotuloExibicaoOverride || textoMensagem;
+            rotuloExibicaoOverride = null;
+
             var ph = document.getElementById('placeholder-text');
             if (ph) ph.remove();
 
-            chatBox.innerHTML += '<div class="chat-box-p"><strong>Você:</strong> ' + escapeHtml(textoMensagem) + '</div>';
+            chatBox.innerHTML += '<div class="chat-box-p"><strong>' + ROTULO_VOCE + ':</strong> ' + escapeHtml(textoExibicaoUsuario) + '</div>';
             input.value = '';
             chatBox.scrollTop = chatBox.scrollHeight;
 
@@ -624,13 +739,20 @@
                     opcoesHtml = '<div class="opcoes-clicaveis">';
                     data.opcoes.forEach(function(opcao) {
                         var opcaoEscapadaJs = escapeHtml(opcao).replace(/'/g, "\\'");
-                        opcoesHtml += '<button type="button" class="botao-opcao" onclick="escolherOpcao(\'' + opcaoEscapadaJs + '\')">' + escapeHtml(opcao) + '</button>';
+                        // 🌟 CORRIGIDO (generalizado): o valor enviado ao clicar
+                        // (opcaoEscapadaJs) continua sendo o texto original em
+                        // português -- só o TEXTO MOSTRADO no botão muda pro
+                        // rótulo traduzido, quando existir no dicionário mandado
+                        // pelo back-end (Manual, Planilha, Cancelar, Sim, Não, etc.).
+                        var textoExibido = (data.rotulos_opcoes && data.rotulos_opcoes[opcao]) || opcao;
+                        opcoesHtml += '<button type="button" class="botao-opcao" onclick="escolherOpcao(\'' + opcaoEscapadaJs + '\')">' + escapeHtml(textoExibido) + '</button>';
                     });
                     opcoesHtml += '</div>';
                 }
 
                 var textoLimpoHTML = processarRespostaCompleta(data.resposta || data.resposta_ia);
-                chatBox.innerHTML += '<div class="chat-box-p" style="color: #2b2b2b;"><strong style="color: #0056b3;">Agente IA:</strong><div style="margin-top: 5px;">' + textoLimpoHTML + '</div>' + fontesHtml + opcoesHtml + '</div>';
+                chatBox.innerHTML += '<div class="chat-box-p" style="color: #2b2b2b;"><strong style="color: #0056b3;">' + ROTULO_AGENTE + ':</strong><div style="margin-top: 5px;">' + textoLimpoHTML + '</div>' + fontesHtml + opcoesHtml + '</div>';
+                desenharGraficosPendentes();
                 chatBox.scrollTop = chatBox.scrollHeight;
             })
             .catch(function(error) {

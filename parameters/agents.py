@@ -1,4 +1,5 @@
 import os
+import json
 import re
 from pathlib import Path
 from dotenv import load_dotenv
@@ -10,7 +11,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.messages import HumanMessage, AIMessage
 
 # Seus modelos do Django Admin
-from .models import AgenteConfig, HistoricoAgente, RelatorioPDF
+from .models import AgenteConfig, HistoricoAgente, RelatorioPDF, IDIOMA_CHOICES, TbCenarios
 
 # 🌟 NOVO: wizard de criação de cenário via conversa
 from .fluxo_criar_cenario import (
@@ -18,8 +19,10 @@ from .fluxo_criar_cenario import (
     iniciar_fluxo_indicadores, iniciar_fluxo_cambio, processar_mensagem_fluxo,
     iniciar_download_planilha_indicador, iniciar_download_planilha_cambio,
     identificar_tipo_planilha_reenviada, iniciar_fluxo_processar, iniciar_consulta_status,
-    iniciar_ciclo_completo,
+    iniciar_ciclo_completo, iniciar_fluxo_excluir_cenario, iniciar_exportar_excel_cenario_ativo,
     _processar_planilha_indicador, _processar_planilha_cambio,
+    _buscar_indicador, _lista_indicadores, _lista_periodos_indicador,
+    _buscar_cambio, _lista_cambios, _lista_periodos_cambio,
 )
 
 # Carrega as variáveis de ambiente do arquivo .env localizado na raiz do projeto
@@ -181,6 +184,20 @@ def _detectar_intencao_criar_cenario(mensagem):
 # qualquer lugar da frase, em qualquer ordem -- bem mais robusto.
 PADRAO_MUDAR = re.compile(r"mud[ae]r?|alter[ae]r?|troc[ae]r?|atualiz[ae]r?", re.IGNORECASE)
 PADRAO_CENARIO = re.compile(r"cen[aá]rio", re.IGNORECASE)
+PADRAO_EXCLUIR_ACAO = re.compile(r"elimin|apag|exclu[ií]|delet|remov", re.IGNORECASE)
+
+
+def _detectar_intencao_excluir_cenario(mensagem):
+    texto = mensagem or ""
+    return bool(PADRAO_EXCLUIR_ACAO.search(texto) and PADRAO_CENARIO.search(texto))
+
+
+PADRAO_EXPORTAR = re.compile(r"export", re.IGNORECASE)
+
+
+def _detectar_intencao_exportar_cenario(mensagem):
+    texto = mensagem or ""
+    return bool(PADRAO_EXPORTAR.search(texto) and PADRAO_CENARIO.search(texto))
 PADRAO_TIPO_OU_PERIODO = re.compile(r"\btipo\b|per[ií]odo", re.IGNORECASE)
 
 
@@ -200,7 +217,7 @@ def _detectar_intencao_mudar_cenario(mensagem):
 PADRAO_INDICADOR = re.compile(r"indicador", re.IGNORECASE)
 PADRAO_ACAO_INDICADOR = re.compile(
     r"mud[ae]r?|alter[ae]r?|troc[ae]r?|edit[ae]r?|atualiz[ae]r?|cri[ae]r?|cadastr[ae]r?|reajust|"
-    r"elimin|apag|exclu[ií]|delet|remov",
+    r"elimin|apag|exclu[ií]|delet|remov|gr[áa]fico|plot[ae]r?",
     re.IGNORECASE
 )
 
@@ -421,7 +438,294 @@ def _extrair_linhas_do_arquivo(caminho_fisico, nome_arquivo):
     return []
 
 
-def executar_agente_com_prompt_do_admin(mensagem_usuario: str, pdf_ids: list, usuario) -> tuple:
+_PALAVRAS_CHAVE_ENTRE_ASPAS = {
+    'cancelar': {'en': 'cancel', 'es': 'cancelar', 'fr': 'annuler', 'de': 'abbrechen', 'it': 'annulla', 'zh-hans': '取消'},
+    'manter': {'en': 'keep', 'es': 'mantener', 'fr': 'conserver', 'de': 'beibehalten', 'it': 'mantieni', 'zh-hans': '保留'},
+    'nenhum': {'en': 'none', 'es': 'ninguno', 'fr': 'aucun', 'de': 'keine', 'it': 'nessuno', 'zh-hans': '无'},
+}
+
+
+def _forcar_traducao_palavras_chave(texto: str, codigo_idioma: str) -> str:
+    """
+    🌟 NOVO: os fluxos determinísticos (criar/editar cenário, indicadores,
+    câmbio) sempre usam as mesmas 3 palavras entre aspas como instrução
+    pro usuário -- "cancelar", "manter", "nenhum" (ex: 'ou "cancelar" pra
+    desistir'). A tradução via IA (chamada em
+    `_traduzir_resposta_se_necessario`) é boa mas não 100% consistente
+    pra esses casos -- às vezes esquece de traduzir uma dessas palavras
+    (visto em alemão: "cancelar" ficou sem traduzir enquanto o resto do
+    texto traduziu certo). Como sabemos exatamente quais palavras são e
+    o padrão exato (sempre entre aspas), garantimos a tradução delas por
+    substituição direta, sem depender da IA acertar sempre.
+
+    Roda DEPOIS da tradução via IA: se a IA já tiver traduzido a palavra
+    (não vai mais achar "cancelar" entre aspas no texto), não faz nada;
+    se sobrou a palavra em português, corrige.
+    """
+    if not codigo_idioma or codigo_idioma == 'pt-br' or not texto:
+        return texto
+
+    for palavra_pt, traducoes in _PALAVRAS_CHAVE_ENTRE_ASPAS.items():
+        traduzida = traducoes.get(codigo_idioma)
+        if not traduzida:
+            continue
+        # Cobre aspas retas (") e curvas (" ") ao redor da palavra
+        for aspa_abre, aspa_fecha in [('"', '"'), ('\u201c', '\u201d')]:
+            padrao_original = f'{aspa_abre}{palavra_pt}{aspa_fecha}'
+            if padrao_original.lower() in texto.lower():
+                texto = re.sub(
+                    re.escape(padrao_original), f'{aspa_abre}{traduzida}{aspa_fecha}',
+                    texto, flags=re.IGNORECASE
+                )
+    return texto
+
+
+def _traduzir_resposta_se_necessario(texto: str, codigo_idioma: str) -> str:
+    """
+    🌟 NOVO: traduz a resposta FINAL do Agente IA pro idioma ativo do
+    usuário, com uma chamada separada e dedicada só pra tradução --
+    não depende do sistema de locale/gettext (que só funciona pra
+    textos fixos da interface, não pra conteúdo gerado dinamicamente
+    pela IA). Isso resolve o problema de o modelo "ignorar" a instrução
+    de idioma quando o contexto (relatórios, etc.) está em português.
+
+    Se o idioma já é português (o idioma "nativo" das respostas, dado
+    que os dados-fonte são em português) ou se algo falhar na tradução,
+    devolve o texto original sem quebrar o fluxo -- pior caso, o
+    usuário recebe a resposta em português como sempre foi.
+    """
+    if not codigo_idioma or codigo_idioma == 'pt-br' or not texto:
+        return texto
+
+    nome_idioma = dict(IDIOMA_CHOICES).get(codigo_idioma, codigo_idioma)
+
+    # 🌟 NOVO: protege os blocos ```chart``` (JSON) ANTES de mandar pra
+    # tradução, trocando cada um por um placeholder que não parece texto
+    # traduzível -- e recoloca o bloco original, intacto, depois. Não
+    # depende da IA de tradução "obedecer" a instrução de não mexer no
+    # JSON (já vimos ela falhar em instruções parecidas, tipo a palavra
+    # "cancelar" -- aqui o risco é maior, JSON quebrado derruba o
+    # gráfico inteiro).
+    blocos_grafico = re.findall(r'```chart\s*\n.*?\n```', texto, re.DOTALL)
+    texto_protegido = texto
+    for indice, bloco in enumerate(blocos_grafico):
+        texto_protegido = texto_protegido.replace(bloco, f'[[[GRAFICO_{indice}]]]', 1)
+
+    try:
+        from groq import Groq
+        client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+
+        response = client.chat.completions.create(
+            model="openai/gpt-oss-120b",
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        f"Você é um tradutor técnico. Traduza o texto do usuário para "
+                        f"{nome_idioma} (código de idioma: {codigo_idioma}). "
+                        "Preserve EXATAMENTE todos os números, valores monetários, "
+                        "percentuais, nomes próprios, siglas técnicas (como EBITDA, "
+                        "CAPEX, WIP) e a formatação (markdown, listas, quebras de "
+                        "linha) do texto original. Se aparecer um marcador como "
+                        "[[[GRAFICO_0]]], copie ele EXATAMENTE igual, sem traduzir "
+                        "nem alterar nada dentro dos colchetes. Responda APENAS com "
+                        "o texto traduzido, sem nenhum comentário adicional, sem "
+                        "repetir o texto original e sem explicar o que você fez."
+                    ),
+                },
+                {"role": "user", "content": texto_protegido},
+            ],
+            temperature=0.1,
+            timeout=30,
+        )
+        traduzido = response.choices[0].message.content
+        traduzido = traduzido.strip() if traduzido else texto_protegido
+
+        # Recoloca os blocos de gráfico originais, intactos, no lugar dos
+        # placeholders -- não importa o que a IA de tradução tenha feito
+        # com o marcador (traduziu, manteve, alterou), o resultado final
+        # sempre tem o JSON original, sem risco de quebrar.
+        for indice, bloco in enumerate(blocos_grafico):
+            traduzido = traduzido.replace(f'[[[GRAFICO_{indice}]]]', bloco, 1)
+
+        return traduzido
+    except Exception as erro_traducao:
+        print(f"[agente_ia][traducao] falhou, devolvendo original: {erro_traducao}")
+        return texto
+
+
+# 🌟 NOVO: ferramentas que o Agente IA pode acionar sozinho pra consultar
+# dados REAIS do cenário ativo do usuário (não só o que estiver nos
+# relatórios anexados). Cada ferramenta é restrita ao cenário ativo --
+# nunca dá pra consultar dados de outro cenário ou de outra empresa.
+_FERRAMENTAS_CONSULTA_DADOS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "listar_indicadores",
+            "description": "Lista os nomes de todos os indicadores cadastrados no cenário ativo do usuário.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "consultar_indicador",
+            "description": (
+                "Retorna os valores reais, período a período, de um indicador "
+                "específico do cenário ativo do usuário (ex: INPC, IPCA)."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "nome": {"type": "string", "description": "Nome do indicador, ex: \"INPC\""},
+                },
+                "required": ["nome"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "listar_cambios",
+            "description": "Lista as moedas/taxas de câmbio cadastradas no cenário ativo do usuário.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "consultar_cambio",
+            "description": (
+                "Retorna os valores reais, período a período, de uma taxa de "
+                "câmbio específica do cenário ativo do usuário (ex: USD, EUR)."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "moeda": {"type": "string", "description": "Código ou nome da moeda, ex: \"USD\" ou \"Dólar\""},
+                },
+                "required": ["moeda"],
+            },
+        },
+    },
+]
+
+
+def _executar_ferramenta_consulta(nome_ferramenta, argumentos, cenario):
+    """Executa uma ferramenta de consulta e devolve o resultado como texto."""
+    if nome_ferramenta == 'listar_indicadores':
+        return _lista_indicadores(cenario.id)
+
+    if nome_ferramenta == 'consultar_indicador':
+        nome = str(argumentos.get('nome', '')).strip()
+        indicador = _buscar_indicador(cenario.id, nome) if nome else None
+        if indicador is None:
+            return f"Não encontrei nenhum indicador chamado \"{nome}\" nesse cenário.\n\n" + _lista_indicadores(cenario.id)
+        return f"Indicador {indicador.ind_nome}:\n" + _lista_periodos_indicador(cenario, indicador)
+
+    if nome_ferramenta == 'listar_cambios':
+        return _lista_cambios(cenario.id)
+
+    if nome_ferramenta == 'consultar_cambio':
+        moeda = str(argumentos.get('moeda', '')).strip()
+        cambio = _buscar_cambio(cenario.id, moeda) if moeda else None
+        if cambio is None:
+            return f"Não encontrei nenhuma taxa de câmbio \"{moeda}\" nesse cenário.\n\n" + _lista_cambios(cenario.id)
+        return f"Câmbio {cambio.get_cam_moeda_display()} ({cambio.cam_moeda}):\n" + _lista_periodos_cambio(cenario, cambio)
+
+    return ""
+
+
+def _consultar_dados_cenario_se_necessario(mensagem_usuario: str, usuario) -> str:
+    """
+    🌟 NOVO: antes de gerar a resposta final, deixa o modelo decidir (numa
+    chamada separada, rápida, só com essas 4 ferramentas) se a pergunta do
+    usuário precisa de dados REAIS do cenário ativo -- indicadores e
+    taxas de câmbio -- pra ser respondida bem (isso é comum quando o
+    usuário pede um gráfico ou uma análise numérica que não está em
+    nenhum relatório anexado). Se precisar, executa a(s) ferramenta(s)
+    chamada(s) e devolve um texto pronto pra ser injetado na instrução de
+    sistema principal -- mesmo mecanismo já usado pros dados extraídos de
+    PDF.
+
+    Roda numa chamada SEPARADA da principal (que já usa a ferramenta
+    nativa de busca na internet) de propósito -- evita misturar dois
+    tipos de "tool calling" diferentes numa única chamada, o que nem
+    sempre é bem suportado.
+
+    Sempre restrito ao cenário ATIVO do usuário -- nunca consulta outro
+    cenário ou dados de outra empresa. Se der qualquer erro, devolve
+    string vazia (a resposta principal simplesmente segue sem esses
+    dados, como já era antes dessa funcionalidade existir).
+    """
+    perfil = getattr(usuario, 'perfilusuario', None)
+    if perfil is None or perfil.cenario_ativo_id is None:
+        return ""
+
+    cenario = TbCenarios.objects_real.filter(id=perfil.cenario_ativo_id).first()
+    if cenario is None:
+        return ""
+
+    try:
+        from groq import Groq
+        client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+
+        resposta = client.chat.completions.create(
+            model="openai/gpt-oss-120b",
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "Decida se a pergunta do usuário precisa de dados REAIS do "
+                        "cenário ativo dele (indicadores ou taxas de câmbio cadastrados) "
+                        "pra ser respondida bem -- isso é comum quando ele pede um "
+                        "gráfico, uma análise numérica, ou os valores de algo. Se "
+                        "precisar, chame a ferramenta certa (pode chamar mais de uma se "
+                        "precisar). Se a pergunta não tiver nada a ver com indicadores "
+                        "ou câmbio do cenário (ex: só sobre um relatório anexado, ou uma "
+                        "pergunta genérica), não chame nenhuma ferramenta."
+                    ),
+                },
+                {"role": "user", "content": mensagem_usuario},
+            ],
+            tools=_FERRAMENTAS_CONSULTA_DADOS,
+            tool_choice="auto",
+            temperature=0.1,
+            timeout=20,
+        )
+
+        chamadas = resposta.choices[0].message.tool_calls
+        if not chamadas:
+            return ""
+
+        partes = []
+        for chamada in chamadas[:5]:  # limite de segurança, evita loop maluco
+            try:
+                argumentos = json.loads(chamada.function.arguments or "{}")
+            except Exception:
+                argumentos = {}
+            resultado = _executar_ferramenta_consulta(chamada.function.name, argumentos, cenario)
+            if resultado:
+                partes.append(resultado)
+
+        if not partes:
+            return ""
+
+        return (
+            "\n\n[DADOS REAIS DO CENÁRIO ATIVO -- consultados agora no banco de dados, "
+            f"cenário {cenario.id}/{cenario.cen_nome}]:\n"
+            + "\n".join(partes)
+            + "\n\nUse esses dados com prioridade máxima pra responder (inclusive pra "
+            "montar gráficos, se fizer sentido) -- são valores reais e atuais, não "
+            "precisa pedir confirmação nem alegar falta de dados."
+        )
+    except Exception as erro_consulta:
+        print(f"[agente_ia][consulta_dados] falhou, seguindo sem esses dados: {erro_consulta}")
+        return ""
+
+
+def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario) -> tuple:
     """
     Executa o agente fazendo RAG dinâmico sobre PDF, TXT ou XLSX (conforme a
     extensão de cada arquivo selecionado), capturando linhas numéricas
@@ -443,6 +747,19 @@ def executar_agente_com_prompt_do_admin(mensagem_usuario: str, pdf_ids: list, us
     # bater cancela o fluxo velho primeiro (se houver) e começa o novo.
     esta_em_fluxo = usuario_esta_em_fluxo(usuario)
 
+    # 🌟 NOVO: "cancelar" digitado (ou clicado) fora de qualquer fluxo
+    # com estado registrado -- acontece na etapa de baixar planilha
+    # (indicador/câmbio), que não grava estado de fluxo no banco (é uma
+    # resposta única, aguardando o usuário reenviar a planilha depois).
+    # Sem esse tratamento, "cancelar" nesse ponto caía direto na IA, sem
+    # fazer sentido nenhum. Só entra em ação quando NÃO há fluxo ativo --
+    # dentro de um fluxo, o cancelamento já é tratado internamente por
+    # cada etapa (processar_mensagem_fluxo).
+    if not esta_em_fluxo and mensagem_usuario.strip().lower() == 'cancelar':
+        resposta = "Ok, cancelado. Não tem mais nada pendente aqui -- me diz o que você precisa."
+        _salvar_historico(usuario, mensagem_usuario, resposta)
+        return resposta, []
+
     # 🌟 NOVO: usuário pedindo pra começar o wizard agora
     if _detectar_intencao_criar_cenario(mensagem_usuario):
         if esta_em_fluxo:
@@ -456,6 +773,24 @@ def executar_agente_com_prompt_do_admin(mensagem_usuario: str, pdf_ids: list, us
         if esta_em_fluxo:
             cancelar_fluxo_ativo(usuario)
         resposta = iniciar_fluxo_mudar_cenario(usuario, mensagem_usuario)
+        _salvar_historico(usuario, mensagem_usuario, resposta)
+        return resposta, []
+
+    # 🌟 NOVO: usuário pedindo pra excluir um ou mais cenários (fora do
+    # ativo, e não sendo cenário base -- essa checagem em si é feita
+    # dentro do fluxo, aqui só detecta a intenção e começa o wizard)
+    if _detectar_intencao_excluir_cenario(mensagem_usuario):
+        if esta_em_fluxo:
+            cancelar_fluxo_ativo(usuario)
+        resposta = iniciar_fluxo_excluir_cenario(usuario)
+        _salvar_historico(usuario, mensagem_usuario, resposta)
+        return resposta, []
+
+    # 🌟 NOVO: usuário pedindo pra exportar o relatório Excel do cenário ativo
+    if _detectar_intencao_exportar_cenario(mensagem_usuario):
+        if esta_em_fluxo:
+            cancelar_fluxo_ativo(usuario)
+        resposta = iniciar_exportar_excel_cenario_ativo(usuario)
         _salvar_historico(usuario, mensagem_usuario, resposta)
         return resposta, []
 
@@ -560,6 +895,58 @@ def executar_agente_com_prompt_do_admin(mensagem_usuario: str, pdf_ids: list, us
         config_do_admin = AgenteConfig.objects.filter(ativo=True).first()
         system_instruction = getattr(config_do_admin, 'prompt_sistema', "Você é um assistente útil.")
 
+        # 🌟 NOVO: injeta o idioma ativo do usuário (o mesmo escolhido no
+        # seletor da interface) na instrução de sistema, pra o Agente
+        # responder sempre nesse idioma -- independente do que a
+        # instrução configurada no Admin diga (ou não diga) sobre
+        # idioma. Isso vem DEPOIS do prompt do Admin, então tem
+        # prioridade sobre qualquer instrução de idioma anterior nele.
+        perfil_para_idioma = getattr(usuario, 'perfilusuario', None)
+        if perfil_para_idioma is not None:
+            codigo_idioma = perfil_para_idioma.idioma_efetivo()
+            nome_idioma = dict(IDIOMA_CHOICES).get(codigo_idioma, codigo_idioma)
+            system_instruction += (
+                f"\n\nIMPORTANTE: Responda sempre em {nome_idioma} "
+                f"(código de idioma: {codigo_idioma}), independentemente "
+                f"do idioma usado na pergunta ou em qualquer outra "
+                f"instrução acima."
+            )
+
+        # 🌟 NOVO: ensina o modelo a desenhar gráficos de verdade no chat,
+        # quando isso ajudar mais que texto/tabela (evolução no tempo,
+        # comparação entre categorias, proporção de um total, etc.). O
+        # front-end (chat.html) sabe reconhecer um bloco ```chart``` com
+        # essa estrutura JSON e desenha com a biblioteca Chart.js.
+        system_instruction += (
+            "\n\nVocê também pode desenhar um GRÁFICO DE VERDADE no chat, além de "
+            "texto/tabelas, quando isso ajudar a visualizar os dados (evolução no "
+            "tempo, comparação entre itens, proporção de um total, etc.). Pra isso, "
+            "inclua na sua resposta um bloco separado assim, com JSON válido do "
+            "formato do Chart.js (versão 4):\n\n"
+            "```chart\n"
+            "{\"type\": \"line\", \"data\": {\"labels\": [\"Jan\", \"Fev\", \"Mar\"], "
+            "\"datasets\": [{\"label\": \"Receita\", \"data\": [100, 120, 90]}]}, "
+            "\"options\": {\"plugins\": {\"title\": {\"display\": true, \"text\": \"Receita Mensal\"}}}}\n"
+            "```\n\n"
+            "Regras: escolha o \"type\" mais adequado (\"line\", \"bar\", \"pie\", "
+            "\"doughnut\", etc.) pro que estiver mostrando. O JSON precisa ser "
+            "válido (aspas duplas, sem comentários, sem vírgula sobrando). Pode "
+            "incluir mais de um gráfico na mesma resposta se fizer sentido. NÃO "
+            "invente números -- só desenhe gráfico quando tiver dados reais "
+            "extraídos dos relatórios, fornecidos na conversa, ou consultados do "
+            "cenário ativo (indicadores/câmbio); se não tiver dados suficientes, "
+            "explique isso em texto em vez de inventar valores pro gráfico. O "
+            "texto normal ao redor do bloco continua podendo explicar o que o "
+            "gráfico mostra."
+        )
+
+        # 🌟 NOVO: consulta dados REAIS do cenário ativo (indicadores, câmbio)
+        # quando a pergunta parecer precisar deles -- não só o que estiver
+        # nos relatórios anexados. Roda numa chamada separada e rápida, só
+        # de tool-calling; se não achar nada relevante pra consultar, ou se
+        # der qualquer erro, não muda nada (devolve string vazia).
+        system_instruction += _consultar_dados_cenario_se_necessario(mensagem_usuario, usuario)
+
         # 2. 🌟 EXTRAÇÃO CIRÚRGICA DE TODOS OS ARQUIVOS SELECIONADOS (PDF, TXT ou XLSX):
         # 🌟 CORRIGIDO (multi-empresa): antes filtrava só por id__in e
         # ativo=True -- sem checar a empresa, alguém poderia mandar o id
@@ -660,3 +1047,36 @@ def executar_agente_com_prompt_do_admin(mensagem_usuario: str, pdf_ids: list, us
 
     except Exception as e:
         return f"Erro no processamento interno do servidor: {str(e)}", []
+
+
+def executar_agente_com_prompt_do_admin(mensagem_usuario: str, pdf_ids: list, usuario) -> tuple:
+    """
+    🌟 NOVO: camada fina por cima de `_executar_agente_interno` -- essa é a
+    função que a view chama de verdade agora. Existe só pra garantir que a
+    tradução pro idioma ativo do usuário aconteça em CIMA de qualquer
+    caminho de resposta (LLM, fluxos determinísticos tipo "criar cenário",
+    planilhas reenviadas, etc.), sem precisar duplicar a chamada de
+    tradução em cada um dos vários "return" espalhados lá dentro -- alguns
+    desses fluxos (as "Ações Comuns" do menu lateral, por exemplo) nunca
+    passam pelo LLM, e por isso nunca passavam pela tradução antes.
+
+    O histórico salvo no banco continua com o texto ORIGINAL (em
+    português) -- só o que é devolvido pra tela nessa resposta é
+    traduzido.
+
+    🌟 CORRIGIDO: devolve TAMBÉM o texto original (sem tradução), como
+    terceiro item da tupla -- `_extrair_opcoes_clicaveis` (em views.py)
+    reconhece os botões procurando frases EXATAS em português no texto
+    ("Indicadores cadastrados:", "(sim / não)", etc.); se ela recebesse o
+    texto já traduzido, parava de reconhecer qualquer botão. Quem chama
+    essa função precisa usar o texto ORIGINAL pra extrair as opções, e o
+    texto TRADUZIDO só pra mostrar na tela.
+    """
+    resposta_original, fontes = _executar_agente_interno(mensagem_usuario, pdf_ids, usuario)
+
+    perfil_para_idioma = getattr(usuario, 'perfilusuario', None)
+    codigo_idioma_resposta = perfil_para_idioma.idioma_efetivo() if perfil_para_idioma else None
+    resposta_traduzida = _traduzir_resposta_se_necessario(resposta_original, codigo_idioma_resposta)
+    resposta_traduzida = _forcar_traducao_palavras_chave(resposta_traduzida, codigo_idioma_resposta)
+
+    return resposta_traduzida, fontes, resposta_original

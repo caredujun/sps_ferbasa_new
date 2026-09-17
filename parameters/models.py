@@ -818,9 +818,9 @@ class HistoricoAgente(models.Model):
 
 
 class RelatorioPDF(models.Model):
-    titulo = models.CharField("Título do Relatório", max_length=200)
-    arquivo = models.FileField("Arquivo PDF", upload_to="relatorios_pdf/")
-    ativo = models.BooleanField("Disponível para a IA", default=True)
+    titulo = models.CharField(_("Título do Relatório"), max_length=200)
+    arquivo = models.FileField(_("Arquivo"), upload_to="relatorios_pdf/")
+    ativo = models.BooleanField(_("Disponível para a IA"), default=True)
     criado_em = models.DateTimeField(auto_now_add=True)
     # 🌟 NOVO (multi-empresa): cada empresa só deve ver/usar os próprios
     # relatórios no Agente IA -- antes esse campo não existia, e todo
@@ -828,8 +828,12 @@ class RelatorioPDF(models.Model):
     empresa = models.ForeignKey('TbEmpresa', null=True, blank=True, on_delete=models.PROTECT, verbose_name=_('Empresa'))
 
     class Meta:
-        verbose_name = _("Relatório PDF")
-        verbose_name_plural = _("Relatórios PDF")
+        # 🌟 CORRIGIDO: renomeado de "Relatório(s) PDF" -- não é só arquivo
+        # PDF que pode ser salvo aqui pra consulta do Agente IA (também
+        # aceita TXT e XLSX), então o nome antigo dava a entender uma
+        # limitação que não existe de verdade.
+        verbose_name = _("Relatório Consulta IA")
+        verbose_name_plural = _("Relatórios Consulta IA")
 
     def __str__(self):
         return self.titulo

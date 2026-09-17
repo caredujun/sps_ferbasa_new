@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings  # Importe settings
 from django.conf.urls.static import static  # Importe static
+from django.views.generic import RedirectView
 from parameters import views
 
 # 1. Comece com uma lista de URLs vazia ou apenas com a regra de mídia
@@ -32,5 +33,11 @@ urlpatterns += [
     path('trocar-idioma/', views.trocar_idioma_view, name='trocar_idioma'),
     path('fluxo_producao/', include('fluxos.urls')),
     path('two_factor/'    , include(('admin_two_factor.urls', 'admin_two_factor'), namespace='two_factor')),
-    path(''               , admin.site.urls),
-   ]
+    # 🌟 CORRIGIDO: antes incluía admin.site.urls uma SEGUNDA vez aqui na
+    # raiz (''), pra abrir o Admin direto ao acessar só o domínio -- mas
+    # isso registrava o namespace "admin" duas vezes, causando o aviso
+    # "URL namespace 'admin' isn't unique" toda vez que o servidor
+    # subia. Um REDIRECT simples pra /admin/ tem o mesmo efeito prático
+    # (acessar a raiz leva pro Admin) sem duplicar o registro de URLs.
+    path(''               , RedirectView.as_view(url='/admin/', permanent=False)),
+]

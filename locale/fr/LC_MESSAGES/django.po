@@ -667,8 +667,8 @@ msgstr "Mis à jour le"
 msgid "Estado de Conversa do Agente"
 msgstr "État de la Conversation de l'Agent"
 
-msgid "Relatório PDF"
-msgstr "Rapport PDF"
+msgid "Relatório Consulta IA"
+msgstr "Rapport de Consultation IA"
 
 msgid "Ação"
 msgstr "Action"
@@ -697,8 +697,8 @@ msgstr "Historiques de l'Agent IA"
 msgid "Estados de Conversa do Agente"
 msgstr "États de la Conversation de l'Agent"
 
-msgid "Relatórios PDF"
-msgstr "Rapports PDF"
+msgid "Relatórios Consulta IA"
+msgstr "Rapports de Consultation IA"
 
 msgid "Precisa bater com o nome real do app Django (ex: \"custo_ferbasa\")."
 msgstr "Doit correspondre au nom réel de l'application Django (ex : \"custo_ferbasa\")."
@@ -2352,6 +2352,186 @@ msgstr "<a class=\"button\" href=\"{}\">Activer</a>"
 
 msgid "<a href=\"/fluxo_producao/editor/{0}/\" class=\"button\" target=\"_blank\">Visualizar / Editar Fluxo</a>"
 msgstr "<a href=\"/fluxo_producao/editor/{0}/\" class=\"button\" target=\"_blank\">Voir / Modifier le Flux</a>"
+
+msgid "Atualizar Fluxos"
+msgstr "Mettre à Jour les Flux"
+
+msgid "Status Otimização"
+msgstr "Statut d'Optimisation"
+
+msgid "Ativar Este Cenário"
+msgstr "Activer ce Scénario"
+
+msgid "Update Preço/CustoVariável Adicionado"
+msgstr "Mettre à Jour Prix/Coût Variable Ajouté"
+
+msgid "Testar"
+msgstr "Tester"
+
+msgid "Update Consumos Padrões"
+msgstr "Mettre à Jour les Consommations Standard"
+
+msgid "Update Indicador"
+msgstr "Mettre à Jour l'Indicateur"
+
+msgid "Atualizar Fluxo (Input/Output)"
+msgstr "Mettre à Jour le Flux (Entrée/Sortie)"
+
+msgid "Update Fluxo (PDF)"
+msgstr "Mettre à Jour le Flux (PDF)"
+
+msgid "Central de IA do SPS"
+msgstr "Centre IA de SPS"
+
+msgid "Limpar Hoje"
+msgstr "Effacer Aujourd'hui"
+
+msgid "Limpar Últimos 7 dias"
+msgstr "Effacer les 7 Derniers Jours"
+
+msgid "Limpar Todo o Histórico"
+msgstr "Effacer Tout l'Historique"
+
+msgid "Intervalo de Datas"
+msgstr "Plage de Dates"
+
+msgid "até"
+msgstr "à"
+
+msgid "Executar Limpeza"
+msgstr "Exécuter le Nettoyage"
+
+msgid "Confirma a exclusão das mensagens do período selecionado?"
+msgstr "Confirmer la suppression des messages de la période sélectionnée ?"
+
+msgid "⚠️ ATENÇÃO: Tem certeza de que deseja apagar permanentemente TODO o histórico?"
+msgstr "⚠️ ATTENTION : Êtes-vous sûr de vouloir supprimer définitivement TOUT l'historique ?"
+
+msgid "Por favor, selecione as duas datas no calendário."
+msgstr "Veuillez sélectionner les deux dates dans le calendrier."
+
+msgid "A data de início não pode ser depois da data de fim."
+msgstr "La date de début ne peut pas être postérieure à la date de fin."
+
+msgid "Erro: "
+msgstr "Erreur : "
+
+msgid "Erro na comunicação com o servidor."
+msgstr "Erreur de communication avec le serveur."
+
+msgid "Histórico limpo! Olá"
+msgstr "Historique effacé ! Bonjour"
+
+msgid "o que posso fazer por você agora?"
+msgstr "que puis-je faire pour vous maintenant ?"
+
+msgid "Cancelar"
+msgstr "Annuler"
+
+msgid "Você"
+msgstr "Vous"
+
+msgid "Manual"
+msgstr "Manuel"
+
+msgid "Planilha"
+msgstr "Feuille de calcul"
+
+msgid "Sim"
+msgstr "Oui"
+
+msgid "Não"
+msgstr "Non"
+
+msgid "Verificar"
+msgstr "Vérifier"
+
+msgid "Já enviei a planilha"
+msgstr "J'ai déjà envoyé le fichier"
+
+msgid "Manter"
+msgstr "Conserver"
+
+msgid "Nenhum"
+msgstr "Aucun"
+
+msgid "Gráfico de linha"
+msgstr "Graphique en ligne"
+
+msgid "Gráfico de barra"
+msgstr "Graphique à barres"
+
+msgid "Plotar Gráfico"
+msgstr "Tracer un Graphique"
+
+msgid "Excluir Cenário"
+msgstr "Supprimer le Scénario"
+
+msgid "Concluir"
+msgstr "Terminer"
+
+msgid "CONSOLIDADO"
+msgstr "CONSOLIDÉ"
+
+msgid "LIMPO"
+msgstr "NETTOYÉ"
+
+msgid "OTIMIZADO"
+msgstr "OPTIMISÉ"
+
+msgid "OTIMIZANDO"
+msgstr "OPTIMISATION EN COURS"
+
+msgid "LIMPANDO"
+msgstr "NETTOYAGE EN COURS"
+
+msgid "CONSOLIDANDO"
+msgstr "CONSOLIDATION EN COURS"
+
+msgid "ATUALIZANDO FLUXOS"
+msgstr "MISE À JOUR DES FLUX"
+
+msgid "Ainda não processado"
+msgstr "Pas encore traité"
+
+msgid "Solução Ótima"
+msgstr "Solution Optimale"
+
+msgid "Limpo"
+msgstr "Nettoyé"
+
+msgid "Limpando"
+msgstr "Nettoyage en cours"
+
+msgid "Otimizando"
+msgstr "Optimisation en cours"
+
+msgid "RESULTADOS CENÁRIO "
+msgstr "RÉSULTATS SCÉNARIO "
+
+msgid "RESULTADOS POR CENÁRIO"
+msgstr "RÉSULTATS PAR SCÉNARIO"
+
+msgid "Id Cenário"
+msgstr "Id Scénario"
+
+msgid "Nome Cenário"
+msgstr "Nom du Scénario"
+
+msgid "Exportar Excel do Cenário Ativo"
+msgstr "Exporter Excel du Scénario Actif"
+
+msgid "Resultados Cenário"
+msgstr "Resultats Scenario"
+
+msgid "Título do Relatório"
+msgstr "Titre du Rapport"
+
+msgid "Disponível para a IA"
+msgstr "Disponible pour l'IA"
+
+msgid "Arquivo"
+msgstr "Fichier"
 
 #, python-format
 msgid "Olá %(nome_usuario)s! O que posso fazer por você hoje?"

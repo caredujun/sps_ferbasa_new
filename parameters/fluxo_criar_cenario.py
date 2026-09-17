@@ -56,9 +56,13 @@ from django.utils import timezone
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 import re
+import json
+from django.utils.translation import gettext as _
 
 from .models import EstadoConversaAgente, TbCenarios, TbCenariosDaugther, PerfilUsuario
 from tabelas.models import TbGrupoCenarios
+from .contexto_usuario import eh_superuser_ou_superuser_empresa
+from .tasks import remover_cenario_celery
 
 FLUXO_CRIAR = 'criar_cenario'
 FLUXO_MUDAR = 'mudar_cenario'
@@ -230,6 +234,17 @@ def _processar_mensagem_fluxo_com_lock(estado, mensagem):
         )
 
     if texto.lower() in PALAVRAS_CANCELAR:
+        # 🌟 Caso especial: cancelar durante o ACOMPANHAMENTO de uma
+        # exclusão de cenário não cancela a exclusão em si (ela já está
+        # rodando em segundo plano, não tem como interromper) -- só para
+        # de ficar checando por aqui. Mensagem diferente pra não dar a
+        # entender que a exclusão foi desfeita.
+        if estado.fluxo_ativo == FLUXO_EXCLUIR_CENARIO and estado.etapa_atual == 'cen_excluir_aguardando':
+            _encerrar_fluxo(estado)
+            return (
+                "Ok, parei de acompanhar por aqui -- mas a exclusão em si continua rodando em "
+                "segundo plano normalmente (isso não cancela ela)."
+            )
         _encerrar_fluxo(estado)
         return "Ok, cancelei. Nada foi alterado."
 
@@ -243,6 +258,8 @@ def _processar_mensagem_fluxo_com_lock(estado, mensagem):
         return _processar_cambio(estado, texto)
     elif estado.fluxo_ativo == FLUXO_PROCESSAR:
         return _processar_fluxo_processar(estado, texto)
+    elif estado.fluxo_ativo == FLUXO_EXCLUIR_CENARIO:
+        return _processar_excluir_cenario(estado, texto)
 
     # Estado inconsistente (não deveria acontecer) -- encerra por segurança
     _encerrar_fluxo(estado)
@@ -1078,7 +1095,9 @@ def iniciar_fluxo_indicadores(usuario, mensagem=""):
         return "O cenário que estava ativo pra você não existe mais. Acesse a tela de Cenários e ative outro antes de continuar."
 
     texto = (mensagem or '').lower()
-    if re.search(r'cri[ae]r?|cadastr[ae]r?', texto):
+    if re.search(r'gr[áa]fico|plot[ae]r?', texto):
+        acao = 'grafico'
+    elif re.search(r'cri[ae]r?|cadastr[ae]r?', texto):
         acao = 'criar'
     elif re.search(r'reajust|em massa|todos os per[ií]odos', texto):
         acao = 'massa'
@@ -1091,7 +1110,15 @@ def iniciar_fluxo_indicadores(usuario, mensagem=""):
     estado.fluxo_ativo = FLUXO_INDICADORES
     estado.dados_coletados = {'cenario_id': cenario.id, 'cenario_nome': cenario.cen_nome, 'acao': acao}
 
-    if acao == 'criar':
+    if acao == 'grafico':
+        estado.etapa_atual = 'ind_grafico_escolher'
+        estado.save()
+        return (
+            f"Vamos plotar um gráfico de indicador no cenário **{cenario.id}/{cenario.cen_nome}** 📊\n\n"
+            f"{_lista_indicadores(cenario.id)}"
+            "Qual **indicador** você quer plotar? (ou \"cancelar\")"
+        )
+    elif acao == 'criar':
         estado.etapa_atual = 'ind_criar_nome'
         estado.save()
         return (
@@ -1246,6 +1273,82 @@ def _gerar_planilha_periodos(cenario, tabela_mae_id, tabela_daugther_model, tipo
     wb.close()
 
     return f"{settings.MEDIA_URL}planilhas_temp/{nome_arquivo}"
+
+
+def iniciar_exportar_excel_cenario_ativo(usuario):
+    """
+    🌟 NOVO: exporta o relatório de resultados do cenário ativo em Excel,
+    pelo chat -- mesma estrutura de colunas e conteúdo do botão
+    "Exportar Excel" já existente na tela de Cenários do Admin
+    (TbCenariosAdmin.exportar_excel_cenario), só que gerando um arquivo
+    salvo (com link de download) em vez de resposta HTTP direta, pra
+    caber no formato de mensagem do chat -- e com os cabeçalhos
+    traduzidos pro idioma ativo do usuário (o do Admin usa texto fixo em
+    português).
+    """
+    import os
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+    from django.conf import settings
+
+    perfil = getattr(usuario, 'perfilusuario', None)
+    if perfil is None or perfil.cenario_ativo_id is None:
+        return "Você ainda não tem um cenário ativo escolhido. Acesse a tela de Cenários e ative um antes."
+
+    cenario = TbCenarios.objects_real.filter(id=perfil.cenario_ativo_id).first()
+    if cenario is None:
+        return "O cenário que estava ativo pra você não existe mais."
+
+    filhas = TbCenariosDaugther.objects.filter(mae_id=cenario.id).order_by('dau_order')
+
+    nome_empresa = cenario.empresa.emp_nome if cenario.empresa else ''
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = _('Resultados')
+
+    titulo = f"{_('RESULTADOS CENÁRIO ')}{cenario.id}/{cenario.cen_nome}"
+    if nome_empresa:
+        titulo += f" ({nome_empresa})"
+    ws.append([titulo])
+    ws['A1'].font = Font(bold=True)
+
+    colunas = [
+        _('Período'), _('Solução Ótima'), _('Vendas'), _('Variável'), _('Inbound'), _('Outbound'),
+        _('Manut.'), _('Margem'), _('Fixo'), _('EBTIDA'), _('EBTIDA (%)'), _('D&A'), _('IR (%)'),
+        _('MP'), _('WIP'), _('PF'), _('Total Est.'), _('Receber'), _('Pagar'), _('OWCR'),
+        _('CAPEX'), _('OFCF'),
+    ]
+    ws.append(colunas)
+    for cel in ws[2]:
+        cel.font = Font(bold=True)
+
+    mapa_solucao = {
+        0: str(_('Não')), 1: str(_('Sim')), 2: str(_('Limpo')),
+        3: str(_('Limpando')), None: str(_('Otimizando')),
+    }
+
+    for f in filhas:
+        periodo = _dau_order_para_periodo(cenario, f.dau_order)
+        solucao = mapa_solucao.get(f.flag, str(_('Otimizando')))
+        valores = [getattr(f, f'dau_valor_{i}') for i in range(1, 21)]
+        ws.append([periodo, solucao] + valores)
+
+    pasta = os.path.join(settings.MEDIA_ROOT, 'relatorios_temp')
+    os.makedirs(pasta, exist_ok=True)
+    prefixo_traduzido = re.sub(r'[\\/:*?"<>|\s]+', '_', str(_('Resultados Cenário'))).strip('_')
+    empresa_segura = re.sub(r'[\\/:*?"<>|\s]+', '_', nome_empresa).strip('_')
+    sufixo_empresa = f"_{empresa_segura}" if empresa_segura else ""
+    nome_arquivo = f"{prefixo_traduzido}{sufixo_empresa}_{cenario.id}.xlsx"
+    caminho_completo = os.path.join(pasta, nome_arquivo)
+    wb.save(caminho_completo)
+    wb.close()
+    url = f"{settings.MEDIA_URL}relatorios_temp/{nome_arquivo}"
+
+    return (
+        f"Aqui está o relatório de resultados do cenário **{cenario.id}/{cenario.cen_nome}**:\n\n"
+        f"[📊 Baixar relatório Excel]({url})"
+    )
 
 
 def _identificar_planilha_por_nome(nome_arquivo, tipo_planilha, cenario_id):
@@ -1413,7 +1516,8 @@ def _etapa_ind_editar_modo(estado, texto, cenario):
             "Edita os valores que quiser (sem mudar a coluna Período), salva, sobe de volta na área de "
             "Relatórios (arrastar-e-soltar), marca a caixinha dela, e clica no botão abaixo "
             "quando terminar (ou manda qualquer mensagem) -- eu identifico automaticamente "
-            "pelo arquivo, não precisa repetir o nome do indicador."
+            "pelo arquivo, não precisa repetir o nome do indicador. Ou, se mudou de ideia, "
+            "manda \"cancelar\"."
         )
 
     if escolha in ('manual', 'digitar', 'digitando', 'm'):
@@ -1447,7 +1551,7 @@ def _etapa_ind_editar_periodo(estado, texto, cenario):
             "Relatórios (arrastar-e-soltar), marca a caixinha dela, e clica no botão abaixo "
             "quando terminar (ou manda qualquer mensagem) -- eu identifico automaticamente pelo "
             "arquivo, não precisa repetir o nome do indicador. Encerrei esse fluxo aqui, pra sua próxima "
-            "mensagem já ser reconhecida certinho."
+            "mensagem já ser reconhecida certinho. Ou, se mudou de ideia, manda \"cancelar\"."
         )
 
     periodo, erro = _validar_periodo(cenario.cen_tipo, texto)
@@ -1870,7 +1974,8 @@ def iniciar_download_planilha_indicador(usuario, mensagem):
         "Edita os valores que quiser (sem mudar a coluna Período), salva, sobe de volta na área de "
         "Relatórios (arrastar-e-soltar), marca a caixinha dela, e clica no botão abaixo "
         "quando terminar (ou manda qualquer mensagem) -- eu identifico automaticamente "
-        "pelo arquivo, não precisa repetir o nome do indicador."
+        "pelo arquivo, não precisa repetir o nome do indicador. Ou, se mudou de ideia, "
+        "manda \"cancelar\"."
     )
 
 
@@ -2025,6 +2130,87 @@ def _etapa_ind_planilha_confirmar(estado, texto, cenario):
     return f"✅ {qtd} período(s) do indicador **{dados['indicador_nome']}** atualizados a partir da planilha.{aviso_fonte}"
 
 
+# ---------------------------------------------------------------------
+# Sub-fluxo: plotar gráfico (dados reais do indicador, sem precisar da IA)
+# ---------------------------------------------------------------------
+def _montar_grafico_indicador(cenario, indicador, tipo_grafico):
+    """
+    Monta o texto de resposta com o bloco ```chart``` já pronto, usando os
+    valores REAIS do indicador (mesma fonte de dados que a tela de
+    edição usa) -- 100% determinístico, sem depender de nenhuma IA pra
+    montar o JSON (evita qualquer risco de gráfico malformado).
+    """
+    from tabelas.models import TbIndicadoresDaugther
+    filhas = TbIndicadoresDaugther.objects.filter(
+        mae_id=indicador.id, tbcenarios_id=cenario.id
+    ).order_by('dau_order')
+
+    if not filhas:
+        return f"O indicador **{indicador.ind_nome}** não tem nenhum período com valor cadastrado ainda."
+
+    labels = [_dau_order_para_periodo(cenario, f.dau_order) for f in filhas]
+    valores = [float(f.dau_valor) for f in filhas]
+
+    config = {
+        "type": tipo_grafico,
+        "data": {
+            "labels": labels,
+            "datasets": [{
+                "label": f"{indicador.ind_nome} (%)",
+                "data": valores,
+                "borderColor": "rgba(54, 162, 235, 1)",
+                "backgroundColor": "rgba(54, 162, 235, 0.4)",
+            }],
+        },
+        "options": {
+            "plugins": {"title": {"display": True, "text": f"Indicador {indicador.ind_nome}"}},
+        },
+    }
+
+    return (
+        f"Aqui está o gráfico do indicador **{indicador.ind_nome}** "
+        f"({labels[0]} a {labels[-1]}):\n\n"
+        "```chart\n" + json.dumps(config, ensure_ascii=False) + "\n```"
+    )
+
+
+def _etapa_ind_grafico_escolher(estado, texto, cenario):
+    indicador = _buscar_indicador(cenario.id, texto)
+    if indicador is None:
+        return f"Não encontrei nenhum indicador chamado \"{texto}\" nesse cenário. Tenta de novo, ou \"cancelar\"."
+
+    estado.dados_coletados['indicador_id'] = indicador.id
+    estado.dados_coletados['indicador_nome'] = indicador.ind_nome
+    estado.etapa_atual = 'ind_grafico_tipo'
+    estado.save()
+    return (
+        f"Indicador **{indicador.ind_nome}**.\n\n"
+        "Que tipo de gráfico você quer? Escolha:\n\n"
+        "- **Gráfico de Linha** -- pra ver a evolução ao longo do tempo\n"
+        "- **Gráfico de Barra** -- pra comparar os valores de cada período\n\n"
+        "(ou \"cancelar\")"
+    )
+
+
+def _etapa_ind_grafico_tipo(estado, texto, cenario):
+    escolha = texto.strip().lower()
+    if 'barra' in escolha:
+        tipo_grafico = 'bar'
+    elif 'linha' in escolha:
+        tipo_grafico = 'line'
+    else:
+        return "Não entendi. Escolhe **Gráfico de Linha** ou **Gráfico de Barra** (ou \"cancelar\")."
+
+    from tabelas.models import TbIndicadores
+    dados = estado.dados_coletados
+    indicador = TbIndicadores.objects.filter(id=dados['indicador_id']).first()
+    _encerrar_fluxo(estado)
+    if indicador is None:
+        return "O indicador não existe mais. Cancelei o fluxo aqui."
+
+    return _montar_grafico_indicador(cenario, indicador, tipo_grafico)
+
+
 _HANDLERS_INDICADORES = {
     'ind_editar_nome': _etapa_ind_editar_nome,
     'ind_editar_modo': _etapa_ind_editar_modo,
@@ -2043,6 +2229,8 @@ _HANDLERS_INDICADORES = {
     'ind_massa_periodo_fim': _etapa_ind_massa_periodo_fim,
     'ind_massa_percentual': _etapa_ind_massa_percentual,
     'ind_massa_confirmar': _etapa_ind_massa_confirmar,
+    'ind_grafico_escolher': _etapa_ind_grafico_escolher,
+    'ind_grafico_tipo': _etapa_ind_grafico_tipo,
 }
 
 
@@ -2071,7 +2259,9 @@ def iniciar_fluxo_cambio(usuario, mensagem=""):
         return "O cenário que estava ativo pra você não existe mais. Acesse a tela de Cenários e ative outro antes de continuar."
 
     texto = (mensagem or '').lower()
-    if re.search(r'cri[ae]r?|cadastr[ae]r?', texto):
+    if re.search(r'gr[áa]fico|plot[ae]r?', texto):
+        acao = 'grafico'
+    elif re.search(r'cri[ae]r?|cadastr[ae]r?', texto):
         acao = 'criar'
     elif re.search(r'reajust|em massa|todos os per[ií]odos', texto):
         acao = 'massa'
@@ -2084,7 +2274,15 @@ def iniciar_fluxo_cambio(usuario, mensagem=""):
     estado.fluxo_ativo = FLUXO_CAMBIO
     estado.dados_coletados = {'cenario_id': cenario.id, 'cenario_nome': cenario.cen_nome, 'acao': acao}
 
-    if acao == 'criar':
+    if acao == 'grafico':
+        estado.etapa_atual = 'cam_grafico_escolher'
+        estado.save()
+        return (
+            f"Vamos plotar um gráfico de câmbio no cenário **{cenario.id}/{cenario.cen_nome}** 💱\n\n"
+            f"{_lista_cambios(cenario.id)}"
+            "Qual **taxa de câmbio** você quer plotar? (ou \"cancelar\")"
+        )
+    elif acao == 'criar':
         disponiveis = _moedas_disponiveis(cenario.id)
         estado.etapa_atual = 'cam_criar_moeda'
         estado.save()
@@ -2251,7 +2449,7 @@ def _etapa_cam_editar_modo(estado, texto, cenario):
             "Edita os valores que quiser (sem mudar a coluna Período), salva, sobe de volta na área de "
             "Relatórios (arrastar-e-soltar), marca a caixinha dela, e clica no botão abaixo "
             "quando terminar (ou manda qualquer mensagem) -- eu identifico automaticamente "
-            "pelo arquivo, não precisa repetir a moeda."
+            "pelo arquivo, não precisa repetir a moeda. Ou, se mudou de ideia, manda \"cancelar\"."
         )
 
     if escolha in ('manual', 'digitar', 'digitando', 'm'):
@@ -2285,7 +2483,7 @@ def _etapa_cam_editar_periodo(estado, texto, cenario):
             "Relatórios (arrastar-e-soltar), marca a caixinha dela, e clica no botão abaixo "
             "quando terminar (ou manda qualquer mensagem) -- eu identifico automaticamente pelo "
             "arquivo, não precisa repetir a moeda. Encerrei esse fluxo aqui, pra sua próxima "
-            "mensagem já ser reconhecida certinho."
+            "mensagem já ser reconhecida certinho. Ou, se mudou de ideia, manda \"cancelar\"."
         )
 
     periodo, erro = _validar_periodo(cenario.cen_tipo, texto)
@@ -2684,7 +2882,7 @@ def iniciar_download_planilha_cambio(usuario, mensagem):
         "Edita os valores que quiser (sem mudar a coluna Período), salva, sobe de volta na área de "
         "Relatórios (arrastar-e-soltar), marca a caixinha dela, e clica no botão abaixo "
         "quando terminar (ou manda qualquer mensagem) -- eu identifico automaticamente "
-        "pelo arquivo, não precisa repetir a moeda."
+        "pelo arquivo, não precisa repetir a moeda. Ou, se mudou de ideia, manda \"cancelar\"."
     )
 
 
@@ -2829,6 +3027,82 @@ def _etapa_cam_planilha_confirmar(estado, texto, cenario):
     return f"✅ {qtd} período(s) da taxa de câmbio **{dados['cambio_nome']}** atualizados a partir da planilha.{aviso_fonte}"
 
 
+# ---------------------------------------------------------------------
+# Sub-fluxo: plotar gráfico de câmbio (dados reais, sem precisar da IA)
+# ---------------------------------------------------------------------
+def _montar_grafico_cambio(cenario, cambio, tipo_grafico):
+    from tabelas.models import TbCambioDaugther
+    filhas = TbCambioDaugther.objects.filter(
+        mae_id=cambio.id, tbcenarios_id=cenario.id
+    ).order_by('dau_order')
+
+    if not filhas:
+        return f"A taxa de câmbio **{cambio.get_cam_moeda_display()}** não tem nenhum período com valor cadastrado ainda."
+
+    labels = [_dau_order_para_periodo(cenario, f.dau_order) for f in filhas]
+    valores = [float(f.dau_valor) for f in filhas]
+    nome_moeda = cambio.get_cam_moeda_display()
+
+    config = {
+        "type": tipo_grafico,
+        "data": {
+            "labels": labels,
+            "datasets": [{
+                "label": nome_moeda,
+                "data": valores,
+                "borderColor": "rgba(255, 159, 64, 1)",
+                "backgroundColor": "rgba(255, 159, 64, 0.4)",
+            }],
+        },
+        "options": {
+            "plugins": {"title": {"display": True, "text": f"Taxa de Câmbio {nome_moeda}"}},
+        },
+    }
+
+    return (
+        f"Aqui está o gráfico da taxa de câmbio **{nome_moeda}** "
+        f"({labels[0]} a {labels[-1]}):\n\n"
+        "```chart\n" + json.dumps(config, ensure_ascii=False) + "\n```"
+    )
+
+
+def _etapa_cam_grafico_escolher(estado, texto, cenario):
+    cambio = _buscar_cambio(cenario.id, texto)
+    if cambio is None:
+        return f"Não encontrei nenhuma taxa de câmbio \"{texto}\" nesse cenário. Tenta de novo, ou \"cancelar\"."
+
+    estado.dados_coletados['cambio_id'] = cambio.id
+    estado.dados_coletados['cambio_nome'] = cambio.get_cam_moeda_display()
+    estado.etapa_atual = 'cam_grafico_tipo'
+    estado.save()
+    return (
+        f"Taxa de câmbio **{cambio.get_cam_moeda_display()}**.\n\n"
+        "Que tipo de gráfico você quer? Escolha:\n\n"
+        "- **Gráfico de Linha** -- pra ver a evolução ao longo do tempo\n"
+        "- **Gráfico de Barra** -- pra comparar os valores de cada período\n\n"
+        "(ou \"cancelar\")"
+    )
+
+
+def _etapa_cam_grafico_tipo(estado, texto, cenario):
+    escolha = texto.strip().lower()
+    if 'barra' in escolha:
+        tipo_grafico = 'bar'
+    elif 'linha' in escolha:
+        tipo_grafico = 'line'
+    else:
+        return "Não entendi. Escolhe **Gráfico de Linha** ou **Gráfico de Barra** (ou \"cancelar\")."
+
+    from tabelas.models import TbCambio
+    dados = estado.dados_coletados
+    cambio = TbCambio.objects.filter(id=dados['cambio_id']).first()
+    _encerrar_fluxo(estado)
+    if cambio is None:
+        return "A taxa de câmbio não existe mais. Cancelei o fluxo aqui."
+
+    return _montar_grafico_cambio(cenario, cambio, tipo_grafico)
+
+
 _HANDLERS_CAMBIO = {
     'cam_editar_moeda': _etapa_cam_editar_moeda,
     'cam_editar_modo': _etapa_cam_editar_modo,
@@ -2847,6 +3121,8 @@ _HANDLERS_CAMBIO = {
     'cam_massa_periodo_fim': _etapa_cam_massa_periodo_fim,
     'cam_massa_percentual': _etapa_cam_massa_percentual,
     'cam_massa_confirmar': _etapa_cam_massa_confirmar,
+    'cam_grafico_escolher': _etapa_cam_grafico_escolher,
+    'cam_grafico_tipo': _etapa_cam_grafico_tipo,
 }
 
 
@@ -2860,6 +3136,7 @@ _HANDLERS_CAMBIO = {
 # =======================================================================
 
 FLUXO_PROCESSAR = 'processar_cenario'
+FLUXO_EXCLUIR_CENARIO = 'excluir_cenario'
 
 MENSAGENS_FLAG = {
     1: 'CONSOLIDADO', 2: 'LIMPO', 3: 'OTIMIZADO',
@@ -2978,8 +3255,11 @@ def _disparar_ciclo_completo(usuario, cenario):
 
     return (
         f"Disparei o **ciclo completo** (limpar → otimizar → consolidar) do cenário "
-        f"**{cenario_id}/{cenario.cen_nome}** 🔁 -- vou seguir automaticamente de uma etapa pra outra, "
-        "sem perguntar no meio. Clica em \"Verificar\" quando quiser conferir o andamento."
+        f"**{cenario_id}/{cenario.cen_nome}** 🔁 -- diferente do modo de ação única, aqui eu não "
+        "vou perguntar \"sim/não\" a cada etapa: assim que uma etapa terminar, a próxima já dispara "
+        "sozinha. Mas eu só fico sabendo que uma etapa terminou quando você manda alguma mensagem "
+        "(tipo clicar em \"Verificar\") -- não tem como eu avisar sozinho aqui no chat sem você "
+        "interagir. Então é só ir clicando em \"Verificar\" de tempos em tempos até o ciclo terminar."
     )
 
 
@@ -3128,9 +3408,12 @@ def iniciar_fluxo_processar(usuario, mensagem):
     else:
         return "Não entendi se você quer **limpar**, **otimizar**, ou **consolidar** o cenário ativo. Pode repetir dizendo qual dessas ações?"
 
-    # 🌟 Trava comum: não dá pra disparar nada novo se já tem uma operação
-    # em andamento nesse cenário agora (mesma checagem usada em mudar_cenario).
-    if cenario.flag in FLAGS_OPERACAO_EM_ANDAMENTO:
+    # 🌟 CORRIGIDO: a trava de "já tem operação em andamento" NÃO deve
+    # valer pra "limpar" -- limpar é sempre permitido, independente do
+    # status atual do cenário (é justamente o jeito de "resetar" um
+    # cenário que ficou travado ou num estado inconsistente). Só faz
+    # sentido bloquear otimizar/consolidar enquanto algo já está rodando.
+    if acao != 'limpar' and cenario.flag in FLAGS_OPERACAO_EM_ANDAMENTO:
         return (
             f"O cenário {cenario.id}/{cenario.cen_nome} já está com uma operação em andamento agora "
             f"({FLAGS_OPERACAO_EM_ANDAMENTO[cenario.flag]}). Espera terminar antes de disparar outra."
@@ -3401,3 +3684,242 @@ _HANDLERS_PROCESSAR = {
     'proc_pos_otimizacao_consolidar': _etapa_proc_pos_otimizacao_consolidar,
     'proc_aguardando_consolidacao': _etapa_proc_aguardando_consolidacao,
 }
+
+
+# =======================================================================
+# Fluxo: excluir_cenario -- deixa o usuário (superusuário ou superusuário
+# de empresa) escolher, entre os cenários da própria empresa, quais quer
+# excluir -- sempre protegendo o cenário ATIVO de qualquer usuário e os
+# cenários BASE da empresa, que nunca podem ser excluídos. Reaproveita a
+# mesma regra de segurança já usada no botão "Remover Cenário(s)
+# Selecionado(s)" do Admin (TbCenariosAdmin.delete_selected).
+# =======================================================================
+
+def _cenarios_elegiveis_para_exclusao(empresa_id):
+    """
+    Cenários da empresa que PODEM ser excluídos: não são cenário base, e
+    não estão marcados como cenário ativo de nenhum usuário no momento.
+    """
+    ids_ativos = set(
+        PerfilUsuario.objects.filter(
+            cenario_ativo__isnull=False, cenario_ativo__empresa_id=empresa_id
+        ).values_list('cenario_ativo_id', flat=True)
+    )
+    return (
+        TbCenarios.objects_real
+        .filter(empresa_id=empresa_id, eh_cenario_base=False)
+        .exclude(id__in=ids_ativos)
+        .order_by('-id')
+    )
+
+
+def iniciar_fluxo_excluir_cenario(usuario):
+    if not eh_superuser_ou_superuser_empresa(usuario):
+        return "Você não tem autorização para excluir cenários. Fale com o administrador do sistema."
+
+    perfil = getattr(usuario, 'perfilusuario', None)
+    empresa_id = perfil.empresa_efetiva_id() if perfil else None
+    if empresa_id is None:
+        return "Não consegui identificar sua empresa."
+
+    elegiveis_qs = _cenarios_elegiveis_para_exclusao(empresa_id)
+    total_elegiveis = elegiveis_qs.count()
+    candidatos = list(elegiveis_qs[:10])
+    if not candidatos:
+        return (
+            "Não tem nenhum cenário que possa ser excluído agora -- os únicos existentes são "
+            "cenários base, ou estão marcados como ativos por algum usuário."
+        )
+
+    estado = _get_estado(usuario)
+    estado.fluxo_ativo = FLUXO_EXCLUIR_CENARIO
+    estado.dados_coletados = {
+        'empresa_id': empresa_id,
+        'candidatos': {str(c.id): c.cen_nome for c in candidatos},
+        'selecionados': [],
+        'total_elegiveis': total_elegiveis,
+    }
+    estado.etapa_atual = 'cen_excluir_selecionar'
+    estado.save()
+    return _texto_selecao_exclusao(estado.dados_coletados)
+
+
+def _texto_selecao_exclusao(dados):
+    candidatos = dados['candidatos']
+    selecionados = set(dados['selecionados'])
+    total_elegiveis = dados.get('total_elegiveis', len(candidatos))
+    linhas = []
+    for id_str, nome in candidatos.items():
+        marcador = " ✅ (marcado pra excluir)" if id_str in selecionados else ""
+        linhas.append(f"- {id_str}: {nome}{marcador}")
+    lista = "\n".join(linhas)
+    aviso_total = (
+        f" (mostrando {len(candidatos)} dos {total_elegiveis} elegíveis -- os mais recentes)"
+        if total_elegiveis > len(candidatos) else ""
+    )
+    return (
+        "⚠️ Cenários que podem ser excluídos (o cenário ativo de qualquer usuário e os "
+        f"cenários base da empresa nunca aparecem aqui){aviso_total}:\n\n"
+        f"Alguns cenários recentes:\n{lista}\n\n"
+        "Clique num cenário pra marcar/desmarcar pra exclusão (pode marcar mais de um). Se o "
+        "que você quer excluir não está nessa lista (ela só mostra os mais recentes), digite "
+        "o **id** ou o **nome** dele diretamente. Quando terminar de escolher, digite ou "
+        "clique em \"concluir\". (ou \"cancelar\")"
+    )
+
+
+def _processar_excluir_cenario(estado, texto):
+    etapa = estado.etapa_atual
+    if etapa == 'cen_excluir_selecionar':
+        return _etapa_cen_excluir_selecionar(estado, texto)
+    elif etapa == 'cen_excluir_confirmar':
+        return _etapa_cen_excluir_confirmar(estado, texto)
+    elif etapa == 'cen_excluir_aguardando':
+        return _etapa_cen_excluir_aguardando(estado, texto)
+    _encerrar_fluxo(estado)
+    return "Não consegui identificar em qual etapa estávamos. Cancelei o fluxo -- pode começar de novo se quiser."
+
+
+def _etapa_cen_excluir_selecionar(estado, texto):
+    dados = estado.dados_coletados
+    candidatos = dados['candidatos']
+    escolha = texto.strip().lower()
+
+    if escolha == 'concluir':
+        if not dados['selecionados']:
+            return "Você ainda não marcou nenhum cenário. Clica num cenário da lista pra marcar, ou \"cancelar\"."
+        estado.etapa_atual = 'cen_excluir_confirmar'
+        estado.save()
+        nomes = ", ".join(f"{id_str}/{candidatos[id_str]}" for id_str in dados['selecionados'])
+        return (
+            f"⚠️ Confirma a EXCLUSÃO PERMANENTE do(s) cenário(s): **{nomes}**?\n\n"
+            "Essa ação não pode ser desfeita. (sim / não)"
+        )
+
+    # Aceita clicar/digitar o id, ou digitar o nome do cenário -- inclusive
+    # de um cenário que NÃO está entre os mostrados na lista (que só traz
+    # os mais recentes, por espaço). Confere contra TODOS os elegíveis da
+    # empresa, não só os pré-carregados.
+    texto_limpo = texto.strip()
+    id_str = None
+
+    if texto_limpo in candidatos:
+        id_str = texto_limpo
+    else:
+        elegiveis = _cenarios_elegiveis_para_exclusao(dados['empresa_id'])
+        cenario_digitado = None
+        if texto_limpo.isdigit():
+            cenario_digitado = elegiveis.filter(id=int(texto_limpo)).first()
+        if cenario_digitado is None:
+            cenario_digitado = elegiveis.filter(cen_nome__iexact=texto_limpo).first()
+        if cenario_digitado is not None:
+            id_str = str(cenario_digitado.id)
+            # 🌟 Achou um cenário elegível que ainda não estava na lista
+            # mostrada -- adiciona ele aos candidatos conhecidos, pra
+            # aparecer certinho no resumo e na confirmação depois.
+            candidatos[id_str] = cenario_digitado.cen_nome
+            dados['candidatos'] = candidatos
+
+    if id_str is None:
+        return (
+            "Não encontrei nenhum cenário elegível com esse id/nome (lembrando: o cenário ativo "
+            "de qualquer usuário e os cenários base nunca podem ser excluídos). Pode digitar o "
+            "id ou nome de QUALQUER cenário elegível, mesmo que ele não esteja na lista mostrada "
+            "-- ela só traz os mais recentes. Ou digite \"concluir\" quando terminar (ou \"cancelar\")."
+        )
+
+    selecionados = dados['selecionados']
+    if id_str in selecionados:
+        selecionados.remove(id_str)
+    else:
+        selecionados.append(id_str)
+    dados['selecionados'] = selecionados
+    estado.dados_coletados = dados
+    estado.save()
+    return _texto_selecao_exclusao(dados)
+
+
+def _etapa_cen_excluir_confirmar(estado, texto):
+    resposta = texto.strip().lower()
+    dados = estado.dados_coletados
+    empresa_id = dados['empresa_id']
+
+    if resposta not in ('sim', 's'):
+        _encerrar_fluxo(estado)
+        return "Ok, não excluí nada."
+
+    # 🌟 Reconfere as regras de segurança bem na hora de excluir de
+    # verdade (defesa em profundidade -- algo pode ter mudado entre a
+    # seleção e a confirmação, tipo outro usuário ativar um desses
+    # cenários nesse meio tempo).
+    elegiveis_agora = set(str(c.id) for c in _cenarios_elegiveis_para_exclusao(empresa_id))
+    validos = [i for i in dados['selecionados'] if i in elegiveis_agora]
+    invalidos = [i for i in dados['selecionados'] if i not in elegiveis_agora]
+
+    if not validos:
+        _encerrar_fluxo(estado)
+        return (
+            "Nenhum dos cenários selecionados pôde ser excluído -- todos deixaram de ser "
+            "elegíveis nesse meio tempo (podem ter virado o cenário ativo de alguém). "
+            "Nada foi excluído."
+        )
+
+    for id_str in validos:
+        remover_cenario_celery.delay(int(id_str))
+
+    nomes_validos = ", ".join(f"{i}/{dados['candidatos'].get(i, '')}" for i in validos)
+    aviso_invalidos = ""
+    if invalidos:
+        nomes_invalidos = ", ".join(f"{i}/{dados['candidatos'].get(i, '')}" for i in invalidos)
+        aviso_invalidos = f"\n\n(Não excluí {nomes_invalidos} -- deixaram de ser elegíveis nesse meio tempo.)"
+
+    # 🌟 CORRIGIDO: em vez de simplesmente encerrar o acompanhamento e
+    # mandar "atualize a tela" (que não dava pro usuário conferir pelo
+    # próprio chat), fica aguardando aqui -- igual ao padrão de Limpar/
+    # Otimizar/Consolidar, com um botão "Verificar" que reconsulta o
+    # banco de verdade pra ver se cada cenário já sumiu (foi excluído).
+    estado.etapa_atual = 'cen_excluir_aguardando'
+    estado.dados_coletados = {
+        'ids_excluindo': validos,
+        'nomes_excluindo': {i: dados['candidatos'].get(i, '') for i in validos},
+    }
+    estado.save()
+
+    return (
+        f"Cenário(s) **{nomes_validos}** sendo excluído(s) em segundo plano. "
+        f"Clica em \"Verificar\" daqui a pouco pra conferir se já terminou.{aviso_invalidos}"
+    )
+
+
+def _etapa_cen_excluir_aguardando(estado, texto):
+    dados = estado.dados_coletados
+    ids_excluindo = dados.get('ids_excluindo', [])
+    nomes_excluindo = dados.get('nomes_excluindo', {})
+
+    if 'verificar' not in texto.strip().lower():
+        return (
+            "Ainda estou de olho na exclusão desses cenários. Clica em \"Verificar\" "
+            "pra conferir o status agora (ou \"cancelar\" pra parar de acompanhar -- a "
+            "exclusão em si continua rodando em segundo plano de qualquer jeito)."
+        )
+
+    ainda_existem = set(
+        str(i) for i in TbCenarios.objects_real.filter(id__in=[int(i) for i in ids_excluindo]).values_list('id', flat=True)
+    )
+    ja_excluidos = [i for i in ids_excluindo if i not in ainda_existem]
+    pendentes = [i for i in ids_excluindo if i in ainda_existem]
+
+    if not pendentes:
+        _encerrar_fluxo(estado)
+        nomes = ", ".join(f"{i}/{nomes_excluindo.get(i, '')}" for i in ja_excluidos)
+        return f"✅ Cenário(s) **{nomes}** excluído(s) com sucesso."
+
+    nomes_pendentes = ", ".join(f"{i}/{nomes_excluindo.get(i, '')}" for i in pendentes)
+    if ja_excluidos:
+        nomes_prontos = ", ".join(f"{i}/{nomes_excluindo.get(i, '')}" for i in ja_excluidos)
+        return (
+            f"✅ Já excluído: {nomes_prontos}.\n\n"
+            f"⏳ Ainda em andamento: {nomes_pendentes}. Clica em \"Verificar\" daqui a pouco de novo."
+        )
+
+    return f"⏳ Ainda excluindo **{nomes_pendentes}**. Clica em \"Verificar\" daqui a pouco de novo."
