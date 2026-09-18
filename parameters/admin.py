@@ -919,23 +919,27 @@ admin.site.register(TbCenarios, TbCenariosAdmin)
 class TbEmpresaAdmin(admin.ModelAdmin):
     # fields = [('emp_nome', 'emp_tipo'), 'emp_descricao', 'emp_moeda', ('emp_moeda_imagem', 'emp_moeda_imagem_tag'), ('emp_logo', 'emp_logo_tag'), ('emp_fluxo', 'emp_fluxo_tag'), ('emp_informacao1', 'emp_fonte1'), ('emp_informacao2', 'emp_fonte2'), ('emp_informacao3', 'emp_fonte3')]
     fields = [('emp_nome', 'emp_tipo'), 'emp_descricao', 'emp_moeda', ('emp_moeda_imagem', 'emp_moeda_imagem_tag'),
-              ('emp_logo', 'emp_logo_tag'), ('emp_fluxo', 'emp_fluxo_tag'), 'idioma_padrao', 'apps_habilitados']
+              ('emp_logo', 'emp_logo_tag'), ('emp_fluxo', 'emp_fluxo_tag'), 'idioma_padrao', 'apps_habilitados',
+              'acoes_comuns_habilitadas']
     # 🌟 NOVO (multi-empresa): apps opcionais habilitados pra essa
     # empresa (ex: custo_ferbasa só marcado pra Ferbasa) -- widget de
     # múltipla escolha lado a lado, só um superusuário DE VERDADE edita
     # (has_change_permission dessa tela já é restrito a is_superuser).
-    filter_horizontal = ['apps_habilitados']
+    # 🌟 NOVO (Ações Comuns por empresa): mesmo widget, agora também pras
+    # ações individuais do menu "Ações Comuns" do chat (categoria+ação).
+    filter_horizontal = ['apps_habilitados', 'acoes_comuns_habilitadas']
 
     readonly_fields = ['emp_moeda_imagem_tag', 'emp_logo_tag', 'emp_fluxo_tag']
 
     # 🌟 NOVO (multi-empresa): só um superusuário DE VERDADE decide quais
     # apps opcionais uma empresa tem acesso -- mesmo raciocínio de
     # eh_superuser_empresa (não faz sentido a própria empresa se
-    # autoconceder acesso a um app novo).
+    # autoconceder acesso a um app novo). Vale igual pras Ações Comuns.
     def get_readonly_fields(self, request, obj=None):
         readonly = list(super().get_readonly_fields(request, obj))
         if not request.user.is_superuser:
             readonly.append('apps_habilitados')
+            readonly.append('acoes_comuns_habilitadas')
         return readonly
 
     list_display = ['id', 'ativo', 'botao_ativar', 'emp_nome', 'emp_logo', 'emp_logo_tag', 'emp_tipo', 'emp_descricao',
@@ -1103,6 +1107,24 @@ class AppOpcionalAdmin(admin.ModelAdmin):
 
 
 admin.site.register(AppOpcional, AppOpcionalAdmin)
+
+
+class AcaoComumAdmin(admin.ModelAdmin):
+    fields = ('categoria', 'chave', 'nome_exibicao')
+    list_display = ['nome_exibicao', 'categoria', 'chave']
+    list_filter = ['categoria']
+
+    def has_change_permission(self, request, obj=None):
+        return request.user.is_superuser
+
+    def has_add_permission(self, request):
+        return request.user.is_superuser
+
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_superuser
+
+
+admin.site.register(AcaoComum, AcaoComumAdmin)
 
 
 class TbGlossarioAdmin(admin.ModelAdmin):

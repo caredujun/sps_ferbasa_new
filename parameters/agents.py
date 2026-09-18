@@ -23,7 +23,9 @@ from .fluxo_criar_cenario import (
     _processar_planilha_indicador, _processar_planilha_cambio,
     _buscar_indicador, _lista_indicadores, _lista_periodos_indicador,
     _buscar_cambio, _lista_cambios, _lista_periodos_cambio,
+    determinar_acao_indicadores, determinar_acao_cambio, determinar_acao_processar,
 )
+from .contexto_usuario import empresa_tem_acao_comum_habilitada
 
 # Carrega as variáveis de ambiente do arquivo .env localizado na raiz do projeto
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -761,7 +763,7 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario) -> t
         return resposta, []
 
     # 🌟 NOVO: usuário pedindo pra começar o wizard agora
-    if _detectar_intencao_criar_cenario(mensagem_usuario):
+    if _detectar_intencao_criar_cenario(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Cenário', 'criar'):
         if esta_em_fluxo:
             cancelar_fluxo_ativo(usuario)
         resposta = iniciar_fluxo_criar_cenario(usuario)
@@ -769,7 +771,7 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario) -> t
         return resposta, []
 
     # 🌟 NOVO: usuário pedindo pra mudar tipo/período do cenário ativo
-    if _detectar_intencao_mudar_cenario(mensagem_usuario):
+    if _detectar_intencao_mudar_cenario(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Cenário', 'mudar'):
         if esta_em_fluxo:
             cancelar_fluxo_ativo(usuario)
         resposta = iniciar_fluxo_mudar_cenario(usuario, mensagem_usuario)
@@ -779,7 +781,7 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario) -> t
     # 🌟 NOVO: usuário pedindo pra excluir um ou mais cenários (fora do
     # ativo, e não sendo cenário base -- essa checagem em si é feita
     # dentro do fluxo, aqui só detecta a intenção e começa o wizard)
-    if _detectar_intencao_excluir_cenario(mensagem_usuario):
+    if _detectar_intencao_excluir_cenario(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Cenário', 'excluir'):
         if esta_em_fluxo:
             cancelar_fluxo_ativo(usuario)
         resposta = iniciar_fluxo_excluir_cenario(usuario)
@@ -787,7 +789,7 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario) -> t
         return resposta, []
 
     # 🌟 NOVO: usuário pedindo pra exportar o relatório Excel do cenário ativo
-    if _detectar_intencao_exportar_cenario(mensagem_usuario):
+    if _detectar_intencao_exportar_cenario(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Cenário', 'exportar_excel'):
         if esta_em_fluxo:
             cancelar_fluxo_ativo(usuario)
         resposta = iniciar_exportar_excel_cenario_ativo(usuario)
@@ -841,7 +843,8 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario) -> t
             return resposta, []
 
     # 🌟 NOVO: usuário pedindo pra mexer em indicadores (editar/criar/reajustar)
-    if _detectar_intencao_indicadores(mensagem_usuario):
+    if _detectar_intencao_indicadores(mensagem_usuario) and empresa_tem_acao_comum_habilitada(
+            usuario, 'Indicadores', determinar_acao_indicadores(mensagem_usuario)):
         if esta_em_fluxo:
             cancelar_fluxo_ativo(usuario)
         resposta = iniciar_fluxo_indicadores(usuario, mensagem_usuario)
@@ -849,7 +852,8 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario) -> t
         return resposta, []
 
     # 🌟 NOVO: usuário pedindo pra mexer em taxas de câmbio (editar/criar/reajustar/eliminar)
-    if _detectar_intencao_cambio(mensagem_usuario):
+    if _detectar_intencao_cambio(mensagem_usuario) and empresa_tem_acao_comum_habilitada(
+            usuario, 'Câmbio', determinar_acao_cambio(mensagem_usuario)):
         if esta_em_fluxo:
             cancelar_fluxo_ativo(usuario)
         resposta = iniciar_fluxo_cambio(usuario, mensagem_usuario)
@@ -857,7 +861,7 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario) -> t
         return resposta, []
 
     # 🌟 NOVO: usuário perguntando o status/situação do cenário ativo
-    if _detectar_intencao_status(mensagem_usuario):
+    if _detectar_intencao_status(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Cenário', 'status'):
         if esta_em_fluxo:
             cancelar_fluxo_ativo(usuario)
         resposta = iniciar_consulta_status(usuario, mensagem_usuario)
@@ -866,7 +870,7 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario) -> t
 
     # 🌟 NOVO: "limpar, otimizar e consolidar" juntos -- ciclo completo
     # automático. Checado ANTES da ação única, senão cairia só no "limpar".
-    if _detectar_intencao_ciclo_completo(mensagem_usuario):
+    if _detectar_intencao_ciclo_completo(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Cenário', 'ciclo_completo'):
         if esta_em_fluxo:
             cancelar_fluxo_ativo(usuario)
         resposta = iniciar_ciclo_completo(usuario, mensagem_usuario)
@@ -875,7 +879,8 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario) -> t
 
     # 🌟 NOVO: usuário pedindo pra limpar/otimizar/consolidar o cenário
     # ativo, a qualquer momento (não só durante a criação de um cenário novo)
-    if _detectar_intencao_processar(mensagem_usuario):
+    if _detectar_intencao_processar(mensagem_usuario) and empresa_tem_acao_comum_habilitada(
+            usuario, 'Cenário', determinar_acao_processar(mensagem_usuario)):
         if esta_em_fluxo:
             cancelar_fluxo_ativo(usuario)
         resposta = iniciar_fluxo_processar(usuario, mensagem_usuario)

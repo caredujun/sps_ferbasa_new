@@ -212,15 +212,15 @@
                 <label for="dropdown-cenario">{% trans "Cenário" %}</label>
                 <select id="dropdown-cenario" class="select-acao-comum" onchange="dispararAcaoDropdown(this)">
                     <option value="">{% trans "Selecione uma ação..." %}</option>
-                    <option value="criar um cenário novo">{% trans "Criar cenário novo" %}</option>
-                    <option value="mudar o tipo ou período do cenário ativo">{% trans "Mudar tipo/período" %}</option>
-                    <option value="qual é o status do cenário?">{% trans "Ver status" %}</option>
-                    <option value="limpar cenário">{% trans "Limpar" %}</option>
-                    <option value="otimizar cenário">{% trans "Otimizar" %}</option>
-                    <option value="consolidar cenário">{% trans "Consolidar" %}</option>
-                    <option value="limpar, otimizar e consolidar o cenário">{% trans "Ciclo completo (limpar, otimizar e consolidar)" %}</option>
-                    <option value="excluir um cenário">{% trans "Excluir Cenário" %}</option>
-                    <option value="exportar o cenário ativo em excel">{% trans "Exportar Excel do Cenário Ativo" %}</option>
+                    {% if acoes_habilitadas.cen_criar %}<option value="criar um cenário novo">{% trans "Criar cenário novo" %}</option>{% endif %}
+                    {% if acoes_habilitadas.cen_mudar %}<option value="mudar o tipo ou período do cenário ativo">{% trans "Mudar tipo/período" %}</option>{% endif %}
+                    {% if acoes_habilitadas.cen_status %}<option value="qual é o status do cenário?">{% trans "Ver status" %}</option>{% endif %}
+                    {% if acoes_habilitadas.cen_limpar %}<option value="limpar cenário">{% trans "Limpar" %}</option>{% endif %}
+                    {% if acoes_habilitadas.cen_otimizar %}<option value="otimizar cenário">{% trans "Otimizar" %}</option>{% endif %}
+                    {% if acoes_habilitadas.cen_consolidar %}<option value="consolidar cenário">{% trans "Consolidar" %}</option>{% endif %}
+                    {% if acoes_habilitadas.cen_ciclo_completo %}<option value="limpar, otimizar e consolidar o cenário">{% trans "Ciclo completo (limpar, otimizar e consolidar)" %}</option>{% endif %}
+                    {% if acoes_habilitadas.cen_excluir %}<option value="excluir um cenário">{% trans "Excluir Cenário" %}</option>{% endif %}
+                    {% if acoes_habilitadas.cen_exportar_excel %}<option value="exportar o cenário ativo em excel">{% trans "Exportar Excel Resultados Financeiros do Cenário Ativo" %}</option>{% endif %}
                 </select>
             </div>
 
@@ -228,11 +228,11 @@
                 <label for="dropdown-indicadores">{% trans "Indicadores" %}</label>
                 <select id="dropdown-indicadores" class="select-acao-comum" onchange="dispararAcaoDropdown(this)">
                     <option value="">{% trans "Selecione uma ação..." %}</option>
-                    <option value="mudar um indicador">{% trans "Mudar valor" %}</option>
-                    <option value="criar um indicador novo">{% trans "Criar novo" %}</option>
-                    <option value="reajustar indicador em massa">{% trans "Reajuste em massa" %}</option>
-                    <option value="eliminar um indicador">{% trans "Eliminar" %}</option>
-                    <option value="plotar gráfico de um indicador">{% trans "Plotar Gráfico" %}</option>
+                    {% if acoes_habilitadas.ind_editar %}<option value="mudar um indicador">{% trans "Mudar valor" %}</option>{% endif %}
+                    {% if acoes_habilitadas.ind_criar %}<option value="criar um indicador novo">{% trans "Criar novo" %}</option>{% endif %}
+                    {% if acoes_habilitadas.ind_massa %}<option value="reajustar indicador em massa">{% trans "Reajuste em massa" %}</option>{% endif %}
+                    {% if acoes_habilitadas.ind_eliminar %}<option value="eliminar um indicador">{% trans "Eliminar" %}</option>{% endif %}
+                    {% if acoes_habilitadas.ind_grafico %}<option value="plotar gráfico de um indicador">{% trans "Plotar Gráfico" %}</option>{% endif %}
                 </select>
             </div>
 
@@ -240,11 +240,11 @@
                 <label for="dropdown-cambio">{% trans "Taxas de Câmbio" %}</label>
                 <select id="dropdown-cambio" class="select-acao-comum" onchange="dispararAcaoDropdown(this)">
                     <option value="">{% trans "Selecione uma ação..." %}</option>
-                    <option value="mudar uma taxa de câmbio">{% trans "Mudar valor" %}</option>
-                    <option value="criar uma taxa de câmbio nova">{% trans "Criar nova" %}</option>
-                    <option value="reajustar câmbio em massa">{% trans "Reajuste em massa" %}</option>
-                    <option value="eliminar uma taxa de câmbio">{% trans "Eliminar" %}</option>
-                    <option value="plotar gráfico de uma taxa de câmbio">{% trans "Plotar Gráfico" %}</option>
+                    {% if acoes_habilitadas.cam_editar %}<option value="mudar uma taxa de câmbio">{% trans "Mudar valor" %}</option>{% endif %}
+                    {% if acoes_habilitadas.cam_criar %}<option value="criar uma taxa de câmbio nova">{% trans "Criar nova" %}</option>{% endif %}
+                    {% if acoes_habilitadas.cam_massa %}<option value="reajustar câmbio em massa">{% trans "Reajuste em massa" %}</option>{% endif %}
+                    {% if acoes_habilitadas.cam_eliminar %}<option value="eliminar uma taxa de câmbio">{% trans "Eliminar" %}</option>{% endif %}
+                    {% if acoes_habilitadas.cam_grafico %}<option value="plotar gráfico de uma taxa de câmbio">{% trans "Plotar Gráfico" %}</option>{% endif %}
                 </select>
             </div>
         </div>
@@ -264,6 +264,7 @@
         {% trans "o que posso fazer por você agora?" as MSG_O_QUE_POSSO_FAZER %}
         {% trans "Você" as ROTULO_VOCE %}
         {% trans "Agente IA" as ROTULO_AGENTE %}
+        {% trans "Baixar Imagem" as MSG_BAIXAR_IMAGEM %}
         var MSG_CONFIRMA_PERIODO = "{{ MSG_CONFIRMA_PERIODO|escapejs }}";
         var MSG_CONFIRMA_TUDO = "{{ MSG_CONFIRMA_TUDO|escapejs }}";
         var MSG_SELECIONE_DATAS = "{{ MSG_SELECIONE_DATAS|escapejs }}";
@@ -274,6 +275,7 @@
         var MSG_O_QUE_POSSO_FAZER = "{{ MSG_O_QUE_POSSO_FAZER|escapejs }}";
         var ROTULO_VOCE = "{{ ROTULO_VOCE|escapejs }}";
         var ROTULO_AGENTE = "{{ ROTULO_AGENTE|escapejs }}";
+        var MSG_BAIXAR_IMAGEM = "{{ MSG_BAIXAR_IMAGEM|escapejs }}";
 
         function escapeHtml(str) {
             return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -411,6 +413,10 @@
                         graficosPendentes.push({ id: idCanvas, config: config });
                         saida.push(
                             '<div style="max-width: 560px; margin: 10px 0; background:#fff; border:1px solid #eee; border-radius:8px; padding:12px;">' +
+                            '<div style="display:flex; justify-content:flex-end; margin-bottom:4px;">' +
+                            '<button type="button" class="botao-baixar-grafico" onclick="baixarGrafico(\'' + idCanvas + '\')" ' +
+                            'style="font-size:12px; padding:4px 10px; border:1px solid #ccc; border-radius:4px; background:#f7f7f7; color:#333; cursor:pointer;">' +
+                            '📥 ' + MSG_BAIXAR_IMAGEM + '</button></div>' +
                             '<canvas id="' + idCanvas + '"></canvas></div>'
                         );
                     } catch (erroGrafico) {
@@ -493,6 +499,30 @@
                 }
             });
             graficosPendentes = [];
+        }
+
+        // 🌟 NOVO: exporta o gráfico como arquivo PNG, pra usar em outro
+        // programa/sistema. Desenha antes num canvas temporário com fundo
+        // branco (o Chart.js desenha com fundo transparente por padrão --
+        // sem isso, a imagem baixada ficaria "vazada" ao colar em cima de
+        // um fundo escuro em outro programa).
+        function baixarGrafico(idCanvas) {
+            var canvasOriginal = document.getElementById(idCanvas);
+            if (!canvasOriginal) return;
+            var canvasComFundo = document.createElement('canvas');
+            canvasComFundo.width = canvasOriginal.width;
+            canvasComFundo.height = canvasOriginal.height;
+            var ctx = canvasComFundo.getContext('2d');
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvasComFundo.width, canvasComFundo.height);
+            ctx.drawImage(canvasOriginal, 0, 0);
+
+            var link = document.createElement('a');
+            link.download = idCanvas + '.png';
+            link.href = canvasComFundo.toDataURL('image/png');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
 
         function inlineMatchOli(str) {

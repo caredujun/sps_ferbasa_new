@@ -104,3 +104,27 @@ def empresa_tem_app_habilitado(usuario, app_label):
         return False
     from .models import TbEmpresa
     return TbEmpresa.objects.filter(id=empresa_id, apps_habilitados__app_label=app_label).exists()
+
+
+def empresa_tem_acao_comum_habilitada(usuario, categoria, chave):
+    """
+    🌟 NOVO (Ações Comuns por empresa): mesmo espírito de
+    empresa_tem_app_habilitado, mas pra granularidade de Categoria+Ação
+    dentro das "Ações Comuns" do chat do Agente IA (ex: categoria=
+    "Indicadores", chave="eliminar"). Usado tanto pra esconder a opção
+    do menu suspenso quanto pra fazer o agente "esquecer" que esse
+    contexto existe, se o usuário pedir por texto livre (ex: "criar o
+    gráfico do dólar") sem essa ação estar habilitada pra empresa dele.
+    """
+    if usuario is None or not usuario.is_authenticated:
+        return False
+    perfil = getattr(usuario, 'perfilusuario', None)
+    if perfil is None:
+        return False
+    empresa_id = perfil.empresa_efetiva_id()
+    if empresa_id is None:
+        return False
+    from .models import TbEmpresa
+    return TbEmpresa.objects.filter(
+        id=empresa_id, acoes_comuns_habilitadas__categoria=categoria, acoes_comuns_habilitadas__chave=chave
+    ).exists()

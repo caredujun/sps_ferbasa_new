@@ -195,6 +195,39 @@ def trocar_idioma_view(request):
     return redirect(request.META.get('HTTP_REFERER', '/'))
 
 
+# 🌟 NOVO (Ações Comuns por empresa): categoria -> prefixo usado nas
+# chaves do dict (ex: "ind_editar", "cam_grafico", "cen_excluir") -- pra
+# casar com os nomes já usados nos <option> do chat.html.
+_PREFIXO_CATEGORIA_ACAO = {'Indicadores': 'ind', 'Câmbio': 'cam', 'Cenário': 'cen'}
+
+
+def _mapa_acoes_comuns_habilitadas(usuario):
+    """
+    🌟 NOVO (Ações Comuns por empresa): monta um dict com uma chave por
+    ação habilitada (ex: {'ind_editar': True, 'cen_excluir': True, ...})
+    pra empresa efetiva do usuário -- 1 consulta só (em vez de checar
+    empresa_tem_acao_comum_habilitada() uma vez pra cada uma das 19
+    ações), usado no template pra esconder as opções não habilitadas do
+    menu "Ações Comuns". Uma chave AUSENTE do dict é tratada como "não
+    habilitada" pelo {% if %} do template (não precisa pré-popular False).
+    """
+    mapa = {}
+    perfil = getattr(usuario, 'perfilusuario', None)
+    empresa_id = perfil.empresa_efetiva_id() if perfil else None
+    if empresa_id is None:
+        return mapa
+    combinacoes = TbEmpresa.objects.filter(id=empresa_id).values_list(
+        'acoes_comuns_habilitadas__categoria', 'acoes_comuns_habilitadas__chave'
+    )
+    for categoria, chave in combinacoes:
+        if not categoria or not chave:
+            continue
+        prefixo = _PREFIXO_CATEGORIA_ACAO.get(categoria)
+        if prefixo:
+            mapa[f'{prefixo}_{chave}'] = True
+    return mapa
+
+
 @exige_acesso_ao_agente_ia
 def chat_view(request):
     if request.method == "POST":
@@ -285,6 +318,7 @@ def chat_view(request):
         "nome_empresa": nome_empresa,
         "nome_cenario": nome_cenario,
         "status_cenario": status_cenario,
+        "acoes_habilitadas": _mapa_acoes_comuns_habilitadas(request.user),
     })
 
 

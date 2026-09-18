@@ -2518,8 +2518,8 @@ msgstr "Id Scenario"
 msgid "Nome Cenário"
 msgstr "Nome Scenario"
 
-msgid "Exportar Excel do Cenário Ativo"
-msgstr "Esporta Excel dello Scenario Attivo"
+msgid "Exportar Excel Resultados Financeiros do Cenário Ativo"
+msgstr "Esporta Excel dei Risultati Finanziari dello Scenario Attivo"
 
 msgid "Resultados Cenário"
 msgstr "Risultati Scenario"
@@ -2532,6 +2532,9 @@ msgstr "Disponibile per l'IA"
 
 msgid "Arquivo"
 msgstr "File"
+
+msgid "Baixar Imagem"
+msgstr "Scarica Immagine"
 
 #, python-format
 msgid "Olá %(nome_usuario)s! O que posso fazer por você hoje?"

@@ -54,6 +54,35 @@ class AppOpcional(models.Model):
         ordering = ['nome_exibicao']
 
 
+class AcaoComum(models.Model):
+    """
+    🌟 NOVO (Ações Comuns por empresa): catálogo das ações individuais do
+    menu "Ações Comuns" do chat do Agente IA -- mesmo espírito de
+    AppOpcional, mas com granularidade fina (categoria + ação), não app
+    inteiro. Ex: categoria="Indicadores", chave="eliminar" cobre só a
+    opção de eliminar indicador, sem afetar editar/criar/etc dentro da
+    mesma categoria.
+
+    "categoria" e "chave" são os identificadores TÉCNICOS usados no
+    código (chat.html e nos detectores do agente) -- não mudam depois de
+    cadastrados. "nome_exibicao" é só o texto mostrado no Admin.
+    """
+    categoria = models.CharField(max_length=50, verbose_name=_('Categoria'),
+                                  help_text=_('Ex: "Indicadores", "Câmbio", "Cenário".'))
+    chave = models.CharField(max_length=50, verbose_name=_('Ação (chave técnica)'),
+                              help_text=_('Identificador técnico usado no código -- não muda depois de criado.'))
+    nome_exibicao = models.CharField(max_length=150, verbose_name=_('Nome de Exibição'))
+
+    def __str__(self):
+        return self.nome_exibicao
+
+    class Meta:
+        verbose_name = _('   Ação Comum')
+        verbose_name_plural = _('   Ações Comuns')
+        ordering = ['categoria', 'chave']
+        unique_together = [('categoria', 'chave')]
+
+
 class TbEmpresa(models.Model):
 
     emp_tipo_choice = (
@@ -88,6 +117,13 @@ class TbEmpresa(models.Model):
     # do menu do Admin (inclusive pro superusuário, respeitando a empresa
     # ativa dele) pra qualquer empresa que não tenha marcado.
     apps_habilitados = models.ManyToManyField(AppOpcional, blank=True, verbose_name=_('Apps Habilitados'))
+    # 🌟 NOVO (Ações Comuns por empresa): quais ações individuais do menu
+    # "Ações Comuns" do chat essa empresa tem acesso -- mesmo espírito de
+    # apps_habilitados, mas com granularidade de categoria+ação (ex: pode
+    # "editar" indicador mas não "eliminar"). Some tanto do menu quanto
+    # do reconhecimento por texto livre no chat pra quem não tiver
+    # marcado.
+    acoes_comuns_habilitadas = models.ManyToManyField(AcaoComum, blank=True, verbose_name=_('Ações Comuns Habilitadas'))
 
     class Meta:
         verbose_name        = _('    Empresa')

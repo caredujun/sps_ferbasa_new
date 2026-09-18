@@ -2518,8 +2518,8 @@ msgstr "方案编号"
 msgid "Nome Cenário"
 msgstr "方案名称"
 
-msgid "Exportar Excel do Cenário Ativo"
-msgstr "导出当前方案 Excel"
+msgid "Exportar Excel Resultados Financeiros do Cenário Ativo"
+msgstr "导出当前方案财务结果 Excel"
 
 msgid "Resultados Cenário"
 msgstr "方案结果"
@@ -2532,6 +2532,9 @@ msgstr "对 AI 可用"
 
 msgid "Arquivo"
 msgstr "文件"
+
+msgid "Baixar Imagem"
+msgstr "下载图片"
 
 #, python-format
 msgid "Olá %(nome_usuario)s! O que posso fazer por você hoje?"

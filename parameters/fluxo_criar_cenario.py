@@ -1085,6 +1085,27 @@ _HANDLERS_MUDAR = {
 # cenário ATIVO do usuário.
 # =======================================================================
 
+def determinar_acao_indicadores(mensagem):
+    """
+    🌟 NOVO (Ações Comuns por empresa): extraído de dentro de
+    iniciar_fluxo_indicadores pra poder ser chamado TAMBÉM pelo
+    detector em agents.py, antes de decidir se dispara o fluxo -- assim
+    dá pra checar "essa sub-ação específica está habilitada pra essa
+    empresa?" sem duplicar a lógica de regex em dois lugares.
+    """
+    texto = (mensagem or '').lower()
+    if re.search(r'gr[áa]fico|plot[ae]r?', texto):
+        return 'grafico'
+    elif re.search(r'cri[ae]r?|cadastr[ae]r?', texto):
+        return 'criar'
+    elif re.search(r'reajust|em massa|todos os per[ií]odos', texto):
+        return 'massa'
+    elif re.search(r'elimin|apag|exclu[ií]|delet|remov', texto):
+        return 'eliminar'
+    else:
+        return 'editar'
+
+
 def iniciar_fluxo_indicadores(usuario, mensagem=""):
     perfil = getattr(usuario, 'perfilusuario', None)
     if perfil is None or perfil.cenario_ativo_id is None:
@@ -1094,17 +1115,7 @@ def iniciar_fluxo_indicadores(usuario, mensagem=""):
     if cenario is None:
         return "O cenário que estava ativo pra você não existe mais. Acesse a tela de Cenários e ative outro antes de continuar."
 
-    texto = (mensagem or '').lower()
-    if re.search(r'gr[áa]fico|plot[ae]r?', texto):
-        acao = 'grafico'
-    elif re.search(r'cri[ae]r?|cadastr[ae]r?', texto):
-        acao = 'criar'
-    elif re.search(r'reajust|em massa|todos os per[ií]odos', texto):
-        acao = 'massa'
-    elif re.search(r'elimin|apag|exclu[ií]|delet|remov', texto):
-        acao = 'eliminar'
-    else:
-        acao = 'editar'
+    acao = determinar_acao_indicadores(mensagem)
 
     estado = _get_estado(usuario)
     estado.fluxo_ativo = FLUXO_INDICADORES
@@ -2249,6 +2260,21 @@ _HANDLERS_INDICADORES = {
 FLUXO_CAMBIO = 'cambio'
 
 
+def determinar_acao_cambio(mensagem):
+    """Mesma ideia de determinar_acao_indicadores, pra câmbio."""
+    texto = (mensagem or '').lower()
+    if re.search(r'gr[áa]fico|plot[ae]r?', texto):
+        return 'grafico'
+    elif re.search(r'cri[ae]r?|cadastr[ae]r?', texto):
+        return 'criar'
+    elif re.search(r'reajust|em massa|todos os per[ií]odos', texto):
+        return 'massa'
+    elif re.search(r'elimin|apag|exclu[ií]|delet|remov', texto):
+        return 'eliminar'
+    else:
+        return 'editar'
+
+
 def iniciar_fluxo_cambio(usuario, mensagem=""):
     perfil = getattr(usuario, 'perfilusuario', None)
     if perfil is None or perfil.cenario_ativo_id is None:
@@ -2258,17 +2284,7 @@ def iniciar_fluxo_cambio(usuario, mensagem=""):
     if cenario is None:
         return "O cenário que estava ativo pra você não existe mais. Acesse a tela de Cenários e ative outro antes de continuar."
 
-    texto = (mensagem or '').lower()
-    if re.search(r'gr[áa]fico|plot[ae]r?', texto):
-        acao = 'grafico'
-    elif re.search(r'cri[ae]r?|cadastr[ae]r?', texto):
-        acao = 'criar'
-    elif re.search(r'reajust|em massa|todos os per[ií]odos', texto):
-        acao = 'massa'
-    elif re.search(r'elimin|apag|exclu[ií]|delet|remov', texto):
-        acao = 'eliminar'
-    else:
-        acao = 'editar'
+    acao = determinar_acao_cambio(mensagem)
 
     estado = _get_estado(usuario)
     estado.fluxo_ativo = FLUXO_CAMBIO
@@ -3389,6 +3405,21 @@ def _etapa_proc_ciclo_aguardando_consolidacao(estado, texto):
     return f"O status do cenário **{cenario_id}/{cenario_nome}** mudou pra algo inesperado (flag={cenario.flag}) durante a consolidação -- melhor conferir manualmente no Admin."
 
 
+def determinar_acao_processar(mensagem):
+    """
+    Mesma ideia de determinar_acao_indicadores, pra limpar/otimizar/
+    consolidar. Devolve None se a mensagem não bater com nenhuma das 3.
+    """
+    texto = (mensagem or '').lower()
+    if re.search(r'limp[ae]r?', texto):
+        return 'limpar'
+    elif re.search(r'otimiz[ae]r?', texto):
+        return 'otimizar'
+    elif re.search(r'consolid[ae]r?', texto):
+        return 'consolidar'
+    return None
+
+
 def iniciar_fluxo_processar(usuario, mensagem):
     perfil = getattr(usuario, 'perfilusuario', None)
     if perfil is None or perfil.cenario_ativo_id is None:
@@ -3398,14 +3429,8 @@ def iniciar_fluxo_processar(usuario, mensagem):
     if cenario is None:
         return "O cenário que estava ativo pra você não existe mais."
 
-    texto = (mensagem or '').lower()
-    if re.search(r'limp[ae]r?', texto):
-        acao = 'limpar'
-    elif re.search(r'otimiz[ae]r?', texto):
-        acao = 'otimizar'
-    elif re.search(r'consolid[ae]r?', texto):
-        acao = 'consolidar'
-    else:
+    acao = determinar_acao_processar(mensagem)
+    if acao is None:
         return "Não entendi se você quer **limpar**, **otimizar**, ou **consolidar** o cenário ativo. Pode repetir dizendo qual dessas ações?"
 
     # 🌟 CORRIGIDO: a trava de "já tem operação em andamento" NÃO deve
