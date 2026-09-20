@@ -49,8 +49,8 @@ class AppOpcional(models.Model):
         return self.nome_exibicao
 
     class Meta:
-        verbose_name = _('   App Opcional')
-        verbose_name_plural = _('   Apps Opcionais')
+        verbose_name = _('App Opcional')
+        verbose_name_plural = _('Apps Opcionais')
         ordering = ['nome_exibicao']
 
 
@@ -77,8 +77,8 @@ class AcaoComum(models.Model):
         return self.nome_exibicao
 
     class Meta:
-        verbose_name = _('   Ação Comum')
-        verbose_name_plural = _('   Ações Comuns')
+        verbose_name = _('Ação Comum IA')
+        verbose_name_plural = _('Ações Comuns IA')
         ordering = ['categoria', 'chave']
         unique_together = [('categoria', 'chave')]
 
@@ -126,8 +126,8 @@ class TbEmpresa(models.Model):
     acoes_comuns_habilitadas = models.ManyToManyField(AcaoComum, blank=True, verbose_name=_('Ações Comuns Habilitadas'))
 
     class Meta:
-        verbose_name        = _('    Empresa')
-        verbose_name_plural = _('    Empresa')
+        verbose_name        = _('Empresa')
+        verbose_name_plural = _('Empresa')
 
     def __str__(self):
         return self.emp_nome
@@ -308,8 +308,8 @@ class TbCenarios(models.Model):
                 raise ValidationError('Trimestre informado no Campo "Ano/Trimestre Fim" deve ficar no intervalo 01/04')
 
     class Meta:
-        verbose_name        = _('   Cenário')
-        verbose_name_plural = _('   Cenários')
+        verbose_name        = _('Cenário')
+        verbose_name_plural = _('Cenários')
         ordering = ['id']  # 🌟 SIMPLIFICADO: antes era ['-cen_ativo', '-cen_grupo', 'id'] --
         # "-cen_ativo" não faz mais sentido sem um único cenário "ativo" global de
         # referência (agora é por usuário). TbCenariosAdmin já tem seu próprio
@@ -807,8 +807,8 @@ class TbGlossario(models.Model):
             raise ValidationError('Glossário ' + self.glo_nome + ' já cadastrado!')
 
     class Meta:
-        verbose_name = _('  Glossário')
-        verbose_name_plural = _('  Glossário')
+        verbose_name = _('Glossário')
+        verbose_name_plural = _('Glossário')
         ordering = ['glo_nome']
 
     def save(self, *args, **kwargs):
@@ -829,18 +829,37 @@ class AgenteConfig(models.Model):
     nome = models.CharField(max_length=100, verbose_name=_('Nome'))
     prompt_sistema = models.TextField(help_text=_("Instruções para o Agente IA"), verbose_name=_('Instruções'))
     ativo = models.BooleanField(default=True)
+    # 🌟 NOVO (multi-empresa): cada empresa agora tem o próprio conjunto
+    # de comportamentos do Agente IA, com um sempre ativo POR EMPRESA
+    # (não mais um único "ativo" pro sistema inteiro). Preenchido
+    # automaticamente na criação, mesmo mecanismo de RelatorioPDF --
+    # sempre a empresa EFETIVA de quem está criando (empresa_ativa pro
+    # superusuário real, já que só ele tem acesso a essa tela).
+    empresa = models.ForeignKey('TbEmpresa', null=True, blank=True, on_delete=models.PROTECT, verbose_name=_('Empresa'))
 
     def save(self, *args, **kwargs):
+        if self.pk is None and self.empresa_id is None:
+            usuario = get_usuario_atual()
+            if usuario is not None:
+                perfil = getattr(usuario, 'perfilusuario', None)
+                if perfil is not None:
+                    self.empresa_id = perfil.empresa_efetiva_id()
+
+        # 🌟 CORRIGIDO: a exclusividade de "ativo=True" agora vale só
+        # DENTRO da mesma empresa -- antes, marcar um comportamento como
+        # ativo desativava o de TODAS as empresas ao mesmo tempo (um
+        # único "ativo" pro sistema inteiro), o que não faz mais sentido
+        # agora que cada empresa tem o próprio conjunto independente.
         if self.ativo:
-            AgenteConfig.objects.filter(ativo=True).exclude(pk=self.pk).update(ativo=False)
+            AgenteConfig.objects.filter(ativo=True, empresa_id=self.empresa_id).exclude(pk=self.pk).update(ativo=False)
         super().save(*args, **kwargs)
 
     def __str__(self):
         return "Comportamento Agente IA"
 
     class Meta:
-        verbose_name        = _(' Comportamento Agente IA')
-        verbose_name_plural = _(' Comportamentos Agente IA')
+        verbose_name        = _('Comportamento Agente IA')
+        verbose_name_plural = _('Comportamentos Agente IA')
         ordering = ['nome']
 
 class HistoricoAgente(models.Model):
@@ -854,6 +873,15 @@ class HistoricoAgente(models.Model):
     )
     comando_usuario = models.TextField(verbose_name=_('Pergunta Usuário'))
     resposta_ia = models.TextField(verbose_name=_('Resposta Agente IA'))
+    # 🌟 NOVO (multi-empresa): campo direto de empresa (em vez de só
+    # derivar via usuario__perfilusuario__empresa_id) -- mais rápido de
+    # filtrar/exibir no Admin, e registra a empresa de verdade envolvida
+    # NAQUELE momento da interação (relevante pro caso de um
+    # superusuário real que muda de "empresa ativa" ao longo do tempo --
+    # sem esse campo direto, o histórico antigo pareceria ter mudado de
+    # empresa junto com ele). Preenchido em _salvar_historico
+    # (agents.py) no momento da criação.
+    empresa = models.ForeignKey('TbEmpresa', null=True, blank=True, on_delete=models.PROTECT, verbose_name=_('Empresa'))
 
     def __str__(self):
         return "Histórico Agente IA"

@@ -1,4 +1,4 @@
-import xlwt, time
+import xlwt, time, types
 from django.forms import TextInput, Textarea
 from django import forms
 from django.template.response import TemplateResponse
@@ -16,13 +16,13 @@ from .tasks import limpar_cenario_celery, limpar_cenario_tabela_mae_celery, otim
     consolidar_cenario_celery, limpar_cenario_celery, remover_cenario_celery, atualizar_fluxos_celery
 
 from django.http import HttpResponse
-from django.contrib.auth.models import User
-from django.contrib.auth.admin import UserAdmin
+from django.contrib.auth.models import User, Group
+from django.contrib.auth.admin import UserAdmin, GroupAdmin
 from django.forms.models import BaseInlineFormSet
 from django.urls import path, reverse
 from django.shortcuts import redirect, render
 from django.utils.html import format_html
-from django.db.models import Case, When, Value, IntegerField
+from django.db.models import Case, When, Value, IntegerField, Q
 from .contexto_usuario import get_usuario_atual, eh_superuser_ou_superuser_empresa
 
 
@@ -1065,12 +1065,43 @@ class TbEmpresaAdmin(admin.ModelAdmin):
         except Exception:
             pass
 
-    # Tabela Empresa só pode ser modificada pelo administrador. Não pode ser deletada ou receber mais dados.
+    # Tabela Empresa só pode ser modificada pelo administrador.
 
-    # Tabela tipo parâmetro.
-    # Prevent deletion from admin portal
+    # 🌟 CORRIGIDO: antes a exclusão era bloqueada por completo, sempre,
+    # pra qualquer um. Agora é liberada pro superusuário REAL (nunca
+    # superusuário de empresa -- ele não deveria poder apagar a própria
+    # empresa), desde que a empresa não esteja em uso por nenhum usuário
+    # no momento (nem como empresa fixa, nem como empresa ativa de um
+    # superusuário) -- ver _empresa_em_uso e delete_view abaixo, que dão
+    # a mensagem explicando o motivo em vez de só esconder o botão.
     def has_delete_permission(self, request, obj=None):
-        return False
+        if not request.user.is_superuser:
+            return False
+        if obj is not None and self._empresa_em_uso(obj):
+            return False
+        return True
+
+    def _empresa_em_uso(self, empresa):
+        return PerfilUsuario.objects.filter(
+            Q(empresa_id=empresa.id) | Q(empresa_ativa_id=empresa.id)
+        ).exists()
+
+    def delete_view(self, request, object_id, extra_context=None):
+        obj = self.get_object(request, object_id)
+        if obj is not None and self._empresa_em_uso(obj):
+            usuarios_vinculados = PerfilUsuario.objects.filter(
+                Q(empresa_id=obj.id) | Q(empresa_ativa_id=obj.id)
+            ).select_related('usuario').values_list('usuario__username', flat=True)
+            lista_usuarios = ", ".join(usuarios_vinculados)
+            self.message_user(
+                request,
+                f'A empresa "{obj.emp_nome}" não pode ser excluída -- ainda está em uso '
+                f'(como empresa fixa ou empresa ativa) pelos usuários: {lista_usuarios}. '
+                'Mude a empresa desses usuários pra outra antes de excluir.',
+                level=messages.ERROR,
+            )
+            return redirect(reverse('admin:parameters_tbempresa_changelist'))
+        return super().delete_view(request, object_id, extra_context)
 
     # Vamos ver se usuário é superuser. Se sim, permite adição na tabela.
     def has_add_permission(self, request, obj=None):
@@ -1163,24 +1194,82 @@ admin.site.register(TbGlossario, TbGlossarioAdmin)
 class DefinirCenarioAtivoForm(forms.Form):
     _selected_action = forms.CharField(widget=forms.MultipleHiddenInput)
     cenario = forms.ModelChoiceField(
-        queryset=TbCenarios.objects.order_by('id'), label=_('Cenário'), required=True
+        queryset=TbCenarios.objects.none(), label=_('Cenário'), required=True
     )
+
+    # 🌟 CORRIGIDO: antes o queryset era fixo (TODOS os cenários do
+    # sistema, de qualquer empresa) -- permitindo, por engano, atribuir
+    # o cenário de uma empresa pra usuário de outra. Agora recebe
+    # explicitamente qual empresa vale (vindo do filtro "Empresa" já
+    # selecionado na tela, ver definir_cenario_ativo_em_massa) e só
+    # mostra os cenários DELA.
+    def __init__(self, *args, empresa_id=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if empresa_id:
+            self.fields['cenario'].queryset = TbCenarios.objects_real.filter(
+                empresa_id=empresa_id
+            ).order_by('numero_sequencial', 'id')
+
+
+# 🌟 NOVO: filtro customizado pro sidebar de "Cenário Ativo" em
+# PerfilUsuarioAdmin -- o filtro padrão do Django usa o __str__ do
+# cenário ("Cenário {numero_sequencial}/{nome}"), que NÃO mostra a
+# empresa. Como cenários de empresas diferentes podem ter o mesmo nome
+# (ex: duas empresas com um cenário "AS IS MENSAL"), isso deixava
+# ambíguo qual era qual na lista do filtro. Mostra explicitamente
+# "Empresa - número/nome" pra cada opção.
+class CenarioAtivoListFilter(admin.SimpleListFilter):
+    title = _('Cenário Ativo')
+    parameter_name = 'cenario_ativo'
+
+    def lookups(self, request, model_admin):
+        cenarios = TbCenarios.objects_real.select_related('empresa')
+
+        # 🌟 CORRIGIDO: não depende mais de nenhum filtro "Empresa" (que
+        # foi removido -- ver list_filter em PerfilUsuarioAdmin) -- usa
+        # direto a empresa efetiva de quem está logado, igual ao
+        # critério já usado no get_queryset da listagem (mesma regra
+        # pros dois tipos de superusuário).
+        perfil_logado = getattr(request.user, 'perfilusuario', None)
+        empresa_id = perfil_logado.empresa_efetiva_id() if perfil_logado else None
+
+        if empresa_id:
+            cenarios = cenarios.filter(empresa_id=empresa_id)
+
+        # 🌟 CORRIGIDO: ordenar por numero_sequencial (crescente) --
+        # como agora só existe uma empresa na lista, ordenar por ela
+        # também não muda nada, mas não atrapalha deixar.
+        cenarios = cenarios.order_by('empresa__emp_nome', 'numero_sequencial')
+
+        return [
+            (
+                c.id,
+                f"{c.empresa.emp_nome if c.empresa_id else '(sem empresa)'} - "
+                f"{c.numero_sequencial if c.numero_sequencial is not None else c.id}/{c.cen_nome}"
+            )
+            for c in cenarios
+        ]
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(cenario_ativo_id=self.value())
+        return queryset
 
 
 class PerfilUsuarioForm(forms.ModelForm):
     """
-    🌟 NOVO: torna 'cenario_ativo' E 'empresa' obrigatórios no formulário
-    do Admin -- tanto ao criar um usuário novo (via PerfilUsuarioInline)
-    quanto ao editar um perfil existente (via PerfilUsuarioAdmin). Isso
-    evita o problema na raiz: sem isso, dava pra criar/deixar um usuário
-    sem cenário ativo ou sem empresa definidos, e ele só descobria isso
-    depois, tentando usar o sistema e sendo redirecionado com um aviso
-    (ou, no caso de empresa, simplesmente não vendo nada em lugar nenhum).
+    🌟 NOVO: torna 'cenario_ativo' obrigatório no formulário do Admin --
+    tanto ao criar um usuário novo (via PerfilUsuarioInline) quanto ao
+    editar um perfil existente (via PerfilUsuarioAdmin). Isso evita o
+    problema na raiz: sem isso, dava pra criar/deixar um usuário sem
+    cenário ativo definido, e ele só descobria isso depois, tentando
+    usar o sistema e sendo redirecionado com um aviso.
 
-    'empresa' fica obrigatória mesmo pro perfil de um superusuário -- ele
-    usa 'empresa_ativa' pra trabalhar de verdade (trocável a qualquer
-    momento), mas ainda assim precisa de um valor inicial aqui, pelo
-    mesmo motivo que 'cenario_ativo' já era obrigatório pra ele antes.
+    'empresa' também é obrigatória, mas SÓ quando está sendo mostrada no
+    formulário (usuário comum) -- pra superusuário, esse campo nem
+    aparece mais (ver get_fields em PerfilUsuarioAdmin/PerfilUsuarioInline),
+    então não tem como (nem por que) exigir ele aqui: quem vale de
+    verdade pra superusuário é 'empresa_ativa', não 'empresa'.
 
     Propositalmente NÃO mudamos isso no model (PerfilUsuario.cenario_ativo
     e .empresa continuam null=True, blank=True lá) -- só aqui, no
@@ -1196,8 +1285,16 @@ class PerfilUsuarioForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['cenario_ativo'].required = True
-        self.fields['empresa'].required = True
+        # 🌟 CORRIGIDO: checagem "in self.fields" antes de marcar como
+        # obrigatório -- desde que get_fields passou a esconder 'empresa'
+        # pra superusuário (e 'empresa_ativa' pra usuário comum), o campo
+        # ESCONDIDO simplesmente não existe mais em self.fields, e tentar
+        # acessar ele direto (self.fields['empresa']) quebraria com
+        # KeyError.
+        if 'cenario_ativo' in self.fields:
+            self.fields['cenario_ativo'].required = True
+        if 'empresa' in self.fields:
+            self.fields['empresa'].required = True
 
 
 @admin.register(PerfilUsuario)
@@ -1206,18 +1303,106 @@ class PerfilUsuarioAdmin(admin.ModelAdmin):
     list_display = ('usuario', 'empresa', 'eh_superuser_empresa', 'empresa_ativa', 'cenario_ativo',
                     'pode_trocar_cenario')
     list_editable = ('pode_trocar_cenario',)
-    list_filter = ('empresa', 'cenario_ativo', 'pode_trocar_cenario')
     search_fields = ('usuario__username', 'usuario__first_name', 'usuario__last_name')
-    # 🌟 CORRIGIDO: autocomplete tirado de 'cenario_ativo' -- a tentativa
-    # de filtrar via hack no Select2 (injetar empresa_id na busca AJAX)
-    # não funcionou de forma confiável. Volta a ser um select comum,
-    # populado via JS puro (fetch + <option>), sem depender de API
-    # interna nenhuma -- ver Media abaixo.
-    autocomplete_fields = ('usuario',)
     actions = ['definir_cenario_ativo_em_massa', 'bloquear_troca_cenario', 'desbloquear_troca_cenario']
 
+    # 🌟 CORRIGIDO: removido de vez -- o queryset (get_queryset abaixo)
+    # já restringe a listagem a UMA empresa só (a ativa do usuário
+    # logado, seja superusuário real ou de empresa), então o filtro
+    # "Empresa" na lateral nunca teria mais de uma opção mesmo, virando
+    # inútil pros dois tipos de usuário.
+    list_filter = (CenarioAtivoListFilter, 'pode_trocar_cenario')
+
+    # 🌟 NOVO: lista base de campos -- get_fields (abaixo) tira 'empresa'
+    # ou 'empresa_ativa' dessa lista dependendo se o usuário é
+    # superusuário ou não, em vez de mostrar os dois sempre (confuso,
+    # já que só um dos dois é realmente usado pra cada tipo de usuário).
+    campos_base = ('usuario', 'empresa', 'empresa_ativa', 'eh_superuser_empresa', 'idioma', 'cenario_ativo',
+                   'pode_trocar_cenario')
+
+    # 🌟 CORRIGIDO: mostra só o campo que faz sentido pro tipo de usuário
+    # -- "Empresa" (fixa) pra usuário comum, "Empresa Ativa" (trocável)
+    # só pra superusuário. Antes os dois apareciam sempre juntos, o que
+    # confundia sobre qual realmente vale pra cada tipo de conta. Como
+    # PerfilUsuarioAdmin nunca tem tela de "adicionar" (has_add_permission
+    # é False -- todo perfil já nasce junto com o usuário), obj aqui
+    # sempre é um perfil de verdade já existente, com usuario definido.
+    #
+    # 🌟 NOVO: "Pode trocar cenário ativo" só faz sentido pra restringir
+    # um usuário COMUM -- quem já tem privilégio elevado (superusuário de
+    # verdade, ou superusuário DA empresa) sempre pode trocar, então o
+    # campo é escondido pros dois casos. "Superusuário da Empresa" some
+    # só pro superusuário DE VERDADE (que já tem poder irrestrito, esse
+    # status seria redundante) -- mas continua aparecendo pra usuário
+    # comum mesmo depois de já estar marcado, porque é o próprio campo
+    # que concede/revoga esse status (escondê-lo trancaria a opção de
+    # desmarcar depois).
+    def get_fields(self, request, obj=None):
+        campos = list(self.campos_base)
+        eh_superuser_real = obj is not None and obj.usuario.is_superuser
+        eh_superuser_empresa = obj is not None and obj.eh_superuser_empresa
+
+        if eh_superuser_real:
+            campos.remove('empresa')
+            campos.remove('eh_superuser_empresa')
+        else:
+            campos.remove('empresa_ativa')
+
+        if eh_superuser_real or eh_superuser_empresa:
+            campos.remove('pode_trocar_cenario')
+
+        return campos
+
+    # 🌟 NOVO: mantém o dropdown "Cenário Ativo" coerente com a empresa
+    # escolhida NA MESMA edição, mesmo antes de salvar -- sem isso, a
+    # filtragem em Python (formfield_for_foreignkey, acima/abaixo) só
+    # reflete o que já está salvo no banco, não uma troca feita agora.
     class Media:
         js = ('admin/js/empresa_filtra_cenario.js',)
+
+    # 🌟 CORRIGIDO: a tentativa anterior de filtrar esse dropdown por
+    # empresa dependia de um arquivo JS (empresa_filtra_cenario.js) que
+    # nunca funcionou de forma confiável (e nem existe mais) -- o
+    # dropdown ficava mostrando os cenários de TODAS as empresas do
+    # sistema. Agora a filtragem é feita direto no Python, no próprio
+    # queryset do campo: sempre a empresa EFETIVA do perfil sendo
+    # editado (empresa_ativa se for superusuário, senão a empresa fixa
+    # dele) -- reaproveita PerfilUsuario.empresa_efetiva_id(), o
+    # "ponto único de verdade" já usado no resto do sistema pra essa
+    # mesma decisão.
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == 'cenario_ativo':
+            object_id = request.resolver_match.kwargs.get('object_id')
+            perfil = PerfilUsuario.objects.filter(pk=object_id).first() if object_id else None
+
+            empresa_id = None
+            if perfil is not None:
+                # 🌟 CORRIGIDO: se o formulário foi ENVIADO (POST) com uma
+                # empresa/empresa_ativa diferente da que já está salva,
+                # usa o valor SUBMETIDO pra montar o queryset -- sem isso,
+                # escolher um cenário da empresa NOVA (que o JS já
+                # mostrava certinho na tela) sempre falhava na validação
+                # do servidor ("sua escolha não é uma das disponíveis"),
+                # porque esse método roda de novo no POST e ainda filtrava
+                # pela empresa ANTIGA (a que estava salva antes dessa
+                # edição, já que o save() com o valor novo ainda não
+                # aconteceu nesse ponto).
+                campo_empresa_relevante = 'empresa_ativa' if perfil.usuario.is_superuser else 'empresa'
+                valor_submetido = request.POST.get(campo_empresa_relevante)
+                if valor_submetido and valor_submetido.isdigit():
+                    empresa_id = int(valor_submetido)
+                else:
+                    empresa_id = perfil.empresa_efetiva_id()
+
+            if empresa_id:
+                kwargs['queryset'] = TbCenarios.objects_real.filter(empresa_id=empresa_id).order_by('-id')
+            else:
+                # Perfil novo, ou sem empresa/empresa_ativa definida ainda
+                # -- não tem como saber qual filtrar, então não mostra
+                # nenhum cenário (evita o efeito colateral de mostrar
+                # todos de novo).
+                kwargs['queryset'] = TbCenarios.objects_real.none()
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
     def bloquear_troca_cenario(self, request, queryset):
         total = queryset.update(pode_trocar_cenario=False)
@@ -1232,20 +1417,33 @@ class PerfilUsuarioAdmin(admin.ModelAdmin):
     desbloquear_troca_cenario.short_description = "Desbloquear troca de cenário ativo (selecionados)"
 
     def definir_cenario_ativo_em_massa(self, request, queryset):
+        # 🌟 CORRIGIDO: não exige mais filtrar por "Empresa" -- o
+        # queryset da listagem (get_queryset) já restringe TODO MUNDO
+        # (superusuário real ou de empresa) a uma única empresa por vez
+        # (a efetiva de quem está logado), então os itens selecionados
+        # aqui já são garantidamente de uma empresa só, sem precisar de
+        # nenhuma checagem extra.
+        perfil_logado = getattr(request.user, 'perfilusuario', None)
+        empresa_filtrada_id = perfil_logado.empresa_efetiva_id() if perfil_logado else None
+
         form = None
         if 'aplicar' in request.POST:
-            form = DefinirCenarioAtivoForm(request.POST)
+            form = DefinirCenarioAtivoForm(request.POST, empresa_id=empresa_filtrada_id)
             if form.is_valid():
                 cenario = form.cleaned_data['cenario']
                 total = queryset.update(cenario_ativo=cenario)
+                numero_exibido = cenario.numero_sequencial if cenario.numero_sequencial is not None else cenario.id
                 self.message_user(
                     request,
-                    f'{total} usuário(s) tiveram o cenário ativo definido para {cenario.id}/{cenario.cen_nome}.'
+                    f'{total} usuário(s) tiveram o cenário ativo definido para {numero_exibido}/{cenario.cen_nome}.'
                 )
                 return None
 
         if form is None:
-            form = DefinirCenarioAtivoForm(initial={'_selected_action': queryset.values_list('pk', flat=True)})
+            form = DefinirCenarioAtivoForm(
+                initial={'_selected_action': queryset.values_list('pk', flat=True)},
+                empresa_id=empresa_filtrada_id,
+            )
 
         return render(request, 'admin/parameters/perfilusuario/definir_cenario_em_massa.html', {
             'perfis': queryset,
@@ -1280,14 +1478,51 @@ class PerfilUsuarioAdmin(admin.ModelAdmin):
             return True
         return obj.empresa_id == perfil.empresa_id
 
+    # 🌟 CORRIGIDO: has_change_permission acima só restringe QUAIS perfis
+    # um superusuário de empresa pode abrir pra editar (só os da própria
+    # empresa) -- mas, uma vez dentro da tela, nada impedia ele de
+    # trocar o campo "Empresa" pra OUTRA empresa qualquer, movendo um
+    # usuário pra fora do próprio domínio dele (ou pra dentro, roubando
+    # usuário de outra empresa). Só um superusuário DE VERDADE pode
+    # decidir a que empresa um usuário pertence -- "Empresa" fica
+    # somente leitura pra qualquer outra pessoa, mesmo um superusuário
+    # de empresa.
+    #
+    # 🌟 CORRIGIDO: faltava a mesma trava em "Empresa Ativa" -- esse
+    # campo só aparece no formulário pra perfis de superusuário REAL
+    # (ver get_fields), mas se um superusuário de empresa conseguisse
+    # abrir um desses perfis (ex: um superusuário real cuja "empresa"
+    # antiga por acaso bate com a dele), nada impedia editar
+    # "Empresa Ativa" pra qualquer empresa -- efetivamente decidindo em
+    # qual empresa aquele superusuário de verdade passa a operar. Mesma
+    # regra de "Empresa": só superusuário real edita.
+    def get_readonly_fields(self, request, obj=None):
+        readonly = list(super().get_readonly_fields(request, obj))
+        # 🌟 NOVO: "Usuário" fica somente leitura pra TODO MUNDO, inclusive
+        # superusuário real -- o vínculo perfil<->usuário é criado uma vez
+        # (pelo signal, ao criar a conta) e nunca deveria mudar depois;
+        # trocar esse campo "transplantaria" a configuração de empresa e
+        # cenário de um login pro outro, o que não faz sentido em nenhum
+        # caso legítimo de uso dessa tela.
+        readonly.append('usuario')
+        if not request.user.is_superuser:
+            readonly.append('empresa')
+            readonly.append('empresa_ativa')
+        return readonly
+
+    # 🌟 CORRIGIDO: antes, um superusuário REAL via os perfis de TODAS as
+    # empresas ao mesmo tempo (sem filtro nenhum) -- inconsistente com o
+    # resto do sistema (RelatorioPDFAdmin, HistoricoAgenteAdmin), onde
+    # até superusuário real só vê os dados da empresa que está ATIVA pra
+    # ele no momento. Agora usa empresa_efetiva_id() de forma uniforme
+    # pros dois tipos de superusuário.
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        if request.user.is_superuser:
-            return qs
         perfil = getattr(request.user, 'perfilusuario', None)
-        if perfil and perfil.eh_superuser_empresa and perfil.empresa_id:
-            return qs.filter(empresa_id=perfil.empresa_id)
-        return qs.none()
+        empresa_id = perfil.empresa_efetiva_id() if perfil else None
+        if empresa_id is None:
+            return qs.none()
+        return qs.filter(empresa_id=empresa_id)
 
 
 class PerfilUsuarioInlineFormSet(BaseInlineFormSet):
@@ -1316,7 +1551,12 @@ class PerfilUsuarioInline(admin.StackedInline):
     form = PerfilUsuarioForm
     formset = PerfilUsuarioInlineFormSet
     can_delete = False
-    fields = ('empresa', 'empresa_ativa', 'eh_superuser_empresa', 'idioma', 'cenario_ativo', 'pode_trocar_cenario')
+    # 🌟 CORRIGIDO: renomeado de "fields" pra "campos_base" -- get_fields
+    # (abaixo) tira 'empresa' ou 'empresa_ativa' dessa lista dependendo
+    # se o USUÁRIO (pai desse inline) é superusuário ou não, em vez de
+    # mostrar os dois sempre juntos (confuso, já que só um dos dois é
+    # realmente usado pra cada tipo de conta).
+    campos_base = ('empresa', 'empresa_ativa', 'eh_superuser_empresa', 'idioma', 'cenario_ativo', 'pode_trocar_cenario')
     # 🌟 CORRIGIDO: autocomplete tirado -- a tentativa de filtrar via hack
     # no Select2 não funcionou de forma confiável. cenario_ativo volta a
     # ser um select comum, populado via JS puro (fetch + <option>), sem
@@ -1332,8 +1572,84 @@ class PerfilUsuarioInline(admin.StackedInline):
     extra = 1
     validate_min = True
 
+    # 🌟 CORRIGIDO: mesmo raciocínio de PerfilUsuarioAdmin (ver o
+    # comentário lá) -- só que aqui "obj" é o USUÁRIO (pai desse inline),
+    # não o PerfilUsuario, então checa obj.is_superuser diretamente. Se
+    # obj é None (criando um usuário novo, ainda não salvo), assume
+    # usuário comum -- é o padrão do Django (is_superuser=False) até
+    # alguém marcar o contrário. "eh_superuser_empresa" vem do perfil
+    # relacionado (obj.perfilusuario) -- ainda não existe pra um usuário
+    # novo, daí o getattr com padrão seguro.
+    def get_fields(self, request, obj=None):
+        campos = list(self.campos_base)
+        eh_superuser_real = obj is not None and obj.is_superuser
+        perfil_relacionado = getattr(obj, 'perfilusuario', None) if obj is not None else None
+        eh_superuser_empresa = bool(perfil_relacionado and perfil_relacionado.eh_superuser_empresa)
+
+        if eh_superuser_real:
+            campos.remove('empresa')
+            campos.remove('eh_superuser_empresa')
+        else:
+            campos.remove('empresa_ativa')
+
+        if eh_superuser_real or eh_superuser_empresa:
+            campos.remove('pode_trocar_cenario')
+
+        return campos
+
+    # 🌟 CORRIGIDO: mesmo problema de segurança de PerfilUsuarioAdmin --
+    # nada impedia um superusuário DE EMPRESA de trocar o campo
+    # "Empresa" de OUTRO usuário pra uma empresa qualquer, movendo esse
+    # usuário pra fora (ou roubando de outra empresa). Checa quem está
+    # LOGADO agora (request.user), não o usuário sendo editado -- só um
+    # superusuário DE VERDADE pode decidir a que empresa alguém
+    # pertence.
+    #
+    # 🌟 CORRIGIDO: faltava a mesma trava em "Empresa Ativa" também (ver
+    # comentário completo em PerfilUsuarioAdmin) -- sem isso, dava pra
+    # editar em qual empresa um superusuário DE VERDADE está operando.
+    def get_readonly_fields(self, request, obj=None):
+        readonly = list(super().get_readonly_fields(request, obj))
+        if not request.user.is_superuser:
+            readonly.append('empresa')
+            readonly.append('empresa_ativa')
+        return readonly
+
+    # 🌟 NOVO: mesmo motivo de PerfilUsuarioAdmin -- mantém o dropdown
+    # "Cenário Ativo" coerente com a empresa escolhida na mesma edição.
     class Media:
         js = ('admin/js/empresa_filtra_cenario.js',)
+
+    # 🌟 CORRIGIDO: mesmo problema e mesma solução de PerfilUsuarioAdmin
+    # (ver o comentário lá) -- só que aqui o object_id da URL é o ID do
+    # USUÁRIO (essa seção aparece dentro da tela de Usuário), não do
+    # PerfilUsuario em si, por isso busca por usuario_id em vez de pk.
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == 'cenario_ativo':
+            object_id = request.resolver_match.kwargs.get('object_id')
+            perfil = PerfilUsuario.objects.filter(usuario_id=object_id).first() if object_id else None
+
+            empresa_id = None
+            if perfil is not None:
+                # 🌟 CORRIGIDO: mesmo raciocínio de PerfilUsuarioAdmin --
+                # usa o valor SUBMETIDO no POST (se houver) em vez do
+                # salvo, senão trocar de empresa e escolher um cenário
+                # dela na mesma edição sempre falhava a validação. Aqui o
+                # nome do campo no POST vem com o prefixo do formset do
+                # inline (índice 0, já que max_num=1/extra=1 -- só existe
+                # um formulário desse inline por vez).
+                campo_empresa_relevante = 'empresa_ativa' if perfil.usuario.is_superuser else 'empresa'
+                valor_submetido = request.POST.get(f'perfilusuario-0-{campo_empresa_relevante}')
+                if valor_submetido and valor_submetido.isdigit():
+                    empresa_id = int(valor_submetido)
+                else:
+                    empresa_id = perfil.empresa_efetiva_id()
+
+            if empresa_id:
+                kwargs['queryset'] = TbCenarios.objects_real.filter(empresa_id=empresa_id).order_by('-id')
+            else:
+                kwargs['queryset'] = TbCenarios.objects_real.none()
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
     # 🌟 NOVO (multi-empresa): o StackedInline tem a PRÓPRIA checagem de
     # permissão (separada da tela de Usuário) -- por padrão, checa se o
@@ -1394,6 +1710,18 @@ class CustomUserAdmin(UserAdmin):
             return False
         perfil = getattr(request.user, 'perfilusuario', None)
         return bool(perfil and perfil.eh_superuser_empresa)
+
+    # 🌟 NOVO: sem isso, a visibilidade do menu "Autenticação e
+    # Autorização > Usuários" dependia do sistema de permissões PADRÃO
+    # do Django (is_staff + permissões concedidas via Grupos), que esse
+    # projeto não usa pra decidir quem é superusuário -- usa o campo
+    # eh_superuser_empresa. Um usuário comum, mesmo com is_staff=True e
+    # alguma permissão solta concedida sem querer, não deveria ver esse
+    # menu; e um superusuário de empresa, mesmo sem nenhuma permissão
+    # Django formal, deveria ver. Alinha a visibilidade do menu com o
+    # mesmo critério já usado em has_add/change/delete_permission acima.
+    def has_module_permission(self, request):
+        return eh_superuser_ou_superuser_empresa(request.user)
 
     # 🌟 NOVO (multi-idioma, Fase 1): qualquer usuário -- mesmo comum,
     # sem ser superuser de nenhum tipo -- pode abrir e editar o PRÓPRIO
@@ -1470,7 +1798,13 @@ class CustomUserAdmin(UserAdmin):
             campos_bloqueados = ('is_superuser', 'is_staff', 'is_active', 'groups', 'user_permissions', 'last_login',
                                  'date_joined')
         elif self._eh_superuser_empresa_nao_real(request):
-            campos_bloqueados = ('is_superuser', 'groups', 'user_permissions')
+            # 🌟 CORRIGIDO: "groups" tirado do bloqueio -- o superusuário
+            # de empresa agora pode atribuir/remover Grupos dos usuários
+            # da própria empresa (mesmo escopo de has_change_permission
+            # acima, que já restringe QUAIS usuários ele pode editar).
+            # "is_superuser" e "user_permissions" continuam bloqueados --
+            # esses sim são exclusivos de um superusuário de verdade.
+            campos_bloqueados = ('is_superuser', 'user_permissions')
         else:
             campos_bloqueados = ()
 
@@ -1488,19 +1822,24 @@ admin.site.unregister(User)
 admin.site.register(User, CustomUserAdmin)
 
 
-# Agente de IA
-@admin.register(AgenteConfig)
-class AgenteConfigAdmin(admin.ModelAdmin):
-    list_display = ('nome', 'ativo')
-    list_editable = ('ativo',)  # 🌟 Permite marcar/desmarcar direto na listagem, sem abrir o registro
-
-    # 🌟 NOVO (multi-empresa): sem isso, a tela nem aparecia no menu do
-    # Admin pra quem não fosse superusuário de verdade (Django checa
-    # permissão própria pra cada model, e superuser de empresa não tem
-    # nenhuma concedida por padrão).
-    # ⚠️ Nota: AgenteConfig ainda NÃO tem campo empresa (fica pra Parte 5)
-    # -- por enquanto, qualquer superuser de empresa vê/edita a MESMA
-    # configuração, compartilhada com todo mundo.
+# 🌟 NOVO: o modelo "Grupos" (django.contrib.auth.models.Group) fazia
+# parte da mesma seção "Autenticação e Autorização" que Usuários, mas
+# sem NENHUMA customização -- usava a checagem de permissão PADRÃO do
+# Django (is_staff + permissões concedidas via Grupos), que não tem
+# nada a ver com o critério eh_superuser_empresa usado no resto do
+# sistema. Mesma correção de CustomUserAdmin.has_module_permission
+# acima, aplicada aqui: só superusuário real ou superusuário de empresa
+# vê essa seção.
+class CustomGroupAdmin(GroupAdmin):
+    # 🌟 CORRIGIDO: só has_module_permission não bastava -- ele controla
+    # se a SEÇÃO aparece no índice do Admin, mas as ações de verdade
+    # (ver a lista, criar, editar, excluir um grupo) ainda dependiam do
+    # sistema de permissões PADRÃO do Django (que exige uma permissão
+    # "auth.view_group"/"auth.change_group" etc. concedida explicitamente
+    # -- coisa que esse projeto não usa pra decidir quem é superusuário).
+    # Por isso "Usuários" aparecia (CustomUserAdmin já tinha essas 4
+    # sobrescritas) mas "Grupos" não tinha nenhuma opção de verdade,
+    # mesmo com a seção mostrando. Alinha as 4 com o mesmo critério.
     def has_module_permission(self, request):
         return eh_superuser_ou_superuser_empresa(request.user)
 
@@ -1517,10 +1856,83 @@ class AgenteConfigAdmin(admin.ModelAdmin):
         return eh_superuser_ou_superuser_empresa(request.user)
 
 
+admin.site.unregister(Group)
+admin.site.register(Group, CustomGroupAdmin)
+
+
+# Agente de IA
+@admin.register(AgenteConfig)
+class AgenteConfigAdmin(admin.ModelAdmin):
+    list_display = ('nome', 'ativo')
+    list_editable = ('ativo',)  # 🌟 Permite marcar/desmarcar direto na listagem, sem abrir o registro
+    # 🌟 CORRIGIDO: "empresa" nunca deve aparecer no formulário -- é
+    # sempre preenchida sozinha pelo save() do model, com base em quem
+    # está criando o registro (empresa_ativa pro superusuário real,
+    # empresa fixa pro superusuário de empresa). Deixar editável
+    # permitia, por exemplo, um superusuário real trocar a empresa de um
+    # comportamento já existente pra outra completamente diferente.
+    exclude = ('empresa',)
+
+    # 🌟 CORRIGIDO: liberado também pro superusuário DE EMPRESA -- cada
+    # um mexe só no próprio conjunto de comportamentos (get_queryset
+    # abaixo já escopa certinho pros dois tipos).
+    def has_module_permission(self, request):
+        return eh_superuser_ou_superuser_empresa(request.user)
+
+    def has_view_permission(self, request, obj=None):
+        return eh_superuser_ou_superuser_empresa(request.user)
+
+    def has_add_permission(self, request):
+        return eh_superuser_ou_superuser_empresa(request.user)
+
+    def has_change_permission(self, request, obj=None):
+        return eh_superuser_ou_superuser_empresa(request.user)
+
+    # 🌟 CORRIGIDO: bloqueia excluir o comportamento marcado como "ativo"
+    # -- sem essa trava, dava pra apagar o comportamento em uso agora
+    # pela empresa, deixando o Agente IA sem instrução nenhuma
+    # configurada (cai no genérico "Você é um assistente útil."). Pra
+    # excluir o que hoje é o ativo, primeiro marca outro como ativo (só
+    # existe um "ativo" por vez, ver save() do model), depois volta e
+    # exclui o antigo.
+    def has_delete_permission(self, request, obj=None):
+        if not eh_superuser_ou_superuser_empresa(request.user):
+            return False
+        if obj is not None and obj.ativo:
+            return False
+        return True
+
+    def delete_view(self, request, object_id, extra_context=None):
+        obj = self.get_object(request, object_id)
+        if obj is not None and obj.ativo:
+            self.message_user(
+                request,
+                f'O comportamento "{obj.nome}" está marcado como ativo agora e não pode ser '
+                'excluído. Marque outro comportamento como ativo primeiro, depois volte pra '
+                'excluir este.',
+                level=messages.ERROR,
+            )
+            return redirect(reverse('admin:parameters_agenteconfig_changelist'))
+        return super().delete_view(request, object_id, extra_context)
+
+    # 🌟 NOVO: mesmo critério das outras telas do Agente IA --
+    # superusuário real só vê/mexe no conjunto de comportamentos da
+    # empresa que está ATIVA pra ele no momento (empresa_efetiva_id());
+    # superusuário de empresa vê só o da própria empresa fixa. Nenhum
+    # dos dois vê o de outras empresas ao mesmo tempo.
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        perfil = getattr(request.user, 'perfilusuario', None)
+        empresa_id = perfil.empresa_efetiva_id() if perfil else None
+        if empresa_id is None:
+            return qs.none()
+        return qs.filter(empresa_id=empresa_id)
+
+
 @admin.register(HistoricoAgente)
 class HistoricoAgenteAdmin(admin.ModelAdmin):
-    list_display = ('data', 'usuario', 'comando_usuario')
-    readonly_fields = ('data', 'usuario', 'comando_usuario', 'resposta_ia')  # Evita edição dos logs
+    list_display = ('data', 'empresa', 'usuario', 'comando_usuario')
+    readonly_fields = ('data', 'empresa', 'usuario', 'comando_usuario', 'resposta_ia')  # Evita edição dos logs
 
     def get_list_filter(self, request):
         # Filtro por usuário só faz sentido pra quem vê o histórico de todo mundo
@@ -1542,16 +1954,21 @@ class HistoricoAgenteAdmin(admin.ModelAdmin):
     def has_change_permission(self, request, obj=None):
         return False
 
+    # 🌟 CORRIGIDO: antes, um superusuário REAL via o histórico de TODAS
+    # as empresas ao mesmo tempo (sem filtro nenhum) -- inconsistente com
+    # o resto do sistema (ex: RelatorioPDFAdmin), onde até superusuário
+    # real só vê os dados da empresa que está ATIVA pra ele no momento.
+    # Agora usa empresa_efetiva_id() (o mesmo "ponto único de verdade")
+    # de forma uniforme pros dois tipos de superusuário, filtrando pelo
+    # campo empresa direto (mais rápido que a relação
+    # usuario__perfilusuario__empresa_id usada antes).
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        if request.user.is_superuser:
-            return qs
         perfil = getattr(request.user, 'perfilusuario', None)
-        if perfil and perfil.eh_superuser_empresa and perfil.empresa_id:
-            # 🌟 NOVO: superuser de empresa vê o histórico de TODOS os
-            # usuários da própria empresa, não só o dele mesmo.
-            return qs.filter(usuario__perfilusuario__empresa_id=perfil.empresa_id)
-        return qs.filter(usuario=request.user)
+        empresa_id = perfil.empresa_efetiva_id() if perfil else None
+        if empresa_id is None:
+            return qs.none()
+        return qs.filter(empresa_id=empresa_id)
 
 
 @admin.register(RelatorioPDF)
@@ -1588,3 +2005,44 @@ class RelatorioPDFAdmin(admin.ModelAdmin):
         if empresa_id is None:
             return qs.none()
         return qs.filter(empresa_id=empresa_id)
+
+
+# 🌟 NOVO: o Django, por padrão, sempre lista os modelos de um app em
+# ordem ALFABÉTICA no menu/índice do Admin -- sem jeito nativo de
+# escolher uma ordem própria via Meta ou configuração do ModelAdmin.
+# Como esse app tem uma sequência lógica de uso (Empresa primeiro,
+# depois Cenários, etc.), sobrescreve get_app_list do site do Admin pra
+# reordenar só os modelos do app "parameters", mantendo os demais apps
+# intactos (ordem original do Django).
+_ORDEM_MENU_PARAMETERS = [
+    'TbEmpresa',  # Empresa
+    'TbCenarios',  # Cenários
+    'TbGlossario',  # Glossário
+    'AgenteConfig',  # Comportamento Agente IA
+    'HistoricoAgente',  # Histórico Agente IA
+    'RelatorioPDF',  # Relatórios Consulta IA
+    'AcaoComum',  # Ações Comuns IA
+    'PerfilUsuario',  # Perfis de Usuário
+    'AppOpcional',  # Apps Opcionais
+]
+
+_get_app_list_original = admin.site.__class__.get_app_list
+
+
+def _get_app_list_customizado(self, request, app_label=None):
+    app_list = _get_app_list_original(self, request, app_label)
+    for app in app_list:
+        if app['app_label'] == 'parameters':
+            def _posicao_no_menu(model_dict):
+                try:
+                    return _ORDEM_MENU_PARAMETERS.index(model_dict['object_name'])
+                except ValueError:
+                    # Modelo registrado nesse app mas esquecido da lista
+                    # acima -- não quebra, só joga pro final.
+                    return len(_ORDEM_MENU_PARAMETERS)
+
+            app['models'].sort(key=_posicao_no_menu)
+    return app_list
+
+
+admin.site.get_app_list = types.MethodType(_get_app_list_customizado, admin.site)

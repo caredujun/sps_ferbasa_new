@@ -143,6 +143,24 @@ def _get_estado(usuario):
     return estado
 
 
+# 🌟 CORRIGIDO: substitui o padrão frágil
+# "dados.get('cenario_criado_numero_sequencial', cenario_id)" usado nas
+# etapas de acompanhar limpeza/otimização/consolidação -- essa chave só
+# é gravada quando o cenário acabou de ser CRIADO nessa mesma conversa
+# (ver iniciar_fluxo_criar_cenario); se o usuário limpar/otimizar um
+# cenário que já existia de antes (ex: via "Ações Comuns", sem passar
+# pelo assistente de criação), a chave nunca existe e o fallback caía
+# pro id bruto do banco -- exatamente o "usar o id em vez do número
+# sequencial" que já foi corrigido antes em outros lugares, mas que
+# sobrevivia escondido atrás dessa variável intermediária. Busca sempre
+# direto do banco -- confiável em qualquer caminho que levou até aqui.
+def _numero_sequencial_por_id(cenario_id):
+    if cenario_id is None:
+        return None
+    numero = TbCenarios.objects_real.filter(id=cenario_id).values_list('numero_sequencial', flat=True).first()
+    return numero if numero is not None else cenario_id
+
+
 def _encerrar_fluxo(estado):
     estado.fluxo_ativo = None
     estado.etapa_atual = None
@@ -209,7 +227,7 @@ def iniciar_fluxo_mudar_cenario(usuario, mensagem=""):
 
     if cenario.flag in FLAGS_OPERACAO_EM_ANDAMENTO:
         return (
-            f"O cenário {cenario.id}/{cenario.cen_nome} está com uma operação em andamento "
+            f"O cenário {cenario.numero_sequencial}/{cenario.cen_nome} está com uma operação em andamento "
             f"agora ({FLAGS_OPERACAO_EM_ANDAMENTO[cenario.flag]}) -- espera terminar antes de "
             "mudar o tipo ou o período dele."
         )
@@ -239,7 +257,7 @@ def iniciar_fluxo_mudar_cenario(usuario, mensagem=""):
         estado.save()
         exemplo = {'Mensal': '2026/06', 'Trimestral': '2026/02', 'Anual': '2026'}[cenario.cen_tipo]
         return (
-            f"Vamos mudar o período do cenário **{cenario.id}/{cenario.cen_nome}** 🔧 "
+            f"Vamos mudar o período do cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** 🔧 "
             f"(mantendo o tipo **{cenario.cen_tipo}**)\n\n"
             f"Período atual: **{cenario.cen_inicio}** a **{cenario.cen_fim}**\n\n"
             f"Qual o novo **início** do período? (formato {exemplo}, ou \"cancelar\" para desistir)"
@@ -248,7 +266,7 @@ def iniciar_fluxo_mudar_cenario(usuario, mensagem=""):
     estado.etapa_atual = 'tipo'
     estado.save()
     return (
-        f"Vamos mudar o cenário **{cenario.id}/{cenario.cen_nome}** 🔧\n\n"
+        f"Vamos mudar o cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** 🔧\n\n"
         f"Tipo atual: **{cenario.cen_tipo}**\n"
         f"Período atual: **{cenario.cen_inicio}** a **{cenario.cen_fim}**\n\n"
         "Para qual **tipo** você quer mudar? (Mensal / Trimestral / Anual, "
@@ -350,9 +368,14 @@ def _processar_criar_cenario(estado, texto):
     cenario_id = estado.dados_coletados.get('cenario_criado_id')
     if cenario_id is not None and not TbCenarios.objects_real.filter(id=cenario_id).exists():
         cenario_nome = estado.dados_coletados.get('cenario_criado_nome', '')
+        # 🌟 CORRIGIDO: usa o número sequencial guardado na criação (não dá
+        # pra buscar fresco no banco -- o cenário já foi excluído nesse
+        # ponto). Só cai pro id bruto se essa chave nunca tiver sido
+        # gravada (não deveria acontecer, mas evita quebrar).
+        numero_exibido = estado.dados_coletados.get('cenario_criado_numero_sequencial', cenario_id)
         _encerrar_fluxo(estado)
         return (
-            f"O cenário {cenario_id}/{cenario_nome} que eu estava acompanhando não existe "
+            f"O cenário {numero_exibido}/{cenario_nome} que eu estava acompanhando não existe "
             "mais (foi excluído). Cancelei o acompanhamento automático aqui. Se quiser "
             "criar um cenário novo, é só pedir de novo."
         )
@@ -545,7 +568,7 @@ def _etapa_grupo(estado, texto):
     resumo = _montar_resumo(dados)
     return (
         f"{resumo}\n\n"
-        "Confirma a criação desse cenário? (**sim** / **não**)"
+        "Confirma a criação desse cenário? (**Sim** / **Não**)"
     )
 
 
@@ -569,7 +592,7 @@ def _etapa_confirmar(estado, texto):
         if resposta in ('nao', 'não', 'n', 'no'):
             _encerrar_fluxo(estado)
             return "Ok, não criei o cenário. Se quiser começar de novo, é só pedir."
-        return "Não entendi. Confirma a criação? (**sim** / **não**)"
+        return "Não entendi. Confirma a criação? (**Sim** / **Não**)"
 
     dados = estado.dados_coletados
     try:
@@ -622,7 +645,8 @@ def _etapa_confirmar(estado, texto):
 def _etapa_ativar(estado, texto):
     resposta = texto.strip().lower()
     dados = estado.dados_coletados
-    numero_exibido = dados.get('cenario_criado_numero_sequencial', dados.get('cenario_criado_id'))
+    _numero_guardado = dados.get('cenario_criado_numero_sequencial')
+    numero_exibido = _numero_guardado if _numero_guardado is not None else _numero_sequencial_por_id(dados.get('cenario_criado_id'))
     cenario_nome = dados.get('cenario_criado_nome')
 
     if resposta in ('sim', 's', 'yes', 'y'):
@@ -639,7 +663,7 @@ def _etapa_ativar(estado, texto):
     return (
         mensagem_ativacao +
         "Quer que eu já rode o ciclo completo -- **Limpar → Otimizar → Consolidar** -- "
-        "e te mostre uma comparação dos resultados com o cenário de origem? (**sim** / **não**)"
+        "e te mostre uma comparação dos resultados com o cenário de origem? (**Sim** / **Não**)"
     )
 
 
@@ -684,7 +708,8 @@ def _buscar_task_duplicacao(desde_iso):
 
 def _checar_duplicacao(estado):
     dados = estado.dados_coletados
-    numero_exibido = dados.get('cenario_criado_numero_sequencial', dados.get('cenario_criado_id'))
+    _numero_guardado = dados.get('cenario_criado_numero_sequencial')
+    numero_exibido = _numero_guardado if _numero_guardado is not None else _numero_sequencial_por_id(dados.get('cenario_criado_id'))
     cenario_nome = dados.get('cenario_criado_nome')
     momento_criacao = dados.get('momento_criacao')
 
@@ -727,7 +752,7 @@ def _checar_duplicacao(estado):
     estado.save()
     return (
         f"✅ Cenário **{numero_exibido}/{cenario_nome}** criado! 🎉 A duplicação dos dados terminou.\n\n"
-        "Quer que eu já **ative esse cenário pra você**? (**sim** / **não**)"
+        "Quer que eu já **ative esse cenário pra você**? (**Sim** / **Não**)"
     )
 
 
@@ -740,7 +765,8 @@ def _etapa_confirmar_processar(estado, texto):
     dados = estado.dados_coletados
     cenario_id = dados.get('cenario_criado_id')
     cenario_nome = dados.get('cenario_criado_nome')
-    numero_exibido = dados.get('cenario_criado_numero_sequencial', cenario_id)
+    _numero_guardado = dados.get('cenario_criado_numero_sequencial')
+    numero_exibido = _numero_guardado if _numero_guardado is not None else _numero_sequencial_por_id(cenario_id)
 
     if resposta not in ('sim', 's', 'yes', 'y'):
         _encerrar_fluxo(estado)
@@ -786,7 +812,8 @@ def _etapa_aguardando_limpeza(estado, texto):
     dados = estado.dados_coletados
     cenario_id = dados.get('cenario_criado_id')
     cenario_nome = dados.get('cenario_criado_nome')
-    numero_exibido = dados.get('cenario_criado_numero_sequencial', cenario_id)
+    _numero_guardado = dados.get('cenario_criado_numero_sequencial')
+    numero_exibido = _numero_guardado if _numero_guardado is not None else _numero_sequencial_por_id(cenario_id)
     cenario = TbCenarios.objects_real.get(id=cenario_id)
 
     if cenario.flag == 2:  # LIMPO
@@ -839,7 +866,8 @@ def _etapa_aguardando_otimizacao(estado, texto):
     dados = estado.dados_coletados
     cenario_id = dados.get('cenario_criado_id')
     cenario_nome = dados.get('cenario_criado_nome')
-    numero_exibido = dados.get('cenario_criado_numero_sequencial', cenario_id)
+    _numero_guardado = dados.get('cenario_criado_numero_sequencial')
+    numero_exibido = _numero_guardado if _numero_guardado is not None else _numero_sequencial_por_id(cenario_id)
     total_periodos = dados.get('total_periodos', 0)
 
     # Mesma lógica do botão "Status Otimização" já usado no Admin: conta
@@ -883,7 +911,8 @@ def _etapa_aguardando_consolidacao(estado, texto):
     dados = estado.dados_coletados
     cenario_id = dados.get('cenario_criado_id')
     cenario_nome = dados.get('cenario_criado_nome')
-    numero_exibido = dados.get('cenario_criado_numero_sequencial', cenario_id)
+    _numero_guardado = dados.get('cenario_criado_numero_sequencial')
+    numero_exibido = _numero_guardado if _numero_guardado is not None else _numero_sequencial_por_id(cenario_id)
     cenario = TbCenarios.objects_real.get(id=cenario_id)
 
     if cenario.flag == 1:  # CONSOLIDADO
@@ -990,7 +1019,7 @@ def _processar_mudar_cenario(estado, texto):
     if cenario.flag in FLAGS_OPERACAO_EM_ANDAMENTO:
         _encerrar_fluxo(estado)
         return (
-            f"O cenário {cenario.id}/{cenario.cen_nome} entrou em operação "
+            f"O cenário {cenario.numero_sequencial}/{cenario.cen_nome} entrou em operação "
             f"({FLAGS_OPERACAO_EM_ANDAMENTO[cenario.flag]}) enquanto conversávamos -- "
             "cancelei a mudança de tipo/período aqui, por segurança."
         )
@@ -1154,7 +1183,7 @@ def _etapa_mudar_confirmar(estado, texto, cenario):
     if not periodo_vai_mudar:
         _encerrar_fluxo(estado)
         return (
-            f"✅ Cenário **{cenario.id}/{cenario.cen_nome}** atualizado: "
+            f"✅ Cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** atualizado: "
             f"tipo **{dados['tipo_novo']}**, período **{dados['inicio_novo']}** a **{dados['fim_novo']}**."
         )
 
@@ -1271,6 +1300,24 @@ def iniciar_fluxo_indicadores(usuario, mensagem=""):
     acao = determinar_acao_indicadores(mensagem)
 
     estado = _get_estado(usuario)
+
+    # 🌟 CORRIGIDO: em vez de só avisar e encerrar, agora pergunta se o
+    # usuário quer criar um indicador novo (sim/não) -- se sim,
+    # reaproveita o mesmo fluxo de criação já existente (etapa
+    # 'ind_criar_nome', igual à ação "criar" normal).
+    if acao != 'criar':
+        from tabelas.models import TbIndicadores
+        if not TbIndicadores.objects.filter(tbcenarios_id=cenario.id).exists():
+            estado.fluxo_ativo = FLUXO_INDICADORES
+            estado.etapa_atual = 'ind_confirmar_criar_sem_dados'
+            estado.dados_coletados = {'cenario_id': cenario.id, 'cenario_nome': cenario.cen_nome}
+            estado.save()
+            return (
+                f"Não tem nenhum indicador cadastrado no cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** ainda -- "
+                "não tem o que mudar, reajustar, eliminar ou plotar.\n\n"
+                "Quer que eu **crie um indicador novo**? (**Sim** / **Não**)"
+            )
+
     estado.fluxo_ativo = FLUXO_INDICADORES
     estado.dados_coletados = {'cenario_id': cenario.id, 'cenario_nome': cenario.cen_nome, 'acao': acao}
 
@@ -1278,7 +1325,7 @@ def iniciar_fluxo_indicadores(usuario, mensagem=""):
         estado.etapa_atual = 'ind_grafico_escolher'
         estado.save()
         return (
-            f"Vamos plotar um gráfico de indicador no cenário **{cenario.id}/{cenario.cen_nome}** 📊\n\n"
+            f"Vamos plotar um gráfico de indicador no cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** 📊\n\n"
             f"{_lista_indicadores(cenario.id)}"
             "Qual **indicador** você quer plotar? (ou \"cancelar\")"
         )
@@ -1286,14 +1333,14 @@ def iniciar_fluxo_indicadores(usuario, mensagem=""):
         estado.etapa_atual = 'ind_criar_nome'
         estado.save()
         return (
-            f"Vamos criar um indicador novo no cenário **{cenario.id}/{cenario.cen_nome}** 📊\n\n"
+            f"Vamos criar um indicador novo no cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** 📊\n\n"
             "Qual vai ser o **nome** do indicador? (ou \"cancelar\" para desistir)"
         )
     elif acao == 'massa':
         estado.etapa_atual = 'ind_massa_nome'
         estado.save()
         return (
-            f"Vamos aplicar um reajuste em massa no cenário **{cenario.id}/{cenario.cen_nome}** 📊\n\n"
+            f"Vamos aplicar um reajuste em massa no cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** 📊\n\n"
             f"{_lista_indicadores(cenario.id)}"
             "Qual **indicador** você quer reajustar? (ou \"cancelar\")"
         )
@@ -1301,7 +1348,7 @@ def iniciar_fluxo_indicadores(usuario, mensagem=""):
         estado.etapa_atual = 'ind_eliminar_nome'
         estado.save()
         return (
-            f"Vamos eliminar um indicador do cenário **{cenario.id}/{cenario.cen_nome}** 📊\n\n"
+            f"Vamos eliminar um indicador do cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** 📊\n\n"
             f"{_lista_indicadores(cenario.id)}"
             "Qual **indicador** você quer eliminar? (ou \"cancelar\")"
         )
@@ -1309,7 +1356,7 @@ def iniciar_fluxo_indicadores(usuario, mensagem=""):
         estado.etapa_atual = 'ind_editar_nome'
         estado.save()
         return (
-            f"Vamos mudar um valor de indicador no cenário **{cenario.id}/{cenario.cen_nome}** 📊\n\n"
+            f"Vamos mudar um valor de indicador no cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** 📊\n\n"
             f"{_lista_indicadores(cenario.id)}"
             "Qual **indicador** você quer mudar? (ou \"cancelar\")"
         )
@@ -1484,7 +1531,7 @@ def _exportar_dados_otimizacao_produto(cenario):
     wb = Workbook()
     ws = wb.active
     ws.title = str(_('Resultados'))[:31]
-    ws.append([f"{_('RESULTADOS OTIMIZAÇÃO: PRODUTO')} / {_('CENÁRIO')} {cenario.id} / {cenario.cen_nome}"])
+    ws.append([f"{_('RESULTADOS OTIMIZAÇÃO: PRODUTO')} / {_('CENÁRIO')} {cenario.numero_sequencial} / {cenario.cen_nome}"])
     ws['A1'].font = Font(bold=True)
 
     tipo_periodo = _tipo_periodo_exibicao(cenario)
@@ -1526,7 +1573,7 @@ def _exportar_dados_otimizacao_produto_mercado(cenario):
     wb = Workbook()
     ws = wb.active
     ws.title = str(_('Resultados'))[:31]
-    ws.append([f"{_('RESULTADOS OTIMIZAÇÃO: PRODUTO-MERCADO')} / {_('CENÁRIO')} {cenario.id} / {cenario.cen_nome}"])
+    ws.append([f"{_('RESULTADOS OTIMIZAÇÃO: PRODUTO-MERCADO')} / {_('CENÁRIO')} {cenario.numero_sequencial} / {cenario.cen_nome}"])
     ws['A1'].font = Font(bold=True)
 
     tipo_periodo = _tipo_periodo_exibicao(cenario)
@@ -1580,7 +1627,7 @@ def _exportar_dados_otimizacao_produto_mercado_fluxo(cenario):
     wb = Workbook()
     ws = wb.active
     ws.title = str(_('Resultados'))[:31]
-    ws.append([f"{_('RESULTADOS OTIMIZAÇÃO: PRODUTO-MERCADO-FLUXO DE PRODUÇÃO')} / {_('CENÁRIO')} {cenario.id} / {cenario.cen_nome}"])
+    ws.append([f"{_('RESULTADOS OTIMIZAÇÃO: PRODUTO-MERCADO-FLUXO DE PRODUÇÃO')} / {_('CENÁRIO')} {cenario.numero_sequencial} / {cenario.cen_nome}"])
     ws['A1'].font = Font(bold=True)
 
     tipo_periodo = _tipo_periodo_exibicao(cenario)
@@ -1653,7 +1700,7 @@ def _exportar_dados_otimizacao_equipamentos(cenario):
     wb = Workbook()
     ws = wb.active
     ws.title = str(_('Resultados'))[:31]
-    ws.append([f"{_('RESULTADOS OTIMIZAÇÃO: EQUIPAMENTOS')} / {_('CENÁRIO')} {cenario.id} / {cenario.cen_nome}"])
+    ws.append([f"{_('RESULTADOS OTIMIZAÇÃO: EQUIPAMENTOS')} / {_('CENÁRIO')} {cenario.numero_sequencial} / {cenario.cen_nome}"])
     ws['A1'].font = Font(bold=True)
 
     tipo_periodo = _tipo_periodo_exibicao(cenario)
@@ -1693,7 +1740,7 @@ def _exportar_dados_otimizacao_equipamentos_ordem(cenario):
     wb = Workbook()
     ws = wb.active
     ws.title = str(_('Resultados'))[:31]
-    ws.append([f"{_('RESULTADOS OTIMIZAÇÃO: EQUIPAMENTOS - ORDEM DE PRODUÇÃO')} / {_('CENÁRIO')} {cenario.id} / {cenario.cen_nome}"])
+    ws.append([f"{_('RESULTADOS OTIMIZAÇÃO: EQUIPAMENTOS - ORDEM DE PRODUÇÃO')} / {_('CENÁRIO')} {cenario.numero_sequencial} / {cenario.cen_nome}"])
     ws['A1'].font = Font(bold=True)
 
     tipo_periodo = _tipo_periodo_exibicao(cenario)
@@ -1740,7 +1787,7 @@ def _exportar_dados_otimizacao_custo_item(cenario):
     wb = Workbook()
     ws = wb.active
     ws.title = str(_('Resultados'))[:31]
-    ws.append([f"{_('RESULTADOS OTIMIZAÇÃO: ITENS DE CUSTO - PLANTA DE PRODUÇÃO')} / {_('CENÁRIO')} {cenario.id} / {cenario.cen_nome}"])
+    ws.append([f"{_('RESULTADOS OTIMIZAÇÃO: ITENS DE CUSTO - PLANTA DE PRODUÇÃO')} / {_('CENÁRIO')} {cenario.numero_sequencial} / {cenario.cen_nome}"])
     ws['A1'].font = Font(bold=True)
 
     tipo_periodo = _tipo_periodo_exibicao(cenario)
@@ -1807,7 +1854,7 @@ def iniciar_exportar_dados_otimizacao_cenario_ativo(usuario):
     exportar_dados_otimizacao_celery.delay(cenario.id, usuario.id)
 
     return (
-        f"Comecei a gerar os 6 relatórios de otimização do cenário **{cenario.id}/{cenario.cen_nome}** 📊 "
+        f"Comecei a gerar os 6 relatórios de otimização do cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** 📊 "
         "em segundo plano (alguns podem demorar um pouco)."
     )
 
@@ -1820,10 +1867,11 @@ def _etapa_exportar_otimizacao_aguardando(estado, texto):
     dados = estado.dados_coletados or {}
     cenario_id = dados.get('cenario_id')
     cenario_nome = dados.get('cenario_nome', '')
+    numero_exibido = _numero_sequencial_por_id(cenario_id)
     status = dados.get('status')
 
     if status == 'processando':
-        return f"Ainda gerando os relatórios do cenário **{cenario_id}/{cenario_nome}**."
+        return f"Ainda gerando os relatórios do cenário **{numero_exibido}/{cenario_nome}**."
 
     if status == 'erro':
         _encerrar_fluxo(estado)
@@ -1845,7 +1893,7 @@ def _etapa_exportar_otimizacao_aguardando(estado, texto):
     estado.save()
 
     linhas_download = "\n".join(f"- **{a['rotulo']}**: [{a['nome_arquivo']}]({a['url']})" for a in arquivos)
-    resposta = f"Prontos os relatórios de otimização do cenário **{cenario_id}/{cenario_nome}** 📊\n\n{linhas_download}\n\n"
+    resposta = f"Prontos os relatórios de otimização do cenário **{numero_exibido}/{cenario_nome}** 📊\n\n{linhas_download}\n\n"
     if erros:
         resposta += "⚠️ Não consegui gerar: " + "; ".join(erros) + "\n\n"
     resposta += "Quer que eu envie esses arquivos também por e-mail pro seu e-mail cadastrado? (sim/não)"
@@ -1889,7 +1937,7 @@ def _etapa_exportar_otimizacao_confirmar_email(estado, texto):
         _encerrar_fluxo(estado)
         return "Combinado, não vou enviar por e-mail. Os arquivos continuam disponíveis pra download nas mensagens acima."
 
-    return "Não entendi -- quer que eu envie os relatórios por e-mail? Responde **sim** ou **não**."
+    return "Não entendi -- quer que eu envie os relatórios por e-mail? Responde **Sim** ou **Não**."
 
 
 def _etapa_exportar_otimizacao_aguardando_email(estado, texto):
@@ -1945,7 +1993,7 @@ def iniciar_exportar_excel_cenario_ativo(usuario):
     ws = wb.active
     ws.title = _('Resultados')
 
-    titulo = f"{_('RESULTADOS CENÁRIO ')}{cenario.id}/{cenario.cen_nome}"
+    titulo = f"{_('RESULTADOS CENÁRIO ')}{cenario.numero_sequencial}/{cenario.cen_nome}"
     if nome_empresa:
         titulo += f" ({nome_empresa})"
     ws.append([titulo])
@@ -1984,7 +2032,7 @@ def iniciar_exportar_excel_cenario_ativo(usuario):
     url = f"{settings.MEDIA_URL}relatorios_temp/{nome_arquivo}"
 
     return (
-        f"Aqui está o relatório de resultados do cenário **{cenario.id}/{cenario.cen_nome}**:\n\n"
+        f"Aqui está o relatório de resultados do cenário **{cenario.numero_sequencial}/{cenario.cen_nome}**:\n\n"
         f"[📊 Baixar relatório Excel]({url})"
     )
 
@@ -2131,8 +2179,8 @@ def _etapa_ind_editar_nome(estado, texto, cenario):
     return (
         f"Indicador: **{indicador.ind_nome}**.\n\n"
         "Como você quer ajustar os valores? Digite:\n"
-        "- **manual** -- pra mudar um período de cada vez, digitando aqui\n"
-        "- **planilha** -- pra baixar uma planilha, preencher, e reenviar de uma vez\n"
+        "- **Manual** -- pra mudar um período de cada vez, digitando aqui\n"
+        "- **Planilha** -- pra baixar uma planilha, preencher, e reenviar de uma vez\n"
         "(ou \"cancelar\")"
     )
 
@@ -2171,7 +2219,7 @@ def _etapa_ind_editar_modo(estado, texto, cenario):
             f"Qual **período** você quer mudar? (formato {_exemplo_periodo(cenario)})"
         )
 
-    return "Não entendi. Digita **manual** ou **planilha** (ou \"cancelar\")."
+    return "Não entendi. Digita **Manual** ou **Planilha** (ou \"cancelar\")."
 
 
 def _etapa_ind_editar_periodo(estado, texto, cenario):
@@ -2453,9 +2501,9 @@ def _etapa_ind_criar_confirmar(estado, texto, cenario):
     return (
         f"✅ Indicador **{indicador.ind_nome}** criado, com valor inicial de **{dados['valor_inicial']}%** em todos os períodos.\n\n"
         "Quer ajustar algum período específico agora? Digite:\n"
-        "- **manual** -- pra mudar um período de cada vez\n"
-        "- **planilha** -- pra baixar, preencher, e reenviar de uma vez\n"
-        "- **não** -- se já está bom assim"
+        "- **Manual** -- pra mudar um período de cada vez\n"
+        "- **Planilha** -- pra baixar, preencher, e reenviar de uma vez\n"
+        "- **Não** -- se já está bom assim"
     )
 
 
@@ -2596,6 +2644,19 @@ def iniciar_download_planilha_indicador(usuario, mensagem):
     cenario = TbCenarios.objects_real.filter(id=perfil.cenario_ativo_id).first()
     if cenario is None:
         return "O cenário que estava ativo pra você não existe mais."
+
+    from tabelas.models import TbIndicadores
+    if not TbIndicadores.objects.filter(tbcenarios_id=cenario.id).exists():
+        estado = _get_estado(usuario)
+        estado.fluxo_ativo = FLUXO_INDICADORES
+        estado.etapa_atual = 'ind_confirmar_criar_sem_dados'
+        estado.dados_coletados = {'cenario_id': cenario.id, 'cenario_nome': cenario.cen_nome}
+        estado.save()
+        return (
+            f"Não tem nenhum indicador cadastrado no cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** ainda -- "
+            "não tem planilha pra baixar.\n\n"
+            "Quer que eu **crie um indicador novo**? (**Sim** / **Não**)"
+        )
 
     indicador = _buscar_indicador_na_mensagem(cenario.id, mensagem)
     if indicador is None:
@@ -2849,7 +2910,35 @@ def _etapa_ind_grafico_tipo(estado, texto, cenario):
     return _montar_grafico_indicador(cenario, indicador, tipo_grafico)
 
 
+def _etapa_ind_confirmar_criar_sem_dados(estado, texto, cenario):
+    """
+    Trata a resposta sim/não pra pergunta "quer criar um indicador?",
+    que aparece quando o usuário tenta editar/reajustar/eliminar/plotar
+    um indicador mas o cenário ainda não tem nenhum cadastrado.
+    """
+    resposta = (texto or '').strip().lower()
+    if resposta in ('sim', 's', 'yes', 'y'):
+        # 🌟 Reaproveita o mesmo fluxo de criação já existente -- mesma
+        # etapa e mensagem que iniciar_fluxo_indicadores usa pra
+        # acao == 'criar'.
+        dados = estado.dados_coletados
+        dados['acao'] = 'criar'
+        estado.dados_coletados = dados
+        estado.etapa_atual = 'ind_criar_nome'
+        estado.save()
+        return (
+            f"Vamos criar um indicador novo no cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** 📊\n\n"
+            "Qual vai ser o **nome** do indicador? (ou \"cancelar\" para desistir)"
+        )
+    elif resposta in ('nao', 'não', 'n', 'no'):
+        _encerrar_fluxo(estado)
+        return "Ok, não vou criar nenhum indicador agora."
+    else:
+        return "Não entendi -- quer que eu crie um indicador novo? Responde **Sim** ou **Não**."
+
+
 _HANDLERS_INDICADORES = {
+    'ind_confirmar_criar_sem_dados': _etapa_ind_confirmar_criar_sem_dados,
     'ind_editar_nome': _etapa_ind_editar_nome,
     'ind_editar_modo': _etapa_ind_editar_modo,
     'ind_editar_periodo': _etapa_ind_editar_periodo,
@@ -2902,6 +2991,28 @@ def determinar_acao_cambio(mensagem):
         return 'editar'
 
 
+def _iniciar_criacao_cambio(estado, cenario):
+    """
+    Monta a mensagem de início do sub-fluxo de criar uma taxa de câmbio
+    nova, e atualiza o estado -- extraído numa função própria pra poder
+    ser chamado tanto pela ação "criar" normal quanto pela confirmação
+    sim/não que aparece quando não existe nenhuma taxa cadastrada ainda
+    (ver _etapa_cam_confirmar_criar_sem_dados).
+    """
+    disponiveis = _moedas_disponiveis(cenario.id)
+    estado.etapa_atual = 'cam_criar_moeda'
+    estado.save()
+    if not disponiveis:
+        _encerrar_fluxo(estado)
+        return "Não tem nenhuma moeda disponível pra cadastrar nesse cenário -- todas já foram usadas."
+    opcoes = "\n".join(f"- {c} ({n})" for c, n in disponiveis.items())
+    return (
+        f"Vamos criar uma taxa de câmbio nova no cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** 💱\n\n"
+        f"Moedas disponíveis:\n{opcoes}\n\n"
+        "Qual você quer cadastrar? (ou \"cancelar\")"
+    )
+
+
 def iniciar_fluxo_cambio(usuario, mensagem=""):
     perfil = getattr(usuario, 'perfilusuario', None)
     if perfil is None or perfil.cenario_ativo_id is None:
@@ -2914,6 +3025,24 @@ def iniciar_fluxo_cambio(usuario, mensagem=""):
     acao = determinar_acao_cambio(mensagem)
 
     estado = _get_estado(usuario)
+
+    # 🌟 CORRIGIDO: em vez de só avisar e encerrar, agora pergunta se o
+    # usuário quer criar uma taxa de câmbio nova (sim/não) -- se sim,
+    # reaproveita o mesmo fluxo de criação já existente
+    # (_iniciar_criacao_cambio, igual à ação "criar" normal).
+    if acao != 'criar':
+        from tabelas.models import TbCambio
+        if not TbCambio.objects.filter(tbcenarios_id=cenario.id).exists():
+            estado.fluxo_ativo = FLUXO_CAMBIO
+            estado.etapa_atual = 'cam_confirmar_criar_sem_dados'
+            estado.dados_coletados = {'cenario_id': cenario.id, 'cenario_nome': cenario.cen_nome}
+            estado.save()
+            return (
+                f"Não tem nenhuma taxa de câmbio cadastrada no cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** ainda -- "
+                "não tem o que mudar, reajustar, eliminar ou plotar.\n\n"
+                "Quer que eu **crie uma taxa de câmbio nova**? (**Sim** / **Não**)"
+            )
+
     estado.fluxo_ativo = FLUXO_CAMBIO
     estado.dados_coletados = {'cenario_id': cenario.id, 'cenario_nome': cenario.cen_nome, 'acao': acao}
 
@@ -2921,28 +3050,17 @@ def iniciar_fluxo_cambio(usuario, mensagem=""):
         estado.etapa_atual = 'cam_grafico_escolher'
         estado.save()
         return (
-            f"Vamos plotar um gráfico de câmbio no cenário **{cenario.id}/{cenario.cen_nome}** 💱\n\n"
+            f"Vamos plotar um gráfico de câmbio no cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** 💱\n\n"
             f"{_lista_cambios(cenario.id)}"
             "Qual **taxa de câmbio** você quer plotar? (ou \"cancelar\")"
         )
     elif acao == 'criar':
-        disponiveis = _moedas_disponiveis(cenario.id)
-        estado.etapa_atual = 'cam_criar_moeda'
-        estado.save()
-        if not disponiveis:
-            _encerrar_fluxo(estado)
-            return "Não tem nenhuma moeda disponível pra cadastrar nesse cenário -- todas já foram usadas."
-        opcoes = "\n".join(f"- {c} ({n})" for c, n in disponiveis.items())
-        return (
-            f"Vamos criar uma taxa de câmbio nova no cenário **{cenario.id}/{cenario.cen_nome}** 💱\n\n"
-            f"Moedas disponíveis:\n{opcoes}\n\n"
-            "Qual você quer cadastrar? (ou \"cancelar\")"
-        )
+        return _iniciar_criacao_cambio(estado, cenario)
     elif acao == 'massa':
         estado.etapa_atual = 'cam_massa_moeda'
         estado.save()
         return (
-            f"Vamos aplicar um reajuste em massa no cenário **{cenario.id}/{cenario.cen_nome}** 💱\n\n"
+            f"Vamos aplicar um reajuste em massa no cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** 💱\n\n"
             f"{_lista_cambios(cenario.id)}"
             "Qual **taxa de câmbio** você quer reajustar? (ou \"cancelar\")"
         )
@@ -2950,7 +3068,7 @@ def iniciar_fluxo_cambio(usuario, mensagem=""):
         estado.etapa_atual = 'cam_eliminar_moeda'
         estado.save()
         return (
-            f"Vamos eliminar uma taxa de câmbio do cenário **{cenario.id}/{cenario.cen_nome}** 💱\n\n"
+            f"Vamos eliminar uma taxa de câmbio do cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** 💱\n\n"
             f"{_lista_cambios(cenario.id)}"
             "Qual você quer eliminar? (ou \"cancelar\")"
         )
@@ -2958,7 +3076,7 @@ def iniciar_fluxo_cambio(usuario, mensagem=""):
         estado.etapa_atual = 'cam_editar_moeda'
         estado.save()
         return (
-            f"Vamos mudar um valor de câmbio no cenário **{cenario.id}/{cenario.cen_nome}** 💱\n\n"
+            f"Vamos mudar um valor de câmbio no cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** 💱\n\n"
             f"{_lista_cambios(cenario.id)}"
             "Qual **taxa de câmbio** você quer mudar? (ou \"cancelar\")"
         )
@@ -3069,8 +3187,8 @@ def _etapa_cam_editar_moeda(estado, texto, cenario):
     return (
         f"Câmbio: **{cambio.get_cam_moeda_display()}**.\n\n"
         "Como você quer ajustar os valores? Digite:\n"
-        "- **manual** -- pra mudar um período de cada vez, digitando aqui\n"
-        "- **planilha** -- pra baixar uma planilha, preencher, e reenviar de uma vez\n"
+        "- **Manual** -- pra mudar um período de cada vez, digitando aqui\n"
+        "- **Planilha** -- pra baixar uma planilha, preencher, e reenviar de uma vez\n"
         "(ou \"cancelar\")"
     )
 
@@ -3108,7 +3226,7 @@ def _etapa_cam_editar_modo(estado, texto, cenario):
             f"Qual **período** você quer mudar? (formato {_exemplo_periodo(cenario)})"
         )
 
-    return "Não entendi. Digita **manual** ou **planilha** (ou \"cancelar\")."
+    return "Não entendi. Digita **Manual** ou **Planilha** (ou \"cancelar\")."
 
 
 def _etapa_cam_editar_periodo(estado, texto, cenario):
@@ -3366,9 +3484,9 @@ def _etapa_cam_criar_confirmar(estado, texto, cenario):
     return (
         f"✅ Taxa de câmbio **{cambio.get_cam_moeda_display()}** criada, com valor inicial de **{dados['valor_inicial']}** em todos os períodos.\n\n"
         "Quer ajustar algum período específico agora? Digite:\n"
-        "- **manual** -- pra mudar um período de cada vez\n"
-        "- **planilha** -- pra baixar, preencher, e reenviar de uma vez\n"
-        "- **não** -- se já está bom assim"
+        "- **Manual** -- pra mudar um período de cada vez\n"
+        "- **Planilha** -- pra baixar, preencher, e reenviar de uma vez\n"
+        "- **Não** -- se já está bom assim"
     )
 
 
@@ -3746,7 +3864,25 @@ def _etapa_cam_grafico_tipo(estado, texto, cenario):
     return _montar_grafico_cambio(cenario, cambio, tipo_grafico)
 
 
+def _etapa_cam_confirmar_criar_sem_dados(estado, texto, cenario):
+    """
+    Trata a resposta sim/não pra pergunta "quer criar uma taxa de
+    câmbio?", que aparece quando o usuário tenta editar/reajustar/
+    eliminar/plotar uma taxa mas o cenário ainda não tem nenhuma
+    cadastrada.
+    """
+    resposta = (texto or '').strip().lower()
+    if resposta in ('sim', 's', 'yes', 'y'):
+        return _iniciar_criacao_cambio(estado, cenario)
+    elif resposta in ('nao', 'não', 'n', 'no'):
+        _encerrar_fluxo(estado)
+        return "Ok, não vou criar nenhuma taxa de câmbio agora."
+    else:
+        return "Não entendi -- quer que eu crie uma taxa de câmbio nova? Responde **Sim** ou **Não**."
+
+
 _HANDLERS_CAMBIO = {
+    'cam_confirmar_criar_sem_dados': _etapa_cam_confirmar_criar_sem_dados,
     'cam_editar_moeda': _etapa_cam_editar_moeda,
     'cam_editar_modo': _etapa_cam_editar_modo,
     'cam_editar_periodo': _etapa_cam_editar_periodo,
@@ -3810,7 +3946,7 @@ def iniciar_consulta_status(usuario, mensagem=""):
 
     if cenario.flag in FLAGS_OPERACAO_EM_ANDAMENTO:
         return (
-            f"O cenário **{cenario.id}/{cenario.cen_nome}** está: **{status_atual}** "
+            f"O cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** está: **{status_atual}** "
             "(operação em andamento)."
         )
 
@@ -3820,7 +3956,7 @@ def iniciar_consulta_status(usuario, mensagem=""):
         estado.etapa_atual = 'proc_pos_limpeza_otimizar'
         estado.dados_coletados = {'cenario_id': cenario.id, 'cenario_nome': cenario.cen_nome}
         estado.save()
-        return f"O cenário **{cenario.id}/{cenario.cen_nome}** está: **{status_atual}**. Quer que eu já dispare a **otimização**? (sim / não)"
+        return f"O cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** está: **{status_atual}**. Quer que eu já dispare a **otimização**? (sim / não)"
 
     if cenario.flag == 3:  # OTIMIZADO
         estado = _get_estado(usuario)
@@ -3828,7 +3964,7 @@ def iniciar_consulta_status(usuario, mensagem=""):
         estado.etapa_atual = 'proc_pos_otimizacao_consolidar'
         estado.dados_coletados = {'cenario_id': cenario.id, 'cenario_nome': cenario.cen_nome}
         estado.save()
-        return f"O cenário **{cenario.id}/{cenario.cen_nome}** está: **{status_atual}**. Quer que eu já dispare a **consolidação**? (sim / não)"
+        return f"O cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** está: **{status_atual}**. Quer que eu já dispare a **consolidação**? (sim / não)"
 
     if cenario.flag == 1 or cenario.flag is None:  # CONSOLIDADO ou nunca processado
         estado = _get_estado(usuario)
@@ -3836,9 +3972,9 @@ def iniciar_consulta_status(usuario, mensagem=""):
         estado.etapa_atual = 'proc_pos_consolidacao_limpar'
         estado.dados_coletados = {'cenario_id': cenario.id, 'cenario_nome': cenario.cen_nome}
         estado.save()
-        return f"O cenário **{cenario.id}/{cenario.cen_nome}** está: **{status_atual}**. Quer que eu já dispare a **limpeza** (pra começar o ciclo de novo)? (sim / não)"
+        return f"O cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** está: **{status_atual}**. Quer que eu já dispare a **limpeza** (pra começar o ciclo de novo)? (sim / não)"
 
-    return f"O cenário **{cenario.id}/{cenario.cen_nome}** está: **{status_atual}**."
+    return f"O cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** está: **{status_atual}**."
 
 
 def iniciar_ciclo_completo(usuario, mensagem):
@@ -3859,7 +3995,7 @@ def iniciar_ciclo_completo(usuario, mensagem):
 
     if cenario.flag in FLAGS_OPERACAO_EM_ANDAMENTO:
         return (
-            f"O cenário {cenario.id}/{cenario.cen_nome} já está com uma operação em andamento agora "
+            f"O cenário {cenario.numero_sequencial}/{cenario.cen_nome} já está com uma operação em andamento agora "
             f"({FLAGS_OPERACAO_EM_ANDAMENTO[cenario.flag]}). Espera terminar antes de disparar o ciclo completo."
         )
 
@@ -3909,19 +4045,20 @@ def _etapa_proc_ciclo_aguardando_limpeza(estado, texto):
     dados = estado.dados_coletados
     cenario_id = dados['cenario_id']
     cenario_nome = dados['cenario_nome']
+    numero_exibido = _numero_sequencial_por_id(cenario_id)
     cenario = TbCenarios.objects_real.filter(id=cenario_id).first()
     if cenario is None:
         _encerrar_fluxo(estado)
-        return f"O cenário {cenario_id}/{cenario_nome} não existe mais. Cancelei o acompanhamento."
+        return f"O cenário {numero_exibido}/{cenario_nome} não existe mais. Cancelei o acompanhamento."
 
     if cenario.flag == 2:  # LIMPO -- segue direto pra otimização, sem perguntar
         return _disparar_otimizacao_ciclo(estado.usuario, cenario)
 
     if cenario.flag == 5:
-        return f"Ainda limpando o cenário **{cenario_id}/{cenario_nome}**."
+        return f"Ainda limpando o cenário **{numero_exibido}/{cenario_nome}**."
 
     _encerrar_fluxo(estado)
-    return f"O status do cenário **{cenario_id}/{cenario_nome}** mudou pra algo inesperado (flag={cenario.flag}) durante a limpeza -- melhor conferir manualmente no Admin. Cancelei o ciclo aqui."
+    return f"O status do cenário **{numero_exibido}/{cenario_nome}** mudou pra algo inesperado (flag={cenario.flag}) durante a limpeza -- melhor conferir manualmente no Admin. Cancelei o ciclo aqui."
 
 
 def _disparar_otimizacao_ciclo(usuario, cenario):
@@ -3955,7 +4092,7 @@ def _disparar_otimizacao_ciclo(usuario, cenario):
 
     return (
         f"Limpeza concluída! Disparei a **otimização** do cenário "
-        f"**{cenario_id}/{cenario.cen_nome}** ({total_periodos} período(s)) em segundo plano. "
+        f"**{numero_exibido}/{cenario.cen_nome}** ({total_periodos} período(s)) em segundo plano. "
     )
 
 
@@ -3963,6 +4100,7 @@ def _etapa_proc_ciclo_aguardando_otimizacao(estado, texto):
     dados = estado.dados_coletados
     cenario_id = dados['cenario_id']
     cenario_nome = dados['cenario_nome']
+    numero_exibido = _numero_sequencial_por_id(cenario_id)
     total_periodos = dados.get('total_periodos', 0)
 
     total_otimizado = (
@@ -3972,14 +4110,14 @@ def _etapa_proc_ciclo_aguardando_otimizacao(estado, texto):
 
     if total_otimizado < total_periodos:
         return (
-            f"Ainda otimizando o cenário **{cenario_id}/{cenario_nome}** "
+            f"Ainda otimizando o cenário **{numero_exibido}/{cenario_nome}** "
             f"({total_otimizado} de {total_periodos} período(s) concluídos)."
         )
 
     cenario = TbCenarios.objects_real.filter(id=cenario_id).first()
     if cenario is None:
         _encerrar_fluxo(estado)
-        return f"O cenário {cenario_id}/{cenario_nome} não existe mais. Cancelei o acompanhamento."
+        return f"O cenário {numero_exibido}/{cenario_nome} não existe mais. Cancelei o acompanhamento."
 
     if cenario.flag != 3:
         return "Períodos todos processados, aguardando o cenário fechar como OTIMIZADO."
@@ -4006,7 +4144,7 @@ def _disparar_consolidacao_ciclo(usuario, cenario):
 
     return (
         f"Otimização concluída! Disparei a **consolidação** do cenário "
-        f"**{cenario_id}/{cenario.cen_nome}** em segundo plano."
+        f"**{numero_exibido}/{cenario.cen_nome}** em segundo plano."
     )
 
 
@@ -4014,20 +4152,21 @@ def _etapa_proc_ciclo_aguardando_consolidacao(estado, texto):
     dados = estado.dados_coletados
     cenario_id = dados['cenario_id']
     cenario_nome = dados['cenario_nome']
+    numero_exibido = _numero_sequencial_por_id(cenario_id)
     cenario = TbCenarios.objects_real.filter(id=cenario_id).first()
     if cenario is None:
         _encerrar_fluxo(estado)
-        return f"O cenário {cenario_id}/{cenario_nome} não existe mais. Cancelei o acompanhamento."
+        return f"O cenário {numero_exibido}/{cenario_nome} não existe mais. Cancelei o acompanhamento."
 
     if cenario.flag == 1:  # CONSOLIDADO
         _encerrar_fluxo(estado)
-        return f"✅ Ciclo completo! Cenário **{cenario_id}/{cenario_nome}** limpo, otimizado, e consolidado."
+        return f"✅ Ciclo completo! Cenário **{numero_exibido}/{cenario_nome}** limpo, otimizado, e consolidado."
 
     if cenario.flag == 6:
-        return f"Ainda consolidando o cenário **{cenario_id}/{cenario_nome}**."
+        return f"Ainda consolidando o cenário **{numero_exibido}/{cenario_nome}**."
 
     _encerrar_fluxo(estado)
-    return f"O status do cenário **{cenario_id}/{cenario_nome}** mudou pra algo inesperado (flag={cenario.flag}) durante a consolidação -- melhor conferir manualmente no Admin."
+    return f"O status do cenário **{numero_exibido}/{cenario_nome}** mudou pra algo inesperado (flag={cenario.flag}) durante a consolidação -- melhor conferir manualmente no Admin."
 
 
 def determinar_acao_processar(mensagem):
@@ -4065,7 +4204,7 @@ def iniciar_fluxo_processar(usuario, mensagem):
     # sentido bloquear otimizar/consolidar enquanto algo já está rodando.
     if acao != 'limpar' and cenario.flag in FLAGS_OPERACAO_EM_ANDAMENTO:
         return (
-            f"O cenário {cenario.id}/{cenario.cen_nome} já está com uma operação em andamento agora "
+            f"O cenário {cenario.numero_sequencial}/{cenario.cen_nome} já está com uma operação em andamento agora "
             f"({FLAGS_OPERACAO_EM_ANDAMENTO[cenario.flag]}). Espera terminar antes de disparar outra."
         )
 
@@ -4074,7 +4213,7 @@ def iniciar_fluxo_processar(usuario, mensagem):
     if acao == 'otimizar' and cenario.flag != 2:
         status_atual = MENSAGENS_FLAG.get(cenario.flag, f'flag={cenario.flag}')
         return (
-            f"Não dá pra otimizar o cenário **{cenario.id}/{cenario.cen_nome}** agora -- ele precisa "
+            f"Não dá pra otimizar o cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** agora -- ele precisa "
             f"estar **LIMPO** primeiro, e o status atual é **{status_atual}**. Limpa o cenário antes "
             "de otimizar."
         )
@@ -4082,7 +4221,7 @@ def iniciar_fluxo_processar(usuario, mensagem):
     if acao == 'consolidar' and cenario.flag != 3:
         status_atual = MENSAGENS_FLAG.get(cenario.flag, f'flag={cenario.flag}')
         return (
-            f"Não dá pra consolidar o cenário **{cenario.id}/{cenario.cen_nome}** agora -- ele precisa "
+            f"Não dá pra consolidar o cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** agora -- ele precisa "
             f"estar **OTIMIZADO** primeiro, e o status atual é **{status_atual}**. Otimiza o cenário "
             "antes de consolidar."
         )
@@ -4100,15 +4239,16 @@ def _etapa_proc_pos_consolidacao_limpar(estado, texto):
     dados = estado.dados_coletados
     cenario_id = dados['cenario_id']
     cenario_nome = dados['cenario_nome']
+    numero_exibido = _numero_sequencial_por_id(cenario_id)
 
     if resposta not in ('sim', 's', 'yes', 'y'):
         _encerrar_fluxo(estado)
-        return f"Ok, cenário **{cenario_id}/{cenario_nome}** fica como está."
+        return f"Ok, cenário **{numero_exibido}/{cenario_nome}** fica como está."
 
     cenario = TbCenarios.objects_real.filter(id=cenario_id).first()
     if cenario is None:
         _encerrar_fluxo(estado)
-        return f"O cenário {cenario_id}/{cenario_nome} não existe mais. Cancelei o acompanhamento."
+        return f"O cenário {numero_exibido}/{cenario_nome} não existe mais. Cancelei o acompanhamento."
 
     return _disparar_limpeza_standalone(estado.usuario, cenario)
 
@@ -4144,7 +4284,7 @@ def _disparar_limpeza_standalone(usuario, cenario):
     estado.save()
 
     return (
-        f"Disparei a **limpeza** do cenário **{cenario_id}/{cenario.cen_nome}** em segundo plano. "
+        f"Disparei a **limpeza** do cenário **{numero_exibido}/{cenario.cen_nome}** em segundo plano. "
     )
 
 
@@ -4152,21 +4292,22 @@ def _etapa_proc_aguardando_limpeza(estado, texto):
     dados = estado.dados_coletados
     cenario_id = dados['cenario_id']
     cenario_nome = dados['cenario_nome']
+    numero_exibido = _numero_sequencial_por_id(cenario_id)
     cenario = TbCenarios.objects_real.filter(id=cenario_id).first()
     if cenario is None:
         _encerrar_fluxo(estado)
-        return f"O cenário {cenario_id}/{cenario_nome} não existe mais. Cancelei o acompanhamento."
+        return f"O cenário {numero_exibido}/{cenario_nome} não existe mais. Cancelei o acompanhamento."
 
     if cenario.flag == 2:  # LIMPO
         estado.etapa_atual = 'proc_pos_limpeza_otimizar'
         estado.save()
-        return f"✅ Cenário **{cenario_id}/{cenario_nome}** limpo! Quer que eu já dispare a **otimização**? (sim / não)"
+        return f"✅ Cenário **{numero_exibido}/{cenario_nome}** limpo! Quer que eu já dispare a **otimização**? (sim / não)"
 
     if cenario.flag == 5:  # ainda limpando
-        return f"Ainda limpando o cenário **{cenario_id}/{cenario_nome}**."
+        return f"Ainda limpando o cenário **{numero_exibido}/{cenario_nome}**."
 
     _encerrar_fluxo(estado)
-    return f"O status do cenário **{cenario_id}/{cenario_nome}** mudou pra algo inesperado (flag={cenario.flag}) -- melhor conferir manualmente no Admin. Cancelei o acompanhamento automático aqui."
+    return f"O status do cenário **{numero_exibido}/{cenario_nome}** mudou pra algo inesperado (flag={cenario.flag}) -- melhor conferir manualmente no Admin. Cancelei o acompanhamento automático aqui."
 
 
 def _etapa_proc_pos_limpeza_otimizar(estado, texto):
@@ -4174,15 +4315,16 @@ def _etapa_proc_pos_limpeza_otimizar(estado, texto):
     dados = estado.dados_coletados
     cenario_id = dados['cenario_id']
     cenario_nome = dados['cenario_nome']
+    numero_exibido = _numero_sequencial_por_id(cenario_id)
 
     if resposta not in ('sim', 's', 'yes', 'y'):
         _encerrar_fluxo(estado)
-        return f"Ok, cenário **{cenario_id}/{cenario_nome}** fica limpo por enquanto. É só pedir pra otimizar quando quiser."
+        return f"Ok, cenário **{numero_exibido}/{cenario_nome}** fica limpo por enquanto. É só pedir pra otimizar quando quiser."
 
     cenario = TbCenarios.objects_real.filter(id=cenario_id).first()
     if cenario is None:
         _encerrar_fluxo(estado)
-        return f"O cenário {cenario_id}/{cenario_nome} não existe mais. Cancelei o acompanhamento."
+        return f"O cenário {numero_exibido}/{cenario_nome} não existe mais. Cancelei o acompanhamento."
 
     return _disparar_otimizacao_standalone(estado.usuario, cenario)
 
@@ -4217,7 +4359,7 @@ def _disparar_otimizacao_standalone(usuario, cenario):
     estado.save()
 
     return (
-        f"Disparei a **otimização** do cenário **{cenario_id}/{cenario.cen_nome}** "
+        f"Disparei a **otimização** do cenário **{numero_exibido}/{cenario.cen_nome}** "
         f"({total_periodos} período(s)) em segundo plano."
     )
 
@@ -4226,6 +4368,7 @@ def _etapa_proc_aguardando_otimizacao(estado, texto):
     dados = estado.dados_coletados
     cenario_id = dados['cenario_id']
     cenario_nome = dados['cenario_nome']
+    numero_exibido = _numero_sequencial_por_id(cenario_id)
     total_periodos = dados.get('total_periodos', 0)
 
     total_otimizado = (
@@ -4235,21 +4378,21 @@ def _etapa_proc_aguardando_otimizacao(estado, texto):
 
     if total_otimizado < total_periodos:
         return (
-            f"Ainda otimizando o cenário **{cenario_id}/{cenario_nome}** "
+            f"Ainda otimizando o cenário **{numero_exibido}/{cenario_nome}** "
             f"({total_otimizado} de {total_periodos} período(s) concluídos). "
         )
 
     cenario = TbCenarios.objects_real.filter(id=cenario_id).first()
     if cenario is None:
         _encerrar_fluxo(estado)
-        return f"O cenário {cenario_id}/{cenario_nome} não existe mais. Cancelei o acompanhamento."
+        return f"O cenário {numero_exibido}/{cenario_nome} não existe mais. Cancelei o acompanhamento."
 
     if cenario.flag != 3:
         return "Períodos todos processados, aguardando o cenário fechar como OTIMIZADO."
 
     estado.etapa_atual = 'proc_pos_otimizacao_consolidar'
     estado.save()
-    return f"✅ Cenário **{cenario_id}/{cenario_nome}** otimizado! Quer que eu já dispare a **consolidação**? (sim / não)"
+    return f"✅ Cenário **{numero_exibido}/{cenario_nome}** otimizado! Quer que eu já dispare a **consolidação**? (sim / não)"
 
 
 def _etapa_proc_pos_otimizacao_consolidar(estado, texto):
@@ -4257,15 +4400,16 @@ def _etapa_proc_pos_otimizacao_consolidar(estado, texto):
     dados = estado.dados_coletados
     cenario_id = dados['cenario_id']
     cenario_nome = dados['cenario_nome']
+    numero_exibido = _numero_sequencial_por_id(cenario_id)
 
     if resposta not in ('sim', 's', 'yes', 'y'):
         _encerrar_fluxo(estado)
-        return f"Ok, cenário **{cenario_id}/{cenario_nome}** fica otimizado por enquanto. É só pedir pra consolidar quando quiser."
+        return f"Ok, cenário **{numero_exibido}/{cenario_nome}** fica otimizado por enquanto. É só pedir pra consolidar quando quiser."
 
     cenario = TbCenarios.objects_real.filter(id=cenario_id).first()
     if cenario is None:
         _encerrar_fluxo(estado)
-        return f"O cenário {cenario_id}/{cenario_nome} não existe mais. Cancelei o acompanhamento."
+        return f"O cenário {numero_exibido}/{cenario_nome} não existe mais. Cancelei o acompanhamento."
 
     return _disparar_consolidacao_standalone(estado.usuario, cenario)
 
@@ -4288,7 +4432,7 @@ def _disparar_consolidacao_standalone(usuario, cenario):
     estado.save()
 
     return (
-        f"Disparei a **consolidação** do cenário **{cenario_id}/{cenario.cen_nome}** em segundo plano. "
+        f"Disparei a **consolidação** do cenário **{numero_exibido}/{cenario.cen_nome}** em segundo plano. "
     )
 
 
@@ -4296,20 +4440,21 @@ def _etapa_proc_aguardando_consolidacao(estado, texto):
     dados = estado.dados_coletados
     cenario_id = dados['cenario_id']
     cenario_nome = dados['cenario_nome']
+    numero_exibido = _numero_sequencial_por_id(cenario_id)
     cenario = TbCenarios.objects_real.filter(id=cenario_id).first()
     if cenario is None:
         _encerrar_fluxo(estado)
-        return f"O cenário {cenario_id}/{cenario_nome} não existe mais. Cancelei o acompanhamento."
+        return f"O cenário {numero_exibido}/{cenario_nome} não existe mais. Cancelei o acompanhamento."
 
     if cenario.flag == 1:  # CONSOLIDADO
         _encerrar_fluxo(estado)
-        return f"✅ Cenário **{cenario_id}/{cenario_nome}** consolidado!"
+        return f"✅ Cenário **{numero_exibido}/{cenario_nome}** consolidado!"
 
     if cenario.flag == 6:  # ainda consolidando
-        return f"Ainda consolidando o cenário **{cenario_id}/{cenario_nome}**."
+        return f"Ainda consolidando o cenário **{numero_exibido}/{cenario_nome}**."
 
     _encerrar_fluxo(estado)
-    return f"O status do cenário **{cenario_id}/{cenario_nome}** mudou pra algo inesperado (flag={cenario.flag}) -- melhor conferir manualmente no Admin."
+    return f"O status do cenário **{numero_exibido}/{cenario_nome}** mudou pra algo inesperado (flag={cenario.flag}) -- melhor conferir manualmente no Admin."
 
 
 def _processar_fluxo_processar(estado, texto):
@@ -4355,11 +4500,15 @@ def _cenarios_elegiveis_para_exclusao(empresa_id):
             cenario_ativo__isnull=False, cenario_ativo__empresa_id=empresa_id
         ).values_list('cenario_ativo_id', flat=True)
     )
+    # 🌟 CORRIGIDO: ordena por numero_sequencial (o número que o usuário
+    # realmente vê e usa) em vez de -id (o id bruto do banco) -- os dois
+    # normalmente coincidem em ordem, mas não são garantidamente iguais
+    # (ex: depois de excluir e recriar cenários no meio do caminho).
     return (
         TbCenarios.objects_real
         .filter(empresa_id=empresa_id, eh_cenario_base=False)
         .exclude(id__in=ids_ativos)
-        .order_by('-id')
+        .order_by('-numero_sequencial')
     )
 
 
@@ -4374,18 +4523,28 @@ def iniciar_fluxo_excluir_cenario(usuario):
 
     elegiveis_qs = _cenarios_elegiveis_para_exclusao(empresa_id)
     total_elegiveis = elegiveis_qs.count()
-    candidatos = list(elegiveis_qs[:10])
-    if not candidatos:
+    candidatos_qs = list(elegiveis_qs[:10])
+    if not candidatos_qs:
         return (
             "Não tem nenhum cenário que possa ser excluído agora -- os únicos existentes são "
             "cenários base, ou estão marcados como ativos por algum usuário."
         )
 
+    # 🌟 CORRIGIDO: guarda numero_sequencial junto com o nome -- a chave
+    # do dicionário continua sendo o id real (necessário pra localizar o
+    # registro certo no banco na hora de excluir), mas TUDO que é
+    # mostrado ou digitado pelo usuário passa a usar numero_sequencial,
+    # nunca o id bruto.
+    candidatos = {
+        str(c.id): {'numero': c.numero_sequencial if c.numero_sequencial is not None else c.id, 'nome': c.cen_nome}
+        for c in candidatos_qs
+    }
+
     estado = _get_estado(usuario)
     estado.fluxo_ativo = FLUXO_EXCLUIR_CENARIO
     estado.dados_coletados = {
         'empresa_id': empresa_id,
-        'candidatos': {str(c.id): c.cen_nome for c in candidatos},
+        'candidatos': candidatos,
         'selecionados': [],
         'total_elegiveis': total_elegiveis,
     }
@@ -4399,9 +4558,9 @@ def _texto_selecao_exclusao(dados):
     selecionados = set(dados['selecionados'])
     total_elegiveis = dados.get('total_elegiveis', len(candidatos))
     linhas = []
-    for id_str, nome in candidatos.items():
+    for id_str, info in candidatos.items():
         marcador = " ✅ (marcado pra excluir)" if id_str in selecionados else ""
-        linhas.append(f"- {id_str}: {nome}{marcador}")
+        linhas.append(f"- {info['numero']}: {info['nome']}{marcador}")
     lista = "\n".join(linhas)
     aviso_total = (
         f" (mostrando {len(candidatos)} dos {total_elegiveis} elegíveis -- os mais recentes)"
@@ -4413,7 +4572,7 @@ def _texto_selecao_exclusao(dados):
         f"Alguns cenários recentes:\n{lista}\n\n"
         "Clique num cenário pra marcar/desmarcar pra exclusão (pode marcar mais de um). Se o "
         "que você quer excluir não está nessa lista (ela só mostra os mais recentes), digite "
-        "o **id** ou o **nome** dele diretamente. Quando terminar de escolher, digite ou "
+        "o **número** ou o **nome** dele diretamente. Quando terminar de escolher, digite ou "
         "clique em \"concluir\". (ou \"cancelar\")"
     )
 
@@ -4440,41 +4599,51 @@ def _etapa_cen_excluir_selecionar(estado, texto):
             return "Você ainda não marcou nenhum cenário. Clica num cenário da lista pra marcar, ou \"cancelar\"."
         estado.etapa_atual = 'cen_excluir_confirmar'
         estado.save()
-        nomes = ", ".join(f"{id_str}/{candidatos[id_str]}" for id_str in dados['selecionados'])
+        nomes = ", ".join(f"{candidatos[id_str]['numero']}/{candidatos[id_str]['nome']}" for id_str in dados['selecionados'])
         return (
             f"⚠️ Confirma a EXCLUSÃO PERMANENTE do(s) cenário(s): **{nomes}**?\n\n"
             "Essa ação não pode ser desfeita. (sim / não)"
         )
 
-    # Aceita clicar/digitar o id, ou digitar o nome do cenário -- inclusive
-    # de um cenário que NÃO está entre os mostrados na lista (que só traz
-    # os mais recentes, por espaço). Confere contra TODOS os elegíveis da
+    # 🌟 CORRIGIDO: aceita clicar/digitar o NÚMERO SEQUENCIAL (o que o
+    # usuário realmente vê na lista), nunca o id bruto do banco. Também
+    # aceita digitar o nome do cenário -- inclusive de um cenário que
+    # NÃO está entre os mostrados na lista (que só traz os mais
+    # recentes, por espaço). Confere contra TODOS os elegíveis da
     # empresa, não só os pré-carregados.
     texto_limpo = texto.strip()
     id_str = None
 
-    if texto_limpo in candidatos:
-        id_str = texto_limpo
-    else:
+    for candidato_id, info in candidatos.items():
+        if str(info['numero']) == texto_limpo:
+            id_str = candidato_id
+            break
+
+    if id_str is None:
         elegiveis = _cenarios_elegiveis_para_exclusao(dados['empresa_id'])
         cenario_digitado = None
         if texto_limpo.isdigit():
-            cenario_digitado = elegiveis.filter(id=int(texto_limpo)).first()
+            cenario_digitado = elegiveis.filter(numero_sequencial=int(texto_limpo)).first()
         if cenario_digitado is None:
             cenario_digitado = elegiveis.filter(cen_nome__iexact=texto_limpo).first()
         if cenario_digitado is not None:
             id_str = str(cenario_digitado.id)
+            numero_exibido = (
+                cenario_digitado.numero_sequencial
+                if cenario_digitado.numero_sequencial is not None
+                else cenario_digitado.id
+            )
             # 🌟 Achou um cenário elegível que ainda não estava na lista
             # mostrada -- adiciona ele aos candidatos conhecidos, pra
             # aparecer certinho no resumo e na confirmação depois.
-            candidatos[id_str] = cenario_digitado.cen_nome
+            candidatos[id_str] = {'numero': numero_exibido, 'nome': cenario_digitado.cen_nome}
             dados['candidatos'] = candidatos
 
     if id_str is None:
         return (
-            "Não encontrei nenhum cenário elegível com esse id/nome (lembrando: o cenário ativo "
+            "Não encontrei nenhum cenário elegível com esse número/nome (lembrando: o cenário ativo "
             "de qualquer usuário e os cenários base nunca podem ser excluídos). Pode digitar o "
-            "id ou nome de QUALQUER cenário elegível, mesmo que ele não esteja na lista mostrada "
+            "número ou nome de QUALQUER cenário elegível, mesmo que ele não esteja na lista mostrada "
             "-- ela só traz os mais recentes. Ou digite \"concluir\" quando terminar (ou \"cancelar\")."
         )
 
@@ -4517,10 +4686,15 @@ def _etapa_cen_excluir_confirmar(estado, texto):
     for id_str in validos:
         remover_cenario_celery.delay(int(id_str))
 
-    nomes_validos = ", ".join(f"{i}/{dados['candidatos'].get(i, '')}" for i in validos)
+    # 🌟 CORRIGIDO: exibe numero_sequencial/nome, nunca o id bruto.
+    def _formatar_candidato(id_str):
+        info = dados['candidatos'].get(id_str, {})
+        return f"{info.get('numero', id_str)}/{info.get('nome', '')}"
+
+    nomes_validos = ", ".join(_formatar_candidato(i) for i in validos)
     aviso_invalidos = ""
     if invalidos:
-        nomes_invalidos = ", ".join(f"{i}/{dados['candidatos'].get(i, '')}" for i in invalidos)
+        nomes_invalidos = ", ".join(_formatar_candidato(i) for i in invalidos)
         aviso_invalidos = f"\n\n(Não excluí {nomes_invalidos} -- deixaram de ser elegíveis nesse meio tempo.)"
 
     # 🌟 CORRIGIDO: em vez de simplesmente encerrar o acompanhamento e
@@ -4531,7 +4705,7 @@ def _etapa_cen_excluir_confirmar(estado, texto):
     estado.etapa_atual = 'cen_excluir_aguardando'
     estado.dados_coletados = {
         'ids_excluindo': validos,
-        'nomes_excluindo': {i: dados['candidatos'].get(i, '') for i in validos},
+        'nomes_excluindo': {i: dados['candidatos'].get(i, {}) for i in validos},
     }
     estado.save()
 
@@ -4559,14 +4733,19 @@ def _etapa_cen_excluir_aguardando(estado, texto):
     ja_excluidos = [i for i in ids_excluindo if i not in ainda_existem]
     pendentes = [i for i in ids_excluindo if i in ainda_existem]
 
+    # 🌟 CORRIGIDO: exibe numero_sequencial/nome, nunca o id bruto.
+    def _formatar_excluindo(id_str):
+        info = nomes_excluindo.get(id_str, {})
+        return f"{info.get('numero', id_str)}/{info.get('nome', '')}"
+
     if not pendentes:
         _encerrar_fluxo(estado)
-        nomes = ", ".join(f"{i}/{nomes_excluindo.get(i, '')}" for i in ja_excluidos)
+        nomes = ", ".join(_formatar_excluindo(i) for i in ja_excluidos)
         return f"✅ Cenário(s) **{nomes}** excluído(s) com sucesso."
 
-    nomes_pendentes = ", ".join(f"{i}/{nomes_excluindo.get(i, '')}" for i in pendentes)
+    nomes_pendentes = ", ".join(_formatar_excluindo(i) for i in pendentes)
     if ja_excluidos:
-        nomes_prontos = ", ".join(f"{i}/{nomes_excluindo.get(i, '')}" for i in ja_excluidos)
+        nomes_prontos = ", ".join(_formatar_excluindo(i) for i in ja_excluidos)
         return (
             f"✅ Já excluído: {nomes_prontos}.\n\n"
             f"⏳ Ainda em andamento: {nomes_pendentes}."

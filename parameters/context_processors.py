@@ -55,15 +55,22 @@ def empresa_ativa_usuario(request):
     Mesmo espírito do cenario_ativo_usuario acima: elimina qualquer
     dúvida sobre em qual empresa você está trabalhando agora, sem
     precisar abrir a tela de Empresas pra conferir.
+
+    🌟 NOVO: também injeta a URL do logo da empresa (campo emp_logo em
+    TbEmpresa), pra aparecer ao lado do nome no cabeçalho -- None se a
+    empresa não tiver logo cadastrado, ou se não houver empresa
+    definida (o template trata isso simplesmente não mostrando a tag
+    <img>).
     """
     if not request.user.is_authenticated:
         return {}
 
     perfil = getattr(request.user, 'perfilusuario', None)
     if perfil is None:
-        return {'empresa_ativa_usuario_texto': 'Nenhuma empresa definida'}
+        return {'empresa_ativa_usuario_texto': 'Nenhuma empresa definida', 'empresa_ativa_usuario_logo_url': None}
 
     empresa_id = perfil.empresa_efetiva_id()
+    logo_url = None
     if empresa_id is None:
         if request.user.is_superuser:
             texto = 'Nenhuma empresa ativa escolhida'
@@ -74,10 +81,12 @@ def empresa_ativa_usuario(request):
         try:
             empresa = TbEmpresa.objects.get(id=empresa_id)
             texto = empresa.emp_nome
+            if empresa.emp_logo:
+                logo_url = empresa.emp_logo.url
         except TbEmpresa.DoesNotExist:
             texto = 'Empresa definida não existe mais'
 
-    return {'empresa_ativa_usuario_texto': texto}
+    return {'empresa_ativa_usuario_texto': texto, 'empresa_ativa_usuario_logo_url': logo_url}
 
 
 def pode_acessar_agente_ia(request):

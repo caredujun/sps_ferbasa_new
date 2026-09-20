@@ -84,8 +84,8 @@ class TbIndicadoresDaugtherAdmin(admin.TabularInline):
 
 class TbIndicadoresAdmin(admin.ModelAdmin):
     fields = (('ind_nome', 'ind_observacao'), 'ind_fonte',)
-    list_display = ['id', 'ind_nome', 'ind_observacao']
-    list_display_links = ['id', 'ind_nome']
+    list_display = ['ind_nome', 'ind_observacao']
+    list_display_links = ['ind_nome']
 
     actions = ['exportar_excel', 'importar_excel', 'importar_excel_new', 'exportar_pdf', ]
 

@@ -2636,6 +2636,57 @@ msgstr "OPTIMIZATION RESULTS: COST ITEMS - PRODUCTION PLANT"
 msgid "Exportar Dados de Otimização do Cenário Ativo"
 msgstr "Export Active Scenario Optimization Data"
 
+msgid "App Opcional"
+msgstr "Optional App"
+
+msgid "Apps Opcionais"
+msgstr "Optional Apps"
+
+msgid "Ação Comum IA"
+msgstr "AI Common Action"
+
+msgid "Ações Comuns IA"
+msgstr "AI Common Actions"
+
+msgid "Cenários"
+msgstr "Scenarios"
+
+msgid "Glossário"
+msgstr "Glossary"
+
+msgid "Comportamento Agente IA"
+msgstr "AI Agent Behavior"
+
+msgid "Comportamentos Agente IA"
+msgstr "AI Agent Behaviors"
+
+msgid "Ação (chave técnica)"
+msgstr "Action (technical key)"
+
+msgid "Ações Comuns Habilitadas"
+msgstr "Enabled Common Actions"
+
+msgid "Bloquear troca de cenário ativo (selecionados)"
+msgstr "Block active scenario change (selected)"
+
+msgid "Categoria"
+msgstr "Category"
+
+msgid "Definir cenário ativo para os selecionados"
+msgstr "Set active scenario for selected"
+
+msgid "Desbloquear troca de cenário ativo (selecionados)"
+msgstr "Unblock active scenario change (selected)"
+
+msgid "Empresa e Cenário ativo"
+msgstr "Company and Active Scenario"
+
+msgid "Ex: \"Indicadores\", \"Câmbio\", \"Cenário\"."
+msgstr "Ex: \"Indicators\", \"Exchange Rate\", \"Scenario\"."
+
+msgid "Identificador técnico usado no código -- não muda depois de criado."
+msgstr "Technical identifier used in the code -- doesn't change after created."
+
 #, python-format
 msgid "Olá %(nome_usuario)s! O que posso fazer por você hoje?"
 msgstr "Hello %(nome_usuario)s! What can I do for you today?"

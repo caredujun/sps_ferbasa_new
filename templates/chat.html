@@ -867,7 +867,7 @@
                     // Ainda rodando -- garante a barra de progresso (pra
                     // etapa nova ou a mesma) com o texto mais recente.
                     atualizarBarraProgresso(respostaTexto);
-                    temporizadorSondagem = setTimeout(sondarAutomaticamente, 8000);
+                    temporizadorSondagem = setTimeout(sondarAutomaticamente, 5000);
                 } else {
                     // Terminou de vez (sucesso, erro, ou avançou pra uma
                     // etapa que não é mais de espera) -- tira a barra e
@@ -881,7 +881,7 @@
             .catch(function() {
                 // Erro de rede na sondagem silenciosa -- tenta de novo
                 // mais adiante, sem incomodar o usuário com mensagem de erro.
-                temporizadorSondagem = setTimeout(sondarAutomaticamente, 6000);
+                temporizadorSondagem = setTimeout(sondarAutomaticamente, 4000);
             });
         }
 
@@ -954,7 +954,7 @@
                 // barra em vez de empilhar mensagem nova.
                 if (data.aguardando_poll) {
                     ultimaEtapaSondagem = data.etapa_atual;
-                    temporizadorSondagem = setTimeout(sondarAutomaticamente, 8000);
+                    temporizadorSondagem = setTimeout(sondarAutomaticamente, 5000);
                 }
             })
             .catch(function(error) {

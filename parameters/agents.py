@@ -338,10 +338,21 @@ def _resposta_suspeita(resposta):
 
 def _salvar_historico(usuario, mensagem_usuario, resposta):
     try:
+        # 🌟 NOVO (multi-empresa): grava a empresa EFETIVA do usuário no
+        # momento dessa interação -- mesmo critério usado em
+        # RelatorioPDFAdmin (empresa_ativa pra superusuário real, empresa
+        # fixa pra usuário comum/superusuário de empresa). Guardar isso
+        # direto no registro (em vez de só derivar depois via
+        # usuario__perfilusuario__empresa_id) preserva qual empresa
+        # estava envolvida DE VERDADE naquele momento, mesmo que o
+        # superusuário troque de "empresa ativa" depois.
+        perfil = getattr(usuario, 'perfilusuario', None)
+        empresa_id = perfil.empresa_efetiva_id() if perfil else None
         HistoricoAgente.objects.create(
             usuario=usuario,
             comando_usuario=mensagem_usuario,
-            resposta_ia=resposta
+            resposta_ia=resposta,
+            empresa_id=empresa_id,
         )
     except Exception:
         pass
@@ -521,6 +532,11 @@ _PALAVRAS_CHAVE_ENTRE_ASPAS = {
     'cancelar': {'pt-br': 'Cancelar', 'en': 'Cancel', 'es': 'Cancelar', 'fr': 'Annuler', 'de': 'Abbrechen', 'it': 'Annulla', 'zh-hans': '取消'},
     'manter': {'pt-br': 'Manter', 'en': 'Keep', 'es': 'Mantener', 'fr': 'Conserver', 'de': 'Beibehalten', 'it': 'Mantieni', 'zh-hans': '保留'},
     'nenhum': {'pt-br': 'Nenhum', 'en': 'None', 'es': 'Ninguno', 'fr': 'Aucun', 'de': 'Keine', 'it': 'Nessuno', 'zh-hans': '无'},
+    # 🌟 CORRIGIDO: "nenhuma" (feminino, usado quando concorda com um
+    # substantivo feminino, tipo "Alguma observação? (ou \"nenhuma\")")
+    # não tinha entrada própria -- caía fora desse mecanismo de tradução/
+    # capitalização por completo, só "nenhum" (masculino) era reconhecido.
+    'nenhuma': {'pt-br': 'Nenhuma', 'en': 'None', 'es': 'Ninguna', 'fr': 'Aucune', 'de': 'Keine', 'it': 'Nessuna', 'zh-hans': '无'},
     'verificar': {'pt-br': 'Verificar', 'en': 'Check', 'es': 'Verificar', 'fr': 'Vérifier', 'de': 'Prüfen', 'it': 'Verifica', 'zh-hans': '检查'},
 }
 
@@ -801,7 +817,7 @@ def _consultar_dados_cenario_se_necessario(mensagem_usuario: str, usuario) -> st
 
         return (
             "\n\n[DADOS REAIS DO CENÁRIO ATIVO -- consultados agora no banco de dados, "
-            f"cenário {cenario.id}/{cenario.cen_nome}]:\n"
+            f"cenário {cenario.numero_sequencial}/{cenario.cen_nome}]:\n"
             + "\n".join(partes)
             + "\n\nUse esses dados com prioridade máxima pra responder (inclusive pra "
             "montar gráficos, se fizer sentido) -- são valores reais e atuais, não "
@@ -914,7 +930,19 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
     # wizards normais de editar, senão "atualizar indicador X com essa
     # planilha" cairia no fluxo de editar comum (que também reconhece
     # "atualizar" + "indicador").
-    if pdf_ids:
+    # 🌟 CORRIGIDO: se o usuário está EXATAMENTE na etapa de confirmar
+    # uma planilha (respondendo sim/não/cancelar pra "Confirma a
+    # aplicação?"), a mensagem tem que ir direto pro processamento do
+    # fluxo abaixo -- nunca passar pela checagem de "planilha reenviada"
+    # a seguir. Sem isso: como a caixinha do arquivo na área de
+    # Relatórios continua marcada na tela depois do upload, pdf_ids
+    # chegava preenchido de novo no clique de "Sim"/"Não"/"Cancelar", e
+    # o código reprocessava o arquivo do zero (cancelando o fluxo de
+    # confirmação em andamento) em vez de aplicar a resposta -- dando a
+    # impressão de "nada acontece" (a mesma pergunta de confirmação
+    # reaparecia, idêntica, em loop, e nunca era realmente respondida).
+    etapa_atual_usuario = etapa_atual_do_usuario(usuario) if esta_em_fluxo else None
+    if pdf_ids and etapa_atual_usuario not in ('ind_planilha_confirmar', 'cam_planilha_confirmar'):
         # 🌟 CORRIGIDO: identifica pelo nome do arquivo primeiro (não exige
         # que a mensagem mencione "indicador"/"câmbio" -- o nome do
         # arquivo, gerado por nós, já basta). O plano B (palavra-chave) só
@@ -1000,7 +1028,14 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
 
     try:
         # 1. Recupera as instruções de personalidade do seu Django Admin
-        config_do_admin = AgenteConfig.objects.filter(ativo=True).first()
+        # 🌟 CORRIGIDO (multi-empresa): agora cada empresa tem o próprio
+        # conjunto de comportamentos, com um "ativo" independente por
+        # empresa -- sem filtrar por empresa aqui, essa consulta podia
+        # pegar QUALQUER registro "ativo=True" do sistema, de uma
+        # empresa completamente diferente da do usuário conversando.
+        perfil_para_config = getattr(usuario, 'perfilusuario', None)
+        empresa_id_config = perfil_para_config.empresa_efetiva_id() if perfil_para_config else None
+        config_do_admin = AgenteConfig.objects.filter(ativo=True, empresa_id=empresa_id_config).first()
         system_instruction = getattr(config_do_admin, 'prompt_sistema', "Você é um assistente útil.")
 
         # 🌟 NOVO: injeta o idioma ativo do usuário (o mesmo escolhido no

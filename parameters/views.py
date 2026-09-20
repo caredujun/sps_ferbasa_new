@@ -53,7 +53,7 @@ def exige_acesso_ao_agente_ia(view_func):
 # português, reconhecidas por casamento exato no backend. Usado pra
 # gerar um rótulo traduzido só pra exibição, sem mudar o valor.
 _PALAVRAS_CHAVE_BOTAO = {
-    'Cancelar', 'Manter', 'Nenhum', 'Manual', 'Planilha', 'Sim', 'Não',
+    'Cancelar', 'Manter', 'Nenhum', 'Nenhuma', 'Manual', 'Planilha', 'Sim', 'Não',
     'Verificar', 'Já enviei a planilha', 'Gráfico de linha', 'Gráfico de barra',
     'Concluir',
 }
@@ -72,12 +72,13 @@ def _extrair_opcoes_clicaveis(texto):
     0. Listas livres sob um cabeçalho EXATO e exclusivo de escolha
        ("Indicadores cadastrados:", "Taxas de câmbio cadastradas:",
        "Períodos e valores atuais:", "Alguns cenários recentes:",
-       "Alguns grupos existentes:") -- só essas funções específicas do
-       wizard geram esse texto, então é um sinal seguro (não se confunde
-       com um resumo informativo qualquer, que nunca usa esse cabeçalho).
-       Bullets com "id: nome" (cenários/grupos) viram o id; bullets com
-       "nome (código)" (câmbio) viram só o nome; "período: valor" vira
-       só o período.
+       "Alguns grupos existentes:", "Moedas disponíveis:") -- só essas
+       funções específicas do wizard geram esse texto, então é um sinal
+       seguro (não se confunde com um resumo informativo qualquer, que
+       nunca usa esse cabeçalho). Bullets com "id: nome" (cenários/
+       grupos) viram o id; bullets com "nome (código)" (câmbio) viram
+       só o nome; bullets com "código (nome)" (moedas disponíveis)
+       viram só o código; "período: valor" vira só o período.
     1. Confirmação "(sim / não)" -- aceita também a variante em negrito
        "(**sim** / **não**)", usada no fluxo de criar cenário.
     2. Menu de bullets em negrito: "- **opção** -- descrição"
@@ -100,7 +101,7 @@ def _extrair_opcoes_clicaveis(texto):
 
     m_lista = re.search(
         r'(?:Indicadores cadastrados|Taxas de câmbio cadastradas|Períodos e valores atuais|'
-        r'Alguns cenários recentes|Alguns grupos existentes):\n'
+        r'Alguns cenários recentes|Alguns grupos existentes|Moedas disponíveis):\n'
         r'((?:-\s.+\n?)+)',
         texto
     )
@@ -144,8 +145,17 @@ def _extrair_opcoes_clicaveis(texto):
         opcoes.append('Manter')
     if re.search(r'"cancelar"', texto, re.IGNORECASE) and 'Cancelar' not in opcoes:
         opcoes.append('Cancelar')
-    if re.search(r'"nenhum[oa]?"', texto, re.IGNORECASE) and 'Nenhum' not in opcoes:
-        opcoes.append('Nenhum')
+    # 🌟 CORRIGIDO: antes sempre usava o rótulo fixo "Nenhum" (masculino),
+    # mesmo quando o texto dizia "nenhuma" (concordando com um substantivo
+    # feminino, tipo "Alguma observação? (ou \"nenhuma\")") -- o botão
+    # ficava com o gênero errado, diferente da própria pergunta. Agora
+    # captura a forma exata que apareceu no texto (nenhum ou nenhuma) e
+    # usa ela, capitalizada, como rótulo do botão.
+    m_nenhum = re.search(r'"(nenhum[oa]?)"', texto, re.IGNORECASE)
+    if m_nenhum:
+        rotulo = m_nenhum.group(1).capitalize()
+        if rotulo not in opcoes:
+            opcoes.append(rotulo)
     if re.search(r'"concluir"', texto, re.IGNORECASE) and 'Concluir' not in opcoes:
         opcoes.append('Concluir')
 

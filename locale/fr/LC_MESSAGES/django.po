@@ -2636,6 +2636,57 @@ msgstr "RÉSULTATS OPTIMISATION: POSTES DE COÛT - USINE DE PRODUCTION"
 msgid "Exportar Dados de Otimização do Cenário Ativo"
 msgstr "Exporter les Données d'Optimisation du Scénario Actif"
 
+msgid "App Opcional"
+msgstr "Application Optionnelle"
+
+msgid "Apps Opcionais"
+msgstr "Applications Optionnelles"
+
+msgid "Ação Comum IA"
+msgstr "Action Commune IA"
+
+msgid "Ações Comuns IA"
+msgstr "Actions Communes IA"
+
+msgid "Cenários"
+msgstr "Scénarios"
+
+msgid "Glossário"
+msgstr "Glossaire"
+
+msgid "Comportamento Agente IA"
+msgstr "Comportement Agent IA"
+
+msgid "Comportamentos Agente IA"
+msgstr "Comportements Agent IA"
+
+msgid "Ação (chave técnica)"
+msgstr "Action (clé technique)"
+
+msgid "Ações Comuns Habilitadas"
+msgstr "Actions Communes Activées"
+
+msgid "Bloquear troca de cenário ativo (selecionados)"
+msgstr "Bloquer le changement de scénario actif (sélectionnés)"
+
+msgid "Categoria"
+msgstr "Catégorie"
+
+msgid "Definir cenário ativo para os selecionados"
+msgstr "Définir le scénario actif pour les sélectionnés"
+
+msgid "Desbloquear troca de cenário ativo (selecionados)"
+msgstr "Débloquer le changement de scénario actif (sélectionnés)"
+
+msgid "Empresa e Cenário ativo"
+msgstr "Entreprise et Scénario Actif"
+
+msgid "Ex: \"Indicadores\", \"Câmbio\", \"Cenário\"."
+msgstr "Ex : \"Indicateurs\", \"Taux de Change\", \"Scénario\"."
+
+msgid "Identificador técnico usado no código -- não muda depois de criado."
+msgstr "Identifiant technique utilisé dans le code -- ne change pas après création."
+
 #, python-format
 msgid "Olá %(nome_usuario)s! O que posso fazer por você hoje?"
 msgstr "Bonjour %(nome_usuario)s ! Que puis-je faire pour vous aujourd'hui ?"

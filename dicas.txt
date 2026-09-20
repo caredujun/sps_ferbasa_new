@@ -115,7 +115,7 @@ pg_restore --verbose --clean --no-acl --no-owner -h localhost -U postgres -d sps
 
 IMPORTAR BANCO DE DADOS PARA O HEROKU A PARTIR DO AMBIENTE LOCAL (EXECUAR COMANDOS NO TERMINAL)
 # Cria um backup para posteriormente ser gravado no AWS S3
-pg_dump -Fc --no-acl --no-owner -h localhost -U postgres -d spsferbasa -f spsferbasa_28_03_2026.dump
+pg_dump -Fc --no-acl --no-owner -h localhost -U postgres -d spsferbasa_dev -f spsferbasa_dev_20_09_2026.dump
 # Cria uma URL para permitir a transferência do arquivo gerado para o Heroku. Observar que o nome do bucket no S3 é spsferbasa
 aws s3 presign s3://spsferbasa/spsferbasa.dump
 # Copia o your-object (que é o backup) no AWS S3. Tem que ser feito manualmente usando o AWS

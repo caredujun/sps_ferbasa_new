@@ -2636,6 +2636,57 @@ msgstr "优化结果：成本项目-生产工厂"
 msgid "Exportar Dados de Otimização do Cenário Ativo"
 msgstr "导出当前方案优化数据"
 
+msgid "App Opcional"
+msgstr "可选应用"
+
+msgid "Apps Opcionais"
+msgstr "可选应用"
+
+msgid "Ação Comum IA"
+msgstr "AI 常用操作"
+
+msgid "Ações Comuns IA"
+msgstr "AI 常用操作"
+
+msgid "Cenários"
+msgstr "方案"
+
+msgid "Glossário"
+msgstr "词汇表"
+
+msgid "Comportamento Agente IA"
+msgstr "AI 代理行为"
+
+msgid "Comportamentos Agente IA"
+msgstr "AI 代理行为"
+
+msgid "Ação (chave técnica)"
+msgstr "操作（技术键）"
+
+msgid "Ações Comuns Habilitadas"
+msgstr "已启用的常用操作"
+
+msgid "Bloquear troca de cenário ativo (selecionados)"
+msgstr "锁定切换当前方案（已选）"
+
+msgid "Categoria"
+msgstr "类别"
+
+msgid "Definir cenário ativo para os selecionados"
+msgstr "为所选设置当前方案"
+
+msgid "Desbloquear troca de cenário ativo (selecionados)"
+msgstr "解锁切换当前方案（已选）"
+
+msgid "Empresa e Cenário ativo"
+msgstr "公司与当前方案"
+
+msgid "Ex: \"Indicadores\", \"Câmbio\", \"Cenário\"."
+msgstr "例如：\"指标\"、\"汇率\"、\"方案\"。"
+
+msgid "Identificador técnico usado no código -- não muda depois de criado."
+msgstr "代码中使用的技术标识符——创建后不会更改。"
+
 #, python-format
 msgid "Olá %(nome_usuario)s! O que posso fazer por você hoje?"
 msgstr "你好，%(nome_usuario)s！今天我能为您做些什么？"

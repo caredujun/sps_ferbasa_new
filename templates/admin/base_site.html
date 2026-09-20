@@ -23,6 +23,12 @@
         {# por usuário a cada request, via context_processors.cenario_ativo_usuario #}
         {# e empresa_ativa_usuario (multi-empresa) -- pra nunca ter dúvida de em #}
         {# qual empresa/cenário você está trabalhando agora. #}
+        {# 🌟 NOVO: logo da empresa (TbEmpresa.emp_logo) antes do texto, um pouco #}
+        {# maior que a altura da linha de texto (vertical-align:middle alinha #}
+        {# ele certinho com o texto ao lado, mesmo sendo mais alto). #}
+        {% if empresa_ativa_usuario_logo_url %}
+        <img src="{{ empresa_ativa_usuario_logo_url }}" alt="" style="height: 64px; width: auto; vertical-align: middle; margin-right: 8px;">
+        {% endif %}
         <span>
             {% if empresa_ativa_usuario_texto %}{{ empresa_ativa_usuario_texto }}{% endif %}
             {% if empresa_ativa_usuario_texto and cenario_ativo_usuario_texto %} | {% endif %}
