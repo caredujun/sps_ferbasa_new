@@ -420,12 +420,28 @@ class TbCenarios(models.Model):
             # de verdade quando o isolamento por empresa for concluído;
             # por enquanto, sem empresa definida, o cenário fica sem
             # número -- __str__ cai de volta pro id real nesse caso).
+            # 🌟 CORRIGIDO: antes usava um contador guardado
+            # (empresa.proximo_numero_cenario), incrementado a cada
+            # criação e "devolvido" (decrementado) por um sinal de
+            # pre_delete -- só que esse sinal só sabia recuar UM passo
+            # por instância apagada, sem encadear: apagar vários números
+            # seguidos no topo de uma vez (ex: 28, 29, 30) só recuava até
+            # 30, não até 28, fazendo o próximo cenário criado reusar o
+            # 30 em vez do 28 esperado. Agora calcula direto, sempre
+            # correto independente de quantos/quais foram apagados:
+            # MAIOR numero_sequencial já usado por essa empresa + 1.
             if self.empresa_id and self.numero_sequencial is None:
                 with transaction.atomic():
-                    empresa_obj = TbEmpresa.objects.select_for_update().get(id=self.empresa_id)
-                    self.numero_sequencial = empresa_obj.proximo_numero_cenario
-                    empresa_obj.proximo_numero_cenario += 1
-                    empresa_obj.save()
+                    # select_for_update() na empresa serve de "mutex" pra
+                    # duas criações simultâneas da MESMA empresa não
+                    # calcularem o mesmo próximo número ao mesmo tempo --
+                    # não usamos mais o valor de proximo_numero_cenario
+                    # em si pro cálculo, só o lock que essa consulta dá.
+                    TbEmpresa.objects.select_for_update().get(id=self.empresa_id)
+                    maior_numero = TbCenarios.objects_real.filter(empresa_id=self.empresa_id).aggregate(
+                        models.Max('numero_sequencial')
+                    )['numero_sequencial__max']
+                    self.numero_sequencial = (maior_numero or 0) + 1
 
         if status == 'Modificando':
             if self.cen_inicio != TbCenarios.objects.get(id=self.pk).cen_inicio or self.cen_fim != TbCenarios.objects.get(id=self.pk).cen_fim:
@@ -498,25 +514,20 @@ class TbCenarios(models.Model):
         cache.delete('sps-ferbasa.com')
 
 
-# 🌟 NOVO (multi-empresa): ao excluir um cenário, se ele era o ÚLTIMO
-# número distribuído pra essa empresa, devolve esse número pro próximo
-# cenário criado reaproveitar -- reproduz o ajuste manual de sequência que
-# já era feito antes, agora automático e isolado por empresa. Se não for
-# o último (sobrou algum número no meio), não faz nada -- esse número
-# fica "pulado", igual já acontecia.
-from django.db.models.signals import pre_delete
-
-
-def devolver_numero_sequencial_ao_excluir(sender, instance, **kwargs):
-    if instance.empresa_id and instance.numero_sequencial is not None:
-        with transaction.atomic():
-            empresa_obj = TbEmpresa.objects.select_for_update().get(id=instance.empresa_id)
-            if instance.numero_sequencial == empresa_obj.proximo_numero_cenario - 1:
-                empresa_obj.proximo_numero_cenario -= 1
-                empresa_obj.save()
-
-
-pre_delete.connect(devolver_numero_sequencial_ao_excluir, sender=TbCenarios)
+# 🌟 REMOVIDO (bug corrigido): existia aqui um sinal de pre_delete
+# (devolver_numero_sequencial_ao_excluir) que tentava "devolver" o
+# numero_sequencial ao apagar o último cenário de uma empresa,
+# decrementando o contador guardado em empresa.proximo_numero_cenario.
+# O problema: ele só sabia recuar UM passo por instância apagada, sem
+# encadear -- apagar vários números seguidos no topo de uma vez (ex: os
+# cenários 28, 29 e 30 de uma empresa) só recuava o contador até 30,
+# não até 28, fazendo o próximo cenário criado reusar o número errado
+# (30) em vez do esperado (28). Como o save() de TbCenarios (acima)
+# agora CALCULA o próximo número na hora (maior numero_sequencial já
+# usado pela empresa + 1, direto do banco), esse sinal e o contador
+# guardado deixaram de ser necessários -- não tem mais nada "pra
+# devolver" quando um cenário é apagado, o cálculo do próximo sempre
+# reflete a realidade atual da tabela.
 
 
 # 🌟 NOVO (multi-empresa): substitui o mecanismo antigo (código solto no

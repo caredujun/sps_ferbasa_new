@@ -20,6 +20,8 @@ from .fluxo_criar_cenario import (
     iniciar_download_planilha_indicador, iniciar_download_planilha_cambio,
     identificar_tipo_planilha_reenviada, iniciar_fluxo_processar, iniciar_consulta_status,
     iniciar_ciclo_completo, iniciar_fluxo_excluir_cenario, iniciar_exportar_excel_cenario_ativo,
+    etapa_atual_do_usuario, ETAPAS_AGUARDANDO_CELERY,
+    iniciar_exportar_dados_otimizacao_cenario_ativo,
     _processar_planilha_indicador, _processar_planilha_cambio,
     _buscar_indicador, _lista_indicadores, _lista_periodos_indicador,
     _buscar_cambio, _lista_cambios, _lista_periodos_cambio,
@@ -200,6 +202,17 @@ PADRAO_EXPORTAR = re.compile(r"export", re.IGNORECASE)
 def _detectar_intencao_exportar_cenario(mensagem):
     texto = mensagem or ""
     return bool(PADRAO_EXPORTAR.search(texto) and PADRAO_CENARIO.search(texto))
+
+
+# 🌟 NOVO: mais específica que _detectar_intencao_exportar_cenario -- exige
+# também menção a "otimização" pra distinguir do export financeiro comum.
+def _detectar_intencao_exportar_dados_otimizacao(mensagem):
+    texto = mensagem or ""
+    return bool(
+        PADRAO_EXPORTAR.search(texto)
+        and PADRAO_CENARIO.search(texto)
+        and re.search(r'otimiza', texto, re.IGNORECASE)
+    )
 PADRAO_TIPO_OU_PERIODO = re.compile(r"\btipo\b|per[ií]odo", re.IGNORECASE)
 
 
@@ -334,6 +347,60 @@ def _salvar_historico(usuario, mensagem_usuario, resposta):
         pass
 
 
+def _avisar_superusers_falha_resposta(usuario, mensagem_usuario, resposta_final, codigo_idioma=None):
+    """
+    🌟 NOVO: manda um e-mail pra todos os superusuários (com e-mail
+    cadastrado) sempre que o próprio modelo sinaliza que não conseguiu
+    ajudar de verdade o usuário -- dá visibilidade de conversas que
+    precisam de atenção humana, sem precisar ninguém ficar lendo o
+    histórico inteiro procurando por elas. Falha silenciosamente (nunca
+    quebra a resposta pro usuário) se o envio der qualquer problema --
+    é um alerta, não uma parte essencial do fluxo.
+
+    🌟 CORRIGIDO: assunto e textos fixos do e-mail agora traduzem pro
+    idioma ativo do usuário que fez a pergunta (igual ao resto da
+    resposta) -- antes ficavam sempre em português, mesmo com o chat já
+    traduzido. `resposta_final` também deve vir JÁ TRADUZIDA (quem
+    chama essa função é responsável por isso), pra bater com o que o
+    usuário realmente viu na tela.
+    """
+    try:
+        from django.contrib.auth import get_user_model
+        from django.core.mail import send_mail
+        from django.utils import translation
+        from django.utils.translation import gettext as _t
+
+        UserModel = get_user_model()
+        emails = list(
+            UserModel.objects.filter(is_superuser=True, is_active=True)
+            .exclude(email='').exclude(email__isnull=True)
+            .values_list('email', flat=True)
+        )
+        if not emails:
+            return
+
+        nome_usuario = usuario.get_full_name() or usuario.username
+
+        with translation.override(codigo_idioma or 'pt-br'):
+            assunto = _t("Mensagem Agente IA")
+            intro = _t('Não foi possível atender a mensagem abaixo do usuário "%(nome)s (%(username)s)".') % {
+                'nome': nome_usuario, 'username': usuario.username,
+            }
+            rotulo_mensagem = _t("Mensagem do usuário:")
+            rotulo_resposta = _t("Resposta do agente:")
+
+        corpo = f"{intro}\n\n{rotulo_mensagem}\n{mensagem_usuario}\n\n{rotulo_resposta}\n{resposta_final}"
+        send_mail(
+            subject=assunto,
+            message=corpo,
+            from_email=None,  # usa DEFAULT_FROM_EMAIL do settings.py
+            recipient_list=emails,
+            fail_silently=True,
+        )
+    except Exception as erro_email:
+        print(f"[agente_ia][aviso_email] não consegui avisar os superusuários: {erro_email}")
+
+
 def _calcular_relevancia(linha_texto):
     """
     Conta quantos dos três critérios financeiros a linha atende (0 a 3).
@@ -441,42 +508,60 @@ def _extrair_linhas_do_arquivo(caminho_fisico, nome_arquivo):
 
 
 _PALAVRAS_CHAVE_ENTRE_ASPAS = {
-    'cancelar': {'en': 'cancel', 'es': 'cancelar', 'fr': 'annuler', 'de': 'abbrechen', 'it': 'annulla', 'zh-hans': '取消'},
-    'manter': {'en': 'keep', 'es': 'mantener', 'fr': 'conserver', 'de': 'beibehalten', 'it': 'mantieni', 'zh-hans': '保留'},
-    'nenhum': {'en': 'none', 'es': 'ninguno', 'fr': 'aucun', 'de': 'keine', 'it': 'nessuno', 'zh-hans': '无'},
+    # 🌟 CORRIGIDO: as traduções aqui tinham letra minúscula ('cancel',
+    # 'keep', 'none'), mas o BOTÃO correspondente (rotulos_opcoes em
+    # views.py, via gettext/lote6.py) sempre mostra com inicial
+    # maiúscula ("Cancel", "Keep", "None", "Check", etc.) -- mesma
+    # palavra, capitalização diferente entre a frase e o botão. Ajustado
+    # pra bater exatamente com o que o botão mostra, em toda linha.
+    # Também inclui agora 'pt-br' -- antes a função pulava totalmente o
+    # português, então uma frase com "cancelar" minúsculo (o jeito como
+    # o texto-fonte dos fluxos é escrito) nunca virava "Cancelar" pra
+    # bater com o botão quando o idioma ativo já era português.
+    'cancelar': {'pt-br': 'Cancelar', 'en': 'Cancel', 'es': 'Cancelar', 'fr': 'Annuler', 'de': 'Abbrechen', 'it': 'Annulla', 'zh-hans': '取消'},
+    'manter': {'pt-br': 'Manter', 'en': 'Keep', 'es': 'Mantener', 'fr': 'Conserver', 'de': 'Beibehalten', 'it': 'Mantieni', 'zh-hans': '保留'},
+    'nenhum': {'pt-br': 'Nenhum', 'en': 'None', 'es': 'Ninguno', 'fr': 'Aucun', 'de': 'Keine', 'it': 'Nessuno', 'zh-hans': '无'},
+    'verificar': {'pt-br': 'Verificar', 'en': 'Check', 'es': 'Verificar', 'fr': 'Vérifier', 'de': 'Prüfen', 'it': 'Verifica', 'zh-hans': '检查'},
 }
 
 
 def _forcar_traducao_palavras_chave(texto: str, codigo_idioma: str) -> str:
     """
     🌟 NOVO: os fluxos determinísticos (criar/editar cenário, indicadores,
-    câmbio) sempre usam as mesmas 3 palavras entre aspas como instrução
-    pro usuário -- "cancelar", "manter", "nenhum" (ex: 'ou "cancelar" pra
-    desistir'). A tradução via IA (chamada em
-    `_traduzir_resposta_se_necessario`) é boa mas não 100% consistente
-    pra esses casos -- às vezes esquece de traduzir uma dessas palavras
-    (visto em alemão: "cancelar" ficou sem traduzir enquanto o resto do
-    texto traduziu certo). Como sabemos exatamente quais palavras são e
-    o padrão exato (sempre entre aspas), garantimos a tradução delas por
-    substituição direta, sem depender da IA acertar sempre.
+    câmbio) sempre usam as mesmas 4 palavras entre aspas como instrução
+    pro usuário -- "cancelar", "manter", "nenhum", "verificar" (ex: 'ou
+    "cancelar" pra desistir'), quase sempre em minúsculo no texto-fonte.
+    A tradução via IA (chamada em `_traduzir_resposta_se_necessario`) é
+    boa mas não 100% consistente pra esses casos -- às vezes esquece de
+    traduzir uma dessas palavras (visto em alemão: "cancelar" ficou sem
+    traduzir enquanto o resto do texto traduziu certo), e mesmo quando
+    traduz não necessariamente usa a MESMA capitalização do botão
+    correspondente. Como sabemos exatamente quais palavras são e o
+    padrão exato (sempre entre aspas), garantimos a tradução E a
+    capitalização delas por substituição direta, sem depender da IA.
 
-    Roda DEPOIS da tradução via IA: se a IA já tiver traduzido a palavra
-    (não vai mais achar "cancelar" entre aspas no texto), não faz nada;
-    se sobrou a palavra em português, corrige.
+    🌟 CORRIGIDO: agora roda também pra pt-br (antes pulava totalmente)
+    -- precisa rodar mesmo em português pra corrigir a CAPITALIZAÇÃO
+    (frase minúscula "cancelar" -> "Cancelar", igual ao botão), não só
+    a tradução pra outro idioma.
+
+    Roda DEPOIS da tradução via IA: se a IA já tiver traduzido/
+    capitalizado certo (não vai mais achar a palavra original entre
+    aspas), não faz nada; se sobrou a palavra errada, corrige.
     """
-    if not codigo_idioma or codigo_idioma == 'pt-br' or not texto:
+    if not codigo_idioma or not texto:
         return texto
 
-    for palavra_pt, traducoes in _PALAVRAS_CHAVE_ENTRE_ASPAS.items():
-        traduzida = traducoes.get(codigo_idioma)
-        if not traduzida:
+    for palavra_pt, formas in _PALAVRAS_CHAVE_ENTRE_ASPAS.items():
+        forma_certa = formas.get(codigo_idioma)
+        if not forma_certa:
             continue
         # Cobre aspas retas (") e curvas (" ") ao redor da palavra
         for aspa_abre, aspa_fecha in [('"', '"'), ('\u201c', '\u201d')]:
             padrao_original = f'{aspa_abre}{palavra_pt}{aspa_fecha}'
             if padrao_original.lower() in texto.lower():
                 texto = re.sub(
-                    re.escape(padrao_original), f'{aspa_abre}{traduzida}{aspa_fecha}',
+                    re.escape(padrao_original), f'{aspa_abre}{forma_certa}{aspa_fecha}',
                     texto, flags=re.IGNORECASE
                 )
     return texto
@@ -727,7 +812,7 @@ def _consultar_dados_cenario_se_necessario(mensagem_usuario: str, usuario) -> st
         return ""
 
 
-def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario) -> tuple:
+def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sinalizador_falha=None, salvar_historico=True) -> tuple:
     """
     Executa o agente fazendo RAG dinâmico sobre PDF, TXT ou XLSX (conforme a
     extensão de cada arquivo selecionado), capturando linhas numéricas
@@ -785,6 +870,18 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario) -> t
         if esta_em_fluxo:
             cancelar_fluxo_ativo(usuario)
         resposta = iniciar_fluxo_excluir_cenario(usuario)
+        _salvar_historico(usuario, mensagem_usuario, resposta)
+        return resposta, []
+
+    # 🌟 NOVO: usuário pedindo pra exportar os dados de otimização (Produto,
+    # Produto-Mercado, Produto-Mercado-Fluxo, Equipamentos, Equipamentos-
+    # Ordem, Custo Item) do cenário ativo -- checado ANTES do export
+    # financeiro genérico (mais específico primeiro, senão cairia sempre
+    # no financeiro por causa da palavra "exportar" em comum).
+    if _detectar_intencao_exportar_dados_otimizacao(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Cenário', 'exportar_dados_otimizacao'):
+        if esta_em_fluxo:
+            cancelar_fluxo_ativo(usuario)
+        resposta = iniciar_exportar_dados_otimizacao_cenario_ativo(usuario)
         _salvar_historico(usuario, mensagem_usuario, resposta)
         return resposta, []
 
@@ -892,7 +989,13 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario) -> t
     # etapa atual.
     if esta_em_fluxo:
         resposta = processar_mensagem_fluxo(usuario, mensagem_usuario)
-        _salvar_historico(usuario, mensagem_usuario, resposta)
+        # 🌟 NOVO: sondagens automáticas silenciosas (front-end verificando
+        # sozinho se uma task do Celery já terminou, a cada poucos
+        # segundos) não devem virar entrada no histórico -- só a mensagem
+        # de verdade que o usuário mandou (ou a que efetivamente muda de
+        # estado) importa aqui.
+        if salvar_historico:
+            _salvar_historico(usuario, mensagem_usuario, resposta)
         return resposta, []
 
     try:
@@ -943,6 +1046,26 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario) -> t
             "explique isso em texto em vez de inventar valores pro gráfico. O "
             "texto normal ao redor do bloco continua podendo explicar o que o "
             "gráfico mostra."
+        )
+
+        # 🌟 NOVO: marcador especial pra sinalizar quando você genuinamente
+        # NÃO conseguiu ajudar o usuário (pergunta fora do escopo do
+        # sistema, falta de dado que você não tem como obter, pergunta que
+        # não faz sentido no contexto, etc.) -- isso dispara um e-mail de
+        # alerta pros superusuários do sistema revisarem a conversa. NÃO é
+        # pra casos onde você deu uma resposta parcial, incerta, ou pediu
+        # mais detalhes -- é só pra quando você realmente não tem como
+        # ajudar de jeito nenhum com essa mensagem.
+        system_instruction += (
+            "\n\nSe você REALMENTE não conseguir ajudar com a mensagem do usuário "
+            "(pergunta totalmente fora do escopo desse sistema, falta alguma "
+            "informação que você não tem como obter de jeito nenhum, ou a "
+            "pergunta simplesmente não faz sentido no contexto), comece sua "
+            "resposta com a marca exata \"[AGENTE_NAO_CONSEGUIU_RESPONDER]\" "
+            "(sem nada antes dela), seguida do resto da sua resposta normal "
+            "explicando o motivo pro usuário. NÃO use essa marca em respostas "
+            "parciais, incertas, ou quando só está pedindo mais detalhes -- só "
+            "quando genuinamente não há nada que você possa fazer."
         )
 
         # 🌟 NOVO: consulta dados REAIS do cenário ativo (indicadores, câmbio)
@@ -1044,6 +1167,19 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario) -> t
                 "repetir a pergunta em instantes."
             ), fontes_utilizadas
 
+        # 🌟 NOVO: se o modelo sinalizou que não conseguiu ajudar de
+        # verdade, tira a marca da resposta (o usuário não precisa ver
+        # esse detalhe interno) e SINALIZA a falha pra camada de fora
+        # (executar_agente_com_prompt_do_admin) -- o e-mail em si só é
+        # disparado LÁ, depois da tradução, pra usar a resposta já no
+        # idioma certo (esse ponto aqui ainda trabalha só com o texto
+        # original em português).
+        MARCA_NAO_RESPONDIDO = "[AGENTE_NAO_CONSEGUIU_RESPONDER]"
+        if resposta_final.startswith(MARCA_NAO_RESPONDIDO):
+            resposta_final = resposta_final[len(MARCA_NAO_RESPONDIDO):].strip()
+            if _sinalizador_falha is not None:
+                _sinalizador_falha['falhou'] = True
+
         # 7. Salva o registro real no banco para o histórico do Django Admin,
         # já vinculado ao usuário que fez a pergunta
         _salvar_historico(usuario, mensagem_usuario, resposta_final)
@@ -1054,7 +1190,7 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario) -> t
         return f"Erro no processamento interno do servidor: {str(e)}", []
 
 
-def executar_agente_com_prompt_do_admin(mensagem_usuario: str, pdf_ids: list, usuario) -> tuple:
+def executar_agente_com_prompt_do_admin(mensagem_usuario: str, pdf_ids: list, usuario, salvar_historico=True, eh_sondagem_automatica=False) -> tuple:
     """
     🌟 NOVO: camada fina por cima de `_executar_agente_interno` -- essa é a
     função que a view chama de verdade agora. Existe só pra garantir que a
@@ -1077,11 +1213,30 @@ def executar_agente_com_prompt_do_admin(mensagem_usuario: str, pdf_ids: list, us
     essa função precisa usar o texto ORIGINAL pra extrair as opções, e o
     texto TRADUZIDO só pra mostrar na tela.
     """
-    resposta_original, fontes = _executar_agente_interno(mensagem_usuario, pdf_ids, usuario)
+    sinalizador_falha = {}
+    resposta_original, fontes = _executar_agente_interno(
+        mensagem_usuario, pdf_ids, usuario, _sinalizador_falha=sinalizador_falha, salvar_historico=salvar_historico
+    )
+
+    # 🌟 NOVO: sondagens automáticas silenciosas, enquanto a etapa AINDA
+    # está esperando o Celery (ou seja, a resposta é só mais um "ainda
+    # processando" repetido), pulam a tradução por IA -- ela é uma
+    # chamada de rede a um modelo externo, cara e completamente
+    # desperdiçada aqui, já que a mesma checagem se repete a cada poucos
+    # segundos até o processo terminar (dezenas de chamadas idênticas
+    # numa tarefa de 10 minutos). A resposta final, quando a etapa
+    # termina de esperar, sempre traduz normalmente -- só o "ainda
+    # rodando" intermediário fica sem tradução (a barra de progresso no
+    # front-end mostra esse texto em português nesse meio-tempo).
+    if eh_sondagem_automatica and etapa_atual_do_usuario(usuario) in ETAPAS_AGUARDANDO_CELERY:
+        return resposta_original, fontes, resposta_original
 
     perfil_para_idioma = getattr(usuario, 'perfilusuario', None)
     codigo_idioma_resposta = perfil_para_idioma.idioma_efetivo() if perfil_para_idioma else None
     resposta_traduzida = _traduzir_resposta_se_necessario(resposta_original, codigo_idioma_resposta)
     resposta_traduzida = _forcar_traducao_palavras_chave(resposta_traduzida, codigo_idioma_resposta)
+
+    if sinalizador_falha.get('falhou'):
+        _avisar_superusers_falha_resposta(usuario, mensagem_usuario, resposta_traduzida, codigo_idioma_resposta)
 
     return resposta_traduzida, fontes, resposta_original

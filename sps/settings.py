@@ -2,10 +2,19 @@ import os
 from pathlib import Path
 import dj_database_url
 import django_heroku
+from dotenv import load_dotenv
 
 ADMIN_TWO_FACTOR_NAME = 'SPS Ferbasa'
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# 🌟 NOVO: carrega variáveis de um arquivo .env na raiz do projeto (se
+# existir) -- assim dá pra manter senhas e outros segredos FORA do
+# código-fonte, tanto em desenvolvimento quanto em produção. Mesma
+# mecânica já usada em agents.py, agora também aqui no settings.py (que
+# roda ANTES, então precisa da própria chamada -- carregar só lá não
+# adianta pra variáveis lidas aqui).
+load_dotenv(os.path.join(BASE_DIR, '.env'))
 
 SECRET_KEY = 'django-insecure-^m_c8!tfug^j#s3%0be5wkgu=)f*%!cf8f4=@owu^+pybm1980'
 
@@ -234,9 +243,16 @@ EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 25
 
 DEFAULT_FROM_EMAIL = 'sps.consultoria.alerta@gmail.com'
-EMAIL_HOST_USER = 'sps.consultoria.alerta@gmail.com'
-EMAIL_HOST_PASSWORD = 'acmd ydnn zytj zbrv'  # ATENÇÃO: SENHA GERADA PELO GOOGLE MAIL PARA CADA UMA DAS APP. ENTRA em sps.consultoria.alerta.@gmail.com / Gerenciar Sua Conta Google (logo abaixo Olá SPS Consultoria.
-                                             # Na lupa de pesquisa digitar senha app
+# 🌟 CORRIGIDO: usuário e senha agora vêm de variável de ambiente (arquivo
+# .env, que NÃO deve ser versionado no Git) -- antes ficavam escritos
+# direto aqui, expondo a senha pra qualquer um com acesso ao repositório.
+# O segundo argumento de os.environ.get() é só uma reserva, pro sistema
+# continuar funcionando mesmo antes de criar o .env -- assim que criar,
+# o valor de lá passa a valer. Pra trocar a senha (ou usar uma diferente
+# em produção), só muda o .env, sem tocar em código nenhum.
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'sps.consultoria.alerta@gmail.com')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'nivn kdzi zqqz qmkg')
+
 EMAIL_USE_TLS = True
 EMAIL_USE_SSL = False
 

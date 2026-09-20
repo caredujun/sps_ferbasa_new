@@ -1,9 +1,10 @@
+import json
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.contrib import messages
 from django.utils.translation import gettext as _
 from .agents import executar_agente_com_prompt_do_admin
-from .fluxo_criar_cenario import usuario_esta_em_fluxo, MENSAGENS_FLAG
+from .fluxo_criar_cenario import usuario_esta_em_fluxo, MENSAGENS_FLAG, etapa_atual_do_usuario, ETAPAS_AGUARDANDO_CELERY
 from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
@@ -192,6 +193,14 @@ def trocar_idioma_view(request):
         perfil.idioma = novo_idioma
         perfil.save()
 
+    # 🌟 NOVO: sinaliza pro próximo carregamento do chat que deve
+    # restaurar o histórico na tela -- trocar de idioma faz um
+    # redirecionamento de página inteira, e sem isso o usuário perderia
+    # a visão da conversa (e de qualquer fluxo em andamento aguardando
+    # o Celery) só por ter mudado o idioma. Usa a sessão porque o
+    # redirect já perde qualquer parâmetro de querystring/contexto direto.
+    request.session['restaurar_historico_chat'] = True
+
     return redirect(request.META.get('HTTP_REFERER', '/'))
 
 
@@ -238,9 +247,18 @@ def chat_view(request):
         # Converte os IDs em inteiros válidos
         pdf_ids = [int(id_str) for id_str in pdf_ids if id_str.isdigit()]
 
+        # 🌟 NOVO: o front-end manda esse campo quando a mensagem é uma
+        # sondagem automática silenciosa (verificando sozinho se uma task
+        # do Celery já terminou, a cada poucos segundos) -- essas não
+        # devem virar entrada no histórico do usuário.
+        eh_sondagem_automatica = request.POST.get("sondagem_automatica") == "1"
+
         # Executa o agente passando a mensagem, os arquivos escolhidos e o usuário logado
         # (usado para isolar a memória de curto prazo e o histórico salvo por conta)
-        resposta, fontes, resposta_original = executar_agente_com_prompt_do_admin(mensagem, pdf_ids, request.user)
+        resposta, fontes, resposta_original = executar_agente_com_prompt_do_admin(
+            mensagem, pdf_ids, request.user, salvar_historico=not eh_sondagem_automatica,
+            eh_sondagem_automatica=eh_sondagem_automatica,
+        )
 
         # 🌟 CORRIGIDO: extrai as opções clicáveis do texto ORIGINAL (em
         # português), não do texto já traduzido -- a extração procura
@@ -260,6 +278,18 @@ def chat_view(request):
         if usuario_esta_em_fluxo(request.user) and 'Cancelar' not in opcoes:
             opcoes.append('Cancelar')
 
+        # 🌟 NOVO: se a etapa atual é uma das que só ficam esperando o
+        # Celery terminar (duplicação, limpeza, otimização, etc.), o
+        # front-end pode sondar sozinho em segundo plano, sem precisar
+        # que o usuário clique em "Verificar" -- nesse caso, tira o
+        # botão "Verificar" das opções (ele deixou de fazer sentido, já
+        # que a checagem passa a ser automática) e deixa só "Cancelar"
+        # disponível, se o usuário quiser interromper o acompanhamento.
+        etapa_atual = etapa_atual_do_usuario(request.user)
+        aguardando_poll = etapa_atual in ETAPAS_AGUARDANDO_CELERY
+        if aguardando_poll and 'Verificar' in opcoes:
+            opcoes.remove('Verificar')
+
         # 🌟 CORRIGIDO (generalizado): os VALORES de "Manual", "Planilha",
         # "Cancelar", "Manter", "Nenhum", "Sim", "Não", "Verificar" e "Já
         # enviei a planilha" continuam em português de propósito -- são
@@ -278,6 +308,8 @@ def chat_view(request):
             "fontes": fontes,
             "opcoes": opcoes,
             "rotulos_opcoes": rotulos_opcoes,
+            "aguardando_poll": aguardando_poll,
+            "etapa_atual": etapa_atual,
         })
 
     # No GET, renderiza a página trazendo os relatórios da empresa efetiva do usuário
@@ -302,7 +334,8 @@ def chat_view(request):
     if perfil and perfil.cenario_ativo_id:
         cenario_obj = TbCenarios.objects_real.filter(id=perfil.cenario_ativo_id).first()
         if cenario_obj:
-            nome_cenario = f"{cenario_obj.id}/{cenario_obj.cen_nome}"
+            numero_exibido_cenario = cenario_obj.numero_sequencial if cenario_obj.numero_sequencial is not None else cenario_obj.id
+            nome_cenario = f"{numero_exibido_cenario}/{cenario_obj.cen_nome}"
             if cenario_obj.flag is None:
                 status_cenario = _("Ainda não processado")
             else:
@@ -310,6 +343,30 @@ def chat_view(request):
 
     # 🌟 NOVO (multi-idioma, Fase 1): manda o idioma atual e a lista de
     # opções pro seletor de idioma no template.
+    # 🌟 NOVO: carrega as últimas mensagens do histórico do usuário, pra
+    # reconstruir a tela do chat quando a página é recarregada (F5) --
+    # antes, um refresh no meio de qualquer fluxo (esperando o Celery
+    # terminar uma duplicação, por exemplo) apagava a conversa da tela
+    # inteira, mesmo o fluxo continuando ativo por trás. Limitado às
+    # últimas 30 trocas pra não deixar a página pesada.
+    # NOTA: o histórico guarda o texto ORIGINAL em português (a tradução
+    # acontece só na hora de exibir cada resposta nova) -- então mensagens
+    # antigas aparecem em português mesmo se o idioma ativo for outro.
+    # 🌟 CORRIGIDO: antes, TODA vez que o chat carregava (inclusive uma
+    # aba nova de verdade) mostrava o histórico completo -- só devemos
+    # restaurar em F5 (refresh) ou logo depois de trocar de idioma
+    # (redirect de página inteira), nunca numa abertura nova. A
+    # decisão "é F5 ou não" é feita no JavaScript (Navigation Timing
+    # API, que sabe distinguir isso de verdade); aqui só cuidamos do
+    # caso de troca de idioma, via sinalizador de sessão de uso único
+    # (.pop remove logo em seguida, então só vale pra ESSE carregamento).
+    forcar_restaurar_historico = request.session.pop('restaurar_historico_chat', False)
+
+    historico_recente = list(
+        HistoricoAgente.objects.filter(usuario=request.user).order_by('-data')[:30].values('comando_usuario', 'resposta_ia')
+    )
+    historico_recente.reverse()  # mais antiga primeiro, igual à ordem de exibição no chat
+
     idioma_atual = perfil.idioma_efetivo() if perfil else 'pt-br'
     return render(request, "chat.html", {
         "relatorios": relatorios,
@@ -319,6 +376,8 @@ def chat_view(request):
         "nome_cenario": nome_cenario,
         "status_cenario": status_cenario,
         "acoes_habilitadas": _mapa_acoes_comuns_habilitadas(request.user),
+        "historico_json": json.dumps(historico_recente),
+        "forcar_restaurar_historico": forcar_restaurar_historico,
     })
 
 

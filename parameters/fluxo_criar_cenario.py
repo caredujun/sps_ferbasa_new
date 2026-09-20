@@ -76,6 +76,30 @@ FLAGS_OPERACAO_EM_ANDAMENTO = {4: 'OTIMIZANDO', 5: 'LIMPANDO', 6: 'CONSOLIDANDO'
 PALAVRAS_CANCELAR = ('cancelar', 'cancela', 'sair', 'parar', 'desistir')
 PALAVRAS_MANTER = ('manter', 'mesmo', 'mesma', 'igual', 'não mudar', 'nao mudar')
 
+# 🌟 NOVO: todas as etapas onde o wizard está esperando uma task do
+# Celery terminar (duplicação, limpeza, otimização, consolidação,
+# exclusão, exportação, envio de e-mail) -- usado por views.py pra
+# sinalizar ao front-end que essa etapa pode ser SONDADA
+# automaticamente (JS verificando sozinho a cada alguns segundos, sem
+# precisar do usuário clicar em "Verificar"), mostrando só "Cancelar"
+# enquanto isso.
+ETAPAS_AGUARDANDO_CELERY = {
+    'aguardando_duplicacao',
+    'aguardando_limpeza',
+    'aguardando_otimizacao',
+    'aguardando_consolidacao',
+    'aguardando_verificacao_filhas',
+    'exportar_otimizacao_aguardando',
+    'exportar_otimizacao_aguardando_email',
+    'proc_ciclo_aguardando_limpeza',
+    'proc_ciclo_aguardando_otimizacao',
+    'proc_ciclo_aguardando_consolidacao',
+    'proc_aguardando_limpeza',
+    'proc_aguardando_otimizacao',
+    'proc_aguardando_consolidacao',
+    'cen_excluir_aguardando',
+}
+
 # 🌟 NOVO: se um fluxo ficar parado por mais que isso, sem nenhuma
 # mensagem, a próxima mensagem recebida encerra ele automaticamente em
 # vez de tratá-la como resposta a uma etapa antiga.
@@ -101,6 +125,17 @@ ETAPAS_SEM_EXPIRACAO = {
 def usuario_esta_em_fluxo(usuario):
     """True se o usuário tem QUALQUER um dos wizards em andamento agora."""
     return EstadoConversaAgente.objects.filter(usuario=usuario).exclude(fluxo_ativo__isnull=True).exists()
+
+
+def etapa_atual_do_usuario(usuario):
+    """
+    🌟 NOVO: devolve a etapa_atual do wizard em andamento do usuário (ou
+    None, se não tiver nenhum) -- usado por views.py logo depois de
+    processar uma mensagem, pra decidir se essa etapa pode ser sondada
+    automaticamente (ver ETAPAS_AGUARDANDO_CELERY).
+    """
+    estado = EstadoConversaAgente.objects.filter(usuario=usuario).first()
+    return estado.etapa_atual if estado else None
 
 
 def _get_estado(usuario):
@@ -136,8 +171,28 @@ def iniciar_fluxo_criar_cenario(usuario):
     estado.etapa_atual = 'nome'
     estado.dados_coletados = {}
     estado.save()
+
+    # 🌟 NOVO: mostra os últimos 10 nomes de cenário já usados PELA EMPRESA
+    # do usuário, mais recentes primeiro -- ajuda a conferir nomes já
+    # usados e a manter a lógica de nomenclatura da empresa (copiar um
+    # nome existente e ajustar, em vez de inventar do zero).
+    perfil = getattr(usuario, 'perfilusuario', None)
+    empresa_id = perfil.empresa_efetiva_id() if perfil else None
+    texto_nomes = ""
+    if empresa_id is not None:
+        # 🌟 CORRIGIDO: mostra numero_sequencial + nome (igual ao padrão
+        # já usado na pergunta de "qual cenário copiar"), não só o nome
+        # sozinho -- mais fácil de identificar de qual cenário se trata.
+        cenarios = TbCenarios.objects_real.filter(empresa_id=empresa_id).order_by('-id')[:10]
+        if cenarios:
+            lista = "\n".join(
+                f"- {c.numero_sequencial if c.numero_sequencial is not None else c.id}: {c.cen_nome}" for c in cenarios
+            )
+            texto_nomes = f"Últimos cenários cadastrados (mais recente primeiro):\n{lista}\n\n"
+
     return (
         "Vamos criar um novo cenário! 🎬\n\n"
+        f"{texto_nomes}"
         "Qual vai ser o **nome** do cenário? (a qualquer momento, clique em "
         "\"cancelar\" para desistir)"
     )
@@ -245,6 +300,24 @@ def _processar_mensagem_fluxo_com_lock(estado, mensagem):
                 "Ok, parei de acompanhar por aqui -- mas a exclusão em si continua rodando em "
                 "segundo plano normalmente (isso não cancela ela)."
             )
+        # 🌟 NOVO: mesmo raciocínio da exclusão -- cancelar o acompanhamento
+        # da exportação de dados de otimização não cancela a geração dos
+        # relatórios em si (já está rodando em segundo plano via Celery).
+        if estado.fluxo_ativo == FLUXO_PROCESSAR and estado.etapa_atual == 'exportar_otimizacao_aguardando':
+            _encerrar_fluxo(estado)
+            return (
+                "Ok, parei de acompanhar por aqui -- mas a geração dos relatórios continua rodando em "
+                "segundo plano normalmente (isso não cancela ela)."
+            )
+        # 🌟 NOVO: mesmo raciocínio -- cancelar o acompanhamento do envio
+        # por e-mail não cancela o envio em si (já disparado em segundo
+        # plano via Celery).
+        if estado.fluxo_ativo == FLUXO_PROCESSAR and estado.etapa_atual == 'exportar_otimizacao_aguardando_email':
+            _encerrar_fluxo(estado)
+            return (
+                "Ok, parei de acompanhar por aqui -- mas o envio do e-mail continua rodando em "
+                "segundo plano normalmente (isso não cancela ele)."
+            )
         _encerrar_fluxo(estado)
         return "Ok, cancelei. Nada foi alterado."
 
@@ -313,7 +386,22 @@ def _etapa_nome(estado, texto):
     estado.dados_coletados = dados
     estado.etapa_atual = 'descricao'
     estado.save()
-    return f"Nome definido: **{nome}**.\n\nAgora, uma **descrição** pra esse cenário (pode ser breve):"
+
+    # 🌟 NOVO: mesma ideia do nome -- mostra as últimas 10 descrições já
+    # usadas PELA EMPRESA do usuário, mais recente primeiro.
+    perfil = getattr(estado.usuario, 'perfilusuario', None)
+    empresa_id = perfil.empresa_efetiva_id() if perfil else None
+    texto_descricoes = ""
+    if empresa_id is not None:
+        descricoes = list(
+            TbCenarios.objects_real.filter(empresa_id=empresa_id).exclude(cen_descricao__isnull=True)
+            .exclude(cen_descricao='').order_by('-id').values_list('cen_descricao', flat=True)[:5]
+        )
+        if descricoes:
+            lista = "\n".join(f"- {d}" for d in descricoes)
+            texto_descricoes = f"Últimas descrições cadastradas (mais recente primeiro):\n{lista}\n\n"
+
+    return f"Nome definido: **{nome}**.\n\n{texto_descricoes}Agora, uma **descrição** pra esse cenário (pode ser breve):"
 
 
 # ---------------------------------------------------------------------
@@ -329,12 +417,19 @@ def _etapa_descricao(estado, texto):
     estado.etapa_atual = 'copiar_de'
     estado.save()
 
-    ultimos = TbCenarios.objects_real.order_by('-id')[:8]
-    lista = "\n".join(f"- {c.id}: {c.cen_nome}" for c in ultimos)
+    # 🌟 CORRIGIDO: antes mostrava os últimos cenários de TODAS as
+    # empresas do sistema (bug) -- agora escopa só à empresa efetiva do
+    # usuário, mostra o numero_sequencial (o "número" que a empresa
+    # reconhece, igual ao Admin) em vez do id real da tabela, e usa
+    # exatamente 10 (não 8).
+    perfil = getattr(estado.usuario, 'perfilusuario', None)
+    empresa_id = perfil.empresa_efetiva_id() if perfil else None
+    ultimos = TbCenarios.objects_real.filter(empresa_id=empresa_id).order_by('-id')[:10] if empresa_id is not None else []
+    lista = "\n".join(f"- {c.numero_sequencial if c.numero_sequencial is not None else c.id}: {c.cen_nome}" for c in ultimos)
     return (
         "Descrição registrada.\n\n"
         "De **qual cenário existente** você quer copiar (tipo, período e demais dados iniciais)? "
-        "Pode me dizer o **id** ou o **nome**. Alguns cenários recentes:\n"
+        "Pode me dizer o **número** ou o **nome**. Alguns cenários recentes:\n"
         f"{lista}"
     )
 
@@ -343,21 +438,45 @@ def _etapa_descricao(estado, texto):
 # Etapa: copiar_de
 # ---------------------------------------------------------------------
 def _etapa_copiar_de(estado, texto):
-    cenario_origem = _resolver_cenario(texto)
+    perfil = getattr(estado.usuario, 'perfilusuario', None)
+    empresa_id = perfil.empresa_efetiva_id() if perfil else None
+
+    cenario_origem = _resolver_cenario(texto, empresa_id)
     if cenario_origem is None:
         return (
             f"Não encontrei nenhum cenário correspondente a \"{texto}\". "
-            "Tenta de novo com o id ou o nome exato, ou \"cancelar\"."
+            "Tenta de novo com o número ou o nome exato, ou \"cancelar\"."
+        )
+
+    # 🌟 NOVO: só pode copiar de um cenário CONSOLIDADO -- copiar de um
+    # cenário com dados parciais/inconsistentes (ainda otimizando,
+    # limpo mas não otimizado, etc.) geraria uma cópia com dados que não
+    # refletem um resultado fechado de verdade.
+    numero_origem = cenario_origem.numero_sequencial if cenario_origem.numero_sequencial is not None else cenario_origem.id
+    if cenario_origem.flag != 1:
+        if cenario_origem.flag is None:
+            status_origem = "ainda não processado (nunca foi limpo)"
+        else:
+            status_origem = MENSAGENS_FLAG.get(cenario_origem.flag, f"desconhecido (flag={cenario_origem.flag})")
+        _encerrar_fluxo(estado)
+        return (
+            f"O cenário **{numero_origem}/{cenario_origem.cen_nome}** está: **{status_origem}** -- "
+            "só posso copiar de um cenário **Consolidado**.\n\n"
+            "Ativa esse cenário, e depois Limpa, Otimiza e Consolida ele antes de tentar copiar de novo. "
+            "Cancelei a criação por aqui -- pode começar de novo depois."
         )
 
     dados = estado.dados_coletados
     dados['cen_copiar_de_id'] = cenario_origem.id
     dados['cen_copiar_de_nome'] = cenario_origem.cen_nome
+    dados['cen_copiar_de_numero_sequencial'] = numero_origem
     estado.dados_coletados = dados
     estado.etapa_atual = 'grupo'
     estado.save()
 
-    grupos = TbGrupoCenarios.objects.all()[:8]
+    # 🌟 CORRIGIDO: escopado à empresa, últimos 10 por id decrescente (em
+    # vez de todos os grupos do sistema em ordem arbitrária).
+    grupos = TbGrupoCenarios.objects.filter(empresa_id=empresa_id).order_by('-id')[:10] if empresa_id is not None else []
     if grupos:
         lista = "\n".join(f"- {g.id}: {g}" for g in grupos)
         texto_grupos = f"Alguns grupos existentes:\n{lista}\n\n"
@@ -365,20 +484,29 @@ def _etapa_copiar_de(estado, texto):
         texto_grupos = ""
 
     return (
-        f"Vai copiar de **{cenario_origem.id}/{cenario_origem.cen_nome}**.\n\n"
+        f"Vai copiar de **{numero_origem}/{cenario_origem.cen_nome}**.\n\n"
         f"{texto_grupos}"
         "Qual **grupo** esse cenário deve ficar? Pode me dizer o nome de um grupo "
-        "existente, o nome de um **grupo novo** (eu crio pra você), ou \"nenhum\" "
-        "pra deixar sem grupo."
+        "existente, ou o nome de um **grupo novo** (eu crio pra você) -- todo cenário "
+        "precisa estar em um grupo."
     )
 
 
-def _resolver_cenario(texto):
+def _resolver_cenario(texto, empresa_id):
     texto = texto.strip()
     if texto.isdigit():
-        return TbCenarios.objects_real.filter(id=int(texto)).first()
-    return TbCenarios.objects_real.filter(cen_nome__iexact=texto).first() \
-        or TbCenarios.objects_real.filter(cen_nome__icontains=texto).first()
+        # 🌟 CORRIGIDO: resolve pelo numero_sequencial (o "número" que a
+        # empresa reconhece, igual ao Admin) em vez do id real da tabela
+        # -- e sempre escopado à empresa, já que numero_sequencial só é
+        # único DENTRO de cada empresa, não no sistema inteiro.
+        cenario = TbCenarios.objects_real.filter(empresa_id=empresa_id, numero_sequencial=int(texto)).first()
+        if cenario is not None:
+            return cenario
+        # Fallback pro id real, pra não quebrar quem ainda digitar o id
+        # antigo por hábito (ex: durante a transição pro numero_sequencial).
+        return TbCenarios.objects_real.filter(empresa_id=empresa_id, id=int(texto)).first()
+    return TbCenarios.objects_real.filter(empresa_id=empresa_id, cen_nome__iexact=texto).first() \
+        or TbCenarios.objects_real.filter(empresa_id=empresa_id, cen_nome__icontains=texto).first()
 
 
 # ---------------------------------------------------------------------
@@ -386,22 +514,29 @@ def _resolver_cenario(texto):
 # ---------------------------------------------------------------------
 def _etapa_grupo(estado, texto):
     dados = estado.dados_coletados
+    perfil = getattr(estado.usuario, 'perfilusuario', None)
+    empresa_id = perfil.empresa_efetiva_id() if perfil else None
 
+    # 🌟 CORRIGIDO: removida a opção de deixar sem grupo -- todo cenário
+    # precisa ficar em um grupo agora. Se o usuário tentar "nenhum" (ou
+    # equivalente), pede um grupo de verdade em vez de aceitar.
     if texto.strip().lower() in ('nenhum', 'nao', 'não', 'sem grupo'):
-        dados['cen_grupo_id'] = None
-        dados['cen_grupo_nome'] = None
-    else:
-        grupo = None
-        if texto.strip().isdigit():
-            grupo = TbGrupoCenarios.objects.filter(id=int(texto.strip())).first()
-        if grupo is None:
-            grupo = _buscar_grupo_por_nome(texto.strip())
-        if grupo is None:
-            # Não encontrou -- cria um grupo novo com esse nome
-            grupo = _criar_grupo(texto.strip())
+        return (
+            "Todo cenário precisa ficar em um grupo -- não dá mais pra deixar sem. "
+            "Me diz o nome de um grupo existente, ou de um grupo novo (eu crio pra você)."
+        )
 
-        dados['cen_grupo_id'] = grupo.id
-        dados['cen_grupo_nome'] = str(grupo)
+    grupo = None
+    if texto.strip().isdigit():
+        grupo = TbGrupoCenarios.objects.filter(empresa_id=empresa_id, id=int(texto.strip())).first()
+    if grupo is None:
+        grupo = _buscar_grupo_por_nome(texto.strip(), empresa_id)
+    if grupo is None:
+        # Não encontrou -- cria um grupo novo com esse nome, já na empresa certa
+        grupo = _criar_grupo(texto.strip(), empresa_id)
+
+    dados['cen_grupo_id'] = grupo.id
+    dados['cen_grupo_nome'] = str(grupo)
 
     estado.dados_coletados = dados
     estado.etapa_atual = 'confirmar'
@@ -417,12 +552,12 @@ def _etapa_grupo(estado, texto):
 CAMPO_NOME_GRUPO = 'gru_cen_codigo'  # confirmado com o usuário -- nome do campo em TbGrupoCenarios
 
 
-def _buscar_grupo_por_nome(nome):
-    return TbGrupoCenarios.objects.filter(**{f"{CAMPO_NOME_GRUPO}__iexact": nome}).first()
+def _buscar_grupo_por_nome(nome, empresa_id):
+    return TbGrupoCenarios.objects.filter(empresa_id=empresa_id, **{f"{CAMPO_NOME_GRUPO}__iexact": nome}).first()
 
 
-def _criar_grupo(nome):
-    return TbGrupoCenarios.objects.create(**{CAMPO_NOME_GRUPO: nome})
+def _criar_grupo(nome, empresa_id):
+    return TbGrupoCenarios.objects.create(empresa_id=empresa_id, **{CAMPO_NOME_GRUPO: nome})
 
 
 # ---------------------------------------------------------------------
@@ -457,41 +592,55 @@ def _etapa_confirmar(estado, texto):
         _encerrar_fluxo(estado)
         return f"Deu erro ao criar o cenário: {e}. Cancelei o fluxo -- pode tentar de novo."
 
+    numero_exibido = cenario.numero_sequencial if cenario.numero_sequencial is not None else cenario.id
     dados['cenario_criado_id'] = cenario.id
     dados['cenario_criado_nome'] = cenario.cen_nome
+    dados['cenario_criado_numero_sequencial'] = numero_exibido
     dados['momento_criacao'] = momento_criacao
     estado.dados_coletados = dados
-    estado.etapa_atual = 'ativar'
+    # 🌟 CORRIGIDO: antes ia direto pra etapa "ativar" e já perguntava se
+    # queria ativar o cenário -- só que a duplicação dos dados ainda nem
+    # tinha começado de verdade, então não fazia sentido perguntar isso
+    # antes dos dados do cenário existirem. Agora vai direto pro
+    # acompanhamento da duplicação; a pergunta de ativar só aparece
+    # DEPOIS que a duplicação terminar de verdade (dentro de
+    # _checar_duplicacao).
+    estado.etapa_atual = 'aguardando_duplicacao'
     estado.save()
 
     return (
-        f"Cenário **{cenario.id}/{cenario.cen_nome}** criado! 🎉 A duplicação dos dados "
-        "está rodando em segundo plano, pode levar alguns instantes.\n\n"
-        "Quer que eu já **ative esse cenário pra você**? (**sim** / **não**)"
+        f"Cenário **{numero_exibido}/{cenario.cen_nome}** registrado! Agora vou duplicar os dados "
+        "do cenário de origem em segundo plano -- pode levar **até alguns minutos**, dependendo da "
+        "quantidade de fluxos cadastrados."
     )
 
 
 # ---------------------------------------------------------------------
-# Etapa: ativar
+# Etapa: ativar -- só é perguntada DEPOIS que a duplicação já terminou
+# (ver _checar_duplicacao).
 # ---------------------------------------------------------------------
 def _etapa_ativar(estado, texto):
     resposta = texto.strip().lower()
     dados = estado.dados_coletados
-    cenario_id = dados.get('cenario_criado_id')
+    numero_exibido = dados.get('cenario_criado_numero_sequencial', dados.get('cenario_criado_id'))
     cenario_nome = dados.get('cenario_criado_nome')
 
     if resposta in ('sim', 's', 'yes', 'y'):
         perfil, _ = PerfilUsuario.objects.get_or_create(usuario=estado.usuario)
-        perfil.cenario_ativo_id = cenario_id
+        perfil.cenario_ativo_id = dados.get('cenario_criado_id')
         perfil.save()
-        mensagem_ativacao = f"Pronto, o cenário **{cenario_id}/{cenario_nome}** agora é o seu cenário ativo.\n\n"
+        mensagem_ativacao = f"Pronto, o cenário **{numero_exibido}/{cenario_nome}** agora é o seu cenário ativo.\n\n"
     else:
-        mensagem_ativacao = f"Ok, o cenário **{cenario_id}/{cenario_nome}** foi criado mas não ativado pra você.\n\n"
+        mensagem_ativacao = f"Ok, o cenário **{numero_exibido}/{cenario_nome}** foi criado mas não ativado pra você.\n\n"
 
-    estado.etapa_atual = 'aguardando_duplicacao'
+    estado.etapa_atual = 'confirmar_processar'
     estado.save()
 
-    return mensagem_ativacao + _checar_duplicacao(estado)
+    return (
+        mensagem_ativacao +
+        "Quer que eu já rode o ciclo completo -- **Limpar → Otimizar → Consolidar** -- "
+        "e te mostre uma comparação dos resultados com o cenário de origem? (**sim** / **não**)"
+    )
 
 
 # ---------------------------------------------------------------------
@@ -535,7 +684,7 @@ def _buscar_task_duplicacao(desde_iso):
 
 def _checar_duplicacao(estado):
     dados = estado.dados_coletados
-    cenario_id = dados.get('cenario_criado_id')
+    numero_exibido = dados.get('cenario_criado_numero_sequencial', dados.get('cenario_criado_id'))
     cenario_nome = dados.get('cenario_criado_nome')
     momento_criacao = dados.get('momento_criacao')
 
@@ -543,39 +692,42 @@ def _checar_duplicacao(estado):
         return (
             "⚠️ Não consegui detectar nenhum worker do Celery ativo agora -- a "
             "duplicação das tabelas do cenário não vai acontecer sozinha até "
-            "alguém ligar o Celery. Assim que estiver rodando, clica em \"Verificar\" que eu confiro de novo."
+            "alguém ligar o Celery. Assim que estiver rodando,"
         )
 
     task = _buscar_task_duplicacao(momento_criacao)
-    if task is None:
-        return (
-            "O Celery está ativo, mas ainda não encontrei o registro da "
-            "duplicação desse cenário -- pode ser que tenha começado e está duplicando as tabelas. "
-            "Clica em \"Verificar\" em alguns segundos que eu confiro de novo."
-        )
 
-    if task.status == 'SUCCESS':
-        estado.etapa_atual = 'confirmar_processar'
-        estado.save()
+    # 🌟 CORRIGIDO: antes, "ainda não encontrei o registro da task" tinha
+    # uma mensagem própria e ambígua ("pode ser que tenha começado") --
+    # agora trata igual a "ainda rodando", já que na prática o efeito pro
+    # usuário é o mesmo (clicar "Verificar" de novo em instantes) e essa
+    # checagem de existência já é feita aqui dentro mesmo. Também não
+    # mostra mais o status técnico do Celery entre parênteses (ex:
+    # "aguardando início", "PENDING") -- não ajuda o usuário e, no caso
+    # de task=None, nem fazia sentido ("aguardando início" enquanto a
+    # frase já diz "ainda duplicando").
+    if task is None or task.status not in ('SUCCESS', 'FAILURE'):
         return (
-            f"✅ Duplicação das tabelas do cenário **{cenario_id}/{cenario_nome}** concluída!\n\n"
-            "Quer que eu já rode o ciclo completo -- **Limpar → Otimizar → Consolidar** -- "
-            "e te mostre uma comparação dos resultados com o cenário de origem? (**sim** / **não**)"
+            f"Ainda duplicando as tabelas do cenário **{numero_exibido}/{cenario_nome}**. "
         )
 
     if task.status == 'FAILURE':
         _encerrar_fluxo(estado)
         return (
-            f"❌ A duplicação das tabelas do cenário **{cenario_id}/{cenario_nome}** falhou "
+            f"❌ A duplicação das tabelas do cenário **{numero_exibido}/{cenario_nome}** falhou "
             f"(status: {task.status}). O cenário foi criado, mas os dados não foram "
             "duplicados -- vale olhar o log do Celery pra entender o motivo. Cancelei o fluxo aqui."
         )
 
-    # PENDING, STARTED, RETRY, etc. -- ainda rodando
+    # SUCCESS -- 🌟 CORRIGIDO: a mensagem de "criado! 🎉" e a pergunta de
+    # ativar só aparecem AQUI agora, depois que a duplicação já terminou
+    # de verdade (antes apareciam logo na confirmação, antes dos dados
+    # existirem).
+    estado.etapa_atual = 'ativar'
+    estado.save()
     return (
-        f"Ainda duplicando as tabelas do cenário **{cenario_id}/{cenario_nome}** "
-        f"(status atual: {task.status}). Clica em \"Verificar\" daqui a pouco "
-        "que eu confiro de novo."
+        f"✅ Cenário **{numero_exibido}/{cenario_nome}** criado! 🎉 A duplicação dos dados terminou.\n\n"
+        "Quer que eu já **ative esse cenário pra você**? (**sim** / **não**)"
     )
 
 
@@ -588,10 +740,11 @@ def _etapa_confirmar_processar(estado, texto):
     dados = estado.dados_coletados
     cenario_id = dados.get('cenario_criado_id')
     cenario_nome = dados.get('cenario_criado_nome')
+    numero_exibido = dados.get('cenario_criado_numero_sequencial', cenario_id)
 
     if resposta not in ('sim', 's', 'yes', 'y'):
         _encerrar_fluxo(estado)
-        return f"Ok, não vou processar o cenário **{cenario_id}/{cenario_nome}** agora. Ele já está criado, pode processar manualmente quando quiser."
+        return f"Ok, não vou processar o cenário **{numero_exibido}/{cenario_nome}** agora. Ele já está criado, pode processar manualmente quando quiser."
 
     from fluxos.models import TbFluxoProducaoDaugther01, TbFluxoProducao
     from django.db import connection
@@ -620,8 +773,7 @@ def _etapa_confirmar_processar(estado, texto):
     estado.etapa_atual = 'aguardando_limpeza'
     estado.save()
     return (
-        f"Beleza, disparei a **limpeza** do cenário **{cenario_id}/{cenario_nome}** em segundo plano. "
-        "Clica em \"Verificar\" daqui a pouco que eu confiro se já terminou."
+        f"Beleza, disparei a **limpeza** do cenário **{numero_exibido}/{cenario_nome}** em segundo plano. "
     )
 
 
@@ -634,16 +786,17 @@ def _etapa_aguardando_limpeza(estado, texto):
     dados = estado.dados_coletados
     cenario_id = dados.get('cenario_criado_id')
     cenario_nome = dados.get('cenario_criado_nome')
+    numero_exibido = dados.get('cenario_criado_numero_sequencial', cenario_id)
     cenario = TbCenarios.objects_real.get(id=cenario_id)
 
     if cenario.flag == 2:  # LIMPO
         return _disparar_otimizacao(estado, cenario)
 
     if cenario.flag == 5:  # ainda limpando
-        return f"Ainda limpando o cenário **{cenario_id}/{cenario_nome}**. Clica em \"Verificar\" daqui a pouco."
+        return f"Ainda limpando o cenário **{numero_exibido}/{cenario_nome}**."
 
     _encerrar_fluxo(estado)
-    return f"O status do cenário **{cenario_id}/{cenario_nome}** mudou pra algo inesperado (flag={cenario.flag}) -- melhor conferir manualmente no Admin. Cancelei o acompanhamento automático aqui."
+    return f"O status do cenário **{numero_exibido}/{cenario_nome}** mudou pra algo inesperado (flag={cenario.flag}) -- melhor conferir manualmente no Admin. Cancelei o acompanhamento automático aqui."
 
 
 def _disparar_otimizacao(estado, cenario):
@@ -651,6 +804,7 @@ def _disparar_otimizacao(estado, cenario):
     from .tasks import otimizar_cenario_celery
 
     cenario_id = cenario.id
+    numero_exibido = cenario.numero_sequencial if cenario.numero_sequencial is not None else cenario.id
     cursor = connection.cursor()
     sql = "update parameters_tbcenarios set flag = 4 where id = " + str(cenario_id)
     cursor.execute(sql)
@@ -676,9 +830,8 @@ def _disparar_otimizacao(estado, cenario):
     estado.save()
 
     return (
-        f"Limpeza concluída! Disparei a **otimização** do cenário **{cenario_id}/{cenario.cen_nome}** "
-        f"({total_periodos} período(s)) em segundo plano. Clica em \"Verificar\" daqui a pouco "
-        "que eu confiro o progresso."
+        f"Limpeza concluída! Disparei a **otimização** do cenário **{numero_exibido}/{cenario.cen_nome}** "
+        f"({total_periodos} período(s)) em segundo plano."
     )
 
 
@@ -686,6 +839,7 @@ def _etapa_aguardando_otimizacao(estado, texto):
     dados = estado.dados_coletados
     cenario_id = dados.get('cenario_criado_id')
     cenario_nome = dados.get('cenario_criado_nome')
+    numero_exibido = dados.get('cenario_criado_numero_sequencial', cenario_id)
     total_periodos = dados.get('total_periodos', 0)
 
     # Mesma lógica do botão "Status Otimização" já usado no Admin: conta
@@ -698,16 +852,15 @@ def _etapa_aguardando_otimizacao(estado, texto):
 
     if total_otimizado < total_periodos:
         return (
-            f"Ainda otimizando o cenário **{cenario_id}/{cenario_nome}** "
+            f"Ainda otimizando o cenário **{numero_exibido}/{cenario_nome}** "
             f"({total_otimizado} de {total_periodos} períodos concluídos). "
-            "Clica em \"Verificar\" daqui a pouco."
         )
 
     cenario = TbCenarios.objects_real.get(id=cenario_id)
     if cenario.flag != 3:
         # Todos os períodos já processaram, mas o status geral do cenário
         # ainda não virou "OTIMIZADO" -- dá uma folga e confere de novo.
-        return f"Períodos todos processados, aguardando o cenário fechar como OTIMIZADO. Clica em \"Verificar\" em instantes."
+        return f"Períodos todos processados, aguardando o cenário fechar como OTIMIZADO."
 
     from django.db import connection
     from .tasks import consolidar_cenario_celery
@@ -721,8 +874,8 @@ def _etapa_aguardando_otimizacao(estado, texto):
     estado.etapa_atual = 'aguardando_consolidacao'
     estado.save()
     return (
-        f"Otimização concluída! Disparei a **consolidação** do cenário **{cenario_id}/{cenario_nome}** "
-        "em segundo plano. Clica em \"Verificar\" daqui a pouco."
+        f"Otimização concluída! Disparei a **consolidação** do cenário **{numero_exibido}/{cenario_nome}** "
+        "em segundo plano."
     )
 
 
@@ -730,20 +883,21 @@ def _etapa_aguardando_consolidacao(estado, texto):
     dados = estado.dados_coletados
     cenario_id = dados.get('cenario_criado_id')
     cenario_nome = dados.get('cenario_criado_nome')
+    numero_exibido = dados.get('cenario_criado_numero_sequencial', cenario_id)
     cenario = TbCenarios.objects_real.get(id=cenario_id)
 
     if cenario.flag == 1:  # CONSOLIDADO
         resposta = _montar_tabela_comparacao(cenario_id, dados.get('cen_copiar_de_id'))
         _encerrar_fluxo(estado)
         return (
-            f"✅ Cenário **{cenario_id}/{cenario_nome}** consolidado! Ciclo completo.\n\n{resposta}"
+            f"✅ Cenário **{numero_exibido}/{cenario_nome}** consolidado! Ciclo completo.\n\n{resposta}"
         )
 
     if cenario.flag == 6:  # ainda consolidando
-        return f"Ainda consolidando o cenário **{cenario_id}/{cenario_nome}**. Clica em \"Verificar\" daqui a pouco."
+        return f"Ainda consolidando o cenário **{numero_exibido}/{cenario_nome}**."
 
     _encerrar_fluxo(estado)
-    return f"O status do cenário **{cenario_id}/{cenario_nome}** mudou pra algo inesperado (flag={cenario.flag}) -- melhor conferir manualmente no Admin."
+    return f"O status do cenário **{numero_exibido}/{cenario_nome}** mudou pra algo inesperado (flag={cenario.flag}) -- melhor conferir manualmente no Admin."
 
 
 # ---------------------------------------------------------------------
@@ -787,11 +941,12 @@ def _montar_tabela_comparacao(cenario_novo_id, cenario_origem_id):
 
 
 def _montar_resumo(dados):
+    numero_origem = dados.get('cen_copiar_de_numero_sequencial', dados.get('cen_copiar_de_id'))
     linhas = [
         "Resumo do cenário a criar:",
         f"- Nome: {dados.get('cen_nome')}",
         f"- Descrição: {dados.get('cen_descricao')}",
-        f"- Copiar de: {dados.get('cen_copiar_de_id')}/{dados.get('cen_copiar_de_nome')}",
+        f"- Copiar de: {numero_origem}/{dados.get('cen_copiar_de_nome')}",
         f"- Grupo: {dados.get('cen_grupo_nome') or 'nenhum'}",
     ]
     return "\n".join(linhas)
@@ -1009,9 +1164,8 @@ def _etapa_mudar_confirmar(estado, texto, cenario):
     estado.save()
     return (
         f"Cenário atualizado! Como o período mudou, disparei em segundo plano o ajuste "
-        f"das tabelas filhas do cenário **{cenario.id}/{cenario.cen_nome}** (criar os "
-        "períodos que faltam ou remover os que sobraram). Clica em \"Verificar\" "
-        "daqui a pouco que eu confiro se já terminou."
+        f"das tabelas filhas do cenário **{cenario.numero_sequencial if cenario.numero_sequencial is not None else cenario.id}/{cenario.cen_nome}** (criar os "
+        "períodos que faltam ou remover os que sobraram)."
     )
 
 
@@ -1038,34 +1192,33 @@ def _buscar_task_verifica_filhas(desde_iso):
 def _etapa_aguardando_verificacao_filhas(estado, texto, cenario):
     dados = estado.dados_coletados
     momento_mudanca = dados.get('momento_mudanca')
+    numero_exibido_mudar = cenario.numero_sequencial if cenario.numero_sequencial is not None else cenario.id
 
     task = _buscar_task_verifica_filhas(momento_mudanca)
     if task is None:
         return (
             "Ainda não encontrei o registro do ajuste das tabelas filhas -- pode ser que "
-            "ainda não tenha começado. Clica em \"Verificar\" em alguns segundos que "
-            "eu confiro de novo."
+            "ainda não tenha começado."
         )
 
     if task.status == 'SUCCESS':
         _encerrar_fluxo(estado)
         return (
-            f"✅ Ajuste das tabelas filhas do cenário **{cenario.id}/{cenario.cen_nome}** concluído! "
+            f"✅ Ajuste das tabelas filhas do cenário **{numero_exibido_mudar}/{cenario.cen_nome}** concluído! "
             f"Tipo **{dados['tipo_novo']}**, período **{dados['inicio_novo']}** a **{dados['fim_novo']}**."
         )
 
     if task.status == 'FAILURE':
         _encerrar_fluxo(estado)
         return (
-            f"❌ O ajuste das tabelas filhas do cenário {cenario.id}/{cenario.cen_nome} falhou "
+            f"❌ O ajuste das tabelas filhas do cenário {numero_exibido_mudar}/{cenario.cen_nome} falhou "
             "-- o tipo/período já foram salvos, mas vale conferir manualmente no Admin se as "
             "filhas ficaram consistentes."
         )
 
     # PENDING, STARTED, RETRY, etc. -- ainda rodando
     return (
-        f"Ainda ajustando as tabelas filhas do cenário {cenario.id}/{cenario.cen_nome} "
-        f"(status atual: {task.status}). Clica em \"Verificar\" daqui a pouco."
+        f"Ainda ajustando as tabelas filhas do cenário {numero_exibido_mudar}/{cenario.cen_nome}. "
     )
 
 
@@ -1284,6 +1437,480 @@ def _gerar_planilha_periodos(cenario, tabela_mae_id, tabela_daugther_model, tipo
     wb.close()
 
     return f"{settings.MEDIA_URL}planilhas_temp/{nome_arquivo}"
+
+
+def _salvar_planilha_otimizacao(wb, sufixo, cenario_id):
+    """
+    🌟 NOVO: salva uma planilha de resultados de otimização em
+    MEDIA_ROOT/relatorios_temp, devolvendo o caminho completo (pra
+    anexar num e-mail, se pedido) e a URL pra baixar pelo chat -- mesmo
+    padrão de pasta usado em iniciar_exportar_excel_cenario_ativo.
+    """
+    import os
+    from django.conf import settings
+
+    pasta = os.path.join(settings.MEDIA_ROOT, 'relatorios_temp')
+    os.makedirs(pasta, exist_ok=True)
+    nome_arquivo = f"otimizacao_{sufixo}_{cenario_id}.xlsx"
+    caminho_completo = os.path.join(pasta, nome_arquivo)
+    wb.save(caminho_completo)
+    wb.close()
+    return caminho_completo, f"{settings.MEDIA_URL}relatorios_temp/{nome_arquivo}", nome_arquivo
+
+
+def _tipo_periodo_exibicao(cenario):
+    if cenario.cen_tipo == 'Anual':
+        return str(_('Ano'))
+    elif cenario.cen_tipo == 'Trimestral':
+        return str(_('Ano/Trimestre'))
+    return str(_('Ano/Mês'))
+
+
+def _exportar_dados_otimizacao_produto(cenario):
+    """
+    🌟 NOVO: replica TbOtimizacaoProdutoAdmin.exportar_excel
+    (otimizacao/admin.py), escopado ao cenário ativo do usuário --
+    TODOS os registros da tabela mãe desse cenário, sem precisar
+    selecionar na tela do Admin -- com cabeçalhos traduzidos.
+    """
+    from otimizacao.models import TbOtimizacaoProduto, TbOtimizacaoProdutoDaugther
+    from produtos.models import TbProdutos
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+
+    lista_id_maes = list(TbOtimizacaoProduto.objects.filter(tbcenarios_id=cenario.id, flag=True).values_list('id', flat=True))
+    filhas = TbOtimizacaoProdutoDaugther.objects.filter(mae_id__in=lista_id_maes).order_by('mae_id', 'dau_order')
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = str(_('Resultados'))[:31]
+    ws.append([f"{_('RESULTADOS OTIMIZAÇÃO: PRODUTO')} / {_('CENÁRIO')} {cenario.id} / {cenario.cen_nome}"])
+    ws['A1'].font = Font(bold=True)
+
+    tipo_periodo = _tipo_periodo_exibicao(cenario)
+    ws.append([tipo_periodo, str(_('Produto')), str(_('Vol. Mínimo')), str(_('Vol. Máximo')), str(_('Vendas')),
+               str(_('Preço')), str(_('Custo Variável')), str(_('Margem Contribuição')), str(_('Margem (%)')),
+               str(_('Margem Horária'))])
+    for cel in ws[2]:
+        cel.font = Font(bold=True)
+
+    cache_nome_produto = {}
+    for f in filhas:
+        if f.mae_id not in cache_nome_produto:
+            id_produto = TbOtimizacaoProduto.objects.get(id=f.mae_id).oti_pro_produto_id
+            cache_nome_produto[f.mae_id] = TbProdutos.objects.get(id=id_produto).pro_codigo
+        nome_produto = cache_nome_produto[f.mae_id]
+
+        preco = f.dau_valor_5 or 0
+        custo_variavel = f.dau_valor_6 or 0
+        margem_contrib = preco - custo_variavel
+        margem_pct = round(margem_contrib * 100 / preco, 2) if preco else 0
+
+        ws.append([_dau_order_para_periodo(cenario, f.dau_order), nome_produto, f.dau_valor_1, f.dau_valor_2,
+                   f.dau_valor_3, preco, custo_variavel, margem_contrib, margem_pct, f.dau_valor_7])
+
+    return _salvar_planilha_otimizacao(wb, 'produto', cenario.id)
+
+
+def _exportar_dados_otimizacao_produto_mercado(cenario):
+    """🌟 NOVO: replica TbProdutoMercadoAdmin.exportar_excel."""
+    from otimizacao.models import TbProdutoMercado, TbProdutoMercadoDaugther
+    from produtos.models import TbProdutos
+    from tabelas.models import TbMercado
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+
+    lista_id_maes = list(TbProdutoMercado.objects.filter(tbcenarios_id=cenario.id, flag=True).values_list('id', flat=True))
+    filhas = TbProdutoMercadoDaugther.objects.filter(mae_id__in=lista_id_maes).order_by('mae_id', 'dau_order')
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = str(_('Resultados'))[:31]
+    ws.append([f"{_('RESULTADOS OTIMIZAÇÃO: PRODUTO-MERCADO')} / {_('CENÁRIO')} {cenario.id} / {cenario.cen_nome}"])
+    ws['A1'].font = Font(bold=True)
+
+    tipo_periodo = _tipo_periodo_exibicao(cenario)
+    ws.append([tipo_periodo, str(_('Produto')), str(_('Mercado')), str(_('Vol. Mínimo')), str(_('Vol. Máximo')),
+               str(_('Vendas')), str(_('Preço')), str(_('Custo Variável')), str(_('Margem Contribuição')),
+               str(_('Margem (%)')), str(_('Margem Horária'))])
+    for cel in ws[2]:
+        cel.font = Font(bold=True)
+
+    cache_nomes = {}
+    for f in filhas:
+        if f.mae_id not in cache_nomes:
+            registro_mae = TbProdutoMercado.objects.get(id=f.mae_id)
+            nome_produto = TbProdutos.objects.get(id=registro_mae.pro_mer_produto_id).pro_codigo
+            nome_mercado = TbMercado.objects.get(id=registro_mae.pro_mer_mercado_id).mer_nome
+            cache_nomes[f.mae_id] = (nome_produto, nome_mercado)
+        nome_produto, nome_mercado = cache_nomes[f.mae_id]
+
+        preco = f.dau_valor_5 or 0
+        custo_variavel = f.dau_valor_6 or 0
+        margem_contrib = preco - custo_variavel
+        margem_pct = round(margem_contrib * 100 / preco, 2) if preco else 0
+
+        ws.append([_dau_order_para_periodo(cenario, f.dau_order), nome_produto, nome_mercado, f.dau_valor_1,
+                   f.dau_valor_2, f.dau_valor_3, preco, custo_variavel, margem_contrib, margem_pct, f.dau_valor_7])
+
+    return _salvar_planilha_otimizacao(wb, 'produto_mercado', cenario.id)
+
+
+def _exportar_dados_otimizacao_produto_mercado_fluxo(cenario):
+    """
+    🌟 NOVO: replica TbProdutoMercadoFluxoAdmin.exportar_excel -- a mais
+    pesada das 6, já que a margem horária e o equipamento responsável
+    por ela vêm de 2 chamadas de procedure por linha
+    (gargalo_produtividade_fluxo_producao_order_valor/_equipamento).
+    Guarda um cache por (id_fluxo, dau_order) pra não repetir a mesma
+    chamada de procedure quando mais de uma combinação produto/mercado
+    usa o mesmo fluxo no mesmo período.
+    """
+    from otimizacao.models import TbProdutoMercadoFluxo, TbProdutoMercadoFluxoDaugther
+    from produtos.models import TbProdutos, TbProdutoMercadoPreco, TbProdutoMercadoPrecoDaugther
+    from tabelas.models import TbMercado, TbEquacaoAjustePreco
+    from fluxos.models import TbFluxoProducao
+    from django.db import connection
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+
+    lista_id_maes = list(TbProdutoMercadoFluxo.objects.filter(tbcenarios_id=cenario.id, flag=True).values_list('id', flat=True))
+    filhas = TbProdutoMercadoFluxoDaugther.objects.filter(mae_id__in=lista_id_maes).order_by('mae_id', 'dau_order')
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = str(_('Resultados'))[:31]
+    ws.append([f"{_('RESULTADOS OTIMIZAÇÃO: PRODUTO-MERCADO-FLUXO DE PRODUÇÃO')} / {_('CENÁRIO')} {cenario.id} / {cenario.cen_nome}"])
+    ws['A1'].font = Font(bold=True)
+
+    tipo_periodo = _tipo_periodo_exibicao(cenario)
+    ws.append([tipo_periodo, str(_('Produto')), str(_('Mercado')), str(_('Preço Comercial')), str(_('Unidade')),
+               str(_('Fluxo de Produção')), str(_('Fluxo Running')), str(_('Equip. Running')), str(_('Vendas')),
+               str(_('Margen Contrib.')), str(_('Margen Horária')), str(_('Equip. Margem Horária')), str(_('Preço')),
+               str(_('Custo Variável')), str(_('Parcela Itens')), str(_('Parcela Inbound')),
+               str(_('Parcela Outbound')), str(_('Parcela Manutenção')), str(_('Total Margem'))])
+    for cel in ws[2]:
+        cel.font = Font(bold=True)
+
+    cache_mae = {}
+    cache_margem_horaria = {}
+    cursor = connection.cursor()
+    try:
+        for f in filhas:
+            if f.mae_id not in cache_mae:
+                registro_mae = TbProdutoMercadoFluxo.objects.get(id=f.mae_id)
+                id_produto = registro_mae.pro_mer_flu_produto_id
+                id_mercado = registro_mae.pro_mer_flu_mercado_id
+                id_fluxo = registro_mae.pro_mer_flu_fluxo_producao_id
+                nome_produto = TbProdutos.objects.get(id=id_produto).pro_codigo
+                nome_mercado = TbMercado.objects.get(id=id_mercado).mer_nome
+                nome_fluxo = TbFluxoProducao.objects.get(id=id_fluxo).flu_pro_descricao
+
+                preco_cadastro = TbProdutoMercadoPreco.objects.get(pro_mer_pre_produto_id=id_produto, pro_mer_pre_mercado_id=id_mercado)
+                if preco_cadastro.pro_mer_pre_equacao_id:
+                    unidade_preco_comercial = TbEquacaoAjustePreco.objects.get(id=preco_cadastro.pro_mer_pre_equacao_id).equ_aju_pre_descricao
+                else:
+                    unidade_preco_comercial = preco_cadastro.pro_mer_pre_moeda
+
+                cache_mae[f.mae_id] = (nome_produto, nome_mercado, nome_fluxo, id_fluxo, preco_cadastro.id, unidade_preco_comercial)
+            nome_produto, nome_mercado, nome_fluxo, id_fluxo, id_preco_cadastro, unidade_preco_comercial = cache_mae[f.mae_id]
+
+            preco_comercial = TbProdutoMercadoPrecoDaugther.objects.filter(mae_id=id_preco_cadastro, dau_order=f.dau_order).values_list('dau_valor_3', flat=True).first()
+
+            chave_margem = (id_fluxo, f.dau_order)
+            if chave_margem not in cache_margem_horaria:
+                cursor.execute(f"call public.gargalo_produtividade_fluxo_producao_order_valor({id_fluxo}, {f.dau_order}, 0)")
+                retorno_valor = cursor.fetchone()[0]
+                cursor.execute(f"call public.gargalo_produtividade_fluxo_producao_order_equipamento({id_fluxo}, {f.dau_order}, '')")
+                retorno_equipamento = cursor.fetchone()[0]
+                cache_margem_horaria[chave_margem] = (retorno_valor, retorno_equipamento)
+            retorno_valor, equipamento_margem_horaria = cache_margem_horaria[chave_margem]
+
+            vendas = f.dau_valor_2 or 0
+            margem_contrib = f.dau_valor_3 or 0
+            margem_horaria = round(retorno_valor * margem_contrib, 2) if retorno_valor and retorno_valor > 0 else 'ND'
+            total_margem = vendas * margem_contrib
+
+            ws.append([_dau_order_para_periodo(cenario, f.dau_order), nome_produto, nome_mercado, preco_comercial,
+                       unidade_preco_comercial, nome_fluxo, f.dau_valor_1, f.dau_valor_7, vendas, margem_contrib,
+                       margem_horaria, equipamento_margem_horaria, f.dau_valor_4, f.dau_valor_5, f.dau_valor_8,
+                       f.dau_valor_9, f.dau_valor_6, f.dau_valor_10, total_margem])
+    finally:
+        cursor.close()
+
+    return _salvar_planilha_otimizacao(wb, 'produto_mercado_fluxo', cenario.id)
+
+
+def _exportar_dados_otimizacao_equipamentos(cenario):
+    """🌟 NOVO: replica TbOtimizacaoEquipamentosAdmin.exportar_excel."""
+    from otimizacao.models import TbOtimizacaoEquipamentos, TbOtimizacaoEquipamentosDaugther
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+
+    lista_id_maes = list(TbOtimizacaoEquipamentos.objects.filter(tbcenarios_id=cenario.id, flag=True).values_list('id', flat=True))
+    filhas = TbOtimizacaoEquipamentosDaugther.objects.filter(mae_id__in=lista_id_maes).order_by('mae_id', 'dau_order')
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = str(_('Resultados'))[:31]
+    ws.append([f"{_('RESULTADOS OTIMIZAÇÃO: EQUIPAMENTOS')} / {_('CENÁRIO')} {cenario.id} / {cenario.cen_nome}"])
+    ws['A1'].font = Font(bold=True)
+
+    tipo_periodo = _tipo_periodo_exibicao(cenario)
+    ws.append([tipo_periodo, str(_('Equipamento')), str(_('Running')), str(_('Produção(volume)')),
+               str(_('Produção(h)')), str(_('Loading Time(h)')), str(_('Ocupação Mínima (%)')),
+               str(_('Ocupação Máxima (%)')), str(_('Ocupação(%)'))])
+    for cel in ws[2]:
+        cel.font = Font(bold=True)
+
+    cache_nome_equipamento = {}
+    linhas = []
+    for f in filhas:
+        if f.mae_id not in cache_nome_equipamento:
+            cache_nome_equipamento[f.mae_id] = str(TbOtimizacaoEquipamentos.objects.get(id=f.mae_id).oti_equ_equipamento)
+        nome_equipamento = cache_nome_equipamento[f.mae_id]
+        linhas.append([_dau_order_para_periodo(cenario, f.dau_order), nome_equipamento, f.dau_valor_1, f.dau_valor_2,
+                        f.dau_valor_6, f.dau_valor_3, f.dau_valor_5, f.dau_valor_7, f.dau_valor_4])
+
+    # Mesma ordenação da versão original: por nome do equipamento
+    for linha in sorted(linhas, key=lambda l: l[1]):
+        ws.append(linha)
+
+    return _salvar_planilha_otimizacao(wb, 'equipamentos', cenario.id)
+
+
+def _exportar_dados_otimizacao_equipamentos_ordem(cenario):
+    """🌟 NOVO: replica TbOtimizacaoEquipamentosOrdemAdmin.exportar_excel."""
+    from otimizacao.models import TbOtimizacaoEquipamentosOrdem, TbOtimizacaoEquipamentosOrdemDaugther
+    from equipamentos.models import TbEquipamentos, TbEquipamentosCadastro
+    from tabelas.models import TbTipoProducao
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+
+    lista_id_maes = list(TbOtimizacaoEquipamentosOrdem.objects.filter(tbcenarios_id=cenario.id, flag=True).values_list('id', flat=True))
+    filhas = TbOtimizacaoEquipamentosOrdemDaugther.objects.filter(mae_id__in=lista_id_maes).order_by('mae_id', 'dau_order')
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = str(_('Resultados'))[:31]
+    ws.append([f"{_('RESULTADOS OTIMIZAÇÃO: EQUIPAMENTOS - ORDEM DE PRODUÇÃO')} / {_('CENÁRIO')} {cenario.id} / {cenario.cen_nome}"])
+    ws['A1'].font = Font(bold=True)
+
+    tipo_periodo = _tipo_periodo_exibicao(cenario)
+    ws.append([tipo_periodo, str(_('Equipamento Código')), str(_('Equipamento Descrição')), str(_('Tipo Produção')),
+               str(_('Equipamento/Planta/Ordem de Produção')), str(_('Produção(volume)')), str(_('Produção(h)')),
+               str(_('WIP(volume)')), str(_('WIP(valor)'))])
+    for cel in ws[2]:
+        cel.font = Font(bold=True)
+
+    cache_mae = {}
+    for f in filhas:
+        if f.mae_id not in cache_mae:
+            registro_mae = TbOtimizacaoEquipamentosOrdem.objects.get(id=f.mae_id)
+            equipamento_id = registro_mae.oti_equ_ord_equipamento_id
+            equipamento_cadastro_id = TbEquipamentos.objects.get(id=equipamento_id).equ_codigo_id
+            cadastro = TbEquipamentosCadastro.objects.get(id=equipamento_cadastro_id)
+            tipo_producao_id = TbEquipamentos.objects.get(id=equipamento_id).equ_tipo_producao_id
+            tipo_producao = TbTipoProducao.objects.get(id=tipo_producao_id).tip_nome
+            nome_equip_planta_ordem = str(registro_mae.oti_equ_ord_equipamento)
+            cache_mae[f.mae_id] = (cadastro.equ_cad_codigo, cadastro.equ_cad_descricao, tipo_producao, nome_equip_planta_ordem)
+        codigo_equipamento, descricao_equipamento, tipo_producao, nome_equip_planta_ordem = cache_mae[f.mae_id]
+
+        ws.append([_dau_order_para_periodo(cenario, f.dau_order), codigo_equipamento, descricao_equipamento,
+                   tipo_producao, nome_equip_planta_ordem, f.dau_valor_1, f.dau_valor_2, f.dau_valor_3, f.dau_valor_4])
+
+    return _salvar_planilha_otimizacao(wb, 'equipamentos_ordem', cenario.id)
+
+
+def _exportar_dados_otimizacao_custo_item(cenario):
+    """
+    🌟 NOVO: replica TbOtimizacaoCustoItemAdmin.exportar_excel -- ÚNICA
+    das 6 com filtro adicional: só inclui linhas (períodos) onde
+    dau_valor_4 ("Ativo") é True, por pedido explícito -- as demais 5
+    trazem todos os períodos, sem esse filtro.
+    """
+    from otimizacao.models import TbOtimizacaoCustoItem, TbOtimizacaoCustoItemDaugther
+    from tabelas.models import TbCustoItemPreco, TbCustoItem, TbUnidadeProducao
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+
+    lista_id_maes = list(TbOtimizacaoCustoItem.objects.filter(tbcenarios_id=cenario.id, flag=True).values_list('id', flat=True))
+    filhas = TbOtimizacaoCustoItemDaugther.objects.filter(mae_id__in=lista_id_maes, dau_valor_4=True).order_by('mae_id', 'dau_order')
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = str(_('Resultados'))[:31]
+    ws.append([f"{_('RESULTADOS OTIMIZAÇÃO: ITENS DE CUSTO - PLANTA DE PRODUÇÃO')} / {_('CENÁRIO')} {cenario.id} / {cenario.cen_nome}"])
+    ws['A1'].font = Font(bold=True)
+
+    tipo_periodo = _tipo_periodo_exibicao(cenario)
+    ws.append([tipo_periodo, str(_('Item de Custo')), str(_('Unidade')), str(_('Planta de Produção')),
+               str(_('Consumo Mínimo')), str(_('Consumo Máximo')), str(_('Consumo Calculado')),
+               str(_('Estoque (Qtde)')), str(_('Estoque (Valor)')), str(_('Ativo'))])
+    for cel in ws[2]:
+        cel.font = Font(bold=True)
+
+    cache_mae = {}
+    for f in filhas:
+        if f.mae_id not in cache_mae:
+            id_custo_item_planta = TbOtimizacaoCustoItem.objects.get(id=f.mae_id).oti_cus_ite_item_id
+            preco_planta = TbCustoItemPreco.objects.get(id=id_custo_item_planta)
+            item = TbCustoItem.objects.get(id=preco_planta.cus_ite_pre_item_id)
+            nome_planta = TbUnidadeProducao.objects.get(id=preco_planta.cus_ite_pre_unidade_producao_id).uni_nome
+            cache_mae[f.mae_id] = (item.cus_ite_nome, item.cus_ite_unidade, nome_planta)
+        nome_custo_item, unidade_custo_item, nome_planta = cache_mae[f.mae_id]
+
+        ws.append([_dau_order_para_periodo(cenario, f.dau_order), nome_custo_item, unidade_custo_item, nome_planta,
+                   f.dau_valor_1, f.dau_valor_2, f.dau_valor_3, f.dau_valor_5, f.dau_valor_6, f.dau_valor_4])
+
+    return _salvar_planilha_otimizacao(wb, 'custo_item', cenario.id)
+
+
+def iniciar_exportar_dados_otimizacao_cenario_ativo(usuario):
+    """
+    🌟 NOVO: dispara, em segundo plano (Celery), a geração das 6
+    planilhas de resultados de otimização do cenário ativo (Produto,
+    Produto-Mercado, Produto-Mercado-Fluxo, Equipamentos, Equipamentos-
+    Ordem, Custo Item) -- mesma estrutura das 6 ações "Exportar Excel"
+    já existentes no Admin do app otimizacao, mas escopadas ao cenário
+    ativo do usuário (todos os registros da tabela mãe, sem precisar
+    selecionar linha por linha) e com cabeçalhos traduzidos.
+
+    🌟 CORRIGIDO: antes gerava tudo de forma síncrona, dentro da própria
+    requisição do chat -- um dos 6 relatórios (Produto-Mercado-Fluxo)
+    chama 2 procedures do banco por linha e pode demorar bastante,
+    arriscando estourar o limite de 30s de processamento por requisição
+    do Heroku. Agora só dispara a tarefa e devolve a resposta na hora;
+    o usuário acompanha com "Verificar", igual ao limpar/otimizar/
+    consolidar.
+    """
+    perfil = getattr(usuario, 'perfilusuario', None)
+    if perfil is None or perfil.cenario_ativo_id is None:
+        return "Você ainda não tem um cenário ativo escolhido. Acesse a tela de Cenários e ative um antes."
+
+    cenario = TbCenarios.objects_real.filter(id=perfil.cenario_ativo_id).first()
+    if cenario is None:
+        return "O cenário que estava ativo pra você não existe mais."
+
+    from .tasks import exportar_dados_otimizacao_celery
+
+    estado = _get_estado(usuario)
+    estado.fluxo_ativo = FLUXO_PROCESSAR  # reaproveita o mesmo "namespace" de fluxo simples
+    estado.etapa_atual = 'exportar_otimizacao_aguardando'
+    estado.dados_coletados = {
+        'cenario_id': cenario.id,
+        'cenario_nome': cenario.cen_nome,
+        'status': 'processando',
+    }
+    estado.save()
+
+    exportar_dados_otimizacao_celery.delay(cenario.id, usuario.id)
+
+    return (
+        f"Comecei a gerar os 6 relatórios de otimização do cenário **{cenario.id}/{cenario.cen_nome}** 📊 "
+        "em segundo plano (alguns podem demorar um pouco)."
+    )
+
+
+def _etapa_exportar_otimizacao_aguardando(estado, texto):
+    """
+    🌟 NOVO: acompanha (via "Verificar") a task exportar_dados_otimizacao_celery
+    disparada por iniciar_exportar_dados_otimizacao_cenario_ativo.
+    """
+    dados = estado.dados_coletados or {}
+    cenario_id = dados.get('cenario_id')
+    cenario_nome = dados.get('cenario_nome', '')
+    status = dados.get('status')
+
+    if status == 'processando':
+        return f"Ainda gerando os relatórios do cenário **{cenario_id}/{cenario_nome}**."
+
+    if status == 'erro':
+        _encerrar_fluxo(estado)
+        return f"Não consegui gerar os relatórios: {dados.get('mensagem', 'erro desconhecido')}."
+
+    if status != 'concluido':
+        _encerrar_fluxo(estado)
+        return "Não consegui identificar o status da geração dos relatórios. Cancelei o acompanhamento -- pode pedir de novo se quiser."
+
+    arquivos = dados.get('arquivos', [])
+    erros = dados.get('erros', [])
+
+    if not arquivos:
+        _encerrar_fluxo(estado)
+        return "Não consegui gerar nenhum dos 6 relatórios de otimização. Detalhes: " + "; ".join(erros)
+
+    estado.etapa_atual = 'exportar_otimizacao_confirmar_email'
+    estado.dados_coletados = {'cenario_id': cenario_id, 'arquivos': arquivos}
+    estado.save()
+
+    linhas_download = "\n".join(f"- **{a['rotulo']}**: [{a['nome_arquivo']}]({a['url']})" for a in arquivos)
+    resposta = f"Prontos os relatórios de otimização do cenário **{cenario_id}/{cenario_nome}** 📊\n\n{linhas_download}\n\n"
+    if erros:
+        resposta += "⚠️ Não consegui gerar: " + "; ".join(erros) + "\n\n"
+    resposta += "Quer que eu envie esses arquivos também por e-mail pro seu e-mail cadastrado? (sim/não)"
+    return resposta
+
+
+def _etapa_exportar_otimizacao_confirmar_email(estado, texto):
+    """
+    🌟 NOVO: trata a resposta sim/não do usuário sobre receber os 6
+    relatórios de otimização por e-mail (etapa
+    'exportar_otimizacao_confirmar_email' dentro de FLUXO_PROCESSAR).
+
+    🌟 CORRIGIDO: o envio em si (6 anexos por SMTP) estava passando de
+    30s, arriscando estourar o limite de processamento por requisição
+    do Heroku -- agora só DISPARA o envio em segundo plano (Celery) e
+    devolve a resposta na hora; o usuário acompanha com "Verificar",
+    igual à geração dos relatórios.
+    """
+    usuario = estado.usuario
+    texto = (texto or '').strip().lower()
+    dados = estado.dados_coletados or {}
+    arquivos = dados.get('arquivos', [])
+
+    if re.search(r'\bsim\b|\bpode\b|\bmanda\b|\benvia\b', texto):
+        email_usuario = (usuario.email or '').strip()
+        if not email_usuario:
+            _encerrar_fluxo(estado)
+            return "Você não tem um e-mail cadastrado no seu usuário do sistema, então não consigo enviar. Os arquivos continuam disponíveis pra download nas mensagens acima."
+
+        from .tasks import enviar_email_relatorios_otimizacao_celery
+
+        estado.etapa_atual = 'exportar_otimizacao_aguardando_email'
+        estado.dados_coletados = {**dados, 'status_email': 'enviando'}
+        estado.save()
+
+        enviar_email_relatorios_otimizacao_celery.delay(usuario.id, arquivos)
+
+        return f"Começando a enviar os {len(arquivos)} arquivo(s) pro seu e-mail ({email_usuario}) em segundo plano."
+
+    if re.search(r'\bnão\b|\bnao\b|\bcancel', texto):
+        _encerrar_fluxo(estado)
+        return "Combinado, não vou enviar por e-mail. Os arquivos continuam disponíveis pra download nas mensagens acima."
+
+    return "Não entendi -- quer que eu envie os relatórios por e-mail? Responde **sim** ou **não**."
+
+
+def _etapa_exportar_otimizacao_aguardando_email(estado, texto):
+    """
+    🌟 NOVO: acompanha (via "Verificar") a task
+    enviar_email_relatorios_otimizacao_celery disparada por
+    _etapa_exportar_otimizacao_confirmar_email.
+    """
+    dados = estado.dados_coletados or {}
+    status_email = dados.get('status_email')
+
+    if status_email == 'enviando':
+        return "Ainda enviando o e-mail com os relatórios."
+
+    _encerrar_fluxo(estado)
+
+    if status_email == 'enviado':
+        return f"Prontinho! Mandei os relatórios pro seu e-mail ({dados.get('email_usuario', '')})."
+    if status_email == 'erro':
+        return f"Não consegui enviar o e-mail: {dados.get('mensagem', 'erro desconhecido')}. Os arquivos continuam disponíveis pra download nas mensagens acima."
+    return "Não consegui identificar o status do envio. Cancelei o acompanhamento -- os arquivos continuam disponíveis pra download nas mensagens acima."
 
 
 def iniciar_exportar_excel_cenario_ativo(usuario):
@@ -3184,7 +3811,7 @@ def iniciar_consulta_status(usuario, mensagem=""):
     if cenario.flag in FLAGS_OPERACAO_EM_ANDAMENTO:
         return (
             f"O cenário **{cenario.id}/{cenario.cen_nome}** está: **{status_atual}** "
-            "(operação em andamento). Clica em \"Verificar\" daqui a pouco pra conferir se já terminou."
+            "(operação em andamento)."
         )
 
     if cenario.flag == 2:  # LIMPO
@@ -3271,11 +3898,10 @@ def _disparar_ciclo_completo(usuario, cenario):
 
     return (
         f"Disparei o **ciclo completo** (limpar → otimizar → consolidar) do cenário "
-        f"**{cenario_id}/{cenario.cen_nome}** 🔁 -- diferente do modo de ação única, aqui eu não "
+        f"**{cenario.numero_sequencial if cenario.numero_sequencial is not None else cenario.id}/{cenario.cen_nome}** 🔁 -- diferente do modo de ação única, aqui eu não "
         "vou perguntar \"sim/não\" a cada etapa: assim que uma etapa terminar, a próxima já dispara "
-        "sozinha. Mas eu só fico sabendo que uma etapa terminou quando você manda alguma mensagem "
-        "(tipo clicar em \"Verificar\") -- não tem como eu avisar sozinho aqui no chat sem você "
-        "interagir. Então é só ir clicando em \"Verificar\" de tempos em tempos até o ciclo terminar."
+        "sozinha, e eu vou acompanhando o andamento sozinho em segundo plano -- não precisa clicar "
+        "em nada, só clique em \"Cancelar\" se quiser interromper o acompanhamento."
     )
 
 
@@ -3292,7 +3918,7 @@ def _etapa_proc_ciclo_aguardando_limpeza(estado, texto):
         return _disparar_otimizacao_ciclo(estado.usuario, cenario)
 
     if cenario.flag == 5:
-        return f"Ainda limpando o cenário **{cenario_id}/{cenario_nome}**. Clica em \"Verificar\" daqui a pouco."
+        return f"Ainda limpando o cenário **{cenario_id}/{cenario_nome}**."
 
     _encerrar_fluxo(estado)
     return f"O status do cenário **{cenario_id}/{cenario_nome}** mudou pra algo inesperado (flag={cenario.flag}) durante a limpeza -- melhor conferir manualmente no Admin. Cancelei o ciclo aqui."
@@ -3330,7 +3956,6 @@ def _disparar_otimizacao_ciclo(usuario, cenario):
     return (
         f"Limpeza concluída! Disparei a **otimização** do cenário "
         f"**{cenario_id}/{cenario.cen_nome}** ({total_periodos} período(s)) em segundo plano. "
-        "Clica em \"Verificar\" quando quiser conferir o progresso."
     )
 
 
@@ -3348,7 +3973,7 @@ def _etapa_proc_ciclo_aguardando_otimizacao(estado, texto):
     if total_otimizado < total_periodos:
         return (
             f"Ainda otimizando o cenário **{cenario_id}/{cenario_nome}** "
-            f"({total_otimizado} de {total_periodos} período(s) concluídos). Clica em \"Verificar\" daqui a pouco."
+            f"({total_otimizado} de {total_periodos} período(s) concluídos)."
         )
 
     cenario = TbCenarios.objects_real.filter(id=cenario_id).first()
@@ -3357,7 +3982,7 @@ def _etapa_proc_ciclo_aguardando_otimizacao(estado, texto):
         return f"O cenário {cenario_id}/{cenario_nome} não existe mais. Cancelei o acompanhamento."
 
     if cenario.flag != 3:
-        return "Períodos todos processados, aguardando o cenário fechar como OTIMIZADO. Clica em \"Verificar\" em instantes."
+        return "Períodos todos processados, aguardando o cenário fechar como OTIMIZADO."
 
     return _disparar_consolidacao_ciclo(estado.usuario, cenario)
 
@@ -3381,7 +4006,7 @@ def _disparar_consolidacao_ciclo(usuario, cenario):
 
     return (
         f"Otimização concluída! Disparei a **consolidação** do cenário "
-        f"**{cenario_id}/{cenario.cen_nome}** em segundo plano. Clica em \"Verificar\" quando quiser conferir se já terminou."
+        f"**{cenario_id}/{cenario.cen_nome}** em segundo plano."
     )
 
 
@@ -3399,7 +4024,7 @@ def _etapa_proc_ciclo_aguardando_consolidacao(estado, texto):
         return f"✅ Ciclo completo! Cenário **{cenario_id}/{cenario_nome}** limpo, otimizado, e consolidado."
 
     if cenario.flag == 6:
-        return f"Ainda consolidando o cenário **{cenario_id}/{cenario_nome}**. Clica em \"Verificar\" daqui a pouco."
+        return f"Ainda consolidando o cenário **{cenario_id}/{cenario_nome}**."
 
     _encerrar_fluxo(estado)
     return f"O status do cenário **{cenario_id}/{cenario_nome}** mudou pra algo inesperado (flag={cenario.flag}) durante a consolidação -- melhor conferir manualmente no Admin."
@@ -3520,7 +4145,6 @@ def _disparar_limpeza_standalone(usuario, cenario):
 
     return (
         f"Disparei a **limpeza** do cenário **{cenario_id}/{cenario.cen_nome}** em segundo plano. "
-        "Clica em \"Verificar\" quando quiser conferir se já terminou."
     )
 
 
@@ -3539,7 +4163,7 @@ def _etapa_proc_aguardando_limpeza(estado, texto):
         return f"✅ Cenário **{cenario_id}/{cenario_nome}** limpo! Quer que eu já dispare a **otimização**? (sim / não)"
 
     if cenario.flag == 5:  # ainda limpando
-        return f"Ainda limpando o cenário **{cenario_id}/{cenario_nome}**. Clica em \"Verificar\" daqui a pouco."
+        return f"Ainda limpando o cenário **{cenario_id}/{cenario_nome}**."
 
     _encerrar_fluxo(estado)
     return f"O status do cenário **{cenario_id}/{cenario_nome}** mudou pra algo inesperado (flag={cenario.flag}) -- melhor conferir manualmente no Admin. Cancelei o acompanhamento automático aqui."
@@ -3594,7 +4218,7 @@ def _disparar_otimizacao_standalone(usuario, cenario):
 
     return (
         f"Disparei a **otimização** do cenário **{cenario_id}/{cenario.cen_nome}** "
-        f"({total_periodos} período(s)) em segundo plano. Clica em \"Verificar\" quando quiser conferir o progresso."
+        f"({total_periodos} período(s)) em segundo plano."
     )
 
 
@@ -3613,7 +4237,6 @@ def _etapa_proc_aguardando_otimizacao(estado, texto):
         return (
             f"Ainda otimizando o cenário **{cenario_id}/{cenario_nome}** "
             f"({total_otimizado} de {total_periodos} período(s) concluídos). "
-            "Clica em \"Verificar\" daqui a pouco."
         )
 
     cenario = TbCenarios.objects_real.filter(id=cenario_id).first()
@@ -3622,7 +4245,7 @@ def _etapa_proc_aguardando_otimizacao(estado, texto):
         return f"O cenário {cenario_id}/{cenario_nome} não existe mais. Cancelei o acompanhamento."
 
     if cenario.flag != 3:
-        return "Períodos todos processados, aguardando o cenário fechar como OTIMIZADO. Clica em \"Verificar\" em instantes."
+        return "Períodos todos processados, aguardando o cenário fechar como OTIMIZADO."
 
     estado.etapa_atual = 'proc_pos_otimizacao_consolidar'
     estado.save()
@@ -3666,7 +4289,6 @@ def _disparar_consolidacao_standalone(usuario, cenario):
 
     return (
         f"Disparei a **consolidação** do cenário **{cenario_id}/{cenario.cen_nome}** em segundo plano. "
-        "Clica em \"Verificar\" quando quiser conferir se já terminou."
     )
 
 
@@ -3684,7 +4306,7 @@ def _etapa_proc_aguardando_consolidacao(estado, texto):
         return f"✅ Cenário **{cenario_id}/{cenario_nome}** consolidado!"
 
     if cenario.flag == 6:  # ainda consolidando
-        return f"Ainda consolidando o cenário **{cenario_id}/{cenario_nome}**. Clica em \"Verificar\" daqui a pouco."
+        return f"Ainda consolidando o cenário **{cenario_id}/{cenario_nome}**."
 
     _encerrar_fluxo(estado)
     return f"O status do cenário **{cenario_id}/{cenario_nome}** mudou pra algo inesperado (flag={cenario.flag}) -- melhor conferir manualmente no Admin."
@@ -3708,6 +4330,9 @@ _HANDLERS_PROCESSAR = {
     'proc_aguardando_otimizacao': _etapa_proc_aguardando_otimizacao,
     'proc_pos_otimizacao_consolidar': _etapa_proc_pos_otimizacao_consolidar,
     'proc_aguardando_consolidacao': _etapa_proc_aguardando_consolidacao,
+    'exportar_otimizacao_confirmar_email': _etapa_exportar_otimizacao_confirmar_email,
+    'exportar_otimizacao_aguardando': _etapa_exportar_otimizacao_aguardando,
+    'exportar_otimizacao_aguardando_email': _etapa_exportar_otimizacao_aguardando_email,
 }
 
 
@@ -3912,7 +4537,7 @@ def _etapa_cen_excluir_confirmar(estado, texto):
 
     return (
         f"Cenário(s) **{nomes_validos}** sendo excluído(s) em segundo plano. "
-        f"Clica em \"Verificar\" daqui a pouco pra conferir se já terminou.{aviso_invalidos}"
+        f"{aviso_invalidos}"
     )
 
 
@@ -3923,8 +4548,8 @@ def _etapa_cen_excluir_aguardando(estado, texto):
 
     if 'verificar' not in texto.strip().lower():
         return (
-            "Ainda estou de olho na exclusão desses cenários. Clica em \"Verificar\" "
-            "pra conferir o status agora (ou \"cancelar\" pra parar de acompanhar -- a "
+            "Ainda estou de olho na exclusão desses cenários "
+            "(ou digite \"cancelar\" pra parar de acompanhar -- a "
             "exclusão em si continua rodando em segundo plano de qualquer jeito)."
         )
 
@@ -3944,7 +4569,7 @@ def _etapa_cen_excluir_aguardando(estado, texto):
         nomes_prontos = ", ".join(f"{i}/{nomes_excluindo.get(i, '')}" for i in ja_excluidos)
         return (
             f"✅ Já excluído: {nomes_prontos}.\n\n"
-            f"⏳ Ainda em andamento: {nomes_pendentes}. Clica em \"Verificar\" daqui a pouco de novo."
+            f"⏳ Ainda em andamento: {nomes_pendentes}."
         )
 
-    return f"⏳ Ainda excluindo **{nomes_pendentes}**. Clica em \"Verificar\" daqui a pouco de novo."
+    return f"⏳ Ainda excluindo **{nomes_pendentes}**."

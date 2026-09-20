@@ -2536,6 +2536,106 @@ msgstr "文件"
 msgid "Baixar Imagem"
 msgstr "下载图片"
 
+msgid "Mensagem Agente IA"
+msgstr "AI 代理消息"
+
+#, python-format
+msgid "Não foi possível atender a mensagem abaixo do usuário \"%(nome)s (%(username)s)\"."
+msgstr "无法处理用户 \"%(nome)s (%(username)s)\" 的以下消息。"
+
+msgid "Mensagem do usuário:"
+msgstr "用户消息："
+
+msgid "Resposta do agente:"
+msgstr "代理响应："
+
+msgid "Agente processando resposta..."
+msgstr "代理正在处理回复…"
+
+msgid "RESULTADOS OTIMIZAÇÃO: PRODUTO"
+msgstr "优化结果：产品"
+
+msgid "CENÁRIO"
+msgstr "方案"
+
+msgid "Vol. Mínimo"
+msgstr "最小量"
+
+msgid "Vol. Máximo"
+msgstr "最大量"
+
+msgid "Margem Contribuição"
+msgstr "边际贡献"
+
+msgid "Margem (%)"
+msgstr "利润率 (%)"
+
+msgid "RESULTADOS OTIMIZAÇÃO: PRODUTO-MERCADO"
+msgstr "优化结果：产品-市场"
+
+msgid "RESULTADOS OTIMIZAÇÃO: PRODUTO-MERCADO-FLUXO DE PRODUÇÃO"
+msgstr "优化结果：产品-市场-生产流程"
+
+msgid "Preço Comercial"
+msgstr "商业价格"
+
+msgid "Fluxo Running"
+msgstr "流程运行中"
+
+msgid "Equip. Running"
+msgstr "设备运行中"
+
+msgid "Margen Contrib."
+msgstr "边际贡献"
+
+msgid "Margen Horária"
+msgstr "每小时利润"
+
+msgid "Equip. Margem Horária"
+msgstr "设备每小时利润"
+
+msgid "Total Margem"
+msgstr "总利润"
+
+msgid "RESULTADOS OTIMIZAÇÃO: EQUIPAMENTOS"
+msgstr "优化结果：设备"
+
+msgid "Produção(volume)"
+msgstr "产量(数量)"
+
+msgid "Produção(h)"
+msgstr "产量(小时)"
+
+msgid "Ocupação Mínima (%)"
+msgstr "最低占用率 (%)"
+
+msgid "Ocupação Máxima (%)"
+msgstr "最高占用率 (%)"
+
+msgid "RESULTADOS OTIMIZAÇÃO: EQUIPAMENTOS - ORDEM DE PRODUÇÃO"
+msgstr "优化结果：设备-生产订单"
+
+msgid "Equipamento Código"
+msgstr "设备代码"
+
+msgid "Equipamento Descrição"
+msgstr "设备描述"
+
+msgid "Equipamento/Planta/Ordem de Produção"
+msgstr "设备/工厂/生产订单"
+
+msgid "WIP(volume)"
+msgstr "在制品(数量)"
+
+msgid "WIP(valor)"
+msgstr "在制品(价值)"
+
+msgid "RESULTADOS OTIMIZAÇÃO: ITENS DE CUSTO - PLANTA DE PRODUÇÃO"
+msgstr "优化结果：成本项目-生产工厂"
+
+msgid "Exportar Dados de Otimização do Cenário Ativo"
+msgstr "导出当前方案优化数据"
+
 #, python-format
 msgid "Olá %(nome_usuario)s! O que posso fazer por você hoje?"
 msgstr "你好，%(nome_usuario)s！今天我能为您做些什么？"

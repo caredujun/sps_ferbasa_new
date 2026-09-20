@@ -34,6 +34,7 @@ ACOES = [
     ('Cenário', 'ciclo_completo', 'Cenário - Ciclo Completo (Limpar+Otimizar+Consolidar)'),
     ('Cenário', 'excluir', 'Cenário - Excluir'),
     ('Cenário', 'exportar_excel', 'Cenário - Exportar Excel Resultados Financeiros do Cenário Ativo'),
+    ('Cenário', 'exportar_dados_otimizacao', 'Cenário - Exportar Dados de Otimização do Cenário Ativo'),
 ]
 
 

@@ -2536,6 +2536,106 @@ msgstr "Archivo"
 msgid "Baixar Imagem"
 msgstr "Descargar Imagen"
 
+msgid "Mensagem Agente IA"
+msgstr "Mensaje Agente IA"
+
+#, python-format
+msgid "Não foi possível atender a mensagem abaixo do usuário \"%(nome)s (%(username)s)\"."
+msgstr "No fue posible atender el mensaje de abajo del usuario \"%(nome)s (%(username)s)\"."
+
+msgid "Mensagem do usuário:"
+msgstr "Mensaje del usuario:"
+
+msgid "Resposta do agente:"
+msgstr "Respuesta del agente:"
+
+msgid "Agente processando resposta..."
+msgstr "Agente procesando respuesta..."
+
+msgid "RESULTADOS OTIMIZAÇÃO: PRODUTO"
+msgstr "RESULTADOS OPTIMIZACIÓN: PRODUCTO"
+
+msgid "CENÁRIO"
+msgstr "ESCENARIO"
+
+msgid "Vol. Mínimo"
+msgstr "Vol. Mínimo"
+
+msgid "Vol. Máximo"
+msgstr "Vol. Máximo"
+
+msgid "Margem Contribuição"
+msgstr "Margen de Contribución"
+
+msgid "Margem (%)"
+msgstr "Margen (%)"
+
+msgid "RESULTADOS OTIMIZAÇÃO: PRODUTO-MERCADO"
+msgstr "RESULTADOS OPTIMIZACIÓN: PRODUCTO-MERCADO"
+
+msgid "RESULTADOS OTIMIZAÇÃO: PRODUTO-MERCADO-FLUXO DE PRODUÇÃO"
+msgstr "RESULTADOS OPTIMIZACIÓN: PRODUCTO-MERCADO-FLUJO DE PRODUCCIÓN"
+
+msgid "Preço Comercial"
+msgstr "Precio Comercial"
+
+msgid "Fluxo Running"
+msgstr "Flujo en Ejecución"
+
+msgid "Equip. Running"
+msgstr "Equipo en Ejecución"
+
+msgid "Margen Contrib."
+msgstr "Margen Contrib."
+
+msgid "Margen Horária"
+msgstr "Margen Horario"
+
+msgid "Equip. Margem Horária"
+msgstr "Equipo Margen Horario"
+
+msgid "Total Margem"
+msgstr "Margen Total"
+
+msgid "RESULTADOS OTIMIZAÇÃO: EQUIPAMENTOS"
+msgstr "RESULTADOS OPTIMIZACIÓN: EQUIPOS"
+
+msgid "Produção(volume)"
+msgstr "Producción(volumen)"
+
+msgid "Produção(h)"
+msgstr "Producción(h)"
+
+msgid "Ocupação Mínima (%)"
+msgstr "Ocupación Mínima (%)"
+
+msgid "Ocupação Máxima (%)"
+msgstr "Ocupación Máxima (%)"
+
+msgid "RESULTADOS OTIMIZAÇÃO: EQUIPAMENTOS - ORDEM DE PRODUÇÃO"
+msgstr "RESULTADOS OPTIMIZACIÓN: EQUIPOS - ORDEN DE PRODUCCIÓN"
+
+msgid "Equipamento Código"
+msgstr "Código Equipo"
+
+msgid "Equipamento Descrição"
+msgstr "Descripción Equipo"
+
+msgid "Equipamento/Planta/Ordem de Produção"
+msgstr "Equipo/Planta/Orden de Producción"
+
+msgid "WIP(volume)"
+msgstr "WIP(volumen)"
+
+msgid "WIP(valor)"
+msgstr "WIP(valor)"
+
+msgid "RESULTADOS OTIMIZAÇÃO: ITENS DE CUSTO - PLANTA DE PRODUÇÃO"
+msgstr "RESULTADOS OPTIMIZACIÓN: ÍTEMS DE COSTO - PLANTA DE PRODUCCIÓN"
+
+msgid "Exportar Dados de Otimização do Cenário Ativo"
+msgstr "Exportar Datos de Optimización del Escenario Activo"
+
 #, python-format
 msgid "Olá %(nome_usuario)s! O que posso fazer por você hoje?"
 msgstr "¡Hola %(nome_usuario)s! ¿Qué puedo hacer por ti hoy?"

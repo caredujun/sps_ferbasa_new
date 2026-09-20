@@ -976,3 +976,118 @@ def consolidar_cenario_celery(self, id_cenario):
     cursor.execute(sql)
 
     cursor.close()
+
+
+@shared_task(bind=True)
+def exportar_dados_otimizacao_celery(self, cenario_id, usuario_id):
+    """
+    🌟 NOVO: gera, em segundo plano, os 6 relatórios de otimização
+    (Produto, Produto-Mercado, Produto-Mercado-Fluxo, Equipamentos,
+    Equipamentos-Ordem, Custo Item) do cenário informado -- rodar isso
+    de forma síncrona dentro da requisição do chat arriscava estourar o
+    limite de 30s de processamento por requisição do Heroku (o
+    Produto-Mercado-Fluxo em especial, que chama 2 procedures do banco
+    por linha). O resultado (links de download ou erro) fica gravado no
+    EstadoConversaAgente do usuário, que o "Verificar" do chat consulta.
+    """
+    from django.contrib.auth import get_user_model
+    from .models import EstadoConversaAgente, TbCenarios
+    from .fluxo_criar_cenario import (
+        _exportar_dados_otimizacao_produto, _exportar_dados_otimizacao_produto_mercado,
+        _exportar_dados_otimizacao_produto_mercado_fluxo, _exportar_dados_otimizacao_equipamentos,
+        _exportar_dados_otimizacao_equipamentos_ordem, _exportar_dados_otimizacao_custo_item,
+    )
+
+    UserModel = get_user_model()
+    estado = EstadoConversaAgente.objects.filter(usuario_id=usuario_id).first()
+    if estado is None:
+        return  # usuário cancelou/saiu do fluxo antes da task começar -- nada a fazer
+
+    cenario = TbCenarios.objects_real.filter(id=cenario_id).first()
+    if cenario is None:
+        estado.dados_coletados = {**estado.dados_coletados, 'status': 'erro', 'mensagem': 'O cenário não existe mais.'}
+        estado.save()
+        return
+
+    geradores = [
+        ('Produto', _exportar_dados_otimizacao_produto),
+        ('Produto-Mercado', _exportar_dados_otimizacao_produto_mercado),
+        ('Produto-Mercado-Fluxo', _exportar_dados_otimizacao_produto_mercado_fluxo),
+        ('Equipamentos', _exportar_dados_otimizacao_equipamentos),
+        ('Equipamentos-Ordem', _exportar_dados_otimizacao_equipamentos_ordem),
+        ('Custo Item', _exportar_dados_otimizacao_custo_item),
+    ]
+
+    arquivos_gerados = []
+    erros = []
+    for rotulo, funcao_geradora in geradores:
+        try:
+            caminho_completo, url, nome_arquivo = funcao_geradora(cenario)
+            arquivos_gerados.append({'rotulo': rotulo, 'caminho': caminho_completo, 'url': url, 'nome_arquivo': nome_arquivo})
+        except Exception as erro_geracao:
+            erros.append(f"{rotulo}: {erro_geracao}")
+
+    # Recarrega o estado (pode ter mudado entre o início da task e agora,
+    # já que ela roda em segundo plano) antes de gravar o resultado.
+    estado = EstadoConversaAgente.objects.filter(usuario_id=usuario_id).first()
+    if estado is None or estado.dados_coletados.get('cenario_id') != cenario_id:
+        return  # usuário já cancelou ou começou outro fluxo -- não sobrescreve
+
+    estado.dados_coletados = {
+        **estado.dados_coletados,
+        'status': 'concluido',
+        'arquivos': arquivos_gerados,
+        'erros': erros,
+    }
+    estado.save()
+
+
+@shared_task(bind=True)
+def enviar_email_relatorios_otimizacao_celery(self, usuario_id, arquivos):
+    """
+    🌟 NOVO: envia, em segundo plano, os relatórios de otimização já
+    gerados (por exportar_dados_otimizacao_celery) como anexo por
+    e-mail -- rodar isso de forma síncrona dentro da requisição do chat
+    também arriscava estourar o limite de 30s do Heroku (6 anexos por
+    SMTP pode demorar). O resultado (sucesso ou erro) fica gravado no
+    EstadoConversaAgente do usuário, que o "Verificar" do chat consulta.
+    `arquivos` é a mesma lista de dicts {'rotulo', 'caminho',
+    'nome_arquivo', ...} salva no dados_coletados pela etapa anterior.
+    """
+    from django.contrib.auth import get_user_model
+    from django.core.mail import EmailMessage
+    from .models import EstadoConversaAgente
+
+    UserModel = get_user_model()
+    usuario = UserModel.objects.filter(id=usuario_id).first()
+    if usuario is None:
+        return
+
+    email_usuario = (usuario.email or '').strip()
+
+    def _gravar_resultado(status_email, extra=None):
+        estado = EstadoConversaAgente.objects.filter(usuario_id=usuario_id).first()
+        if estado is None or estado.dados_coletados.get('status_email') != 'enviando':
+            return  # usuário já cancelou ou começou outro fluxo -- não sobrescreve
+        estado.dados_coletados = {**estado.dados_coletados, 'status_email': status_email, **(extra or {})}
+        estado.save()
+
+    if not email_usuario:
+        _gravar_resultado('erro', {'mensagem': 'usuário sem e-mail cadastrado'})
+        return
+
+    try:
+        mail = EmailMessage(
+            subject="Relatórios de Otimização - Sistema SPS",
+            from_email=None,
+            to=[email_usuario],
+            body="Segue em anexo os relatórios de otimização do cenário solicitados pelo chat do Agente IA.",
+        )
+        for arquivo in arquivos:
+            with open(arquivo['caminho'], 'rb') as f:
+                mail.attach(filename=arquivo['nome_arquivo'], content=f.read(),
+                            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        mail.send(fail_silently=False)
+        _gravar_resultado('enviado', {'email_usuario': email_usuario})
+    except Exception as erro_envio:
+        _gravar_resultado('erro', {'mensagem': str(erro_envio)})

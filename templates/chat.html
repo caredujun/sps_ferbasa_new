@@ -19,6 +19,22 @@
         h2 { border-bottom: 2px solid #eee; padding-bottom: 10px; }
         #chat-box { border: 1px solid #e0e0e0; height: 480px; overflow-y: auto; padding: 15px; background: #fafafa; border-radius: 6px; margin-bottom: 15px; }
         .chat-box-p { margin: 12px 0; line-height: 1.6; font-size: 14px; word-break: break-word; text-align: left; }
+        /* 🌟 NOVO: barra de progresso pra etapas que aguardam o Celery --
+           substitui o texto repetido de "ainda processando" por um
+           indicador visual, atualizado no lugar em vez de empilhar
+           mensagens novas a cada sondagem automática. */
+        .progresso-container { margin: 12px 0; padding: 10px 12px; background: #f0f4f8; border-radius: 8px; border: 1px solid #dbe4ee; }
+        .progresso-status { font-size: 13px; color: #444; margin-bottom: 6px; }
+        .progresso-barra-fundo { width: 100%; height: 8px; background: #dde5ee; border-radius: 4px; overflow: hidden; }
+        .progresso-barra-preenchimento { height: 100%; background: #0056b3; border-radius: 4px; transition: width 0.6s ease; }
+        .progresso-indeterminado .progresso-barra-preenchimento {
+            width: 40% !important;
+            animation: progresso-desliza 1.4s ease-in-out infinite;
+        }
+        @keyframes progresso-desliza {
+            0% { margin-left: -40%; }
+            100% { margin-left: 100%; }
+        }
         .input-area { display: flex; gap: 10px; }
         #input-box { flex: 1; padding: 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
         button { padding: 12px 24px; background-color: #417690; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
@@ -221,6 +237,7 @@
                     {% if acoes_habilitadas.cen_ciclo_completo %}<option value="limpar, otimizar e consolidar o cenário">{% trans "Ciclo completo (limpar, otimizar e consolidar)" %}</option>{% endif %}
                     {% if acoes_habilitadas.cen_excluir %}<option value="excluir um cenário">{% trans "Excluir Cenário" %}</option>{% endif %}
                     {% if acoes_habilitadas.cen_exportar_excel %}<option value="exportar o cenário ativo em excel">{% trans "Exportar Excel Resultados Financeiros do Cenário Ativo" %}</option>{% endif %}
+                    {% if acoes_habilitadas.cen_exportar_dados_otimizacao %}<option value="exportar dados de otimização do cenário ativo">{% trans "Exportar Dados de Otimização do Cenário Ativo" %}</option>{% endif %}
                 </select>
             </div>
 
@@ -265,6 +282,7 @@
         {% trans "Você" as ROTULO_VOCE %}
         {% trans "Agente IA" as ROTULO_AGENTE %}
         {% trans "Baixar Imagem" as MSG_BAIXAR_IMAGEM %}
+        {% trans "Agente processando resposta..." as MSG_PROCESSANDO %}
         var MSG_CONFIRMA_PERIODO = "{{ MSG_CONFIRMA_PERIODO|escapejs }}";
         var MSG_CONFIRMA_TUDO = "{{ MSG_CONFIRMA_TUDO|escapejs }}";
         var MSG_SELECIONE_DATAS = "{{ MSG_SELECIONE_DATAS|escapejs }}";
@@ -276,6 +294,7 @@
         var ROTULO_VOCE = "{{ ROTULO_VOCE|escapejs }}";
         var ROTULO_AGENTE = "{{ ROTULO_AGENTE|escapejs }}";
         var MSG_BAIXAR_IMAGEM = "{{ MSG_BAIXAR_IMAGEM|escapejs }}";
+        var MSG_PROCESSANDO = "{{ MSG_PROCESSANDO|escapejs }}";
 
         function escapeHtml(str) {
             return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -698,8 +717,181 @@
             }
         });
 
+        // 🌟 NOVO: barra de progresso -- fica no lugar de ficar empilhando
+        // "ainda processando..." toda hora. Se o texto tiver um padrão
+        // "N de M" (ex: otimização, "5 de 12 períodos concluídos"), vira
+        // um percentual real; senão, fica um indicador indeterminado
+        // (animação indo e voltando), só pra mostrar que algo está
+        // rodando.
+        function garantirBarraProgresso() {
+            var chatBox = document.getElementById('chat-box');
+            var barra = document.getElementById('barra-progresso-celery');
+            if (!barra) {
+                chatBox.insertAdjacentHTML('beforeend',
+                    '<div id="barra-progresso-celery" class="progresso-container progresso-indeterminado">' +
+                    '<div id="progresso-status-texto" class="progresso-status"></div>' +
+                    '<div class="progresso-barra-fundo"><div class="progresso-barra-preenchimento" style="width:0%;"></div></div>' +
+                    '</div>'
+                );
+                barra = document.getElementById('barra-progresso-celery');
+            } else if (chatBox.lastElementChild !== barra) {
+                // 🌟 CORRIGIDO: a barra já existia (de uma fase anterior,
+                // tipo "Limpando..."), mas uma mensagem nova (tipo o aviso
+                // de "Otimizando...") acabou de ser adicionada DEPOIS
+                // dela -- sem isso, a barra ficava "presa" no lugar
+                // antigo, acima da mensagem mais recente, em vez de
+                // continuar sempre no final da conversa. Reanexar o MESMO
+                // elemento move ele (não duplica), preservando o estado
+                // visual (largura da barra, classe indeterminada, etc.).
+                chatBox.appendChild(barra);
+            }
+            return barra;
+        }
+
+        function removerBarraProgresso() {
+            var barra = document.getElementById('barra-progresso-celery');
+            if (barra) barra.remove();
+        }
+
+        function atualizarBarraProgresso(textoStatus) {
+            var barra = garantirBarraProgresso();
+            // 🌟 NOVO: remove o prefixo "Ainda " (case-insensitive) só na
+            // exibição da barra -- fica "Limpando...", "Otimizando..."
+            // em vez de "Ainda limpando...", mais limpo pro formato
+            // compacto da barra.
+            var textoExibido = textoStatus.replace(/^ainda\s+(\w)/i, function(m, primeiraLetra) {
+                return primeiraLetra.toUpperCase();
+            });
+            document.getElementById('progresso-status-texto').textContent = textoExibido;
+
+            var m = textoStatus.match(/(\d+)\s+de\s+(\d+)/i);
+            var preenchimento = barra.querySelector('.progresso-barra-preenchimento');
+            if (m) {
+                var atual = parseInt(m[1], 10);
+                var total = parseInt(m[2], 10);
+                var pct = total > 0 ? Math.min(100, Math.round((atual / total) * 100)) : 0;
+                barra.classList.remove('progresso-indeterminado');
+                preenchimento.style.width = pct + '%';
+            } else {
+                barra.classList.add('progresso-indeterminado');
+            }
+            document.getElementById('chat-box').scrollTop = document.getElementById('chat-box').scrollHeight;
+        }
+
+        // 🌟 NOVO: acompanhamento automático de etapas que só esperam o
+        // Celery terminar (duplicação, limpeza, otimização, etc.) --
+        // em vez do usuário precisar clicar em "Verificar" repetidas
+        // vezes, o próprio JS sonda em segundo plano a cada alguns
+        // segundos (silenciosamente, sem mostrar "Você: Verificar" a
+        // cada tentativa), atualizando uma barra de progresso no lugar
+        // em vez de empilhar uma mensagem nova a cada tentativa.
+        var temporizadorSondagem = null;
+        var ultimaEtapaSondagem = null;
+
+        function pararSondagem() {
+            if (temporizadorSondagem) {
+                clearTimeout(temporizadorSondagem);
+                temporizadorSondagem = null;
+            }
+            removerBarraProgresso();
+            ultimaEtapaSondagem = null;
+        }
+
+        function renderizarRespostaAgente(data) {
+            var chatBox = document.getElementById('chat-box');
+
+            var fontesHtml = '';
+            if (data.fontes && data.fontes.length > 0) {
+                fontesHtml = '<div style="margin-top:5px; display:flex; gap:5px; flex-wrap:wrap;">';
+                data.fontes.forEach(function(fonte) {
+                    fontesHtml += '<span class="badge-fonte">📄 Fonte: ' + escapeHtml(fonte) + '</span>';
+                });
+                fontesHtml += '</div>';
+            }
+
+            // 🌟 NOVO: botões clicáveis pras opções detectadas na resposta
+            // (sim/não, menus de escolha, etc.) -- evita ter que digitar.
+            var opcoesHtml = '';
+            if (data.opcoes && data.opcoes.length > 0) {
+                opcoesHtml = '<div class="opcoes-clicaveis">';
+                data.opcoes.forEach(function(opcao) {
+                    var opcaoEscapadaJs = escapeHtml(opcao).replace(/'/g, "\\'");
+                    // 🌟 CORRIGIDO (generalizado): o valor enviado ao clicar
+                    // (opcaoEscapadaJs) continua sendo o texto original em
+                    // português -- só o TEXTO MOSTRADO no botão muda pro
+                    // rótulo traduzido, quando existir no dicionário mandado
+                    // pelo back-end (Manual, Planilha, Cancelar, Sim, Não, etc.).
+                    var textoExibido = (data.rotulos_opcoes && data.rotulos_opcoes[opcao]) || opcao;
+                    opcoesHtml += '<button type="button" class="botao-opcao" onclick="escolherOpcao(\'' + opcaoEscapadaJs + '\')">' + escapeHtml(textoExibido) + '</button>';
+                });
+                opcoesHtml += '</div>';
+            }
+
+            var textoLimpoHTML = processarRespostaCompleta(data.resposta || data.resposta_ia);
+            chatBox.innerHTML += '<div class="chat-box-p" style="color: #2b2b2b;"><strong style="color: #0056b3;">' + ROTULO_AGENTE + ':</strong><div style="margin-top: 5px;">' + textoLimpoHTML + '</div>' + fontesHtml + opcoesHtml + '</div>';
+            desenharGraficosPendentes();
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function sondarAutomaticamente() {
+            var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            var formData = new FormData();
+            // Qualquer texto dispara uma nova checagem nessas etapas (o
+            // valor em si não importa pro back-end) -- usa "Verificar"
+            // só por clareza, caso apareça em algum log.
+            formData.append('mensagem', 'Verificar');
+            // 🌟 NOVO: sinaliza que essa é uma sondagem silenciosa, pra
+            // não virar entrada no histórico do usuário.
+            formData.append('sondagem_automatica', '1');
+
+            fetch('/chat/', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken },
+                body: formData
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                var respostaTexto = data.resposta || data.resposta_ia || '';
+
+                if (data.aguardando_poll) {
+                    if (data.etapa_atual !== ultimaEtapaSondagem) {
+                        // 🌟 NOVO: a etapa mudou (ex: terminou a limpeza e
+                        // já entrou na otimização, dentro do ciclo
+                        // completo) -- isso é um marco importante, não só
+                        // "mais uma checagem igual". Mostra como mensagem
+                        // de verdade (com os botões, tipo "Cancelar"),
+                        // não só atualiza a barra silenciosamente.
+                        ultimaEtapaSondagem = data.etapa_atual;
+                        renderizarRespostaAgente(data);
+                    }
+                    // Ainda rodando -- garante a barra de progresso (pra
+                    // etapa nova ou a mesma) com o texto mais recente.
+                    atualizarBarraProgresso(respostaTexto);
+                    temporizadorSondagem = setTimeout(sondarAutomaticamente, 8000);
+                } else {
+                    // Terminou de vez (sucesso, erro, ou avançou pra uma
+                    // etapa que não é mais de espera) -- tira a barra e
+                    // mostra a resposta final como mensagem normal.
+                    removerBarraProgresso();
+                    renderizarRespostaAgente(data);
+                    temporizadorSondagem = null;
+                    ultimaEtapaSondagem = null;
+                }
+            })
+            .catch(function() {
+                // Erro de rede na sondagem silenciosa -- tenta de novo
+                // mais adiante, sem incomodar o usuário com mensagem de erro.
+                temporizadorSondagem = setTimeout(sondarAutomaticamente, 6000);
+            });
+        }
+
         document.getElementById('chat-form').addEventListener('submit', function(e) {
             e.preventDefault();
+            // Qualquer mensagem manual do usuário interrompe uma sondagem
+            // automática em andamento -- o fluxo pode ter mudado (ex:
+            // usuário clicou "Cancelar").
+            pararSondagem();
+
             var input = document.getElementById('input-box');
             var chatBox = document.getElementById('chat-box');
             var btnEnviar = document.getElementById('btn-enviar');
@@ -727,7 +919,7 @@
             loader.id = 'loading-status';
             loader.className = 'chat-box-p';
             loader.style.color = 'orange';
-            loader.innerHTML = '<em>🤖 Agente processando resposta...</em>';
+            loader.innerHTML = '<em>🤖 ' + MSG_PROCESSANDO + '</em>';
             chatBox.appendChild(loader);
             chatBox.scrollTop = chatBox.scrollHeight;
 
@@ -753,37 +945,17 @@
                 btnEnviar.disabled = false;
                 btnEnviar.style.opacity = '1';
 
-                var fontesHtml = '';
-                if (data.fontes && data.fontes.length > 0) {
-                    fontesHtml = '<div style="margin-top:5px; display:flex; gap:5px; flex-wrap:wrap;">';
-                    data.fontes.forEach(function(fonte) {
-                        fontesHtml += '<span class="badge-fonte">📄 Fonte: ' + escapeHtml(fonte) + '</span>';
-                    });
-                    fontesHtml += '</div>';
-                }
+                renderizarRespostaAgente(data);
 
-                // 🌟 NOVO: botões clicáveis pras opções detectadas na resposta
-                // (sim/não, menus de escolha, etc.) -- evita ter que digitar.
-                var opcoesHtml = '';
-                if (data.opcoes && data.opcoes.length > 0) {
-                    opcoesHtml = '<div class="opcoes-clicaveis">';
-                    data.opcoes.forEach(function(opcao) {
-                        var opcaoEscapadaJs = escapeHtml(opcao).replace(/'/g, "\\'");
-                        // 🌟 CORRIGIDO (generalizado): o valor enviado ao clicar
-                        // (opcaoEscapadaJs) continua sendo o texto original em
-                        // português -- só o TEXTO MOSTRADO no botão muda pro
-                        // rótulo traduzido, quando existir no dicionário mandado
-                        // pelo back-end (Manual, Planilha, Cancelar, Sim, Não, etc.).
-                        var textoExibido = (data.rotulos_opcoes && data.rotulos_opcoes[opcao]) || opcao;
-                        opcoesHtml += '<button type="button" class="botao-opcao" onclick="escolherOpcao(\'' + opcaoEscapadaJs + '\')">' + escapeHtml(textoExibido) + '</button>';
-                    });
-                    opcoesHtml += '</div>';
+                // 🌟 NOVO: se essa resposta já entrou numa etapa de espera
+                // do Celery, começa a sondar sozinho a partir de agora --
+                // a mensagem inicial (que acabou de aparecer acima) fica
+                // como está; as próximas atualizações de progresso usam a
+                // barra em vez de empilhar mensagem nova.
+                if (data.aguardando_poll) {
+                    ultimaEtapaSondagem = data.etapa_atual;
+                    temporizadorSondagem = setTimeout(sondarAutomaticamente, 8000);
                 }
-
-                var textoLimpoHTML = processarRespostaCompleta(data.resposta || data.resposta_ia);
-                chatBox.innerHTML += '<div class="chat-box-p" style="color: #2b2b2b;"><strong style="color: #0056b3;">' + ROTULO_AGENTE + ':</strong><div style="margin-top: 5px;">' + textoLimpoHTML + '</div>' + fontesHtml + opcoesHtml + '</div>';
-                desenharGraficosPendentes();
-                chatBox.scrollTop = chatBox.scrollHeight;
             })
             .catch(function(error) {
                 const status = document.getElementById('loading-status');
@@ -795,6 +967,69 @@
                 btnEnviar.style.opacity = '1';
             });
         });
+
+        // 🌟 CORRIGIDO: antes restaurava o histórico em QUALQUER
+        // carregamento da página, inclusive uma aba nova de verdade (o
+        // link "Agente IA" no Admin agora reaproveita a aba já aberta
+        // via target fixo, então uma aba nova só acontece quando não
+        // havia nenhuma aberta -- e nesse caso a tela deve começar
+        // limpa). Só restaura em 2 casos: um F5/recarregamento de
+        // verdade (detectado pela Navigation Timing API, que sabe
+        // diferenciar isso de um clique de link) ou logo depois de
+        // trocar de idioma (sinalizado pelo servidor via
+        // FORCAR_RESTAURAR_HISTORICO, já que o redirect da troca de
+        // idioma não conta como "reload" pra essa API).
+        var FORCAR_RESTAURAR_HISTORICO = {{ forcar_restaurar_historico|yesno:"true,false" }};
+
+        function _foiRecarregamento() {
+            try {
+                var entradas = performance.getEntriesByType('navigation');
+                if (entradas.length > 0) return entradas[0].type === 'reload';
+            } catch (erroNavegacao) { /* segue pro fallback abaixo */ }
+            // Fallback pra navegadores sem suporte à Navigation Timing
+            // API nível 2 (rara hoje em dia, mas não custa ter).
+            return performance.navigation && performance.navigation.type === 1;
+        }
+
+        // 🌟 NOVO: recria a conversa na tela a partir do histórico salvo do
+        // usuário -- antes, um F5 no meio de qualquer fluxo (esperando o
+        // Celery terminar uma duplicação/limpeza/otimização, por exemplo)
+        // apagava a conversa inteira da tela, mesmo o fluxo em si
+        // continuando ativo no banco por trás. Sem isso, o usuário perdia
+        // a visão do que estava em andamento e a forma de continuar
+        // clicando em "Verificar". Limitado às últimas 30 trocas (ver
+        // views.py) pra não deixar a página pesada.
+        // NOTA: o histórico guarda o texto original em português (a
+        // tradução acontece só na exibição de cada resposta nova), então
+        // mensagens antigas aparecem em português mesmo com outro idioma
+        // ativo -- é uma limitação conhecida, não um bug de exibição.
+        (function restaurarHistorico() {
+            if (!FORCAR_RESTAURAR_HISTORICO && !_foiRecarregamento()) return;
+
+            var historico;
+            try {
+                historico = JSON.parse('{{ historico_json|escapejs }}');
+            } catch (erroHistorico) {
+                return;
+            }
+            if (!historico || historico.length === 0) return;
+
+            var chatBox = document.getElementById('chat-box');
+            var ph = document.getElementById('placeholder-text');
+            if (ph) ph.remove();
+
+            historico.forEach(function(item) {
+                if (item.comando_usuario) {
+                    chatBox.innerHTML += '<div class="chat-box-p"><strong>' + ROTULO_VOCE + ':</strong> ' + escapeHtml(item.comando_usuario) + '</div>';
+                }
+                if (item.resposta_ia) {
+                    var textoLimpoHTML = processarRespostaCompleta(item.resposta_ia);
+                    chatBox.innerHTML += '<div class="chat-box-p" style="color: #2b2b2b;"><strong style="color: #0056b3;">' + ROTULO_AGENTE + ':</strong><div style="margin-top: 5px;">' + textoLimpoHTML + '</div></div>';
+                }
+            });
+            desenharGraficosPendentes();
+            chatBox.scrollTop = chatBox.scrollHeight;
+        })();
     </script>
 </body>
 </html>

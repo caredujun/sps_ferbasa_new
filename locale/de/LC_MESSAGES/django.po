@@ -2536,6 +2536,106 @@ msgstr "Datei"
 msgid "Baixar Imagem"
 msgstr "Bild Herunterladen"
 
+msgid "Mensagem Agente IA"
+msgstr "KI-Agent-Nachricht"
+
+#, python-format
+msgid "Não foi possível atender a mensagem abaixo do usuário \"%(nome)s (%(username)s)\"."
+msgstr "Die folgende Nachricht des Benutzers \"%(nome)s (%(username)s)\" konnte nicht beantwortet werden."
+
+msgid "Mensagem do usuário:"
+msgstr "Nachricht des Benutzers:"
+
+msgid "Resposta do agente:"
+msgstr "Antwort des Agenten:"
+
+msgid "Agente processando resposta..."
+msgstr "Agent verarbeitet Antwort..."
+
+msgid "RESULTADOS OTIMIZAÇÃO: PRODUTO"
+msgstr "OPTIMIERUNGSERGEBNISSE: PRODUKT"
+
+msgid "CENÁRIO"
+msgstr "SZENARIO"
+
+msgid "Vol. Mínimo"
+msgstr "Min. Vol."
+
+msgid "Vol. Máximo"
+msgstr "Max. Vol."
+
+msgid "Margem Contribuição"
+msgstr "Deckungsbeitrag"
+
+msgid "Margem (%)"
+msgstr "Marge (%)"
+
+msgid "RESULTADOS OTIMIZAÇÃO: PRODUTO-MERCADO"
+msgstr "OPTIMIERUNGSERGEBNISSE: PRODUKT-MARKT"
+
+msgid "RESULTADOS OTIMIZAÇÃO: PRODUTO-MERCADO-FLUXO DE PRODUÇÃO"
+msgstr "OPTIMIERUNGSERGEBNISSE: PRODUKT-MARKT-PRODUKTIONSFLUSS"
+
+msgid "Preço Comercial"
+msgstr "Handelspreis"
+
+msgid "Fluxo Running"
+msgstr "Fluss Laufend"
+
+msgid "Equip. Running"
+msgstr "Ausrüstung Laufend"
+
+msgid "Margen Contrib."
+msgstr "Deckungsbeitr."
+
+msgid "Margen Horária"
+msgstr "Stundenmarge"
+
+msgid "Equip. Margem Horária"
+msgstr "Ausrüstung Stundenmarge"
+
+msgid "Total Margem"
+msgstr "Gesamtmarge"
+
+msgid "RESULTADOS OTIMIZAÇÃO: EQUIPAMENTOS"
+msgstr "OPTIMIERUNGSERGEBNISSE: AUSRÜSTUNG"
+
+msgid "Produção(volume)"
+msgstr "Produktion(Menge)"
+
+msgid "Produção(h)"
+msgstr "Produktion(Std)"
+
+msgid "Ocupação Mínima (%)"
+msgstr "Min. Auslastung (%)"
+
+msgid "Ocupação Máxima (%)"
+msgstr "Max. Auslastung (%)"
+
+msgid "RESULTADOS OTIMIZAÇÃO: EQUIPAMENTOS - ORDEM DE PRODUÇÃO"
+msgstr "OPTIMIERUNGSERGEBNISSE: AUSRÜSTUNG - PRODUKTIONSAUFTRAG"
+
+msgid "Equipamento Código"
+msgstr "Ausrüstungscode"
+
+msgid "Equipamento Descrição"
+msgstr "Ausrüstungsbeschreibung"
+
+msgid "Equipamento/Planta/Ordem de Produção"
+msgstr "Ausrüstung/Anlage/Produktionsauftrag"
+
+msgid "WIP(volume)"
+msgstr "WIP(Menge)"
+
+msgid "WIP(valor)"
+msgstr "WIP(Wert)"
+
+msgid "RESULTADOS OTIMIZAÇÃO: ITENS DE CUSTO - PLANTA DE PRODUÇÃO"
+msgstr "OPTIMIERUNGSERGEBNISSE: KOSTENPOSITIONEN - PRODUKTIONSANLAGE"
+
+msgid "Exportar Dados de Otimização do Cenário Ativo"
+msgstr "Optimierungsdaten des Aktiven Szenarios Exportieren"
+
 #, python-format
 msgid "Olá %(nome_usuario)s! O que posso fazer por você hoje?"
 msgstr "Hallo %(nome_usuario)s! Was kann ich heute für Sie tun?"

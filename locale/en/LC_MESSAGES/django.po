@@ -2536,6 +2536,106 @@ msgstr "File"
 msgid "Baixar Imagem"
 msgstr "Download Image"
 
+msgid "Mensagem Agente IA"
+msgstr "AI Agent Message"
+
+#, python-format
+msgid "Não foi possível atender a mensagem abaixo do usuário \"%(nome)s (%(username)s)\"."
+msgstr "It was not possible to handle the message below from user \"%(nome)s (%(username)s)\"."
+
+msgid "Mensagem do usuário:"
+msgstr "User message:"
+
+msgid "Resposta do agente:"
+msgstr "Agent response:"
+
+msgid "Agente processando resposta..."
+msgstr "Agent processing response..."
+
+msgid "RESULTADOS OTIMIZAÇÃO: PRODUTO"
+msgstr "OPTIMIZATION RESULTS: PRODUCT"
+
+msgid "CENÁRIO"
+msgstr "SCENARIO"
+
+msgid "Vol. Mínimo"
+msgstr "Min. Vol."
+
+msgid "Vol. Máximo"
+msgstr "Max. Vol."
+
+msgid "Margem Contribuição"
+msgstr "Contribution Margin"
+
+msgid "Margem (%)"
+msgstr "Margin (%)"
+
+msgid "RESULTADOS OTIMIZAÇÃO: PRODUTO-MERCADO"
+msgstr "OPTIMIZATION RESULTS: PRODUCT-MARKET"
+
+msgid "RESULTADOS OTIMIZAÇÃO: PRODUTO-MERCADO-FLUXO DE PRODUÇÃO"
+msgstr "OPTIMIZATION RESULTS: PRODUCT-MARKET-PRODUCTION FLOW"
+
+msgid "Preço Comercial"
+msgstr "Commercial Price"
+
+msgid "Fluxo Running"
+msgstr "Flow Running"
+
+msgid "Equip. Running"
+msgstr "Equip. Running"
+
+msgid "Margen Contrib."
+msgstr "Contrib. Margin"
+
+msgid "Margen Horária"
+msgstr "Hourly Margin"
+
+msgid "Equip. Margem Horária"
+msgstr "Equip. Hourly Margin"
+
+msgid "Total Margem"
+msgstr "Total Margin"
+
+msgid "RESULTADOS OTIMIZAÇÃO: EQUIPAMENTOS"
+msgstr "OPTIMIZATION RESULTS: EQUIPMENT"
+
+msgid "Produção(volume)"
+msgstr "Production(volume)"
+
+msgid "Produção(h)"
+msgstr "Production(h)"
+
+msgid "Ocupação Mínima (%)"
+msgstr "Min. Occupancy (%)"
+
+msgid "Ocupação Máxima (%)"
+msgstr "Max. Occupancy (%)"
+
+msgid "RESULTADOS OTIMIZAÇÃO: EQUIPAMENTOS - ORDEM DE PRODUÇÃO"
+msgstr "OPTIMIZATION RESULTS: EQUIPMENT - PRODUCTION ORDER"
+
+msgid "Equipamento Código"
+msgstr "Equipment Code"
+
+msgid "Equipamento Descrição"
+msgstr "Equipment Description"
+
+msgid "Equipamento/Planta/Ordem de Produção"
+msgstr "Equipment/Plant/Production Order"
+
+msgid "WIP(volume)"
+msgstr "WIP(volume)"
+
+msgid "WIP(valor)"
+msgstr "WIP(value)"
+
+msgid "RESULTADOS OTIMIZAÇÃO: ITENS DE CUSTO - PLANTA DE PRODUÇÃO"
+msgstr "OPTIMIZATION RESULTS: COST ITEMS - PRODUCTION PLANT"
+
+msgid "Exportar Dados de Otimização do Cenário Ativo"
+msgstr "Export Active Scenario Optimization Data"
+
 #, python-format
 msgid "Olá %(nome_usuario)s! O que posso fazer por você hoje?"
 msgstr "Hello %(nome_usuario)s! What can I do for you today?"
