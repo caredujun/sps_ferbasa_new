@@ -13,7 +13,8 @@ from .models import TbCenarios, TbEmpresa, AgenteConfig, HistoricoAgente, Relato
 from django.contrib import admin, messages
 from django_object_actions import DjangoObjectActions
 from .tasks import limpar_cenario_celery, limpar_cenario_tabela_mae_celery, otimizar_cenario_celery, \
-    consolidar_cenario_celery, limpar_cenario_celery, remover_cenario_celery, atualizar_fluxos_celery
+    consolidar_cenario_celery, limpar_cenario_celery, remover_cenario_celery, remover_empresa_celery, \
+    atualizar_fluxos_celery
 
 from django.http import HttpResponse
 from django.contrib.auth.models import User, Group
@@ -917,6 +918,11 @@ admin.site.register(TbCenarios, TbCenariosAdmin)
 
 
 class TbEmpresaAdmin(admin.ModelAdmin):
+    # 🌟 NOVO: precisa listar 'delete_selected' explicitamente aqui --
+    # sem isso, a versão customizada definida mais abaixo (que roda em
+    # segundo plano via Celery, sem a tela de confirmação perigosa) nem
+    # aparece no dropdown de ações da listagem.
+    actions = ['delete_selected']
     # fields = [('emp_nome', 'emp_tipo'), 'emp_descricao', 'emp_moeda', ('emp_moeda_imagem', 'emp_moeda_imagem_tag'), ('emp_logo', 'emp_logo_tag'), ('emp_fluxo', 'emp_fluxo_tag'), ('emp_informacao1', 'emp_fonte1'), ('emp_informacao2', 'emp_fonte2'), ('emp_informacao3', 'emp_fonte3')]
     fields = [('emp_nome', 'emp_tipo'), 'emp_descricao', 'emp_moeda', ('emp_moeda_imagem', 'emp_moeda_imagem_tag'),
               ('emp_logo', 'emp_logo_tag'), ('emp_fluxo', 'emp_fluxo_tag'), 'idioma_padrao', 'apps_habilitados',
@@ -1065,43 +1071,85 @@ class TbEmpresaAdmin(admin.ModelAdmin):
         except Exception:
             pass
 
-    # Tabela Empresa só pode ser modificada pelo administrador.
+    # Tabela Empresa só pode ser modificada pelo administrador. Não pode ser deletada ou receber mais dados.
 
-    # 🌟 CORRIGIDO: antes a exclusão era bloqueada por completo, sempre,
-    # pra qualquer um. Agora é liberada pro superusuário REAL (nunca
-    # superusuário de empresa -- ele não deveria poder apagar a própria
-    # empresa), desde que a empresa não esteja em uso por nenhum usuário
-    # no momento (nem como empresa fixa, nem como empresa ativa de um
-    # superusuário) -- ver _empresa_em_uso e delete_view abaixo, que dão
-    # a mensagem explicando o motivo em vez de só esconder o botão.
+    # 🌟 CORRIGIDO: a exclusão pela tela padrão do Admin (botão individual,
+    # ou a ação "Delete selected" embutida do Django) sempre fica
+    # bloqueada -- ela tenta ENUMERAR todos os registros relacionados
+    # ANTES de mostrar a tela de confirmação (pra decidir o que cai em
+    # cascata e o que está protegido), e uma Empresa está ligada, direta
+    # ou indiretamente, a praticamente todo o resto do banco (Cenários ->
+    # dezenas de tabelas filhas, algumas com dezenas de milhões de
+    # linhas). Essa varredura sozinha já é capaz de esgotar a memória da
+    # máquina antes mesmo de qualquer proteção entrar em ação (foi
+    # exatamente isso que travou o servidor/a máquina na primeira
+    # tentativa). A exclusão de verdade agora só acontece pela ação
+    # customizada "delete_selected" abaixo, que pula essa tela de
+    # confirmação por completo e roda em segundo plano via Celery --
+    # mesmo padrão já usado (e testado) pra excluir Cenário.
     def has_delete_permission(self, request, obj=None):
+        return False
+
+    def _empresas_em_uso_detalhes(self, lista_id):
+        """
+        Retorna None se nenhuma das empresas em lista_id estiver em uso,
+        ou uma string com os detalhes de quem está usando cada uma, se
+        alguma estiver.
+        """
+        perfis_afetados = PerfilUsuario.objects.filter(
+            Q(empresa_id__in=lista_id) | Q(empresa_ativa_id__in=lista_id)
+        ).select_related('usuario', 'empresa', 'empresa_ativa')
+        if not perfis_afetados.exists():
+            return None
+        return ", ".join(
+            f"{p.empresa.emp_nome if p.empresa_id in lista_id else p.empresa_ativa.emp_nome} (em uso por {p.usuario})"
+            for p in perfis_afetados
+        )
+
+    def delete_selected(self, request, queryset):
+        # 🌟 NOVO: só o superusuário REAL pode excluir uma empresa --
+        # diferente de outras ações, aqui não libera pra superusuário de
+        # empresa (ele não deveria poder apagar a própria empresa).
         if not request.user.is_superuser:
-            return False
-        if obj is not None and self._empresa_em_uso(obj):
-            return False
-        return True
+            messages.error(request, "Você não tem autorização para excluir empresas.")
+            return
 
-    def _empresa_em_uso(self, empresa):
-        return PerfilUsuario.objects.filter(
-            Q(empresa_id=empresa.id) | Q(empresa_ativa_id=empresa.id)
-        ).exists()
+        # 🌟 NOVO: ação de DUAS etapas -- primeiro mostra uma tela de
+        # confirmação (leve: só lista os nomes, sem tentar enumerar
+        # nenhum registro relacionado, que é justamente o que travou a
+        # máquina na tela padrão do Django), só executa a exclusão de
+        # verdade depois que o usuário confirma nessa segunda etapa.
+        if 'confirmar' in request.POST:
+            ids_confirmados = [int(i) for i in request.POST.getlist('_selected_action')]
+            detalhes = self._empresas_em_uso_detalhes(ids_confirmados)
+            if detalhes:
+                # Alguma passou a estar em uso nesse meio tempo (entre
+                # mostrar a tela e confirmar) -- não exclui nada.
+                messages.error(request,
+                               f'Empresa(s) passaram a estar em uso nesse meio tempo e não foram excluídas: {detalhes}')
+                return
+            for id_empresa in ids_confirmados:
+                remover_empresa_celery.delay(id_empresa)
+            messages.success(request,
+                             "Empresa(s) confirmada(s) sendo excluída(s) em segundo plano. Para verificar o status da exclusão, dá um refresh na tela daqui a pouco.")
+            return
 
-    def delete_view(self, request, object_id, extra_context=None):
-        obj = self.get_object(request, object_id)
-        if obj is not None and self._empresa_em_uso(obj):
-            usuarios_vinculados = PerfilUsuario.objects.filter(
-                Q(empresa_id=obj.id) | Q(empresa_ativa_id=obj.id)
-            ).select_related('usuario').values_list('usuario__username', flat=True)
-            lista_usuarios = ", ".join(usuarios_vinculados)
-            self.message_user(
-                request,
-                f'A empresa "{obj.emp_nome}" não pode ser excluída -- ainda está em uso '
-                f'(como empresa fixa ou empresa ativa) pelos usuários: {lista_usuarios}. '
-                'Mude a empresa desses usuários pra outra antes de excluir.',
-                level=messages.ERROR,
-            )
-            return redirect(reverse('admin:parameters_tbempresa_changelist'))
-        return super().delete_view(request, object_id, extra_context)
+        lista_id = list(queryset.values_list('id', flat=True))
+        detalhes = self._empresas_em_uso_detalhes(lista_id)
+        if detalhes:
+            # Não faz sentido perguntar "tem certeza?" pra algo que já
+            # vai ser bloqueado de qualquer jeito -- avisa direto aqui.
+            messages.error(request,
+                           f'Empresa(s) selecionada(s) estão em uso por algum usuário e não podem ser excluídas: {detalhes}')
+            return
+
+        return render(request, 'admin/parameters/tbempresa/confirmar_exclusao.html', {
+            'empresas': queryset,
+            'title': 'Confirmar exclusão de empresa(s)',
+            'opts': self.model._meta,
+        })
+
+    delete_selected.short_description = "Remover Empresa(s) Selecionada(s)"
 
     # Vamos ver se usuário é superuser. Se sim, permite adição na tabela.
     def has_add_permission(self, request, obj=None):
@@ -1461,8 +1509,18 @@ class PerfilUsuarioAdmin(admin.ModelAdmin):
         return False
 
     def has_delete_permission(self, request, obj=None):
-        # Apagar o perfil deixaria o usuário sem lugar pra guardar o
-        # cenário ativo -- bloqueado pelo mesmo motivo do has_add acima.
+        # 🌟 CORRIGIDO: continua bloqueado excluir o PERFIL sozinho, pela
+        # própria tela de Perfis de Usuário (deixaria o usuário sem
+        # cenário ativo configurado) -- mas quando o Django está
+        # processando a exclusão do USUÁRIO inteiro (via
+        # /admin/auth/user/.../delete/, seja individual ou em massa), o
+        # perfil desaparecer junto em cascata (PerfilUsuario.usuario tem
+        # on_delete=CASCADE) faz todo sentido, já que o usuário inteiro
+        # está sumindo mesmo. Sem essa distinção, o Django bloqueava a
+        # exclusão do USUÁRIO inteiro só porque o perfil dele (que
+        # sempre existe) não podia ser excluído sozinho.
+        if '/auth/user/' in request.path:
+            return True
         return False
 
     # 🌟 NOVO (multi-empresa): superuser de empresa só vê/edita os
@@ -1702,8 +1760,42 @@ class PerfilUsuarioInline(admin.StackedInline):
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 
+# 🌟 CORRIGIDO: Django bloqueia filtro direto por "perfilusuario__empresa"
+# na URL (DisallowedModelAdminLookup) -- proteção de segurança contra
+# filtros arbitrários atravessando relações, especialmente reversas
+# (perfilusuario é o lado reverso de um OneToOneField). Um filtro
+# customizado (mesmo padrão já usado em CenarioAtivoListFilter) resolve
+# isso: a filtragem roda em código Python/ORM direto, não via um caminho
+# de lookup cru vindo da URL que o Django precisaria validar.
+class EmpresaUsuarioListFilter(admin.SimpleListFilter):
+    title = 'Empresa'
+    parameter_name = 'empresa_do_usuario'
+
+    def lookups(self, request, model_admin):
+        return [(e.id, e.emp_nome) for e in TbEmpresa.objects.all().order_by('emp_nome')]
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(perfilusuario__empresa_id=self.value())
+        return queryset
+
+
 class CustomUserAdmin(UserAdmin):
     inlines = (PerfilUsuarioInline,)
+
+    # 🌟 NOVO: filtro por Empresa na listagem de usuários -- pedido
+    # especificamente pra dar suporte a excluir uma empresa: antes de
+    # excluir, o superusuário precisa achar e remover/realocar os
+    # usuários vinculados a ela, e sem esse filtro isso significava
+    # vasculhar a lista inteira manualmente. Só aparece pro superusuário
+    # REAL -- um superusuário de empresa já só vê os usuários da própria
+    # empresa (get_queryset abaixo), então esse filtro nunca teria mais
+    # de uma opção possível pra ele, virando inútil.
+    def get_list_filter(self, request):
+        padrao = ('is_staff', 'is_superuser', 'is_active', 'groups')
+        if request.user.is_superuser:
+            return (EmpresaUsuarioListFilter,) + padrao
+        return padrao
 
     def _eh_superuser_empresa_nao_real(self, request):
         if request.user.is_superuser:

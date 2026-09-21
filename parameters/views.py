@@ -54,7 +54,7 @@ def exige_acesso_ao_agente_ia(view_func):
 # gerar um rótulo traduzido só pra exibição, sem mudar o valor.
 _PALAVRAS_CHAVE_BOTAO = {
     'Cancelar', 'Manter', 'Nenhum', 'Nenhuma', 'Manual', 'Planilha', 'Sim', 'Não',
-    'Verificar', 'Já enviei a planilha', 'Gráfico de linha', 'Gráfico de barra',
+    'Verificar', 'Já enviei a planilha', 'Já enviei o arquivo', 'Gráfico de linha', 'Gráfico de barra',
     'Concluir',
 }
 
@@ -132,6 +132,15 @@ def _extrair_opcoes_clicaveis(texto):
 
     if not opcoes and '[📥 Baixar planilha](' in texto:
         opcoes = ['Já enviei a planilha']
+
+    # 🌟 NOVO: mesma ideia do "Já enviei a planilha" acima, mas pro fluxo
+    # de Custo Ferbasa (Produção Mensal / Distribuição GGF Mensal) --
+    # não tem nada pra baixar nesse caso (o usuário sobe o próprio
+    # arquivo dele, não preenche um modelo gerado pelo sistema), então
+    # não faz sentido depender de um link de download aparecer no texto.
+    # Detecta a frase entre aspas, mesmo padrão já usado pra "Verificar".
+    if not opcoes and re.search(r'"Já enviei o arquivo"', texto, re.IGNORECASE):
+        opcoes = ['Já enviei o arquivo']
 
     if not opcoes and re.search(r'"Verificar"', texto, re.IGNORECASE):
         opcoes = ['Verificar']
@@ -217,7 +226,7 @@ def trocar_idioma_view(request):
 # 🌟 NOVO (Ações Comuns por empresa): categoria -> prefixo usado nas
 # chaves do dict (ex: "ind_editar", "cam_grafico", "cen_excluir") -- pra
 # casar com os nomes já usados nos <option> do chat.html.
-_PREFIXO_CATEGORIA_ACAO = {'Indicadores': 'ind', 'Câmbio': 'cam', 'Cenário': 'cen'}
+_PREFIXO_CATEGORIA_ACAO = {'Indicadores': 'ind', 'Câmbio': 'cam', 'Cenário': 'cen', 'Custo Ferbasa': 'cf'}
 
 
 def _mapa_acoes_comuns_habilitadas(usuario):
@@ -468,24 +477,48 @@ def limpar_historico_view(request):
 
 @exige_acesso_ao_agente_ia
 @require_POST
+@exige_acesso_ao_agente_ia
+def listar_relatorios_json(request):
+    """
+    🌟 NOVO: devolve a lista atual de Relatórios (id + título) da empresa
+    efetiva do usuário, em JSON -- usado pelo chat pra atualizar a lista
+    de caixinhas na lateral SEM recarregar a página inteira, depois que
+    um arquivo é processado e apagado em segundo plano (ex: fluxo de
+    Custo Ferbasa, que processa e some com o arquivo via Celery, sem
+    nenhuma outra forma de avisar o navegador que a lista mudou).
+    """
+    perfil = getattr(request.user, 'perfilusuario', None)
+    empresa_id = perfil.empresa_efetiva_id() if perfil else None
+    if empresa_id is None:
+        relatorios = RelatorioPDF.objects.none()
+    else:
+        relatorios = RelatorioPDF.objects.filter(ativo=True, empresa_id=empresa_id).order_by('-id')
+    dados = [{'id': r.id, 'titulo': r.titulo} for r in relatorios]
+    return JsonResponse({'relatorios': dados})
+
+
 def upload_pdf_view(request):
     """
-    Recebe um arquivo (PDF, TXT ou XLSX) enviado pela zona de arrastar-e-soltar
-    da barra lateral e cria um novo RelatorioPDF ativo para uso imediato pelo agente.
+    Recebe um arquivo (PDF, TXT, XLSX/XLS ou CSV) enviado pela zona de
+    arrastar-e-soltar da barra lateral e cria um novo RelatorioPDF ativo
+    para uso imediato pelo agente.
     """
     arquivo = request.FILES.get("arquivo")
 
     if not arquivo:
         return JsonResponse({"status": "erro", "mensagem": "Nenhum arquivo foi enviado."}, status=400)
 
-    # 🌟 EXTENSÕES ACEITAS: PDF, TXT e XLSX (planilha Excel)
-    extensoes_aceitas = (".pdf", ".txt", ".xlsx")
+    # 🌟 EXTENSÕES ACEITAS: PDF, TXT, XLSX/XLS (planilha Excel) e CSV --
+    # CSV e XLS adicionados pra dar suporte ao fluxo de Custo Ferbasa
+    # (Produção Mensal / Distribuição GGF Mensal), que aceita o arquivo
+    # de origem tanto em Excel quanto em CSV, com qualquer nome.
+    extensoes_aceitas = (".pdf", ".txt", ".xlsx", ".xls", ".csv")
     nome_arquivo = arquivo.name.lower()
 
     if not nome_arquivo.endswith(extensoes_aceitas):
         return JsonResponse({
             "status": "erro",
-            "mensagem": "Apenas arquivos PDF, TXT ou XLSX são aceitos."
+            "mensagem": "Apenas arquivos PDF, TXT, XLSX, XLS ou CSV são aceitos."
         }, status=400)
 
     # Limite de segurança para evitar uploads muito grandes (ajuste se necessário)

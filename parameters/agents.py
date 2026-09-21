@@ -26,6 +26,7 @@ from .fluxo_criar_cenario import (
     _buscar_indicador, _lista_indicadores, _lista_periodos_indicador,
     _buscar_cambio, _lista_cambios, _lista_periodos_cambio,
     determinar_acao_indicadores, determinar_acao_cambio, determinar_acao_processar,
+    iniciar_fluxo_importar_custo_ferbasa, _processar_arquivo_custo_ferbasa,
 )
 from .contexto_usuario import empresa_tem_acao_comum_habilitada
 
@@ -213,6 +214,21 @@ def _detectar_intencao_exportar_dados_otimizacao(mensagem):
         and PADRAO_CENARIO.search(texto)
         and re.search(r'otimiza', texto, re.IGNORECASE)
     )
+
+
+# 🌟 NOVO: "atualizar produção e ggf mensal" (app custo_ferbasa) --
+# aceita tanto o texto exato do menu quanto variações naturais (produção
+# e ggf mencionados juntos, em qualquer ordem, ou o nome da categoria).
+PADRAO_CUSTO_FERBASA = re.compile(
+    r"(produ[cç][aã]o.{0,20}ggf|ggf.{0,20}produ[cç][aã]o|custo ferbasa)", re.IGNORECASE
+)
+
+
+def _detectar_intencao_custo_ferbasa(mensagem):
+    texto = mensagem or ""
+    return bool(PADRAO_CUSTO_FERBASA.search(texto))
+
+
 PADRAO_TIPO_OU_PERIODO = re.compile(r"\btipo\b|per[ií]odo", re.IGNORECASE)
 
 
@@ -901,6 +917,17 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
         _salvar_historico(usuario, mensagem_usuario, resposta)
         return resposta, []
 
+    # 🌟 NOVO: usuário pedindo pra atualizar Produção Mensal / Distribuição
+    # GGF Mensal (app custo_ferbasa) a partir de um arquivo enviado em
+    # Relatórios -- primeiro pede o arquivo de produção, depois o de GGF,
+    # em sequência.
+    if _detectar_intencao_custo_ferbasa(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Custo Ferbasa', 'atualizar_producao_ggf_mensal'):
+        if esta_em_fluxo:
+            cancelar_fluxo_ativo(usuario)
+        resposta = iniciar_fluxo_importar_custo_ferbasa(usuario, mensagem_usuario)
+        _salvar_historico(usuario, mensagem_usuario, resposta)
+        return resposta, []
+
     # 🌟 NOVO: usuário pedindo pra exportar o relatório Excel do cenário ativo
     if _detectar_intencao_exportar_cenario(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Cenário', 'exportar_excel'):
         if esta_em_fluxo:
@@ -942,6 +969,17 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
     # impressão de "nada acontece" (a mesma pergunta de confirmação
     # reaparecia, idêntica, em loop, e nunca era realmente respondida).
     etapa_atual_usuario = etapa_atual_do_usuario(usuario) if esta_em_fluxo else None
+
+    # 🌟 NOVO: se o usuário está esperando o arquivo de Produção Mensal
+    # ou de Distribuição GGF Mensal (fluxo custo_ferbasa) e mandou
+    # alguma mensagem com um arquivo marcado nos Relatórios, processa
+    # direto -- não precisa de palavra-chave nenhuma na mensagem (só
+    # precisa estar nessa etapa específica esperando).
+    if pdf_ids and etapa_atual_usuario in ('cf_aguardando_producao', 'cf_aguardando_ggf'):
+        resposta = _processar_arquivo_custo_ferbasa(usuario, pdf_ids, etapa_atual_usuario)
+        _salvar_historico(usuario, mensagem_usuario, resposta)
+        return resposta, []
+
     if pdf_ids and etapa_atual_usuario not in ('ind_planilha_confirmar', 'cam_planilha_confirmar'):
         # 🌟 CORRIGIDO: identifica pelo nome do arquivo primeiro (não exige
         # que a mensagem mencione "indicador"/"câmbio" -- o nome do

@@ -98,6 +98,8 @@ ETAPAS_AGUARDANDO_CELERY = {
     'proc_aguardando_otimizacao',
     'proc_aguardando_consolidacao',
     'cen_excluir_aguardando',
+    'cf_processando_producao',
+    'cf_processando_ggf',
 }
 
 # 🌟 NOVO: se um fluxo ficar parado por mais que isso, sem nenhuma
@@ -119,6 +121,13 @@ ETAPAS_SEM_EXPIRACAO = {
     'aguardando_consolidacao', 'aguardando_verificacao_filhas',
     'proc_aguardando_limpeza', 'proc_aguardando_otimizacao', 'proc_aguardando_consolidacao',
     'proc_ciclo_aguardando_limpeza', 'proc_ciclo_aguardando_otimizacao', 'proc_ciclo_aguardando_consolidacao',
+    # 🌟 NOVO: esperar o usuário preparar/subir um arquivo pode levar bem
+    # mais que 15 minutos (procurar o relatório certo, exportar do
+    # sistema de origem, etc.) -- sem risco de confusão, já que qualquer
+    # mensagem enviada aqui sem arquivo marcado só reforça o lembrete de
+    # subir o arquivo, nunca dispara uma ação por engano.
+    'cf_aguardando_producao', 'cf_aguardando_ggf',
+    'cf_processando_producao', 'cf_processando_ggf',
 }
 
 
@@ -336,6 +345,16 @@ def _processar_mensagem_fluxo_com_lock(estado, mensagem):
                 "Ok, parei de acompanhar por aqui -- mas o envio do e-mail continua rodando em "
                 "segundo plano normalmente (isso não cancela ele)."
             )
+        # 🌟 NOVO: mesmo raciocínio -- cancelar o acompanhamento da
+        # importação de Produção Mensal/Distribuição GGF Mensal não
+        # cancela o processamento em si (já disparado em segundo plano
+        # via Celery).
+        if estado.fluxo_ativo == FLUXO_IMPORTAR_CF and estado.etapa_atual in ('cf_processando_producao', 'cf_processando_ggf'):
+            _encerrar_fluxo(estado)
+            return (
+                "Ok, parei de acompanhar por aqui -- mas o processamento em si continua rodando em "
+                "segundo plano normalmente (isso não cancela ele)."
+            )
         _encerrar_fluxo(estado)
         return "Ok, cancelei. Nada foi alterado."
 
@@ -351,6 +370,8 @@ def _processar_mensagem_fluxo_com_lock(estado, mensagem):
         return _processar_fluxo_processar(estado, texto)
     elif estado.fluxo_ativo == FLUXO_EXCLUIR_CENARIO:
         return _processar_excluir_cenario(estado, texto)
+    elif estado.fluxo_ativo == FLUXO_IMPORTAR_CF:
+        return _processar_importar_cf(estado, texto)
 
     # Estado inconsistente (não deveria acontecer) -- encerra por segurança
     _encerrar_fluxo(estado)
@@ -4062,6 +4083,7 @@ def _etapa_proc_ciclo_aguardando_limpeza(estado, texto):
 
 
 def _disparar_otimizacao_ciclo(usuario, cenario):
+    numero_exibido = cenario.numero_sequencial if cenario.numero_sequencial is not None else cenario.id
     from django.db import connection
     from .tasks import otimizar_cenario_celery
 
@@ -4126,6 +4148,7 @@ def _etapa_proc_ciclo_aguardando_otimizacao(estado, texto):
 
 
 def _disparar_consolidacao_ciclo(usuario, cenario):
+    numero_exibido = cenario.numero_sequencial if cenario.numero_sequencial is not None else cenario.id
     from django.db import connection
     from .tasks import consolidar_cenario_celery
 
@@ -4254,6 +4277,7 @@ def _etapa_proc_pos_consolidacao_limpar(estado, texto):
 
 
 def _disparar_limpeza_standalone(usuario, cenario):
+    numero_exibido = cenario.numero_sequencial if cenario.numero_sequencial is not None else cenario.id
     from fluxos.models import TbFluxoProducaoDaugther01, TbFluxoProducao
     from django.db import connection
     from .tasks import limpar_cenario_celery
@@ -4330,6 +4354,7 @@ def _etapa_proc_pos_limpeza_otimizar(estado, texto):
 
 
 def _disparar_otimizacao_standalone(usuario, cenario):
+    numero_exibido = cenario.numero_sequencial if cenario.numero_sequencial is not None else cenario.id
     from django.db import connection
     from .tasks import otimizar_cenario_celery
 
@@ -4415,6 +4440,7 @@ def _etapa_proc_pos_otimizacao_consolidar(estado, texto):
 
 
 def _disparar_consolidacao_standalone(usuario, cenario):
+    numero_exibido = cenario.numero_sequencial if cenario.numero_sequencial is not None else cenario.id
     from django.db import connection
     from .tasks import consolidar_cenario_celery
 
@@ -4752,3 +4778,170 @@ def _etapa_cen_excluir_aguardando(estado, texto):
         )
 
     return f"⏳ Ainda excluindo **{nomes_pendentes}**."
+
+
+# ---------------------------------------------------------------------
+# Fluxo: importar_custo_ferbasa -- Produção Mensal + Distribuição GGF
+# Mensal a partir de arquivo enviado pelo usuário (Ações Comuns:
+# "Atualizar Produção e GGF Mensal", app custo_ferbasa). Reaproveita a
+# MESMA regra de negócio (validação de cabeçalho, upsert de cadastros
+# auxiliares) já usada na importação a partir da AWS -- só a origem do
+# arquivo muda (upload em Relatórios, em vez de um arquivo fixo no S3),
+# e agora aceita QUALQUER nome de arquivo, em Excel OU CSV.
+# ---------------------------------------------------------------------
+FLUXO_IMPORTAR_CF = 'importar_custo_ferbasa'
+
+
+def iniciar_fluxo_importar_custo_ferbasa(usuario, mensagem=""):
+    estado = _get_estado(usuario)
+    estado.fluxo_ativo = FLUXO_IMPORTAR_CF
+    estado.etapa_atual = 'cf_aguardando_producao'
+    estado.dados_coletados = {}
+    estado.save()
+    return (
+        "Vamos atualizar as tabelas de **Produção Mensal** e **Distribuição GGF Mensal** 🏭\n\n"
+        "Primeiro a **Produção Mensal**: salva o arquivo (Excel ou CSV, qualquer nome) na tela de "
+        "Relatórios, marca a caixinha dele, e manda qualquer mensagem (ou clica em \"Já enviei o "
+        "arquivo\") quando terminar. (ou \"cancelar\")"
+    )
+
+
+def _relatorio_custo_ferbasa_valido(pdf_ids, empresa_id):
+    """
+    Acha, entre os arquivos marcados (pdf_ids), o mais recente que
+    pareça um Excel ou CSV -- pra Produção Mensal/Distribuição GGF
+    Mensal o nome do arquivo pode ser QUALQUER UM (diferente de
+    indicador/câmbio, que exige .xlsx e identifica o alvo pelo próprio
+    nome), então aqui só filtra por extensão e pega o mais recente
+    entre os marcados.
+    """
+    from .models import RelatorioPDF
+    candidatos = (
+        RelatorioPDF.objects
+        .filter(id__in=pdf_ids, ativo=True, empresa_id=empresa_id)
+        .order_by('-criado_em')
+    )
+    for r in candidatos:
+        if r.arquivo and r.arquivo.name.lower().endswith(('.xlsx', '.xls', '.csv')):
+            return r
+    return None
+
+
+def _processar_arquivo_custo_ferbasa(usuario, pdf_ids, etapa_atual):
+    """
+    Chamado direto pelo agents.py (fora do despacho normal de fluxo,
+    igual ao mecanismo já usado pra planilha de indicador/câmbio) quando
+    o usuário está esperando o arquivo de Produção Mensal ou de
+    Distribuição GGF Mensal e mandou alguma mensagem com um arquivo
+    marcado nos Relatórios.
+    """
+    perfil = getattr(usuario, 'perfilusuario', None)
+    if perfil is None:
+        return "Não consegui identificar sua empresa."
+    empresa_id = perfil.empresa_efetiva_id()
+
+    relatorio = _relatorio_custo_ferbasa_valido(pdf_ids, empresa_id)
+    if relatorio is None:
+        etapa_nome = 'Produção Mensal' if etapa_atual == 'cf_aguardando_producao' else 'Distribuição GGF Mensal'
+        return (
+            f"Não encontrei nenhum arquivo Excel ou CSV marcado na lista de Relatórios. Salva o "
+            f"arquivo de **{etapa_nome}**, marca a caixinha dele, e manda de novo."
+        )
+
+    from custo_ferbasa.tasks import (
+        importar_producao_mensal_de_relatorio_celery,
+        importar_distribuicao_ggf_mensal_de_relatorio_celery,
+    )
+
+    estado = _get_estado(usuario)
+
+    if etapa_atual == 'cf_aguardando_producao':
+        importar_producao_mensal_de_relatorio_celery.delay(relatorio.id, usuario.id)
+        estado.etapa_atual = 'cf_processando_producao'
+        estado.dados_coletados = {}
+        estado.save()
+        return "Arquivo recebido! Processando a **Produção Mensal** em segundo plano."
+
+    else:  # cf_aguardando_ggf
+        importar_distribuicao_ggf_mensal_de_relatorio_celery.delay(relatorio.id, usuario.id)
+        estado.etapa_atual = 'cf_processando_ggf'
+        estado.dados_coletados = {}
+        estado.save()
+        return "Arquivo recebido! Processando a **Distribuição GGF Mensal** em segundo plano."
+
+
+def _processar_importar_cf(estado, texto):
+    if estado.etapa_atual == 'cf_aguardando_producao':
+        return (
+            "Ainda esperando o arquivo de **Produção Mensal**. Salva ele (Excel ou CSV) na tela de "
+            "Relatórios, marca a caixinha, e manda de novo (ou clica em \"Já enviei o arquivo\") "
+            "(ou \"cancelar\")."
+        )
+    elif estado.etapa_atual == 'cf_aguardando_ggf':
+        return (
+            "Ainda esperando o arquivo de **Distribuição GGF Mensal**. Salva ele (Excel ou CSV) na "
+            "tela de Relatórios, marca a caixinha, e manda de novo (ou clica em \"Já enviei o arquivo\") "
+            "(ou \"cancelar\")."
+        )
+    elif estado.etapa_atual == 'cf_processando_producao':
+        return _etapa_cf_processando_producao(estado, texto)
+    elif estado.etapa_atual == 'cf_processando_ggf':
+        return _etapa_cf_processando_ggf(estado, texto)
+
+    _encerrar_fluxo(estado)
+    return "Não consegui identificar em qual etapa estávamos. Cancelei o fluxo -- pode começar de novo se quiser."
+
+
+def _formatar_resultado_importacao_cf(resultado):
+    if not resultado:
+        return ""
+    criadas = resultado.get('total_criadas', 0)
+    atualizadas = resultado.get('total_atualizadas', 0)
+    return f" ({criadas} linha(s) nova(s), {atualizadas} atualizada(s))"
+
+
+def _etapa_cf_processando_producao(estado, texto):
+    dados = estado.dados_coletados or {}
+    status = dados.get('status_importacao_cf')
+
+    if status == 'erro':
+        mensagem_erro = dados.get('mensagem_importacao_cf', 'motivo não especificado')
+        _encerrar_fluxo(estado)
+        return (
+            f"❌ Deu erro ao processar a Produção Mensal: {mensagem_erro}\n\n"
+            "Corrige o arquivo e pede pra atualizar de novo."
+        )
+
+    if status == 'concluido':
+        resumo = _formatar_resultado_importacao_cf(dados.get('resultado_importacao_cf'))
+        estado.etapa_atual = 'cf_aguardando_ggf'
+        estado.dados_coletados = {}
+        estado.save()
+        return (
+            f"✅ **Produção Mensal** atualizada{resumo}!\n\n"
+            "Agora a **Distribuição GGF Mensal**: salva o arquivo (Excel ou CSV, qualquer nome) na "
+            "tela de Relatórios, marca a caixinha dele, e manda qualquer mensagem (ou clica em "
+            "\"Já enviei o arquivo\") quando terminar. (ou \"cancelar\")"
+        )
+
+    return "⏳ Ainda processando a **Produção Mensal**."
+
+
+def _etapa_cf_processando_ggf(estado, texto):
+    dados = estado.dados_coletados or {}
+    status = dados.get('status_importacao_cf')
+
+    if status == 'erro':
+        mensagem_erro = dados.get('mensagem_importacao_cf', 'motivo não especificado')
+        _encerrar_fluxo(estado)
+        return (
+            f"❌ Deu erro ao processar a Distribuição GGF Mensal: {mensagem_erro}\n\n"
+            "Corrige o arquivo e pede pra atualizar de novo."
+        )
+
+    if status == 'concluido':
+        resumo = _formatar_resultado_importacao_cf(dados.get('resultado_importacao_cf'))
+        _encerrar_fluxo(estado)
+        return f"✅ **Distribuição GGF Mensal** atualizada{resumo}! As duas tabelas foram atualizadas com sucesso."
+
+    return "⏳ Ainda processando a **Distribuição GGF Mensal**."

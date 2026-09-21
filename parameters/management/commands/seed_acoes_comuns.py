@@ -2,11 +2,11 @@ from django.core.management.base import BaseCommand
 from parameters.models import AcaoComum, TbEmpresa
 
 
-# 🌟 NOVO (Ações Comuns por empresa): catálogo fechado das 18 ações
+# 🌟 NOVO (Ações Comuns por empresa): catálogo fechado das ações
 # individuais que existem hoje no menu "Ações Comuns" do chat. Rodar
 # esse comando UMA VEZ depois de aplicar a migration que cria a tabela
 # AcaoComum (python manage.py makemigrations && python manage.py
-# migrate) -- ele cadastra as 18 ações (se ainda não existirem) e já
+# migrate) -- ele cadastra as ações (se ainda não existirem) e já
 # HABILITA todas elas pra TODAS as empresas já cadastradas, pra ninguém
 # perder acesso a nada que já funcionava antes dessa funcionalidade
 # existir. Depois disso, um superusuário pode ir na tela de Empresa e
@@ -35,6 +35,12 @@ ACOES = [
     ('Cenário', 'excluir', 'Cenário - Excluir'),
     ('Cenário', 'exportar_excel', 'Cenário - Exportar Excel Resultados Financeiros do Cenário Ativo'),
     ('Cenário', 'exportar_dados_otimizacao', 'Cenário - Exportar Dados de Otimização do Cenário Ativo'),
+
+    # 🌟 NOVO: primeira ação do grupo "Custo Ferbasa" -- cadastrada só
+    # como entrada no catálogo por enquanto (aparece na tela de Empresa
+    # pra habilitar/desabilitar), SEM nenhuma lógica de chat/detector
+    # implementada ainda no Agente IA. Isso vem numa próxima etapa.
+    ('Custo Ferbasa', 'atualizar_producao_ggf_mensal', 'Custo Ferbasa - Atualizar Produção e GGF Mensal'),
 ]
 
 

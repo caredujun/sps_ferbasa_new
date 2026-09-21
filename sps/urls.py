@@ -23,6 +23,7 @@ urlpatterns += [
     # NOVA ROTA: Vincula o botão do front-end à view de limpeza do Python
     path('chat/limpar/', views.limpar_historico_view, name='limpar_historico'),
     path('chat/upload/', views.upload_pdf_view, name='upload_pdf'),
+    path('chat/relatorios/', views.listar_relatorios_json, name='listar_relatorios_json'),
     # 🌟 NOVO (multi-empresa): endpoint JSON usado pelo JS que filtra o
     # dropdown de cenário pela empresa escolhida no formulário de
     # usuário -- URL direta, fora do mecanismo de URLs do Admin.

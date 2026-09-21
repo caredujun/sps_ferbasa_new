@@ -14,7 +14,8 @@ from otimizacao.models import TbProdutoMercadoFluxo, TbProdutoMercadoFluxoDaugth
     TbOtimizacaoEquipamentosDaugther, TbOtimizacaoProduto, TbOtimizacaoProdutoDaugther, \
     TbOtimizacaoConjuntoEquipamentos, TbOtimizacaoShadow, TbOtimizacaoConjuntoEquipamentosDaugther
 from produtos.models import TbProdutos, TbProdutoMercadoPreco, TbMercadoOutbound
-from tabelas.models import TbMercado, TbCustoItemPreco, TbCustoItem, TbCustoFixo, TbDepreAmorti, TbCapex
+from tabelas.models import TbMercado, TbCustoItemPreco, TbCustoItem, TbCustoFixo, TbDepreAmorti, TbCapex, \
+    TbUnidadeProducao, TbCustoTipo, TbTipoProducao, TbFamiliaProduto, TbGrupoCenarios, TbEquacaoAjustePreco
 from .models import *
 from django.db.models import Q
 
@@ -136,15 +137,14 @@ def verifica_filhas(self, id):
     cursor.close()
 
 
-@shared_task(bind=True)
-def remover_cenario_celery(self, id):
-    # * self is a representation from app.Task
-    task_result = TaskResult.objects.get_task(self.request.id)
-    task_result.status = 'RUNNING'
-    task_result.task_name = 'REMOVENDO CENÁRIO'
-    task_result.save()
-    transaction.commit()
-
+def _remover_cenario_de_verdade(id):
+    """
+    Lógica de exclusão de UM cenário -- extraída numa função própria pra
+    poder ser reaproveitada tanto por remover_cenario_celery (exclusão
+    avulsa de um cenário) quanto por remover_empresa_celery (que precisa
+    remover TODOS os cenários da empresa, um de cada vez, antes de
+    remover a empresa em si).
+    """
     # Dessa forma ativa todos os post e pode demorar
     cenario = TbCenarios.objects.get(id=id)
 
@@ -179,6 +179,70 @@ def remover_cenario_celery(self, id):
     sql = "select public.reset_sequence('parameters_tbcenarios','id')"
     cursor.execute(sql)
     cursor.close()
+
+
+@shared_task(bind=True)
+def remover_cenario_celery(self, id):
+    # * self is a representation from app.Task
+    task_result = TaskResult.objects.get_task(self.request.id)
+    task_result.status = 'RUNNING'
+    task_result.task_name = 'REMOVENDO CENÁRIO'
+    task_result.save()
+    transaction.commit()
+
+    _remover_cenario_de_verdade(id)
+
+
+@shared_task(bind=True)
+def remover_empresa_celery(self, id_empresa):
+    # * self is a representation from app.Task
+    task_result = TaskResult.objects.get_task(self.request.id)
+    task_result.status = 'RUNNING'
+    task_result.task_name = 'REMOVENDO EMPRESA'
+    task_result.save()
+    transaction.commit()
+
+    # 🌟 NOVO: remove os cenários da empresa PRIMEIRO, um de cada vez,
+    # reaproveitando a mesma lógica já testada de remover_cenario_celery
+    # (_remover_cenario_de_verdade) -- evita tentar excluir a empresa
+    # inteira de uma vez, com todos os cenários e as dezenas de tabelas
+    # filhas de cada um ainda vinculados. Essa foi exatamente a causa do
+    # travamento visto ao tentar excluir empresa pela tela normal do
+    # Admin (que, antes de mostrar a confirmação, tenta enumerar TUDO
+    # que seria afetado).
+    ids_cenarios = list(TbCenarios.objects.filter(empresa_id=id_empresa).values_list('id', flat=True))
+    for id_cenario in ids_cenarios:
+        _remover_cenario_de_verdade(id_cenario)
+
+    # Depois de remover todos os cenários (a parte pesada e arriscada),
+    # o resto ligado à empresa (glossário, comportamentos do Agente IA,
+    # histórico, relatórios, cadastros de mercado/unidade de produção/
+    # etc.) é pequeno o suficiente pra deixar o próprio Django cuidar da
+    # exclusão em cascata sem risco de travar nada.
+    # 🌟 CORRIGIDO: além dos cenários (já removidos acima), várias
+    # tabelas de cadastro ligadas à empresa usam on_delete=PROTECT --
+    # empresa.delete() sozinho falhava com ProtectedError sempre que
+    # existisse pelo menos um registro nelas (glossário, comportamento
+    # do Agente IA, histórico de conversas, e os cadastros
+    # independentes de cenário como mercado, unidade de produção, tipo
+    # de custo, etc.). Como nenhuma delas tem uma estrutura profunda de
+    # tabelas filhas (diferente de Cenário), é seguro excluir em massa
+    # direto, sem o cuidado extra que os cenários precisaram.
+    TbGlossario.objects.filter(empresa_id=id_empresa).delete()
+    AgenteConfig.objects.filter(empresa_id=id_empresa).delete()
+    HistoricoAgente.objects.filter(empresa_id=id_empresa).delete()
+    RelatorioPDF.objects.filter(empresa_id=id_empresa).delete()
+    TbUnidadeProducao.objects.filter(empresa_id=id_empresa).delete()
+    TbMercado.objects.filter(empresa_id=id_empresa).delete()
+    TbCustoTipo.objects.filter(empresa_id=id_empresa).delete()
+    TbCustoItem.objects.filter(empresa_id=id_empresa).delete()
+    TbTipoProducao.objects.filter(empresa_id=id_empresa).delete()
+    TbFamiliaProduto.objects.filter(empresa_id=id_empresa).delete()
+    TbGrupoCenarios.objects.filter(empresa_id=id_empresa).delete()
+    TbEquacaoAjustePreco.objects.filter(empresa_id=id_empresa).delete()
+
+    empresa = TbEmpresa.objects.get(id=id_empresa)
+    empresa.delete()
 
 
 @shared_task

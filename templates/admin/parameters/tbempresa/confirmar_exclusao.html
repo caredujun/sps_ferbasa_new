@@ -1,0 +1,38 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block content %}
+<div class="module">
+    <p style="font-size: 14px; color: #b00; font-weight: bold;">
+        ⚠️ Atenção: essa ação exclui a(s) empresa(s) abaixo permanentemente, junto com
+        TODOS os cenários e dados relacionados a ela(s). Não pode ser desfeita.
+    </p>
+
+    <p>Tem certeza que quer excluir a(s) seguinte(s) empresa(s)?</p>
+
+    <ul>
+        {% for empresa in empresas %}
+        <li><strong>{{ empresa.emp_nome }}</strong></li>
+        {% endfor %}
+    </ul>
+
+    <p>
+        A exclusão roda em segundo plano (pode demorar, dependendo da quantidade de
+        cenários e dados de cada empresa) -- essa tela só confirma que você quer
+        começar o processo.
+    </p>
+
+    <form method="post">
+        {% csrf_token %}
+        {% for empresa in empresas %}
+        <input type="hidden" name="_selected_action" value="{{ empresa.pk }}">
+        {% endfor %}
+        <input type="hidden" name="action" value="delete_selected">
+        <input type="hidden" name="confirmar" value="1">
+        <div class="submit-row">
+            <input type="submit" value="Sim, excluir permanentemente" style="background: #b00; color: #fff;">
+            <a href="{% url 'admin:parameters_tbempresa_changelist' %}" class="button cancel-link">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

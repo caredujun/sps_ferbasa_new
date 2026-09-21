@@ -145,8 +145,8 @@
 
             <!-- ZONA DE ARRASTAR-E-SOLTAR -->
             <div id="drop-zone" class="drop-zone">
-                📤 {% trans "Arraste um PDF, TXT ou XLSX aqui" %}<br>{% trans "ou clique para escolher" %}
-                <input type="file" id="input-arquivo-pdf" accept=".pdf,.txt,.xlsx,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+                📤 {% trans "Arraste um PDF, TXT, XLSX/XLS ou CSV aqui" %}<br>{% trans "ou clique para escolher" %}
+                <input type="file" id="input-arquivo-pdf" accept=".pdf,.txt,.xlsx,.xls,.csv,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv">
             </div>
             <div id="upload-status" class="upload-status"></div>
 
@@ -240,6 +240,16 @@
                     {% if acoes_habilitadas.cen_exportar_dados_otimizacao %}<option value="exportar dados de otimização do cenário ativo">{% trans "Exportar Dados de Otimização do Cenário Ativo" %}</option>{% endif %}
                 </select>
             </div>
+
+            {% if acoes_habilitadas.cf_atualizar_producao_ggf_mensal %}
+            <div class="grupo-acoes-dropdown">
+                <label for="dropdown-custo-ferbasa">{% trans "Custo Ferbasa" %}</label>
+                <select id="dropdown-custo-ferbasa" class="select-acao-comum" onchange="dispararAcaoDropdown(this)">
+                    <option value="">{% trans "Selecione uma ação..." %}</option>
+                    <option value="atualizar produção e ggf mensal">{% trans "Atualizar Produção e GGF Mensal" %}</option>
+                </select>
+            </div>
+            {% endif %}
 
             <div class="grupo-acoes-dropdown">
                 <label for="dropdown-indicadores">{% trans "Indicadores" %}</label>
@@ -627,6 +637,7 @@
         var inputArquivo = document.getElementById('input-arquivo-pdf');
         var uploadStatus = document.getElementById('upload-status');
         var listaPdfs = document.getElementById('pdf-selector-list');
+        var textoNenhumRelatorio = "{% trans 'Nenhum PDF cadastrado no Admin.' %}";
 
         function mostrarStatusUpload(mensagem, tipo) {
             uploadStatus.textContent = mensagem;
@@ -645,14 +656,49 @@
             listaPdfs.prepend(label);
         }
 
+        function atualizarListaRelatorios() {
+            // 🌟 NOVO: busca a lista atual de Relatórios no servidor e
+            // reconstrói as caixinhas na lateral -- usado depois que um
+            // arquivo é processado e apagado em segundo plano (fluxo de
+            // Custo Ferbasa), já que nesse caso não tem nenhuma requisição
+            // "normal" do usuário que traga a lista atualizada sozinha.
+            fetch('/chat/relatorios/')
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    listaPdfs.innerHTML = '';
+                    var relatorios = data.relatorios || [];
+                    if (relatorios.length === 0) {
+                        var p = document.createElement('p');
+                        p.style.color = 'gray';
+                        p.style.fontSize = '13px';
+                        var em = document.createElement('em');
+                        em.textContent = textoNenhumRelatorio;
+                        p.appendChild(em);
+                        listaPdfs.appendChild(p);
+                        return;
+                    }
+                    relatorios.forEach(function(r) {
+                        var label = document.createElement('label');
+                        label.className = 'pdf-item';
+                        label.innerHTML = '<input type="checkbox" class="pdf-checkbox" value="' + r.id + '"><span></span>';
+                        label.querySelector('span').textContent = r.titulo;
+                        listaPdfs.appendChild(label);
+                    });
+                })
+                .catch(function() {
+                    // Falha silenciosa -- a lista fica desatualizada até o
+                    // próximo F5, mas não interrompe o fluxo do chat por isso.
+                });
+        }
+
         function enviarArquivoPdf(arquivo) {
             if (!arquivo) return;
 
             var nomeMinusculo = arquivo.name.toLowerCase();
-            var extensaoValida = nomeMinusculo.endsWith('.pdf') || nomeMinusculo.endsWith('.txt') || nomeMinusculo.endsWith('.xlsx');
+            var extensaoValida = nomeMinusculo.endsWith('.pdf') || nomeMinusculo.endsWith('.txt') || nomeMinusculo.endsWith('.xlsx') || nomeMinusculo.endsWith('.xls') || nomeMinusculo.endsWith('.csv');
 
             if (!extensaoValida) {
-                mostrarStatusUpload('Apenas arquivos PDF, TXT ou XLSX são aceitos.', 'erro');
+                mostrarStatusUpload('Apenas arquivos PDF, TXT, XLSX, XLS ou CSV são aceitos.', 'erro');
                 return;
             }
 
@@ -853,6 +899,16 @@
             .then(function(data) {
                 var respostaTexto = data.resposta || data.resposta_ia || '';
 
+                // 🌟 NOVO: se a etapa ANTERIOR era uma das que processam um
+                // arquivo de Custo Ferbasa (Produção Mensal / Distribuição
+                // GGF Mensal) e a etapa MUDOU agora, o arquivo acabou de ser
+                // apagado em segundo plano pela task -- atualiza a lista de
+                // caixinhas dos Relatórios, senão o arquivo já removido
+                // continua aparecendo marcado na tela até um F5 manual.
+                var etapaAnteriorEraProcessamentoCf = (
+                    ultimaEtapaSondagem === 'cf_processando_producao' || ultimaEtapaSondagem === 'cf_processando_ggf'
+                );
+
                 if (data.aguardando_poll) {
                     if (data.etapa_atual !== ultimaEtapaSondagem) {
                         // 🌟 NOVO: a etapa mudou (ex: terminou a limpeza e
@@ -861,6 +917,9 @@
                         // "mais uma checagem igual". Mostra como mensagem
                         // de verdade (com os botões, tipo "Cancelar"),
                         // não só atualiza a barra silenciosamente.
+                        if (etapaAnteriorEraProcessamentoCf) {
+                            atualizarListaRelatorios();
+                        }
                         ultimaEtapaSondagem = data.etapa_atual;
                         renderizarRespostaAgente(data);
                     }
@@ -872,6 +931,9 @@
                     // Terminou de vez (sucesso, erro, ou avançou pra uma
                     // etapa que não é mais de espera) -- tira a barra e
                     // mostra a resposta final como mensagem normal.
+                    if (etapaAnteriorEraProcessamentoCf) {
+                        atualizarListaRelatorios();
+                    }
                     removerBarraProgresso();
                     renderizarRespostaAgente(data);
                     temporizadorSondagem = null;
