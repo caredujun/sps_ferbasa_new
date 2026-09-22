@@ -2690,3 +2690,48 @@ msgstr "Technischer Bezeichner im Code -- ändert sich nach der Erstellung nicht
 #, python-format
 msgid "Olá %(nome_usuario)s! O que posso fazer por você hoje?"
 msgstr "Hallo %(nome_usuario)s! Was kann ich heute für Sie tun?"
+
+msgid "Relatórios Agente IA"
+msgstr "KI-Agent-Berichte"
+
+msgid "Relatório Agente IA"
+msgstr "KI-Agent-Bericht"
+
+msgid "Arquivo para Atualização"
+msgstr "Datei zur Aktualisierung"
+
+msgid "Solte aqui um arquivo (Excel ou CSV) que o Agente vai usar uma vez para atualizar dados no sistema. Só cabe um arquivo por vez."
+msgstr "Legen Sie hier eine Datei ab (Excel oder CSV), die der Agent einmalig verwendet, um Daten im System zu aktualisieren. Es passt jeweils nur eine Datei."
+
+msgid "Arraste um XLSX, XLS ou CSV aqui"
+msgstr "XLSX, XLS oder CSV hierher ziehen"
+
+msgid "Nenhum arquivo no espaço de atualização."
+msgstr "Keine Datei im Aktualisierungsbereich."
+
+msgid "Custo Ferbasa"
+msgstr "Ferbasa-Kosten"
+
+msgid "Atualizar Produção e GGF Mensal"
+msgstr "Monatliche Produktion und GGF aktualisieren"
+
+msgid "Já enviei o arquivo"
+msgstr "Ich habe die Datei bereits gesendet"
+
+msgid "Pular"
+msgstr "Überspringen"
+
+msgid "Encerrar Ação"
+msgstr "Aktion beenden"
+
+msgid "Arquivo de Atualização do Agente"
+msgstr "Agent-Aktualisierungsdatei"
+
+msgid "Arquivos de Atualização do Agente"
+msgstr "Agent-Aktualisierungsdateien"
+
+msgid "Nome original"
+msgstr "Ursprünglicher Name"
+
+msgid "Atualizar Consumo Específico e Custo Variável Adicionado"
+msgstr "Spezifischen Verbrauch und Zusätzliche Variable Kosten aktualisieren"

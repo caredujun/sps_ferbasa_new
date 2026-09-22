@@ -41,6 +41,7 @@ ACOES = [
     # pra habilitar/desabilitar), SEM nenhuma lógica de chat/detector
     # implementada ainda no Agente IA. Isso vem numa próxima etapa.
     ('Custo Ferbasa', 'atualizar_producao_ggf_mensal', 'Custo Ferbasa - Atualizar Produção e GGF Mensal'),
+    ('Custo Ferbasa', 'atualizar_consumo_especifico_custo_variavel', 'Custo Ferbasa - Atualizar Consumo Específico e Custo Variável Adicionado'),
 ]
 
 

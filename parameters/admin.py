@@ -2112,7 +2112,7 @@ _ORDEM_MENU_PARAMETERS = [
     'TbGlossario',  # Glossário
     'AgenteConfig',  # Comportamento Agente IA
     'HistoricoAgente',  # Histórico Agente IA
-    'RelatorioPDF',  # Relatórios Consulta IA
+    'RelatorioPDF',  # Relatórios Agente IA
     'AcaoComum',  # Ações Comuns IA
     'PerfilUsuario',  # Perfis de Usuário
     'AppOpcional',  # Apps Opcionais

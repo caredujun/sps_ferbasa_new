@@ -2690,3 +2690,48 @@ msgstr "代码中使用的技术标识符——创建后不会更改。"
 #, python-format
 msgid "Olá %(nome_usuario)s! O que posso fazer por você hoje?"
 msgstr "你好，%(nome_usuario)s！今天我能为您做些什么？"
+
+msgid "Relatórios Agente IA"
+msgstr "AI代理报告"
+
+msgid "Relatório Agente IA"
+msgstr "AI代理报告"
+
+msgid "Arquivo para Atualização"
+msgstr "待更新文件"
+
+msgid "Solte aqui um arquivo (Excel ou CSV) que o Agente vai usar uma vez para atualizar dados no sistema. Só cabe um arquivo por vez."
+msgstr "将文件(Excel或CSV)拖放到此处，供代理使用一次以更新系统中的数据。一次只能放一个文件。"
+
+msgid "Arraste um XLSX, XLS ou CSV aqui"
+msgstr "将XLSX、XLS或CSV文件拖到此处"
+
+msgid "Nenhum arquivo no espaço de atualização."
+msgstr "更新区域没有文件。"
+
+msgid "Custo Ferbasa"
+msgstr "Ferbasa成本"
+
+msgid "Atualizar Produção e GGF Mensal"
+msgstr "更新月度生产和GGF"
+
+msgid "Já enviei o arquivo"
+msgstr "我已经发送了文件"
+
+msgid "Pular"
+msgstr "跳过"
+
+msgid "Encerrar Ação"
+msgstr "结束操作"
+
+msgid "Arquivo de Atualização do Agente"
+msgstr "代理更新文件"
+
+msgid "Arquivos de Atualização do Agente"
+msgstr "代理更新文件"
+
+msgid "Nome original"
+msgstr "原始名称"
+
+msgid "Atualizar Consumo Específico e Custo Variável Adicionado"
+msgstr "更新特定消耗和附加可变成本"

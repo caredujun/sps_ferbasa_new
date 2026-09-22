@@ -24,6 +24,8 @@ urlpatterns += [
     path('chat/limpar/', views.limpar_historico_view, name='limpar_historico'),
     path('chat/upload/', views.upload_pdf_view, name='upload_pdf'),
     path('chat/relatorios/', views.listar_relatorios_json, name='listar_relatorios_json'),
+    path('chat/arquivo-atualizacao/', views.upload_arquivo_atualizacao_view, name='upload_arquivo_atualizacao'),
+    path('chat/arquivo-atualizacao/status/', views.status_arquivo_atualizacao_json, name='status_arquivo_atualizacao'),
     # 🌟 NOVO (multi-empresa): endpoint JSON usado pelo JS que filtra o
     # dropdown de cenário pela empresa escolhida no formulário de
     # usuário -- URL direta, fora do mecanismo de URLs do Admin.

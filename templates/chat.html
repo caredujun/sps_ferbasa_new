@@ -40,6 +40,7 @@
         button { padding: 12px 24px; background-color: #417690; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
 
         .pdf-item { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding: 8px; border-radius: 4px; background: #fdfdfd; border: 1px solid #eee; font-size: 13px; cursor: pointer; }
+        .arquivo-atualizacao-item { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding: 8px; border-radius: 4px; background: #fdfdfd; border: 1px solid #eee; font-size: 13px; }
         .pdf-item input { cursor: pointer; }
         .badge-fonte { display: inline-block; background: #e3f2fd; color: #0d47a1; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-top: 5px; border: 1px solid #bbdefb; }
 
@@ -56,6 +57,12 @@
             cursor: pointer;
         }
         .botao-opcao:hover { background: #417690; color: #fff; }
+
+        /* Mini-formulário de período (início/fim), embutido na resposta do chat */
+        .form-periodo-inline { margin-top: 8px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px; background: #f5f9fb; border: 1px solid #d5e5ec; border-radius: 8px; }
+        .form-periodo-inline label { font-size: 12px; color: #417690; font-weight: bold; display: flex; align-items: center; gap: 6px; }
+        .form-periodo-inline input[type="text"] { width: 80px; padding: 5px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; }
+        .form-periodo-inline .botao-opcao { margin-left: 4px; }
 
         /* Painel lateral direito: Ações Comuns no SPS */
         .grupo-acoes-dropdown { margin-bottom: 16px; }
@@ -140,13 +147,13 @@
                 </select>
             </form>
 
-            <h3>📂 {% trans "Relatórios" %}</h3>
+            <h3>📂 {% trans "Relatórios Agente IA" %}</h3>
             <p style="color: #666; font-size: 12px; margin-bottom: 15px;">{% trans "Marque os arquivos que deseja incluir na análise da resposta atual." %}</p>
 
             <!-- ZONA DE ARRASTAR-E-SOLTAR -->
             <div id="drop-zone" class="drop-zone">
-                📤 {% trans "Arraste um PDF, TXT, XLSX/XLS ou CSV aqui" %}<br>{% trans "ou clique para escolher" %}
-                <input type="file" id="input-arquivo-pdf" accept=".pdf,.txt,.xlsx,.xls,.csv,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv">
+                📤 {% trans "Arraste um PDF, TXT ou XLSX aqui" %}<br>{% trans "ou clique para escolher" %}
+                <input type="file" id="input-arquivo-pdf" accept=".pdf,.txt,.xlsx,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
             </div>
             <div id="upload-status" class="upload-status"></div>
 
@@ -159,6 +166,29 @@
                 {% empty %}
                     <p style="color: gray; font-size: 13px;"><em>{% trans "Nenhum PDF cadastrado no Admin." %}</em></p>
                 {% endfor %}
+            </div>
+
+            <!-- 🌟 NOVO: espaço único (um arquivo por vez) pro Agente IA
+            usar pra ATUALIZAR dados (planilha de Indicador/Câmbio,
+            Produção Mensal/Distribuição GGF Mensal do Custo Ferbasa) --
+            diferente dos Relatórios acima (que ficam disponíveis pra
+            consulta repetida), esse arquivo é descartado automaticamente
+            assim que o Agente termina de usá-lo. -->
+            <h3 style="margin-top: 25px;">🔄 {% trans "Arquivo para Atualização" %}</h3>
+            <p style="color: #666; font-size: 12px; margin-bottom: 15px;">{% trans "Solte aqui um arquivo (Excel ou CSV) que o Agente vai usar uma vez para atualizar dados no sistema. Só cabe um arquivo por vez." %}</p>
+
+            <div id="drop-zone-atualizacao" class="drop-zone">
+                📤 {% trans "Arraste um XLSX, XLS ou CSV aqui" %}<br>{% trans "ou clique para escolher" %}
+                <input type="file" id="input-arquivo-atualizacao" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv">
+            </div>
+            <div id="upload-status-atualizacao" class="upload-status"></div>
+
+            <div id="arquivo-atualizacao-atual">
+                {% if arquivo_atualizacao %}
+                    <p class="arquivo-atualizacao-item"><span>📎 {{ arquivo_atualizacao.nome_original }}</span></p>
+                {% else %}
+                    <p style="color: gray; font-size: 13px;"><em>{% trans "Nenhum arquivo no espaço de atualização." %}</em></p>
+                {% endif %}
             </div>
         </div>
 
@@ -241,12 +271,13 @@
                 </select>
             </div>
 
-            {% if acoes_habilitadas.cf_atualizar_producao_ggf_mensal %}
+            {% if acoes_habilitadas.cf_atualizar_producao_ggf_mensal or acoes_habilitadas.cf_atualizar_consumo_especifico_custo_variavel %}
             <div class="grupo-acoes-dropdown">
                 <label for="dropdown-custo-ferbasa">{% trans "Custo Ferbasa" %}</label>
                 <select id="dropdown-custo-ferbasa" class="select-acao-comum" onchange="dispararAcaoDropdown(this)">
                     <option value="">{% trans "Selecione uma ação..." %}</option>
-                    <option value="atualizar produção e ggf mensal">{% trans "Atualizar Produção e GGF Mensal" %}</option>
+                    {% if acoes_habilitadas.cf_atualizar_producao_ggf_mensal %}<option value="atualizar produção e ggf mensal">{% trans "Atualizar Produção e GGF Mensal" %}</option>{% endif %}
+                    {% if acoes_habilitadas.cf_atualizar_consumo_especifico_custo_variavel %}<option value="atualizar consumo específico e custo variável adicionado">{% trans "Atualizar Consumo Específico e Custo Variável Adicionado" %}</option>{% endif %}
                 </select>
             </div>
             {% endif %}
@@ -328,6 +359,16 @@
             var form = document.getElementById('chat-form');
             input.value = opcao;
             form.dispatchEvent(new Event('submit', { cancelable: true }));
+        }
+
+        // 🌟 NOVO: lê os dois campos do mini-formulário de período e manda
+        // como mensagem no formato "início,fim" -- exatamente o formato
+        // que o back-end já sabe interpretar (mesmo mecanismo de
+        // escolherOpcao, reaproveitado).
+        function confirmarFormPeriodo(idInicio, idFim) {
+            var inicio = document.getElementById(idInicio).value.trim();
+            var fim = document.getElementById(idFim).value.trim();
+            escolherOpcao(inicio + ',' + fim);
         }
 
         // 🌟 NOVO: chamada pelo onchange dos dropdowns de "Ações Comuns" --
@@ -657,11 +698,9 @@
         }
 
         function atualizarListaRelatorios() {
-            // 🌟 NOVO: busca a lista atual de Relatórios no servidor e
-            // reconstrói as caixinhas na lateral -- usado depois que um
-            // arquivo é processado e apagado em segundo plano (fluxo de
-            // Custo Ferbasa), já que nesse caso não tem nenhuma requisição
-            // "normal" do usuário que traga a lista atualizada sozinha.
+            // Busca a lista atual de Relatórios no servidor e reconstrói
+            // as caixinhas na lateral -- usado como reforço geral depois
+            // de qualquer processamento de arquivo em segundo plano.
             fetch('/chat/relatorios/')
                 .then(function(res) { return res.json(); })
                 .then(function(data) {
@@ -691,14 +730,37 @@
                 });
         }
 
+        function removerRelatorioDaLista(id) {
+            // 🌟 NOVO: remove diretamente UMA caixinha específica, pelo id
+            // que o backend confirma ter apagado (campo
+            // "relatorio_removido_id" na resposta) -- mecanismo direto e
+            // confiável, usado pelo fluxo de Custo Ferbasa depois que a
+            // task já apagou o arquivo do banco em segundo plano.
+            if (!id) return;
+            var checkbox = listaPdfs.querySelector('.pdf-checkbox[value="' + id + '"]');
+            if (checkbox) {
+                var item = checkbox.closest('.pdf-item');
+                if (item) item.remove();
+            }
+            if (listaPdfs.querySelectorAll('.pdf-item').length === 0 && !listaPdfs.querySelector('em')) {
+                var p = document.createElement('p');
+                p.style.color = 'gray';
+                p.style.fontSize = '13px';
+                var em = document.createElement('em');
+                em.textContent = textoNenhumRelatorio;
+                p.appendChild(em);
+                listaPdfs.appendChild(p);
+            }
+        }
+
         function enviarArquivoPdf(arquivo) {
             if (!arquivo) return;
 
             var nomeMinusculo = arquivo.name.toLowerCase();
-            var extensaoValida = nomeMinusculo.endsWith('.pdf') || nomeMinusculo.endsWith('.txt') || nomeMinusculo.endsWith('.xlsx') || nomeMinusculo.endsWith('.xls') || nomeMinusculo.endsWith('.csv');
+            var extensaoValida = nomeMinusculo.endsWith('.pdf') || nomeMinusculo.endsWith('.txt') || nomeMinusculo.endsWith('.xlsx');
 
             if (!extensaoValida) {
-                mostrarStatusUpload('Apenas arquivos PDF, TXT, XLSX, XLS ou CSV são aceitos.', 'erro');
+                mostrarStatusUpload('Apenas arquivos PDF, TXT ou XLSX são aceitos.', 'erro');
                 return;
             }
 
@@ -760,6 +822,133 @@
             var arquivos = e.dataTransfer.files;
             if (arquivos.length > 0) {
                 enviarArquivoPdf(arquivos[0]);
+            }
+        });
+
+        // 🌟 NOVO: espaço único de "arquivo para atualização" -- mesmo
+        // padrão de arrastar-e-soltar do espaço de Relatórios acima, só
+        // que apontando pro endpoint/elemento próprios desse espaço.
+        var dropZoneAtualizacao = document.getElementById('drop-zone-atualizacao');
+        var inputArquivoAtualizacao = document.getElementById('input-arquivo-atualizacao');
+        var statusUploadAtualizacao = document.getElementById('upload-status-atualizacao');
+        var displayArquivoAtualizacao = document.getElementById('arquivo-atualizacao-atual');
+        var textoNenhumArquivoAtualizacao = "{% trans 'Nenhum arquivo no espaço de atualização.' %}";
+
+        function mostrarStatusUploadAtualizacao(mensagem, tipo) {
+            statusUploadAtualizacao.textContent = mensagem;
+            statusUploadAtualizacao.className = 'upload-status ' + (tipo || '');
+        }
+
+        function exibirArquivoAtualizacao(nome) {
+            displayArquivoAtualizacao.innerHTML = '';
+            if (nome) {
+                var p = document.createElement('p');
+                p.className = 'arquivo-atualizacao-item';
+                var span = document.createElement('span');
+                span.textContent = '📎 ' + nome;
+                p.appendChild(span);
+                displayArquivoAtualizacao.appendChild(p);
+            } else {
+                var pVazio = document.createElement('p');
+                pVazio.style.color = 'gray';
+                pVazio.style.fontSize = '13px';
+                var em = document.createElement('em');
+                em.textContent = textoNenhumArquivoAtualizacao;
+                pVazio.appendChild(em);
+                displayArquivoAtualizacao.appendChild(pVazio);
+            }
+        }
+
+        function atualizarStatusArquivoAtualizacao() {
+            // 🌟 NOVO: sincroniza a tela com o estado real do espaço único
+            // no servidor -- chamado depois de qualquer mensagem (normal
+            // ou sondagem), já que o arquivo pode ter sido consumido e
+            // apagado tanto na hora (confirmação de indicador/câmbio)
+            // quanto em segundo plano (Custo Ferbasa via Celery).
+            fetch('/chat/arquivo-atualizacao/status/')
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    exibirArquivoAtualizacao(data.arquivo ? data.arquivo.nome : null);
+                    // 🌟 CORRIGIDO: sem isso, a mensagem "✅ Arquivo
+                    // recebido." (mostrada no momento do upload) ficava
+                    // presa na tela pra sempre, mesmo depois do arquivo já
+                    // ter sido usado e removido.
+                    if (!data.arquivo) {
+                        mostrarStatusUploadAtualizacao('', '');
+                    }
+                })
+                .catch(function() {
+                    // Falha silenciosa -- não interrompe o fluxo do chat por isso.
+                });
+        }
+
+        function enviarArquivoAtualizacao(arquivo) {
+            if (!arquivo) return;
+
+            var nomeMinusculo = arquivo.name.toLowerCase();
+            var extensaoValida = nomeMinusculo.endsWith('.xlsx') || nomeMinusculo.endsWith('.xls') || nomeMinusculo.endsWith('.csv');
+
+            if (!extensaoValida) {
+                mostrarStatusUploadAtualizacao('Apenas arquivos XLSX, XLS ou CSV são aceitos aqui.', 'erro');
+                return;
+            }
+
+            mostrarStatusUploadAtualizacao('Enviando "' + arquivo.name + '"...', '');
+
+            var tokenCsrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            var dadosUpload = new FormData();
+            dadosUpload.append('arquivo', arquivo);
+
+            fetch('/chat/arquivo-atualizacao/', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': tokenCsrf },
+                body: dadosUpload
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.status === 'sucesso') {
+                    mostrarStatusUploadAtualizacao('✅ Arquivo recebido.', 'sucesso');
+                    exibirArquivoAtualizacao(data.nome);
+                } else {
+                    mostrarStatusUploadAtualizacao('❌ ' + data.mensagem, 'erro');
+                }
+            })
+            .catch(function() {
+                mostrarStatusUploadAtualizacao('❌ Erro ao enviar o arquivo.', 'erro');
+            });
+        }
+
+        dropZoneAtualizacao.addEventListener('click', function() {
+            inputArquivoAtualizacao.click();
+        });
+
+        inputArquivoAtualizacao.addEventListener('change', function() {
+            if (inputArquivoAtualizacao.files.length > 0) {
+                enviarArquivoAtualizacao(inputArquivoAtualizacao.files[0]);
+                inputArquivoAtualizacao.value = '';
+            }
+        });
+
+        ['dragenter', 'dragover'].forEach(function(evento) {
+            dropZoneAtualizacao.addEventListener(evento, function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZoneAtualizacao.classList.add('drag-over');
+            });
+        });
+
+        ['dragleave', 'drop'].forEach(function(evento) {
+            dropZoneAtualizacao.addEventListener(evento, function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZoneAtualizacao.classList.remove('drag-over');
+            });
+        });
+
+        dropZoneAtualizacao.addEventListener('drop', function(e) {
+            var arquivos = e.dataTransfer.files;
+            if (arquivos.length > 0) {
+                enviarArquivoAtualizacao(arquivos[0]);
             }
         });
 
@@ -846,6 +1035,15 @@
         function renderizarRespostaAgente(data) {
             var chatBox = document.getElementById('chat-box');
 
+            // 🌟 NOVO: sincroniza a exibição do espaço único de
+            // atualização toda vez que uma resposta chega -- cobre tanto
+            // a confirmação de indicador/câmbio (que apaga o arquivo NA
+            // HORA, dentro dessa mesma resposta) quanto o Custo Ferbasa
+            // (que apaga em segundo plano via Celery, mas a próxima
+            // resposta -- seja da sondagem ou de uma mensagem manual --
+            // já reflete isso).
+            atualizarStatusArquivoAtualizacao();
+
             var fontesHtml = '';
             if (data.fontes && data.fontes.length > 0) {
                 fontesHtml = '<div style="margin-top:5px; display:flex; gap:5px; flex-wrap:wrap;">';
@@ -873,8 +1071,24 @@
                 opcoesHtml += '</div>';
             }
 
+            // 🌟 NOVO: mini-formulário de período (início/fim), quando o
+            // back-end manda o campo form_periodo -- dois campos de
+            // digitação já preenchidos com os valores sugeridos, mais um
+            // botão de confirmar. Evita o usuário ter que digitar o
+            // período dentro do texto da conversa.
+            var formPeriodoHtml = '';
+            if (data.form_periodo) {
+                var idInicio = 'form-periodo-inicio-' + Date.now();
+                var idFim = 'form-periodo-fim-' + Date.now();
+                formPeriodoHtml = '<div class="form-periodo-inline">' +
+                    '<label>Início: <input type="text" id="' + idInicio + '" value="' + escapeHtml(data.form_periodo.minimo) + '" placeholder="AAAA/MM"></label>' +
+                    '<label>Fim: <input type="text" id="' + idFim + '" value="' + escapeHtml(data.form_periodo.maximo) + '" placeholder="AAAA/MM"></label>' +
+                    '<button type="button" class="botao-opcao" onclick="confirmarFormPeriodo(\'' + idInicio + '\', \'' + idFim + '\')">Confirmar</button>' +
+                    '</div>';
+            }
+
             var textoLimpoHTML = processarRespostaCompleta(data.resposta || data.resposta_ia);
-            chatBox.innerHTML += '<div class="chat-box-p" style="color: #2b2b2b;"><strong style="color: #0056b3;">' + ROTULO_AGENTE + ':</strong><div style="margin-top: 5px;">' + textoLimpoHTML + '</div>' + fontesHtml + opcoesHtml + '</div>';
+            chatBox.innerHTML += '<div class="chat-box-p" style="color: #2b2b2b;"><strong style="color: #0056b3;">' + ROTULO_AGENTE + ':</strong><div style="margin-top: 5px;">' + textoLimpoHTML + '</div>' + fontesHtml + opcoesHtml + formPeriodoHtml + '</div>';
             desenharGraficosPendentes();
             chatBox.scrollTop = chatBox.scrollHeight;
         }

@@ -27,6 +27,8 @@ from .fluxo_criar_cenario import (
     _buscar_cambio, _lista_cambios, _lista_periodos_cambio,
     determinar_acao_indicadores, determinar_acao_cambio, determinar_acao_processar,
     iniciar_fluxo_importar_custo_ferbasa, _processar_arquivo_custo_ferbasa,
+    iniciar_fluxo_consumo_especifico,
+    existe_arquivo_atualizacao,
 )
 from .contexto_usuario import empresa_tem_acao_comum_habilitada
 
@@ -227,6 +229,19 @@ PADRAO_CUSTO_FERBASA = re.compile(
 def _detectar_intencao_custo_ferbasa(mensagem):
     texto = mensagem or ""
     return bool(PADRAO_CUSTO_FERBASA.search(texto))
+
+
+# 🌟 NOVO: "atualizar consumo específico e custo variável adicionado"
+# (app custo_ferbasa) -- aceita o texto exato do menu ou a menção a
+# qualquer uma das duas etapas isoladamente.
+PADRAO_CONSUMO_ESPECIFICO = re.compile(
+    r"consumo espec[ií]fico|custo vari[aá]vel adicionado", re.IGNORECASE
+)
+
+
+def _detectar_intencao_consumo_especifico(mensagem):
+    texto = mensagem or ""
+    return bool(PADRAO_CONSUMO_ESPECIFICO.search(texto))
 
 
 PADRAO_TIPO_OU_PERIODO = re.compile(r"\btipo\b|per[ií]odo", re.IGNORECASE)
@@ -928,6 +943,17 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
         _salvar_historico(usuario, mensagem_usuario, resposta)
         return resposta, []
 
+    # 🌟 NOVO: usuário pedindo pra atualizar Consumo Específico e Custo
+    # Variável Adicionado (app custo_ferbasa) -- sugere o período com
+    # base na Produção Mensal, pede confirmação, e encadeia as duas
+    # etapas automaticamente.
+    if _detectar_intencao_consumo_especifico(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Custo Ferbasa', 'atualizar_consumo_especifico_custo_variavel'):
+        if esta_em_fluxo:
+            cancelar_fluxo_ativo(usuario)
+        resposta = iniciar_fluxo_consumo_especifico(usuario, mensagem_usuario)
+        _salvar_historico(usuario, mensagem_usuario, resposta)
+        return resposta, []
+
     # 🌟 NOVO: usuário pedindo pra exportar o relatório Excel do cenário ativo
     if _detectar_intencao_exportar_cenario(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Cenário', 'exportar_excel'):
         if esta_em_fluxo:
@@ -957,53 +983,53 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
     # wizards normais de editar, senão "atualizar indicador X com essa
     # planilha" cairia no fluxo de editar comum (que também reconhece
     # "atualizar" + "indicador").
-    # 🌟 CORRIGIDO: se o usuário está EXATAMENTE na etapa de confirmar
-    # uma planilha (respondendo sim/não/cancelar pra "Confirma a
-    # aplicação?"), a mensagem tem que ir direto pro processamento do
-    # fluxo abaixo -- nunca passar pela checagem de "planilha reenviada"
-    # a seguir. Sem isso: como a caixinha do arquivo na área de
-    # Relatórios continua marcada na tela depois do upload, pdf_ids
-    # chegava preenchido de novo no clique de "Sim"/"Não"/"Cancelar", e
-    # o código reprocessava o arquivo do zero (cancelando o fluxo de
-    # confirmação em andamento) em vez de aplicar a resposta -- dando a
-    # impressão de "nada acontece" (a mesma pergunta de confirmação
-    # reaparecia, idêntica, em loop, e nunca era realmente respondida).
     etapa_atual_usuario = etapa_atual_do_usuario(usuario) if esta_em_fluxo else None
 
-    # 🌟 NOVO: se o usuário está esperando o arquivo de Produção Mensal
-    # ou de Distribuição GGF Mensal (fluxo custo_ferbasa) e mandou
-    # alguma mensagem com um arquivo marcado nos Relatórios, processa
-    # direto -- não precisa de palavra-chave nenhuma na mensagem (só
-    # precisa estar nessa etapa específica esperando).
-    if pdf_ids and etapa_atual_usuario in ('cf_aguardando_producao', 'cf_aguardando_ggf'):
-        resposta = _processar_arquivo_custo_ferbasa(usuario, pdf_ids, etapa_atual_usuario)
-        _salvar_historico(usuario, mensagem_usuario, resposta)
-        return resposta, []
-
-    if pdf_ids and etapa_atual_usuario not in ('ind_planilha_confirmar', 'cam_planilha_confirmar'):
-        # 🌟 CORRIGIDO: identifica pelo nome do arquivo primeiro (não exige
-        # que a mensagem mencione "indicador"/"câmbio" -- o nome do
-        # arquivo, gerado por nós, já basta). O plano B (palavra-chave) só
-        # entra em ação se a mensagem mencionar "planilha" explicitamente
-        # -- sem essa exigência, qualquer "alterar câmbio X" com QUALQUER
-        # arquivo marcado (mesmo um PDF de relatório sem relação nenhuma)
-        # cairia aqui por engano, atropelando o wizard normal.
-        tipo_planilha = identificar_tipo_planilha_reenviada(usuario, pdf_ids)
-        menciona_planilha = PADRAO_PLANILHA.search(mensagem_usuario or "")
-
-        if tipo_planilha == 'ind' or (tipo_planilha is None and menciona_planilha and PADRAO_INDICADOR.search(mensagem_usuario or "")):
-            if esta_em_fluxo:
-                cancelar_fluxo_ativo(usuario)
-            resposta = _processar_planilha_indicador(usuario, mensagem_usuario, pdf_ids)
+    # 🌟 CORRIGIDO: agora usa o espaço ÚNICO de atualização
+    # (ArquivoAtualizacaoAgente), completamente separado da lista de
+    # Relatórios/checkboxes -- não depende mais de pdf_ids pra nada
+    # disso. A antiga exigência de excluir 'ind_planilha_confirmar'/
+    # 'cam_planilha_confirmar' também deixou de ser necessária: aquele
+    # problema (checkbox continuar marcada e reenviar o id à toa a cada
+    # clique) era específico do mecanismo antigo, que não existe mais
+    # aqui.
+    if existe_arquivo_atualizacao(usuario):
+        # 🌟 NOVO: "pular" tem prioridade sobre o processamento do
+        # arquivo -- mesmo que por acaso exista um arquivo no espaço, se
+        # o usuário pediu explicitamente pra pular a etapa atual
+        # (Produção Mensal ou Distribuição GGF Mensal), respeita a
+        # intenção dele em vez de processar o arquivo à força.
+        if etapa_atual_usuario in ('cf_aguardando_producao', 'cf_aguardando_ggf') and (mensagem_usuario or '').strip().lower() in ('pular', 'pula'):
+            pass
+        elif etapa_atual_usuario in ('cf_aguardando_producao', 'cf_aguardando_ggf', 'cf_aguardando_conta_cc_tipo'):
+            resposta = _processar_arquivo_custo_ferbasa(usuario, etapa_atual_usuario)
             _salvar_historico(usuario, mensagem_usuario, resposta)
             return resposta, []
 
-        if tipo_planilha == 'cam' or (tipo_planilha is None and menciona_planilha and PADRAO_CAMBIO.search(mensagem_usuario or "")):
-            if esta_em_fluxo:
-                cancelar_fluxo_ativo(usuario)
-            resposta = _processar_planilha_cambio(usuario, mensagem_usuario, pdf_ids)
-            _salvar_historico(usuario, mensagem_usuario, resposta)
-            return resposta, []
+        elif etapa_atual_usuario not in ('ind_planilha_confirmar', 'cam_planilha_confirmar'):
+            # 🌟 CORRIGIDO: identifica pelo nome do arquivo primeiro (não
+            # exige que a mensagem mencione "indicador"/"câmbio" -- o
+            # nome do arquivo, gerado por nós, já basta). O plano B
+            # (palavra-chave) só entra em ação se a mensagem mencionar
+            # "planilha" explicitamente -- sem essa exigência, qualquer
+            # "alterar câmbio X" cairia aqui por engano, atropelando o
+            # wizard normal.
+            tipo_planilha = identificar_tipo_planilha_reenviada(usuario)
+            menciona_planilha = PADRAO_PLANILHA.search(mensagem_usuario or "")
+
+            if tipo_planilha == 'ind' or (tipo_planilha is None and menciona_planilha and PADRAO_INDICADOR.search(mensagem_usuario or "")):
+                if esta_em_fluxo:
+                    cancelar_fluxo_ativo(usuario)
+                resposta = _processar_planilha_indicador(usuario, mensagem_usuario)
+                _salvar_historico(usuario, mensagem_usuario, resposta)
+                return resposta, []
+
+            if tipo_planilha == 'cam' or (tipo_planilha is None and menciona_planilha and PADRAO_CAMBIO.search(mensagem_usuario or "")):
+                if esta_em_fluxo:
+                    cancelar_fluxo_ativo(usuario)
+                resposta = _processar_planilha_cambio(usuario, mensagem_usuario)
+                _salvar_historico(usuario, mensagem_usuario, resposta)
+                return resposta, []
 
     # 🌟 NOVO: usuário pedindo pra mexer em indicadores (editar/criar/reajustar)
     if _detectar_intencao_indicadores(mensagem_usuario) and empresa_tem_acao_comum_habilitada(

@@ -2690,3 +2690,48 @@ msgstr "Technical identifier used in the code -- doesn't change after created."
 #, python-format
 msgid "Olá %(nome_usuario)s! O que posso fazer por você hoje?"
 msgstr "Hello %(nome_usuario)s! What can I do for you today?"
+
+msgid "Relatórios Agente IA"
+msgstr "AI Agent Reports"
+
+msgid "Relatório Agente IA"
+msgstr "AI Agent Report"
+
+msgid "Arquivo para Atualização"
+msgstr "File for Update"
+
+msgid "Solte aqui um arquivo (Excel ou CSV) que o Agente vai usar uma vez para atualizar dados no sistema. Só cabe um arquivo por vez."
+msgstr "Drop a file here (Excel or CSV) that the Agent will use once to update data in the system. Only one file fits at a time."
+
+msgid "Arraste um XLSX, XLS ou CSV aqui"
+msgstr "Drag an XLSX, XLS or CSV here"
+
+msgid "Nenhum arquivo no espaço de atualização."
+msgstr "No file in the update space."
+
+msgid "Custo Ferbasa"
+msgstr "Ferbasa Cost"
+
+msgid "Atualizar Produção e GGF Mensal"
+msgstr "Update Monthly Production and GGF"
+
+msgid "Já enviei o arquivo"
+msgstr "I've already sent the file"
+
+msgid "Pular"
+msgstr "Skip"
+
+msgid "Encerrar Ação"
+msgstr "End Action"
+
+msgid "Arquivo de Atualização do Agente"
+msgstr "Agent Update File"
+
+msgid "Arquivos de Atualização do Agente"
+msgstr "Agent Update Files"
+
+msgid "Nome original"
+msgstr "Original name"
+
+msgid "Atualizar Consumo Específico e Custo Variável Adicionado"
+msgstr "Update Specific Consumption and Added Variable Cost"

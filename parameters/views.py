@@ -1,4 +1,5 @@
 import json
+import os
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.contrib import messages
@@ -9,7 +10,7 @@ from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from functools import wraps
-from .models import RelatorioPDF, HistoricoAgente, IDIOMA_CHOICES, TbEmpresa, TbCenarios
+from .models import RelatorioPDF, HistoricoAgente, IDIOMA_CHOICES, TbEmpresa, TbCenarios, ArquivoAtualizacaoAgente
 from .contexto_usuario import eh_superuser_ou_superuser_empresa
 import datetime
 import re
@@ -55,8 +56,26 @@ def exige_acesso_ao_agente_ia(view_func):
 _PALAVRAS_CHAVE_BOTAO = {
     'Cancelar', 'Manter', 'Nenhum', 'Nenhuma', 'Manual', 'Planilha', 'Sim', 'Não',
     'Verificar', 'Já enviei a planilha', 'Já enviei o arquivo', 'Gráfico de linha', 'Gráfico de barra',
-    'Concluir',
+    'Concluir', 'Pular', 'Encerrar Ação',
 }
+
+_PADRAO_FORM_PERIODO = re.compile(r'\n*\[FORM_PERIODO:(\d{4}/\d{2}):(\d{4}/\d{2})\]')
+
+
+def _extrair_form_periodo(texto):
+    """
+    🌟 NOVO: detecta o marcador [FORM_PERIODO:min:max] que o fluxo de
+    Consumo Específico/Custo Variável Adicionado embute na mensagem --
+    a tela do chat transforma isso em dois campos de digitação
+    (Início/Fim) já preenchidos, com um botão de confirmar, em vez do
+    usuário ter que digitar o período dentro do texto da conversa.
+    Retorna (texto_sem_marcador, {'minimo':..., 'maximo':...} ou None).
+    O marcador nunca deve chegar à tela do usuário.
+    """
+    m = _PADRAO_FORM_PERIODO.search(texto)
+    if not m:
+        return texto, None
+    return _PADRAO_FORM_PERIODO.sub('', texto), {'minimo': m.group(1), 'maximo': m.group(2)}
 
 
 def _extrair_opcoes_clicaveis(texto):
@@ -167,6 +186,18 @@ def _extrair_opcoes_clicaveis(texto):
             opcoes.append(rotulo)
     if re.search(r'"concluir"', texto, re.IGNORECASE) and 'Concluir' not in opcoes:
         opcoes.append('Concluir')
+    # 🌟 NOVO: "Pular" -- usado no fluxo de Custo Ferbasa pra permitir
+    # pular a etapa de Produção Mensal e ir direto pra Distribuição GGF
+    # Mensal. Aditivo (igual Manter/Cancelar/Concluir acima), já que
+    # aparece JUNTO com "Já enviei o arquivo" na mesma mensagem.
+    if re.search(r'"pular"', texto, re.IGNORECASE) and 'Pular' not in opcoes:
+        opcoes.append('Pular')
+    # 🌟 NOVO: "Encerrar Ação" -- usado só na etapa de Genealogia (a mais
+    # demorada do fluxo de Custo Ferbasa), no lugar de "Cancelar", pra
+    # deixar claro que clicar aqui só para de acompanhar, sem interromper
+    # a atualização em si (que continua rodando em segundo plano).
+    if re.search(r'"encerrar ação"', texto, re.IGNORECASE) and 'Encerrar Ação' not in opcoes:
+        opcoes.append('Encerrar Ação')
 
     return opcoes[:12]
 
@@ -279,6 +310,15 @@ def chat_view(request):
             eh_sondagem_automatica=eh_sondagem_automatica,
         )
 
+        # 🌟 NOVO: extrai (e remove do texto) o marcador de formulário de
+        # período do fluxo de Consumo Específico/Custo Variável
+        # Adicionado -- roda ANTES da extração de opções, pro marcador
+        # nunca aparecer pro usuário nem interferir na detecção de
+        # botões. Limpa dos dois textos (traduzido e original) já que o
+        # marcador é técnico e sobrevive à tradução igual.
+        resposta_original, form_periodo = _extrair_form_periodo(resposta_original)
+        resposta, _ignorar_form = _extrair_form_periodo(resposta)
+
         # 🌟 CORRIGIDO: extrai as opções clicáveis do texto ORIGINAL (em
         # português), não do texto já traduzido -- a extração procura
         # frases exatas em português ("Indicadores cadastrados:", "(sim /
@@ -329,6 +369,7 @@ def chat_view(request):
             "rotulos_opcoes": rotulos_opcoes,
             "aguardando_poll": aguardando_poll,
             "etapa_atual": etapa_atual,
+            "form_periodo": form_periodo,
         })
 
     # No GET, renderiza a página trazendo os relatórios da empresa efetiva do usuário
@@ -387,8 +428,17 @@ def chat_view(request):
     historico_recente.reverse()  # mais antiga primeiro, igual à ordem de exibição no chat
 
     idioma_atual = perfil.idioma_efetivo() if perfil else 'pt-br'
+
+    # 🌟 NOVO: arquivo atual (se houver) no espaço único de atualização --
+    # renderizado já na carga inicial da página, igual à lista de
+    # Relatórios.
+    arquivo_atualizacao = None
+    if empresa_id is not None:
+        arquivo_atualizacao = ArquivoAtualizacaoAgente.objects.filter(empresa_id=empresa_id).order_by('-id').first()
+
     return render(request, "chat.html", {
         "relatorios": relatorios,
+        "arquivo_atualizacao": arquivo_atualizacao,
         "idioma_atual": idioma_atual,
         "idioma_opcoes": IDIOMA_CHOICES,
         "nome_empresa": nome_empresa,
@@ -476,8 +526,6 @@ def limpar_historico_view(request):
 
 
 @exige_acesso_ao_agente_ia
-@require_POST
-@exige_acesso_ao_agente_ia
 def listar_relatorios_json(request):
     """
     🌟 NOVO: devolve a lista atual de Relatórios (id + título) da empresa
@@ -497,28 +545,101 @@ def listar_relatorios_json(request):
     return JsonResponse({'relatorios': dados})
 
 
-def upload_pdf_view(request):
+@exige_acesso_ao_agente_ia
+def status_arquivo_atualizacao_json(request):
     """
-    Recebe um arquivo (PDF, TXT, XLSX/XLS ou CSV) enviado pela zona de
-    arrastar-e-soltar da barra lateral e cria um novo RelatorioPDF ativo
-    para uso imediato pelo agente.
+    🌟 NOVO: devolve o estado atual do espaço ÚNICO de "arquivo de
+    atualização" (usado pelo reenvio de planilha de Indicador/Câmbio e
+    pelo fluxo de Custo Ferbasa) -- se existe um arquivo esperando ser
+    processado, e qual o nome dele. Usado na carga inicial da página e
+    na sondagem, pra saber quando o arquivo foi consumido/apagado em
+    segundo plano e a tela deve voltar a mostrar o espaço vazio.
+    """
+    perfil = getattr(request.user, 'perfilusuario', None)
+    empresa_id = perfil.empresa_efetiva_id() if perfil else None
+    arquivo = None
+    if empresa_id is not None:
+        obj = ArquivoAtualizacaoAgente.objects.filter(empresa_id=empresa_id).order_by('-id').first()
+        if obj:
+            arquivo = {'id': obj.id, 'nome': obj.nome_original}
+    return JsonResponse({'arquivo': arquivo})
+
+
+@require_POST
+def upload_arquivo_atualizacao_view(request):
+    """
+    🌟 NOVO: recebe um arquivo pro espaço ÚNICO de atualização (usado
+    pelo reenvio de planilha de Indicador/Câmbio e pelo fluxo de Custo
+    Ferbasa) -- diferente dos Relatórios normais, só existe UM arquivo
+    por vez por empresa aqui: subir um novo apaga o anterior, se ainda
+    não tiver sido consumido. O arquivo em si é apagado automaticamente
+    pela rotina que o processa, assim que termina de usá-lo.
     """
     arquivo = request.FILES.get("arquivo")
 
     if not arquivo:
         return JsonResponse({"status": "erro", "mensagem": "Nenhum arquivo foi enviado."}, status=400)
 
-    # 🌟 EXTENSÕES ACEITAS: PDF, TXT, XLSX/XLS (planilha Excel) e CSV --
-    # CSV e XLS adicionados pra dar suporte ao fluxo de Custo Ferbasa
-    # (Produção Mensal / Distribuição GGF Mensal), que aceita o arquivo
-    # de origem tanto em Excel quanto em CSV, com qualquer nome.
-    extensoes_aceitas = (".pdf", ".txt", ".xlsx", ".xls", ".csv")
+    extensoes_aceitas = (".xlsx", ".xls", ".csv")
     nome_arquivo = arquivo.name.lower()
 
     if not nome_arquivo.endswith(extensoes_aceitas):
         return JsonResponse({
             "status": "erro",
-            "mensagem": "Apenas arquivos PDF, TXT, XLSX, XLS ou CSV são aceitos."
+            "mensagem": "Apenas arquivos XLSX, XLS ou CSV são aceitos aqui."
+        }, status=400)
+
+    limite_mb = 25
+    if arquivo.size > limite_mb * 1024 * 1024:
+        return JsonResponse({
+            "status": "erro",
+            "mensagem": f"Arquivo maior que {limite_mb}MB. Reduza o tamanho e tente novamente."
+        }, status=400)
+
+    perfil = getattr(request.user, 'perfilusuario', None)
+    empresa_id = perfil.empresa_efetiva_id() if perfil else None
+
+    try:
+        # Só um arquivo por vez nesse espaço -- substitui (apaga) o que
+        # já existir pra essa empresa antes de gravar o novo.
+        if empresa_id is not None:
+            antigos = ArquivoAtualizacaoAgente.objects.filter(empresa_id=empresa_id)
+        else:
+            antigos = ArquivoAtualizacaoAgente.objects.none()
+        for antigo in antigos:
+            caminho_antigo = antigo.arquivo.path if antigo.arquivo else None
+            antigo.delete()
+            if caminho_antigo and os.path.exists(caminho_antigo):
+                os.remove(caminho_antigo)
+
+        novo = ArquivoAtualizacaoAgente.objects.create(arquivo=arquivo, nome_original=arquivo.name)
+        return JsonResponse({"status": "sucesso", "id": novo.id, "nome": novo.nome_original})
+    except Exception as e:
+        return JsonResponse({"status": "erro", "mensagem": str(e)}, status=500)
+
+
+def upload_pdf_view(request):
+    """
+    Recebe um arquivo (PDF, TXT ou XLSX) enviado pela zona de arrastar-e-soltar
+    da barra lateral e cria um novo RelatorioPDF ativo para uso imediato pelo agente.
+    """
+    arquivo = request.FILES.get("arquivo")
+
+    if not arquivo:
+        return JsonResponse({"status": "erro", "mensagem": "Nenhum arquivo foi enviado."}, status=400)
+
+    # 🌟 CORRIGIDO: voltou a aceitar só PDF, TXT e XLSX -- CSV e XLS
+    # passaram a ter seu PRÓPRIO espaço dedicado (ArquivoAtualizacaoAgente,
+    # endpoint /chat/arquivo-atualizacao/), já que servem pra ATUALIZAR
+    # dados (usar uma vez e descartar), não pra consulta/RAG como os
+    # Relatórios normais.
+    extensoes_aceitas = (".pdf", ".txt", ".xlsx")
+    nome_arquivo = arquivo.name.lower()
+
+    if not nome_arquivo.endswith(extensoes_aceitas):
+        return JsonResponse({
+            "status": "erro",
+            "mensagem": "Apenas arquivos PDF, TXT ou XLSX são aceitos."
         }, status=400)
 
     # Limite de segurança para evitar uploads muito grandes (ajuste se necessário)

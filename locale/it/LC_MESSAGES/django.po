@@ -2690,3 +2690,48 @@ msgstr "Identificatore tecnico usato nel codice -- non cambia dopo la creazione.
 #, python-format
 msgid "Olá %(nome_usuario)s! O que posso fazer por você hoje?"
 msgstr "Ciao %(nome_usuario)s! Cosa posso fare per te oggi?"
+
+msgid "Relatórios Agente IA"
+msgstr "Report Agente IA"
+
+msgid "Relatório Agente IA"
+msgstr "Report Agente IA"
+
+msgid "Arquivo para Atualização"
+msgstr "File per Aggiornamento"
+
+msgid "Solte aqui um arquivo (Excel ou CSV) que o Agente vai usar uma vez para atualizar dados no sistema. Só cabe um arquivo por vez."
+msgstr "Rilascia qui un file (Excel o CSV) che l'Agente userà una volta per aggiornare i dati nel sistema. C'è spazio solo per un file alla volta."
+
+msgid "Arraste um XLSX, XLS ou CSV aqui"
+msgstr "Trascina un XLSX, XLS o CSV qui"
+
+msgid "Nenhum arquivo no espaço de atualização."
+msgstr "Nessun file nello spazio di aggiornamento."
+
+msgid "Custo Ferbasa"
+msgstr "Costo Ferbasa"
+
+msgid "Atualizar Produção e GGF Mensal"
+msgstr "Aggiornare Produzione e GGF Mensile"
+
+msgid "Já enviei o arquivo"
+msgstr "Ho già inviato il file"
+
+msgid "Pular"
+msgstr "Salta"
+
+msgid "Encerrar Ação"
+msgstr "Termina Azione"
+
+msgid "Arquivo de Atualização do Agente"
+msgstr "File di Aggiornamento dell'Agente"
+
+msgid "Arquivos de Atualização do Agente"
+msgstr "File di Aggiornamento dell'Agente"
+
+msgid "Nome original"
+msgstr "Nome originale"
+
+msgid "Atualizar Consumo Específico e Custo Variável Adicionado"
+msgstr "Aggiornare Consumo Specifico e Costo Variabile Aggiunto"

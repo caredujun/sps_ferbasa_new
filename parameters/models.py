@@ -903,12 +903,11 @@ class RelatorioPDF(models.Model):
     empresa = models.ForeignKey('TbEmpresa', null=True, blank=True, on_delete=models.PROTECT, verbose_name=_('Empresa'))
 
     class Meta:
-        # 🌟 CORRIGIDO: renomeado de "Relatório(s) PDF" -- não é só arquivo
-        # PDF que pode ser salvo aqui pra consulta do Agente IA (também
-        # aceita TXT e XLSX), então o nome antigo dava a entender uma
-        # limitação que não existe de verdade.
-        verbose_name = _("Relatório Consulta IA")
-        verbose_name_plural = _("Relatórios Consulta IA")
+        # 🌟 CORRIGIDO: renomeado de "Relatório(s) Consulta IA" -- nome
+        # mais claro e consistente com o rótulo agora usado na tela do
+        # chat ("Relatórios Agente IA").
+        verbose_name = _("Relatório Agente IA")
+        verbose_name_plural = _("Relatórios Agente IA")
 
     def __str__(self):
         return self.titulo
@@ -916,6 +915,41 @@ class RelatorioPDF(models.Model):
     def save(self, *args, **kwargs):
         # 🌟 NOVO (multi-empresa): preenche empresa automaticamente na
         # criação, mesmo mecanismo usado em TbCenarios/TbGlossario.
+        if self.pk is None and self.empresa_id is None:
+            usuario = get_usuario_atual()
+            if usuario is not None:
+                perfil = getattr(usuario, 'perfilusuario', None)
+                if perfil is not None:
+                    self.empresa_id = perfil.empresa_efetiva_id()
+        super().save(*args, **kwargs)
+
+
+class ArquivoAtualizacaoAgente(models.Model):
+    """
+    🌟 NOVO: espaço ÚNICO (um arquivo por vez, por empresa) pra arquivos
+    que o Agente IA vai USAR UMA VEZ E DESCARTAR -- diferente de
+    RelatorioPDF (que fica disponível pra consulta repetida via RAG),
+    esses arquivos servem só pra ATUALIZAR dados no sistema: planilha de
+    reajuste de Indicador/Câmbio, arquivo de Produção Mensal/Distribuição
+    GGF Mensal (Custo Ferbasa), etc. São apagados pela própria rotina que
+    os processa, assim que terminam de ser usados.
+
+    Subir um arquivo novo enquanto já existe um nessa empresa SUBSTITUI o
+    anterior (o antigo é apagado) -- só existe um de cada vez.
+    """
+    arquivo = models.FileField(_("Arquivo"), upload_to="arquivos_atualizacao_agente/")
+    nome_original = models.CharField(_("Nome original"), max_length=255)
+    empresa = models.ForeignKey('TbEmpresa', null=True, blank=True, on_delete=models.CASCADE, verbose_name=_('Empresa'))
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = _("Arquivo de Atualização do Agente")
+        verbose_name_plural = _("Arquivos de Atualização do Agente")
+
+    def __str__(self):
+        return self.nome_original
+
+    def save(self, *args, **kwargs):
         if self.pk is None and self.empresa_id is None:
             usuario = get_usuario_atual()
             if usuario is not None:

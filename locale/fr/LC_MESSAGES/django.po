@@ -2690,3 +2690,48 @@ msgstr "Identifiant technique utilisé dans le code -- ne change pas après cré
 #, python-format
 msgid "Olá %(nome_usuario)s! O que posso fazer por você hoje?"
 msgstr "Bonjour %(nome_usuario)s ! Que puis-je faire pour vous aujourd'hui ?"
+
+msgid "Relatórios Agente IA"
+msgstr "Rapports Agent IA"
+
+msgid "Relatório Agente IA"
+msgstr "Rapport Agent IA"
+
+msgid "Arquivo para Atualização"
+msgstr "Fichier pour Mise à Jour"
+
+msgid "Solte aqui um arquivo (Excel ou CSV) que o Agente vai usar uma vez para atualizar dados no sistema. Só cabe um arquivo por vez."
+msgstr "Déposez ici un fichier (Excel ou CSV) que l'Agent utilisera une fois pour mettre à jour les données du système. Un seul fichier à la fois."
+
+msgid "Arraste um XLSX, XLS ou CSV aqui"
+msgstr "Glissez un XLSX, XLS ou CSV ici"
+
+msgid "Nenhum arquivo no espaço de atualização."
+msgstr "Aucun fichier dans l'espace de mise à jour."
+
+msgid "Custo Ferbasa"
+msgstr "Coût Ferbasa"
+
+msgid "Atualizar Produção e GGF Mensal"
+msgstr "Mettre à jour la Production et le GGF Mensuel"
+
+msgid "Já enviei o arquivo"
+msgstr "J'ai déjà envoyé le fichier"
+
+msgid "Pular"
+msgstr "Passer"
+
+msgid "Encerrar Ação"
+msgstr "Terminer l'Action"
+
+msgid "Arquivo de Atualização do Agente"
+msgstr "Fichier de Mise à Jour de l'Agent"
+
+msgid "Arquivos de Atualização do Agente"
+msgstr "Fichiers de Mise à Jour de l'Agent"
+
+msgid "Nome original"
+msgstr "Nom original"
+
+msgid "Atualizar Consumo Específico e Custo Variável Adicionado"
+msgstr "Mettre à jour la Consommation Spécifique et le Coût Variable Ajouté"

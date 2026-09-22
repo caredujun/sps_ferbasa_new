@@ -73,7 +73,7 @@ FLUXO_INDICADORES = 'indicadores'
 # consolidado, ou tendo os fluxos atualizados nesse exato momento.
 FLAGS_OPERACAO_EM_ANDAMENTO = {4: 'OTIMIZANDO', 5: 'LIMPANDO', 6: 'CONSOLIDANDO', 7: 'ATUALIZANDO FLUXOS'}
 
-PALAVRAS_CANCELAR = ('cancelar', 'cancela', 'sair', 'parar', 'desistir')
+PALAVRAS_CANCELAR = ('cancelar', 'cancela', 'sair', 'parar', 'desistir', 'encerrar ação', 'encerrar acao')
 PALAVRAS_MANTER = ('manter', 'mesmo', 'mesma', 'igual', 'não mudar', 'nao mudar')
 
 # 🌟 NOVO: todas as etapas onde o wizard está esperando uma task do
@@ -100,6 +100,10 @@ ETAPAS_AGUARDANDO_CELERY = {
     'cen_excluir_aguardando',
     'cf_processando_producao',
     'cf_processando_ggf',
+    'cf_processando_conta_cc_tipo',
+    'cf_processando_genealogia',
+    'ce_processando_consumo_especifico',
+    'ce_processando_custo_variavel',
 }
 
 # 🌟 NOVO: se um fluxo ficar parado por mais que isso, sem nenhuma
@@ -128,6 +132,9 @@ ETAPAS_SEM_EXPIRACAO = {
     # subir o arquivo, nunca dispara uma ação por engano.
     'cf_aguardando_producao', 'cf_aguardando_ggf',
     'cf_processando_producao', 'cf_processando_ggf',
+    'cf_aguardando_conta_cc_tipo', 'cf_processando_conta_cc_tipo',
+    'cf_processando_genealogia',
+    'ce_processando_consumo_especifico', 'ce_processando_custo_variavel',
 }
 
 
@@ -346,14 +353,48 @@ def _processar_mensagem_fluxo_com_lock(estado, mensagem):
                 "segundo plano normalmente (isso não cancela ele)."
             )
         # 🌟 NOVO: mesmo raciocínio -- cancelar o acompanhamento da
-        # importação de Produção Mensal/Distribuição GGF Mensal não
-        # cancela o processamento em si (já disparado em segundo plano
-        # via Celery).
-        if estado.fluxo_ativo == FLUXO_IMPORTAR_CF and estado.etapa_atual in ('cf_processando_producao', 'cf_processando_ggf'):
+        # importação de Produção Mensal/Distribuição GGF Mensal/correção
+        # de Tipo não cancela o processamento em si (já disparado em
+        # segundo plano via Celery).
+        if estado.fluxo_ativo == FLUXO_IMPORTAR_CF and estado.etapa_atual in ('cf_processando_producao', 'cf_processando_ggf', 'cf_processando_conta_cc_tipo'):
             _encerrar_fluxo(estado)
             return (
                 "Ok, parei de acompanhar por aqui -- mas o processamento em si continua rodando em "
                 "segundo plano normalmente (isso não cancela ele)."
+            )
+        # 🌟 NOVO: a Genealogia é a etapa mais demorada de todo o fluxo --
+        # aqui o botão mostrado ao usuário é "Encerrar Ação" (em vez de
+        # "Cancelar"), justamente pra não dar a entender que a Genealogia
+        # em si vai ser interrompida. Mesmo assim, se o usuário digitar
+        # "cancelar" (ou qualquer outro sinônimo) em vez de clicar no
+        # botão, o comportamento e o aviso são os mesmos.
+        if estado.fluxo_ativo == FLUXO_IMPORTAR_CF and estado.etapa_atual == 'cf_processando_genealogia':
+            _encerrar_fluxo(estado)
+            return (
+                "Ok, encerrei o acompanhamento por aqui -- mas isso **não interrompe** a atualização "
+                "da Genealogia dos Produtos, que continua rodando em segundo plano normalmente até "
+                "terminar."
+            )
+        # 🌟 CORRIGIDO: a primeira etapa (Consumo Específico) usa a
+        # mensagem padrão de "cancelei" -- cancelar aqui interrompe a
+        # SEQUÊNCIA (o Custo Variável Adicionado não dispara mais
+        # automaticamente depois), que é o que importa pro usuário,
+        # mesmo o cálculo já disparado no banco não podendo ser desfeito
+        # de verdade. Só a ÚLTIMA etapa (Custo Variável Adicionado, sem
+        # nada encadeado depois) usa a mensagem de "Encerrar Ação",
+        # deixando claro que só para de acompanhar.
+        if estado.fluxo_ativo == FLUXO_CONSUMO_ESPECIFICO and estado.etapa_atual == 'ce_processando_custo_variavel':
+            _encerrar_fluxo(estado)
+            return (
+                "Ok, encerrei o acompanhamento por aqui -- mas isso **não interrompe** o cálculo, "
+                "que continua rodando em segundo plano normalmente até terminar."
+            )
+        if estado.fluxo_ativo == FLUXO_CONSUMO_ESPECIFICO and estado.etapa_atual == 'ce_processando_consumo_especifico':
+            _encerrar_fluxo(estado)
+            return (
+                "Ok, cancelei a sequência -- o Custo Variável Adicionado não vai disparar "
+                "automaticamente. O cálculo do Consumo Específico já disparado no banco continua "
+                "rodando normalmente até terminar por conta própria."
             )
         _encerrar_fluxo(estado)
         return "Ok, cancelei. Nada foi alterado."
@@ -372,6 +413,8 @@ def _processar_mensagem_fluxo_com_lock(estado, mensagem):
         return _processar_excluir_cenario(estado, texto)
     elif estado.fluxo_ativo == FLUXO_IMPORTAR_CF:
         return _processar_importar_cf(estado, texto)
+    elif estado.fluxo_ativo == FLUXO_CONSUMO_ESPECIFICO:
+        return _processar_consumo_especifico(estado, texto)
 
     # Estado inconsistente (não deveria acontecer) -- encerra por segurança
     _encerrar_fluxo(estado)
@@ -2075,54 +2118,69 @@ def _identificar_planilha_por_nome(nome_arquivo, tipo_planilha, cenario_id):
     return id_mae
 
 
-def identificar_tipo_planilha_reenviada(usuario, pdf_ids):
+def existe_arquivo_atualizacao(usuario):
     """
-    Escaneia os arquivos XLSX marcados nos Relatórios e devolve 'ind' ou
-    'cam' se algum bater com nosso padrão de nome, pro cenário ativo do
-    usuário. Usado no roteamento em agents.py -- permite reconhecer o
-    reenvio mesmo se a mensagem do usuário não mencionar explicitamente
-    "indicador"/"câmbio" (o nome do arquivo já basta).
+    🌟 NOVO: diz se existe um arquivo no espaço único de atualização
+    (ArquivoAtualizacaoAgente) pra empresa efetiva do usuário -- usado em
+    agents.py como "porta de entrada" pras checagens de planilha
+    reenviada/Custo Ferbasa, evitando rodar essas checagens (e suas
+    consultas ao banco) em toda mensagem à toa quando não há nenhum
+    arquivo esperando ser processado.
+    """
+    perfil = getattr(usuario, 'perfilusuario', None)
+    if perfil is None:
+        return False
+    empresa_id = perfil.empresa_efetiva_id()
+    if empresa_id is None:
+        return False
+    from .models import ArquivoAtualizacaoAgente
+    return ArquivoAtualizacaoAgente.objects.filter(empresa_id=empresa_id).exists()
+
+
+def identificar_tipo_planilha_reenviada(usuario):
+    """
+    Olha o arquivo no espaço ÚNICO de atualização (ArquivoAtualizacaoAgente)
+    e devolve 'ind' ou 'cam' se o nome bater com nosso padrão, pro cenário
+    ativo do usuário. Usado no roteamento em agents.py -- permite
+    reconhecer o reenvio mesmo se a mensagem do usuário não mencionar
+    explicitamente "indicador"/"câmbio" (o nome do arquivo já basta).
     """
     perfil = getattr(usuario, 'perfilusuario', None)
     if perfil is None or perfil.cenario_ativo_id is None:
         return None
 
-    # 🌟 CORRIGIDO (multi-empresa): exige que o relatório pertença à
-    # empresa efetiva do usuário -- mesma correção de segurança feita em
-    # agents.py, evitando reconhecer um arquivo de OUTRA empresa.
     empresa_id_usuario = perfil.empresa_efetiva_id()
     if empresa_id_usuario is None:
         return None
 
     import os
-    from .models import RelatorioPDF
-    for rid in pdf_ids:
-        r = RelatorioPDF.objects.filter(id=rid, ativo=True, empresa_id=empresa_id_usuario).first()
-        if not r or not r.arquivo or not r.arquivo.name.lower().endswith('.xlsx'):
-            continue
-        nome_arquivo = os.path.basename(r.arquivo.name)
-        if _identificar_planilha_por_nome(nome_arquivo, 'ind', perfil.cenario_ativo_id):
-            return 'ind'
-        if _identificar_planilha_por_nome(nome_arquivo, 'cam', perfil.cenario_ativo_id):
-            return 'cam'
+    from .models import ArquivoAtualizacaoAgente
+    arquivo = ArquivoAtualizacaoAgente.objects.filter(empresa_id=empresa_id_usuario).order_by('-id').first()
+    if not arquivo or not arquivo.arquivo or not arquivo.arquivo.name.lower().endswith('.xlsx'):
+        return None
+    nome_arquivo = os.path.basename(arquivo.arquivo.name)
+    if _identificar_planilha_por_nome(nome_arquivo, 'ind', perfil.cenario_ativo_id):
+        return 'ind'
+    if _identificar_planilha_por_nome(nome_arquivo, 'cam', perfil.cenario_ativo_id):
+        return 'cam'
     return None
 
 
-def _descartar_planilha(relatorio_id):
+def _descartar_arquivo_atualizacao(arquivo_id):
     """
-    Remove o registro temporário de upload (RelatorioPDF) e o arquivo em
-    disco -- chamado sempre que uma planilha JÁ FOI LIDA/PROCESSADA,
-    independente do resultado (aplicada, recusada, sem mudanças, ou erro
-    de leitura). Não faz sentido deixá-la disponível pra seleção depois
-    -- ela já cumpriu seu papel.
+    Remove o registro do espaço único de atualização
+    (ArquivoAtualizacaoAgente) e o arquivo em disco -- chamado sempre que
+    um arquivo JÁ FOI LIDO/PROCESSADO, independente do resultado
+    (aplicado, recusado, sem mudanças, ou erro de leitura). Não faz
+    sentido deixá-lo ocupando o espaço depois -- ele já cumpriu seu papel.
     """
     try:
-        from .models import RelatorioPDF
+        from .models import ArquivoAtualizacaoAgente
         import os
-        relatorio = RelatorioPDF.objects.filter(id=relatorio_id).first()
-        if relatorio and relatorio.arquivo:
-            caminho = relatorio.arquivo.path
-            relatorio.delete()
+        arquivo = ArquivoAtualizacaoAgente.objects.filter(id=arquivo_id).first()
+        if arquivo and arquivo.arquivo:
+            caminho = arquivo.arquivo.path
+            arquivo.delete()
             if os.path.exists(caminho):
                 os.remove(caminho)
     except Exception:
@@ -2220,8 +2278,8 @@ def _etapa_ind_editar_modo(estado, texto, cenario):
         _encerrar_fluxo(estado)
         return (
             f"[📥 Baixar planilha]({url})\n\n"
-            "Edita os valores que quiser (sem mudar a coluna Período), salva, sobe de volta na área de "
-            "Relatórios (arrastar-e-soltar), marca a caixinha dela, e clica no botão abaixo "
+            "Edita os valores que quiser (sem mudar a coluna Período), salva, e solta no espaço de "
+            "atualização (arrastar-e-soltar, logo abaixo dos Relatórios). Clica no botão abaixo "
             "quando terminar (ou manda qualquer mensagem) -- eu identifico automaticamente "
             "pelo arquivo, não precisa repetir o nome do indicador. Ou, se mudou de ideia, "
             "manda \"cancelar\"."
@@ -2254,8 +2312,8 @@ def _etapa_ind_editar_periodo(estado, texto, cenario):
         _encerrar_fluxo(estado)
         return (
             f"[📥 Baixar planilha]({url})\n\n"
-            "Edita os valores que quiser (sem mudar a coluna Período), salva, sobe de volta na área de "
-            "Relatórios (arrastar-e-soltar), marca a caixinha dela, e clica no botão abaixo "
+            "Edita os valores que quiser (sem mudar a coluna Período), salva, e solta no espaço de "
+            "atualização (arrastar-e-soltar, logo abaixo dos Relatórios). Clica no botão abaixo "
             "quando terminar (ou manda qualquer mensagem) -- eu identifico automaticamente pelo "
             "arquivo, não precisa repetir o nome do indicador. Encerrei esse fluxo aqui, pra sua próxima "
             "mensagem já ser reconhecida certinho. Ou, se mudou de ideia, manda \"cancelar\"."
@@ -2691,15 +2749,15 @@ def iniciar_download_planilha_indicador(usuario, mensagem):
     return (
         f"Aqui está a planilha do indicador **{indicador.ind_nome}**, com os períodos e valores atuais:\n\n"
         f"[📥 Baixar planilha]({url})\n\n"
-        "Edita os valores que quiser (sem mudar a coluna Período), salva, sobe de volta na área de "
-        "Relatórios (arrastar-e-soltar), marca a caixinha dela, e clica no botão abaixo "
+        "Edita os valores que quiser (sem mudar a coluna Período), salva, e solta no espaço de "
+        "atualização (arrastar-e-soltar, logo abaixo dos Relatórios). Clica no botão abaixo "
         "quando terminar (ou manda qualquer mensagem) -- eu identifico automaticamente "
         "pelo arquivo, não precisa repetir o nome do indicador. Ou, se mudou de ideia, "
         "manda \"cancelar\"."
     )
 
 
-def _processar_planilha_indicador(usuario, mensagem, pdf_ids):
+def _processar_planilha_indicador(usuario, mensagem):
     perfil = getattr(usuario, 'perfilusuario', None)
     if perfil is None or perfil.cenario_ativo_id is None:
         return "Você ainda não tem um cenário ativo escolhido."
@@ -2709,47 +2767,36 @@ def _processar_planilha_indicador(usuario, mensagem, pdf_ids):
         return "O cenário que estava ativo pra você não existe mais."
 
     import os
-    from .models import RelatorioPDF
+    from .models import ArquivoAtualizacaoAgente
     from tabelas.models import TbIndicadores
 
-    # 🌟 CORRIGIDO: em vez de exigir que o usuário repita o nome do
-    # indicador na mensagem, identifica automaticamente pelo nome do
+    # 🌟 CORRIGIDO: agora lê do espaço ÚNICO de atualização
+    # (ArquivoAtualizacaoAgente), não mais da lista de Relatórios com
+    # pdf_ids marcados -- em vez de exigir que o usuário repita o nome
+    # do indicador na mensagem, identifica automaticamente pelo nome do
     # arquivo (que já carrega o id do indicador, gravado por
-    # _gerar_planilha_periodos). Só cai pra busca por nome na mensagem se
-    # o arquivo não tiver esse padrão (por exemplo, foi renomeado).
-    # 🌟 CORRIGIDO (multi-empresa): exige que o relatório pertença à
-    # empresa efetiva do usuário -- evita reconhecer/processar um
-    # arquivo de OUTRA empresa.
+    # _gerar_planilha_periodos). Só cai pra busca por nome na mensagem
+    # se o arquivo não tiver esse padrão (por exemplo, foi renomeado).
     empresa_id_usuario = perfil.empresa_efetiva_id()
-    relatorio = None
+    arquivo = ArquivoAtualizacaoAgente.objects.filter(empresa_id=empresa_id_usuario).order_by('-id').first()
     indicador = None
-    candidatos_xlsx = []
-    for rid in pdf_ids:
-        r = RelatorioPDF.objects.filter(id=rid, ativo=True, empresa_id=empresa_id_usuario).first()
-        if r and r.arquivo and r.arquivo.name.lower().endswith('.xlsx'):
-            candidatos_xlsx.append(r)
-            nome_arquivo = os.path.basename(r.arquivo.name)
-            indicador_id = _identificar_planilha_por_nome(nome_arquivo, 'ind', cenario.id)
-            if indicador_id:
-                achado = TbIndicadores.objects.filter(id=indicador_id, tbcenarios_id=cenario.id).first()
-                if achado:
-                    relatorio = r
-                    indicador = achado
-                    break
+    if arquivo and arquivo.arquivo and arquivo.arquivo.name.lower().endswith('.xlsx'):
+        nome_arquivo = os.path.basename(arquivo.arquivo.name)
+        indicador_id = _identificar_planilha_por_nome(nome_arquivo, 'ind', cenario.id)
+        if indicador_id:
+            indicador = TbIndicadores.objects.filter(id=indicador_id, tbcenarios_id=cenario.id).first()
 
     if indicador is None:
         indicador = _buscar_indicador_na_mensagem(cenario.id, mensagem)
-        if indicador is not None and candidatos_xlsx:
-            relatorio = candidatos_xlsx[0]
 
     if indicador is None:
         return f"Não consegui identificar qual indicador essa planilha é. Me diz o nome dele na mensagem.\n\n{_lista_indicadores(cenario.id)}"
-    if relatorio is None:
-        return "Não encontrei nenhuma planilha XLSX marcada na lista de Relatórios. Marca a caixinha do arquivo que você subiu."
+    if arquivo is None:
+        return "Não encontrei nenhum arquivo no espaço de atualização. Solta a planilha ali e tenta de novo."
 
-    linhas = _ler_planilha_periodos(relatorio.arquivo.path)
+    linhas = _ler_planilha_periodos(arquivo.arquivo.path)
     if not linhas:
-        _descartar_planilha(relatorio.id)
+        _descartar_arquivo_atualizacao(arquivo.id)
         return "Não consegui ler nenhuma linha válida dessa planilha. Confere se ela tem as colunas Período e Valor."
 
     from tabelas.models import TbIndicadoresDaugther
@@ -2776,7 +2823,7 @@ def _processar_planilha_indicador(usuario, mensagem, pdf_ids):
     aviso_erros = ("\n\n⚠️ Alguns problemas encontrados:\n" + "\n".join(f"- {e}" for e in erros)) if erros else ""
 
     if not mudancas:
-        _descartar_planilha(relatorio.id)
+        _descartar_arquivo_atualizacao(arquivo.id)
         return f"Não encontrei nenhuma mudança de valor nessa planilha, comparado ao que já está salvo.{aviso_erros}"
 
     estado = _get_estado(usuario)
@@ -2786,7 +2833,7 @@ def _processar_planilha_indicador(usuario, mensagem, pdf_ids):
         'cenario_id': cenario.id,
         'indicador_id': indicador.id,
         'indicador_nome': indicador.ind_nome,
-        'relatorio_id': relatorio.id,
+        'relatorio_id': arquivo.id,
         'mudancas': mudancas,
     }
     estado.save()
@@ -2804,7 +2851,7 @@ def _etapa_ind_planilha_confirmar(estado, texto, cenario):
     resposta = texto.strip().lower()
     dados = estado.dados_coletados
     if resposta not in ('sim', 's', 'yes', 'y'):
-        _descartar_planilha(dados['relatorio_id'])
+        _descartar_arquivo_atualizacao(dados['relatorio_id'])
         _encerrar_fluxo(estado)
         return "Ok, não apliquei nada da planilha."
 
@@ -2821,26 +2868,27 @@ def _etapa_ind_planilha_confirmar(estado, texto, cenario):
         _encerrar_fluxo(estado)
         return f"Deu erro no meio da aplicação (parei em {qtd} período(s)): {e}."
 
-    # 🌟 Move a planilha enviada pro campo "Fonte" do indicador, e apaga o
-    # registro temporário de upload (RelatorioPDF) junto com o arquivo em
-    # disco -- ela não precisa mais existir como "relatório selecionável",
-    # agora vive oficialmente dentro do próprio indicador.
+    # 🌟 CORRIGIDO: move a planilha enviada pro campo "Fonte" do
+    # indicador, e apaga o registro do espaço único de atualização
+    # (ArquivoAtualizacaoAgente) junto com o arquivo em disco -- ela não
+    # precisa mais ocupar esse espaço, agora vive oficialmente dentro do
+    # próprio indicador.
     aviso_fonte = ""
     try:
-        from .models import RelatorioPDF
-        relatorio = RelatorioPDF.objects.filter(id=dados['relatorio_id']).first()
+        from .models import ArquivoAtualizacaoAgente
+        arquivo = ArquivoAtualizacaoAgente.objects.filter(id=dados['relatorio_id']).first()
         indicador = TbIndicadores.objects.filter(id=dados['indicador_id']).first()
-        if relatorio and indicador and relatorio.arquivo:
+        if arquivo and indicador and arquivo.arquivo:
             from django.core.files.base import ContentFile
             import os
-            relatorio.arquivo.open('rb')
-            conteudo = relatorio.arquivo.read()
-            relatorio.arquivo.close()
-            nome_arquivo = relatorio.arquivo.name.split('/')[-1]
+            arquivo.arquivo.open('rb')
+            conteudo = arquivo.arquivo.read()
+            arquivo.arquivo.close()
+            nome_arquivo = arquivo.arquivo.name.split('/')[-1]
             indicador.ind_fonte.save(nome_arquivo, ContentFile(conteudo), save=True)
 
-            caminho_antigo = relatorio.arquivo.path
-            relatorio.delete()
+            caminho_antigo = arquivo.arquivo.path
+            arquivo.delete()
             if os.path.exists(caminho_antigo):
                 os.remove(caminho_antigo)
     except Exception as e:
@@ -3228,8 +3276,8 @@ def _etapa_cam_editar_modo(estado, texto, cenario):
         _encerrar_fluxo(estado)
         return (
             f"[📥 Baixar planilha]({url})\n\n"
-            "Edita os valores que quiser (sem mudar a coluna Período), salva, sobe de volta na área de "
-            "Relatórios (arrastar-e-soltar), marca a caixinha dela, e clica no botão abaixo "
+            "Edita os valores que quiser (sem mudar a coluna Período), salva, e solta no espaço de "
+            "atualização (arrastar-e-soltar, logo abaixo dos Relatórios). Clica no botão abaixo "
             "quando terminar (ou manda qualquer mensagem) -- eu identifico automaticamente "
             "pelo arquivo, não precisa repetir a moeda. Ou, se mudou de ideia, manda \"cancelar\"."
         )
@@ -3261,8 +3309,8 @@ def _etapa_cam_editar_periodo(estado, texto, cenario):
         _encerrar_fluxo(estado)
         return (
             f"[📥 Baixar planilha]({url})\n\n"
-            "Edita os valores que quiser (sem mudar a coluna Período), salva, sobe de volta na área de "
-            "Relatórios (arrastar-e-soltar), marca a caixinha dela, e clica no botão abaixo "
+            "Edita os valores que quiser (sem mudar a coluna Período), salva, e solta no espaço de "
+            "atualização (arrastar-e-soltar, logo abaixo dos Relatórios). Clica no botão abaixo "
             "quando terminar (ou manda qualquer mensagem) -- eu identifico automaticamente pelo "
             "arquivo, não precisa repetir a moeda. Encerrei esse fluxo aqui, pra sua próxima "
             "mensagem já ser reconhecida certinho. Ou, se mudou de ideia, manda \"cancelar\"."
@@ -3661,14 +3709,14 @@ def iniciar_download_planilha_cambio(usuario, mensagem):
     return (
         f"Aqui está a planilha da taxa de câmbio **{cambio.get_cam_moeda_display()}**, com os períodos e valores atuais:\n\n"
         f"[📥 Baixar planilha]({url})\n\n"
-        "Edita os valores que quiser (sem mudar a coluna Período), salva, sobe de volta na área de "
-        "Relatórios (arrastar-e-soltar), marca a caixinha dela, e clica no botão abaixo "
+        "Edita os valores que quiser (sem mudar a coluna Período), salva, e solta no espaço de "
+        "atualização (arrastar-e-soltar, logo abaixo dos Relatórios). Clica no botão abaixo "
         "quando terminar (ou manda qualquer mensagem) -- eu identifico automaticamente "
         "pelo arquivo, não precisa repetir a moeda. Ou, se mudou de ideia, manda \"cancelar\"."
     )
 
 
-def _processar_planilha_cambio(usuario, mensagem, pdf_ids):
+def _processar_planilha_cambio(usuario, mensagem):
     perfil = getattr(usuario, 'perfilusuario', None)
     if perfil is None or perfil.cenario_ativo_id is None:
         return "Você ainda não tem um cenário ativo escolhido."
@@ -3678,41 +3726,32 @@ def _processar_planilha_cambio(usuario, mensagem, pdf_ids):
         return "O cenário que estava ativo pra você não existe mais."
 
     import os
-    from .models import RelatorioPDF
+    from .models import ArquivoAtualizacaoAgente
     from tabelas.models import TbCambio
 
-    # 🌟 CORRIGIDO (multi-empresa): mesma correção de segurança da versão
-    # de indicador.
+    # 🌟 CORRIGIDO: agora lê do espaço ÚNICO de atualização
+    # (ArquivoAtualizacaoAgente), mesma mudança feita na versão de
+    # indicador.
     empresa_id_usuario = perfil.empresa_efetiva_id()
-    relatorio = None
+    arquivo = ArquivoAtualizacaoAgente.objects.filter(empresa_id=empresa_id_usuario).order_by('-id').first()
     cambio = None
-    candidatos_xlsx = []
-    for rid in pdf_ids:
-        r = RelatorioPDF.objects.filter(id=rid, ativo=True, empresa_id=empresa_id_usuario).first()
-        if r and r.arquivo and r.arquivo.name.lower().endswith('.xlsx'):
-            candidatos_xlsx.append(r)
-            nome_arquivo = os.path.basename(r.arquivo.name)
-            cambio_id = _identificar_planilha_por_nome(nome_arquivo, 'cam', cenario.id)
-            if cambio_id:
-                achado = TbCambio.objects.filter(id=cambio_id, tbcenarios_id=cenario.id).first()
-                if achado:
-                    relatorio = r
-                    cambio = achado
-                    break
+    if arquivo and arquivo.arquivo and arquivo.arquivo.name.lower().endswith('.xlsx'):
+        nome_arquivo = os.path.basename(arquivo.arquivo.name)
+        cambio_id = _identificar_planilha_por_nome(nome_arquivo, 'cam', cenario.id)
+        if cambio_id:
+            cambio = TbCambio.objects.filter(id=cambio_id, tbcenarios_id=cenario.id).first()
 
     if cambio is None:
         cambio = _buscar_cambio_na_mensagem(cenario.id, mensagem)
-        if cambio is not None and candidatos_xlsx:
-            relatorio = candidatos_xlsx[0]
 
     if cambio is None:
         return f"Não consegui identificar qual taxa de câmbio essa planilha é. Me diz a moeda na mensagem.\n\n{_lista_cambios(cenario.id)}"
-    if relatorio is None:
-        return "Não encontrei nenhuma planilha XLSX marcada na lista de Relatórios. Marca a caixinha do arquivo que você subiu."
+    if arquivo is None:
+        return "Não encontrei nenhum arquivo no espaço de atualização. Solta a planilha ali e tenta de novo."
 
-    linhas = _ler_planilha_periodos(relatorio.arquivo.path)
+    linhas = _ler_planilha_periodos(arquivo.arquivo.path)
     if not linhas:
-        _descartar_planilha(relatorio.id)
+        _descartar_arquivo_atualizacao(arquivo.id)
         return "Não consegui ler nenhuma linha válida dessa planilha. Confere se ela tem as colunas Período e Valor."
 
     from tabelas.models import TbCambioDaugther
@@ -3739,7 +3778,7 @@ def _processar_planilha_cambio(usuario, mensagem, pdf_ids):
     aviso_erros = ("\n\n⚠️ Alguns problemas encontrados:\n" + "\n".join(f"- {e}" for e in erros)) if erros else ""
 
     if not mudancas:
-        _descartar_planilha(relatorio.id)
+        _descartar_arquivo_atualizacao(arquivo.id)
         return f"Não encontrei nenhuma mudança de valor nessa planilha, comparado ao que já está salvo.{aviso_erros}"
 
     estado = _get_estado(usuario)
@@ -3749,7 +3788,7 @@ def _processar_planilha_cambio(usuario, mensagem, pdf_ids):
         'cenario_id': cenario.id,
         'cambio_id': cambio.id,
         'cambio_nome': cambio.get_cam_moeda_display(),
-        'relatorio_id': relatorio.id,
+        'relatorio_id': arquivo.id,
         'mudancas': mudancas,
     }
     estado.save()
@@ -3767,7 +3806,7 @@ def _etapa_cam_planilha_confirmar(estado, texto, cenario):
     resposta = texto.strip().lower()
     dados = estado.dados_coletados
     if resposta not in ('sim', 's', 'yes', 'y'):
-        _descartar_planilha(dados['relatorio_id'])
+        _descartar_arquivo_atualizacao(dados['relatorio_id'])
         _encerrar_fluxo(estado)
         return "Ok, não apliquei nada da planilha."
 
@@ -3786,20 +3825,20 @@ def _etapa_cam_planilha_confirmar(estado, texto, cenario):
 
     aviso_fonte = ""
     try:
-        from .models import RelatorioPDF
-        relatorio = RelatorioPDF.objects.filter(id=dados['relatorio_id']).first()
+        from .models import ArquivoAtualizacaoAgente
+        arquivo = ArquivoAtualizacaoAgente.objects.filter(id=dados['relatorio_id']).first()
         cambio = TbCambio.objects.filter(id=dados['cambio_id']).first()
-        if relatorio and cambio and relatorio.arquivo:
+        if arquivo and cambio and arquivo.arquivo:
             from django.core.files.base import ContentFile
             import os
-            relatorio.arquivo.open('rb')
-            conteudo = relatorio.arquivo.read()
-            relatorio.arquivo.close()
-            nome_arquivo = relatorio.arquivo.name.split('/')[-1]
+            arquivo.arquivo.open('rb')
+            conteudo = arquivo.arquivo.read()
+            arquivo.arquivo.close()
+            nome_arquivo = arquivo.arquivo.name.split('/')[-1]
             cambio.cam_fonte.save(nome_arquivo, ContentFile(conteudo), save=True)
 
-            caminho_antigo = relatorio.arquivo.path
-            relatorio.delete()
+            caminho_antigo = arquivo.arquivo.path
+            arquivo.delete()
             if os.path.exists(caminho_antigo):
                 os.remove(caminho_antigo)
     except Exception as e:
@@ -4800,93 +4839,184 @@ def iniciar_fluxo_importar_custo_ferbasa(usuario, mensagem=""):
     estado.save()
     return (
         "Vamos atualizar as tabelas de **Produção Mensal** e **Distribuição GGF Mensal** 🏭\n\n"
-        "Primeiro a **Produção Mensal**: salva o arquivo (Excel ou CSV, qualquer nome) na tela de "
-        "Relatórios, marca a caixinha dele, e manda qualquer mensagem (ou clica em \"Já enviei o "
-        "arquivo\") quando terminar. (ou \"cancelar\")"
+        "Primeiro a **Produção Mensal**: solta o arquivo (Excel ou CSV, qualquer nome) no espaço "
+        "de atualização (logo abaixo dos Relatórios) e manda qualquer mensagem (ou clica em "
+        "\"Já enviei o arquivo\") quando terminar. Se quiser atualizar só a Distribuição GGF Mensal, "
+        "clica em \"Pular\" pra ir direto pra ela. (ou \"cancelar\")"
     )
 
 
-def _relatorio_custo_ferbasa_valido(pdf_ids, empresa_id):
-    """
-    Acha, entre os arquivos marcados (pdf_ids), o mais recente que
-    pareça um Excel ou CSV -- pra Produção Mensal/Distribuição GGF
-    Mensal o nome do arquivo pode ser QUALQUER UM (diferente de
-    indicador/câmbio, que exige .xlsx e identifica o alvo pelo próprio
-    nome), então aqui só filtra por extensão e pega o mais recente
-    entre os marcados.
-    """
-    from .models import RelatorioPDF
-    candidatos = (
-        RelatorioPDF.objects
-        .filter(id__in=pdf_ids, ativo=True, empresa_id=empresa_id)
-        .order_by('-criado_em')
-    )
-    for r in candidatos:
-        if r.arquivo and r.arquivo.name.lower().endswith(('.xlsx', '.xls', '.csv')):
-            return r
-    return None
-
-
-def _processar_arquivo_custo_ferbasa(usuario, pdf_ids, etapa_atual):
+def _processar_arquivo_custo_ferbasa(usuario, etapa_atual):
     """
     Chamado direto pelo agents.py (fora do despacho normal de fluxo,
     igual ao mecanismo já usado pra planilha de indicador/câmbio) quando
-    o usuário está esperando o arquivo de Produção Mensal ou de
-    Distribuição GGF Mensal e mandou alguma mensagem com um arquivo
-    marcado nos Relatórios.
+    o usuário está esperando o arquivo de Produção Mensal, de
+    Distribuição GGF Mensal, ou de correção de Tipo (Conta Contábil x
+    Centro de Custo), e há um arquivo no espaço único de atualização
+    (ArquivoAtualizacaoAgente).
     """
     perfil = getattr(usuario, 'perfilusuario', None)
     if perfil is None:
         return "Não consegui identificar sua empresa."
     empresa_id = perfil.empresa_efetiva_id()
 
-    relatorio = _relatorio_custo_ferbasa_valido(pdf_ids, empresa_id)
-    if relatorio is None:
-        etapa_nome = 'Produção Mensal' if etapa_atual == 'cf_aguardando_producao' else 'Distribuição GGF Mensal'
+    from .models import ArquivoAtualizacaoAgente
+    arquivo = ArquivoAtualizacaoAgente.objects.filter(empresa_id=empresa_id).order_by('-id').first()
+    if arquivo is None or not arquivo.arquivo or not arquivo.arquivo.name.lower().endswith(('.xlsx', '.xls', '.csv')):
+        nomes_etapa = {
+            'cf_aguardando_producao': 'Produção Mensal',
+            'cf_aguardando_ggf': 'Distribuição GGF Mensal',
+            'cf_aguardando_conta_cc_tipo': 'correção de Tipo',
+        }
+        etapa_nome = nomes_etapa.get(etapa_atual, 'arquivo')
         return (
-            f"Não encontrei nenhum arquivo Excel ou CSV marcado na lista de Relatórios. Salva o "
-            f"arquivo de **{etapa_nome}**, marca a caixinha dele, e manda de novo."
+            f"Não encontrei nenhum arquivo Excel ou CSV no espaço de atualização. Solta o "
+            f"arquivo de **{etapa_nome}** ali e manda de novo."
         )
 
     from custo_ferbasa.tasks import (
         importar_producao_mensal_de_relatorio_celery,
         importar_distribuicao_ggf_mensal_de_relatorio_celery,
+        importar_conta_cc_tipo_de_relatorio_celery,
     )
 
     estado = _get_estado(usuario)
 
     if etapa_atual == 'cf_aguardando_producao':
-        importar_producao_mensal_de_relatorio_celery.delay(relatorio.id, usuario.id)
+        resultado_async = importar_producao_mensal_de_relatorio_celery.delay(arquivo.id, usuario.id)
         estado.etapa_atual = 'cf_processando_producao'
-        estado.dados_coletados = {}
+        # 🌟 NOVO: guarda o id da task -- permite depois confirmar direto
+        # com o Celery se ela ainda está sendo processada por algum
+        # worker vivo, em vez de só assumir que sim.
+        estado.dados_coletados = {'celery_task_id': resultado_async.id}
         estado.save()
         return "Arquivo recebido! Processando a **Produção Mensal** em segundo plano."
 
-    else:  # cf_aguardando_ggf
-        importar_distribuicao_ggf_mensal_de_relatorio_celery.delay(relatorio.id, usuario.id)
+    elif etapa_atual == 'cf_aguardando_ggf':
+        resultado_async = importar_distribuicao_ggf_mensal_de_relatorio_celery.delay(arquivo.id, usuario.id)
         estado.etapa_atual = 'cf_processando_ggf'
-        estado.dados_coletados = {}
+        estado.dados_coletados = {'celery_task_id': resultado_async.id}
         estado.save()
         return "Arquivo recebido! Processando a **Distribuição GGF Mensal** em segundo plano."
+
+    else:  # cf_aguardando_conta_cc_tipo
+        resultado_async = importar_conta_cc_tipo_de_relatorio_celery.delay(arquivo.id, usuario.id)
+        estado.etapa_atual = 'cf_processando_conta_cc_tipo'
+        estado.dados_coletados = {'celery_task_id': resultado_async.id}
+        estado.save()
+        return "Arquivo recebido! Processando a correção de Tipo em segundo plano."
+
+
+def _texto_iniciar_conta_cc_tipo():
+    """
+    🌟 NOVO: mensagem que abre a etapa de correção de Tipo (F/V/O) dos
+    registros de Conta Contábil x Centro de Custo ainda com Tipo = "A"
+    (indefinido) -- gera a planilha na hora e devolve o link de download
+    junto com as instruções. Reaproveitada tanto na sequência normal
+    (depois da Distribuição GGF Mensal terminar) quanto no atalho
+    "Pular" na etapa de GGF.
+    """
+    from custo_ferbasa.tasks import gerar_planilha_conta_cc_tipo_a
+    url = gerar_planilha_conta_cc_tipo_a()
+    return (
+        f"[📥 Baixar planilha]({url})\n\n"
+        "Alguns registros da tabela Conta Contábil x Centro de Custo estão com o campo Tipo "
+        "igual a Aguardando (A). Edita a coluna **Tipo** da planilha acima disponibilizada para "
+        "download pra **F** (Custo Fixo), **V** (Custo Variável) ou **O** (Outro), salva, e "
+        "solta o arquivo no espaço de atualização. Manda qualquer mensagem (ou clica em \"Já "
+        "enviei o arquivo\") quando terminar. (ou \"cancelar\")"
+    )
+
+
+def _iniciar_genealogia(estado):
+    """
+    🌟 NOVO: último passo do fluxo -- atualiza a Genealogia dos Produtos
+    da empresa (procedure public.atualizar_genealogia_v2, versão
+    otimizada). Antes de disparar, confere que NENHUM registro de Conta
+    Contábil x Centro de Custo está com Tipo fora de F, V ou O -- essa
+    procedure usa esse campo pra classificar o GGF em variável/fixo, e
+    rodar com dados inconsistentes gera números errados sem avisar.
+    """
+    from custo_ferbasa.tasks import existem_contas_cc_tipo_invalido, atualizar_genealogia_de_chat_celery
+    if existem_contas_cc_tipo_invalido():
+        _encerrar_fluxo(estado)
+        return (
+            "❌ A tabela Conta Contábil x Centro de Custo tem registro(s) com Tipo diferente de "
+            "F, V ou O. Essa tabela precisa ser corrigida antes de permitir a atualização da "
+            "Genealogia dos Produtos da empresa."
+        )
+    atualizar_genealogia_de_chat_celery.delay(estado.usuario_id)
+    estado.etapa_atual = 'cf_processando_genealogia'
+    estado.dados_coletados = {}
+    estado.save()
+    return (
+        "⏳ Atualizando a Genealogia dos Produtos da empresa em segundo plano... Essa é a etapa "
+        "mais demorada. Se quiser, pode clicar em \"Encerrar Ação\" -- isso só para de acompanhar "
+        "por aqui, a atualização em si **continua rodando normalmente** até terminar."
+    )
+
+
+def _avancar_apos_ggf(estado):
+    """
+    🌟 NOVO: depois da Distribuição GGF Mensal terminar (ou ser pulada),
+    decide o próximo passo -- se existir algum registro de Conta
+    Contábil x Centro de Custo ainda com Tipo = "A", abre essa etapa
+    extra; senão, já parte direto pra atualização da Genealogia dos
+    Produtos (último passo do fluxo).
+    """
+    from custo_ferbasa.tasks import existem_contas_cc_tipo_a
+    if existem_contas_cc_tipo_a():
+        estado.etapa_atual = 'cf_aguardando_conta_cc_tipo'
+        estado.dados_coletados = {}
+        estado.save()
+        return _texto_iniciar_conta_cc_tipo()
+    return _iniciar_genealogia(estado)
 
 
 def _processar_importar_cf(estado, texto):
     if estado.etapa_atual == 'cf_aguardando_producao':
+        # 🌟 NOVO: permite pular direto pra Distribuição GGF Mensal, pro
+        # usuário que só quer atualizar essa e não a Produção Mensal.
+        if (texto or '').strip().lower() in ('pular', 'pula'):
+            estado.etapa_atual = 'cf_aguardando_ggf'
+            estado.dados_coletados = {}
+            estado.save()
+            return (
+                "Ok, pulando a Produção Mensal. Agora a **Distribuição GGF Mensal**: solta o "
+                "arquivo (Excel ou CSV, qualquer nome) no espaço de atualização e manda qualquer "
+                "mensagem (ou clica em \"Já enviei o arquivo\") quando terminar. Se quiser pular "
+                "essa também, clica em \"Pular\". (ou \"cancelar\")"
+            )
         return (
-            "Ainda esperando o arquivo de **Produção Mensal**. Salva ele (Excel ou CSV) na tela de "
-            "Relatórios, marca a caixinha, e manda de novo (ou clica em \"Já enviei o arquivo\") "
-            "(ou \"cancelar\")."
+            "Ainda esperando o arquivo de **Produção Mensal**. Solta ele (Excel ou CSV) no espaço "
+            "de atualização e manda de novo (ou clica em \"Já enviei o arquivo\"). Se quiser "
+            "atualizar só a Distribuição GGF Mensal, clica em \"Pular\". (ou \"cancelar\")"
         )
     elif estado.etapa_atual == 'cf_aguardando_ggf':
+        # 🌟 NOVO: permite pular direto pra próxima etapa que fizer
+        # sentido (correção de Tipo, se houver algo pra corrigir, ou a
+        # Genealogia dos Produtos direto).
+        if (texto or '').strip().lower() in ('pular', 'pula'):
+            mensagem = _avancar_apos_ggf(estado)
+            return "Ok, pulando a Distribuição GGF Mensal.\n\n" + mensagem
         return (
-            "Ainda esperando o arquivo de **Distribuição GGF Mensal**. Salva ele (Excel ou CSV) na "
-            "tela de Relatórios, marca a caixinha, e manda de novo (ou clica em \"Já enviei o arquivo\") "
-            "(ou \"cancelar\")."
+            "Ainda esperando o arquivo de **Distribuição GGF Mensal**. Solta ele (Excel ou CSV) no "
+            "espaço de atualização e manda de novo (ou clica em \"Já enviei o arquivo\"). Se quiser "
+            "pular essa etapa, clica em \"Pular\". (ou \"cancelar\")"
+        )
+    elif estado.etapa_atual == 'cf_aguardando_conta_cc_tipo':
+        return (
+            "Ainda esperando o arquivo de correção de Tipo. Solta ele (Excel ou CSV) no espaço de "
+            "atualização e manda de novo (ou clica em \"Já enviei o arquivo\") (ou \"cancelar\")."
         )
     elif estado.etapa_atual == 'cf_processando_producao':
         return _etapa_cf_processando_producao(estado, texto)
     elif estado.etapa_atual == 'cf_processando_ggf':
         return _etapa_cf_processando_ggf(estado, texto)
+    elif estado.etapa_atual == 'cf_processando_conta_cc_tipo':
+        return _etapa_cf_processando_conta_cc_tipo(estado, texto)
+    elif estado.etapa_atual == 'cf_processando_genealogia':
+        return _etapa_cf_processando_genealogia(estado, texto)
 
     _encerrar_fluxo(estado)
     return "Não consegui identificar em qual etapa estávamos. Cancelei o fluxo -- pode começar de novo se quiser."
@@ -4895,9 +5025,58 @@ def _processar_importar_cf(estado, texto):
 def _formatar_resultado_importacao_cf(resultado):
     if not resultado:
         return ""
-    criadas = resultado.get('total_criadas', 0)
-    atualizadas = resultado.get('total_atualizadas', 0)
-    return f" ({criadas} linha(s) nova(s), {atualizadas} atualizada(s))"
+    if 'total_criadas' in resultado:
+        criadas = resultado.get('total_criadas', 0)
+        atualizadas = resultado.get('total_atualizadas', 0)
+        return f" ({criadas} linha(s) nova(s), {atualizadas} atualizada(s))"
+    return f" ({resultado.get('total_atualizadas', 0)} linha(s) atualizada(s))"
+
+
+def _checar_travamento_celery(estado, nome_display, etapa_aguardando):
+    """
+    🌟 NOVO: quando ainda não temos status de conclusão/erro, confirma
+    ATIVAMENTE com o Celery se a task ainda está sendo processada por
+    algum worker vivo -- em vez de simplesmente assumir que sim (e ficar
+    "⏳ Ainda processando" pra sempre). Detecta o caso real já visto em
+    produção: o worker que processava a task morreu no meio (ex:
+    reinício do Celery), deixando a task perdida, sem nunca reportar
+    conclusão nem erro.
+
+    Devolve uma mensagem de aviso (já resetando a etapa pra aguardar um
+    novo arquivo) se confirmar que não tem nada rodando, ou None se
+    ainda está confirmadamente ativa OU se não deu pra confirmar (nesse
+    caso, melhor não afirmar nada e continuar esperando normalmente).
+    """
+    from custo_ferbasa.tasks import celery_task_ainda_ativa
+    dados = estado.dados_coletados or {}
+    task_id = dados.get('celery_task_id')
+    ainda_ativa = celery_task_ainda_ativa(task_id)
+    if ainda_ativa is not False:
+        return None
+    estado.etapa_atual = etapa_aguardando
+    estado.dados_coletados = {}
+    estado.save()
+    return (
+        f"⚠️ Não encontrei mais nenhum processamento em andamento pra {nome_display}, mas ele "
+        "também não chegou a terminar -- provavelmente foi interrompido (por exemplo, o servidor "
+        "ou o worker do Celery reiniciou no meio). Solta o arquivo de novo no espaço de "
+        "atualização e tenta outra vez."
+    )
+
+
+def _checar_travamento_genealogia(estado):
+    """Mesma ideia de _checar_travamento_celery, mas checando direto no PostgreSQL."""
+    from custo_ferbasa.tasks import genealogia_ainda_rodando_no_banco
+    ainda_rodando = genealogia_ainda_rodando_no_banco()
+    if ainda_rodando is not False:
+        return None
+    _encerrar_fluxo(estado)
+    return (
+        "⚠️ Não encontrei mais a atualização da Genealogia rodando no banco, mas ela também não "
+        "chegou a terminar -- provavelmente foi interrompida (por exemplo, o servidor reiniciou "
+        "no meio, ou a query foi cancelada diretamente no banco). Se quiser, pode iniciar a "
+        "atualização de novo."
+    )
 
 
 def _etapa_cf_processando_producao(estado, texto):
@@ -4906,10 +5085,18 @@ def _etapa_cf_processando_producao(estado, texto):
 
     if status == 'erro':
         mensagem_erro = dados.get('mensagem_importacao_cf', 'motivo não especificado')
-        _encerrar_fluxo(estado)
+        # 🌟 CORRIGIDO: volta pra etapa de espera (em vez de encerrar o
+        # fluxo por completo) -- o arquivo com problema já foi apagado
+        # pela task, então o espaço está livre pro usuário salvar a
+        # versão corrigida direto, sem precisar reabrir a ação do zero.
+        estado.etapa_atual = 'cf_aguardando_producao'
+        estado.dados_coletados = {}
+        estado.save()
         return (
             f"❌ Deu erro ao processar a Produção Mensal: {mensagem_erro}\n\n"
-            "Corrige o arquivo e pede pra atualizar de novo."
+            "Corrige o arquivo e solta ele de novo no espaço de atualização. Manda qualquer "
+            "mensagem (ou clica em \"Já enviei o arquivo\") quando terminar. Se quiser pular "
+            "essa etapa, clica em \"Pular\". (ou \"cancelar\")"
         )
 
     if status == 'concluido':
@@ -4919,11 +5106,14 @@ def _etapa_cf_processando_producao(estado, texto):
         estado.save()
         return (
             f"✅ **Produção Mensal** atualizada{resumo}!\n\n"
-            "Agora a **Distribuição GGF Mensal**: salva o arquivo (Excel ou CSV, qualquer nome) na "
-            "tela de Relatórios, marca a caixinha dele, e manda qualquer mensagem (ou clica em "
-            "\"Já enviei o arquivo\") quando terminar. (ou \"cancelar\")"
+            "Agora a **Distribuição GGF Mensal**: solta o arquivo (Excel ou CSV, qualquer nome) no "
+            "espaço de atualização e manda qualquer mensagem (ou clica em \"Já enviei o arquivo\") "
+            "quando terminar. Se quiser pular essa etapa, clica em \"Pular\". (ou \"cancelar\")"
         )
 
+    aviso = _checar_travamento_celery(estado, 'Produção Mensal', 'cf_aguardando_producao')
+    if aviso:
+        return aviso
     return "⏳ Ainda processando a **Produção Mensal**."
 
 
@@ -4933,15 +5123,290 @@ def _etapa_cf_processando_ggf(estado, texto):
 
     if status == 'erro':
         mensagem_erro = dados.get('mensagem_importacao_cf', 'motivo não especificado')
-        _encerrar_fluxo(estado)
+        estado.etapa_atual = 'cf_aguardando_ggf'
+        estado.dados_coletados = {}
+        estado.save()
         return (
             f"❌ Deu erro ao processar a Distribuição GGF Mensal: {mensagem_erro}\n\n"
-            "Corrige o arquivo e pede pra atualizar de novo."
+            "Corrige o arquivo e solta ele de novo no espaço de atualização. Manda qualquer "
+            "mensagem (ou clica em \"Já enviei o arquivo\") quando terminar. Se quiser pular "
+            "essa etapa, clica em \"Pular\". (ou \"cancelar\")"
         )
 
     if status == 'concluido':
         resumo = _formatar_resultado_importacao_cf(dados.get('resultado_importacao_cf'))
-        _encerrar_fluxo(estado)
-        return f"✅ **Distribuição GGF Mensal** atualizada{resumo}! As duas tabelas foram atualizadas com sucesso."
+        mensagem = _avancar_apos_ggf(estado)
+        return f"✅ **Distribuição GGF Mensal** atualizada{resumo}!\n\n" + mensagem
 
+    aviso = _checar_travamento_celery(estado, 'Distribuição GGF Mensal', 'cf_aguardando_ggf')
+    if aviso:
+        return aviso
     return "⏳ Ainda processando a **Distribuição GGF Mensal**."
+
+
+def _etapa_cf_processando_conta_cc_tipo(estado, texto):
+    dados = estado.dados_coletados or {}
+    status = dados.get('status_importacao_cf')
+
+    if status == 'erro':
+        mensagem_erro = dados.get('mensagem_importacao_cf', 'motivo não especificado')
+        estado.etapa_atual = 'cf_aguardando_conta_cc_tipo'
+        estado.dados_coletados = {}
+        estado.save()
+        return (
+            f"❌ Deu erro ao processar a correção de Tipo: {mensagem_erro}\n\n"
+            "Corrige o arquivo e solta ele de novo no espaço de atualização. Manda qualquer "
+            "mensagem (ou clica em \"Já enviei o arquivo\") quando terminar. (ou \"cancelar\")"
+        )
+
+    if status == 'concluido':
+        resumo = _formatar_resultado_importacao_cf(dados.get('resultado_importacao_cf'))
+        mensagem = _iniciar_genealogia(estado)
+        return f"✅ Tipo corrigido{resumo}!\n\n" + mensagem
+
+    aviso = _checar_travamento_celery(estado, 'correção de Tipo', 'cf_aguardando_conta_cc_tipo')
+    if aviso:
+        return aviso
+    return "⏳ Ainda processando a correção de Tipo."
+
+
+def _etapa_cf_processando_genealogia(estado, texto):
+    dados = estado.dados_coletados or {}
+    status = dados.get('status_importacao_cf')
+
+    if status == 'erro':
+        mensagem_erro = dados.get('mensagem_importacao_cf', 'motivo não especificado')
+        _encerrar_fluxo(estado)
+        return f"❌ Deu erro ao atualizar a Genealogia dos Produtos: {mensagem_erro}"
+
+    if status == 'concluido':
+        _encerrar_fluxo(estado)
+        return "✅ Genealogia dos Produtos da empresa atualizada com sucesso! Todas as etapas foram concluídas."
+
+    aviso = _checar_travamento_genealogia(estado)
+    if aviso:
+        return aviso
+    return (
+        "⏳ Ainda atualizando a Genealogia dos Produtos da empresa. Se quiser, pode clicar em "
+        "\"Encerrar Ação\" -- isso só para de acompanhar por aqui, a atualização em si continua "
+        "rodando normalmente até terminar."
+    )
+
+
+# ---------------------------------------------------------------------
+# Fluxo: consumo_especifico_custo_variavel -- Consumo Específico seguido
+# de Custo Variável Adicionado, por período (app custo_ferbasa, Ações
+# Comuns: "Atualizar Consumo Específico e Custo Variável Adicionado").
+# Reaproveita as MESMAS procedures de banco já usadas pelas ações
+# "Calcular / Atualizar Por Período" do Admin (TbConsumoEspecificoAdmin
+# e TbCustoVariavelAdicionadoAdmin) -- só que dessa vez atualizando
+# TODOS os registros da tabela, não só os selecionados, e encadeando as
+# duas etapas automaticamente (a segunda só começa depois que a
+# primeira termina).
+# ---------------------------------------------------------------------
+FLUXO_CONSUMO_ESPECIFICO = 'consumo_especifico_cf'
+
+
+def iniciar_fluxo_consumo_especifico(usuario, mensagem=""):
+    """
+    🌟 CORRIGIDO: sugere o período com base no mínimo/máximo de Ano/Mês
+    cadastrados em Produção Mensal -- mas agora o usuário PODE digitar
+    um período diferente (respeitando os limites), não só confirmar o
+    sugerido.
+    """
+    from django.db.models import Min, Max
+    from custo_ferbasa.models import TbProducaoMensal
+
+    limites = TbProducaoMensal.objects.aggregate(minimo=Min('pro_men_ano_mes'), maximo=Max('pro_men_ano_mes'))
+    ano_mes_minimo = limites['minimo']
+    ano_mes_maximo = limites['maximo']
+
+    if ano_mes_minimo is None or ano_mes_maximo is None:
+        return (
+            "Não encontrei nenhum registro em Produção Mensal -- não dá pra sugerir um período "
+            "sem isso. Atualize a Produção Mensal antes de rodar essa ação."
+        )
+
+    estado = _get_estado(usuario)
+    estado.fluxo_ativo = FLUXO_CONSUMO_ESPECIFICO
+    estado.etapa_atual = 'ce_confirmar_periodo'
+    estado.dados_coletados = {'ano_mes_minimo': ano_mes_minimo, 'ano_mes_maximo': ano_mes_maximo}
+    estado.save()
+    # 🌟 NOVO: [FORM_PERIODO:min:max] é um marcador que a tela do chat
+    # reconhece e transforma em dois campos de digitação (Início/Fim) já
+    # preenchidos com os valores sugeridos, com um botão "Confirmar" --
+    # o usuário edita direto na tela, em vez de digitar um período no
+    # meio da conversa. O marcador nunca aparece pro usuário (é
+    # extraído do texto antes de exibir).
+    return (
+        "Vamos atualizar o **Consumo Específico** e, na sequência, o **Custo Variável "
+        "Adicionado** 🏭\n\n"
+        f"Com base no que já está cadastrado em Produção Mensal, o período sugerido é de "
+        f"**{ano_mes_minimo}** até **{ano_mes_maximo}** -- ajuste se precisar e confirme "
+        "abaixo, ou clica em \"cancelar\".\n\n"
+        f"[FORM_PERIODO:{ano_mes_minimo}:{ano_mes_maximo}]"
+    )
+
+
+def _processar_consumo_especifico(estado, texto):
+    if estado.etapa_atual == 'ce_confirmar_periodo':
+        return _etapa_ce_confirmar_periodo(estado, texto)
+    elif estado.etapa_atual == 'ce_processando_consumo_especifico':
+        return _etapa_ce_processando_consumo_especifico(estado, texto)
+    elif estado.etapa_atual == 'ce_processando_custo_variavel':
+        return _etapa_ce_processando_custo_variavel(estado, texto)
+
+    _encerrar_fluxo(estado)
+    return "Não consegui identificar em qual etapa estávamos. Cancelei o fluxo -- pode começar de novo se quiser."
+
+
+def _etapa_ce_confirmar_periodo(estado, texto):
+    texto_bruto = (texto or '').strip()
+    resposta = texto_bruto.lower()
+    dados = estado.dados_coletados or {}
+    ano_mes_minimo = dados.get('ano_mes_minimo')
+    ano_mes_maximo = dados.get('ano_mes_maximo')
+
+    if resposta in ('não', 'nao', 'n', 'no'):
+        _encerrar_fluxo(estado)
+        return "Ok, não disparei nada."
+
+    if resposta in ('sim', 's', 'yes', 'y'):
+        ano_mes_inicio = ano_mes_minimo
+        ano_mes_fim = ano_mes_maximo
+    else:
+        # 🌟 NOVO: tenta extrair dois períodos no formato AAAA/MM do
+        # texto digitado -- aceita variações como "2020/01,2025/12",
+        # "2020/01 a 2025/12", "de 2020/01 até 2025/12", etc. Isso cobre
+        # tanto quem usa o formulário na tela (que manda exatamente
+        # nesse formato ao confirmar) quanto quem prefere digitar livre.
+        periodos_encontrados = re.findall(r'\d{4}/\d{2}', texto_bruto)
+        if len(periodos_encontrados) != 2:
+            return (
+                "Não consegui entender esse período. Ajuste abaixo, ou clica em \"cancelar\".\n\n"
+                f"[FORM_PERIODO:{ano_mes_minimo}:{ano_mes_maximo}]"
+            )
+        ano_mes_inicio, ano_mes_fim = periodos_encontrados
+
+        if ano_mes_fim < ano_mes_inicio:
+            return (
+                f"O fim ({ano_mes_fim}) não pode ser antes do início ({ano_mes_inicio}). Ajuste "
+                "abaixo, ou clica em \"cancelar\".\n\n"
+                f"[FORM_PERIODO:{ano_mes_minimo}:{ano_mes_maximo}]"
+            )
+        if ano_mes_inicio < ano_mes_minimo:
+            return (
+                f"O início ({ano_mes_inicio}) não pode ser antes de {ano_mes_minimo} (não tem "
+                "Produção Mensal cadastrada antes disso). Ajuste abaixo, ou clica em \"cancelar\".\n\n"
+                f"[FORM_PERIODO:{ano_mes_minimo}:{ano_mes_maximo}]"
+            )
+        if ano_mes_fim > ano_mes_maximo:
+            return (
+                f"O fim ({ano_mes_fim}) não pode ser depois de {ano_mes_maximo} (não tem "
+                "Produção Mensal cadastrada depois disso). Ajuste abaixo, ou clica em \"cancelar\".\n\n"
+                f"[FORM_PERIODO:{ano_mes_minimo}:{ano_mes_maximo}]"
+            )
+
+    from custo_ferbasa.models import TbConsumoEspecifico
+    from custo_ferbasa.tasks import calcular_consumo_especifico_de_chat_celery
+
+    # 🌟 Mesma preparação da ação do Admin (zera o flag geral, depois
+    # marca os alvos como "A CALCULAR") -- só que aqui os alvos são
+    # TODOS os registros da tabela, não só os selecionados.
+    TbConsumoEspecifico.objects.update(flag=False)
+    TbConsumoEspecifico.objects.update(flag=True, con_esp_status='A CALCULAR')
+
+    calcular_consumo_especifico_de_chat_celery.delay(ano_mes_inicio, ano_mes_fim, estado.usuario_id)
+    estado.etapa_atual = 'ce_processando_consumo_especifico'
+    estado.dados_coletados = {'ano_mes_inicio': ano_mes_inicio, 'ano_mes_fim': ano_mes_fim}
+    estado.save()
+    return (
+        f"⏳ Calculando o **Consumo Específico** de **{ano_mes_inicio}** a **{ano_mes_fim}** em "
+        "segundo plano..."
+    )
+
+
+def _etapa_ce_processando_consumo_especifico(estado, texto):
+    dados = estado.dados_coletados or {}
+    status = dados.get('status_importacao_cf')
+
+    if status == 'erro':
+        mensagem_erro = dados.get('mensagem_importacao_cf', 'motivo não especificado')
+        _encerrar_fluxo(estado)
+        return f"❌ Deu erro ao calcular o Consumo Específico: {mensagem_erro}"
+
+    if status == 'concluido':
+        return _iniciar_custo_variavel_adicionado(estado, dados.get('ano_mes_inicio'), dados.get('ano_mes_fim'))
+
+    from custo_ferbasa.tasks import procedure_ainda_rodando_no_banco
+    ainda_rodando = procedure_ainda_rodando_no_banco('consumo_especifico_periodo')
+    if ainda_rodando is False:
+        _encerrar_fluxo(estado)
+        return (
+            "⚠️ Não encontrei mais o cálculo do Consumo Específico rodando no banco, mas ele "
+            "também não chegou a terminar -- provavelmente foi interrompido (por exemplo, o "
+            "servidor ou o worker do Celery reiniciou no meio). Se quiser, pode iniciar de novo."
+        )
+    return (
+        "⏳ Ainda calculando o **Consumo Específico**. Se quiser, pode clicar em \"cancelar\" -- "
+        "isso interrompe a sequência (o Custo Variável Adicionado não vai disparar automaticamente "
+        "depois), mas o cálculo do Consumo Específico já disparado no banco continua rodando "
+        "normalmente até terminar."
+    )
+
+
+def _iniciar_custo_variavel_adicionado(estado, ano_mes_inicio, ano_mes_fim):
+    """
+    🌟 NOVO: segunda etapa -- só dispara depois que o Consumo Específico
+    terminar, reaproveitando o MESMO período da primeira etapa. Antes de
+    disparar, confere que não existe nenhum registro de Conta Contábil x
+    Centro de Custo com Tipo = "A" -- mesma checagem que a ação
+    equivalente do Admin (TbCustoVariavelAdicionadoAdmin) já fazia.
+    """
+    from custo_ferbasa.tasks import existem_contas_cc_tipo_a, calcular_custo_variavel_adicionado_de_chat_celery
+    if existem_contas_cc_tipo_a():
+        _encerrar_fluxo(estado)
+        return (
+            "❌ Temos registro(s) na tabela Conta Contábil x Centro de Custo aguardando "
+            "classificação (Tipo = \"A\"). Corrija essa tabela antes de calcular o Custo Variável "
+            "Adicionado."
+        )
+
+    calcular_custo_variavel_adicionado_de_chat_celery.delay(ano_mes_inicio, ano_mes_fim, estado.usuario_id)
+    estado.etapa_atual = 'ce_processando_custo_variavel'
+    estado.dados_coletados = {'ano_mes_inicio': ano_mes_inicio, 'ano_mes_fim': ano_mes_fim}
+    estado.save()
+    return (
+        "✅ Consumo Específico calculado!\n\n"
+        f"Agora calculando o **Custo Variável Adicionado** de **{ano_mes_inicio}** a "
+        f"**{ano_mes_fim}** em segundo plano..."
+    )
+
+
+def _etapa_ce_processando_custo_variavel(estado, texto):
+    dados = estado.dados_coletados or {}
+    status = dados.get('status_importacao_cf')
+
+    if status == 'erro':
+        mensagem_erro = dados.get('mensagem_importacao_cf', 'motivo não especificado')
+        _encerrar_fluxo(estado)
+        return f"❌ Deu erro ao calcular o Custo Variável Adicionado: {mensagem_erro}"
+
+    if status == 'concluido':
+        _encerrar_fluxo(estado)
+        return "✅ Custo Variável Adicionado calculado com sucesso! Todas as etapas foram concluídas."
+
+    from custo_ferbasa.tasks import procedure_ainda_rodando_no_banco
+    ainda_rodando = procedure_ainda_rodando_no_banco('custo_variavel_adicionado_periodo')
+    if ainda_rodando is False:
+        _encerrar_fluxo(estado)
+        return (
+            "⚠️ Não encontrei mais o cálculo do Custo Variável Adicionado rodando no banco, mas "
+            "ele também não chegou a terminar -- provavelmente foi interrompido (por exemplo, o "
+            "servidor ou o worker do Celery reiniciou no meio). Se quiser, pode iniciar de novo."
+        )
+    return (
+        "⏳ Ainda calculando o **Custo Variável Adicionado**. Se quiser, pode clicar em "
+        "\"Encerrar Ação\" -- isso só para de acompanhar por aqui, o cálculo em si continua "
+        "rodando normalmente até terminar."
+    )

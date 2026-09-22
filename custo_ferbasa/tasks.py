@@ -10,7 +10,7 @@ from reportlab.graphics.charts.barcharts import VerticalBarChart
 from reportlab.lib import colors
 from sps.settings import AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
 from .models import *
-from django.db import connection
+from django.db import connection, transaction
 import boto3
 import openpyxl  # Para ler Excel xlsx
 from boto3 import Session
@@ -512,7 +512,7 @@ def importar_excel_distribuicao_ggf_mensal_celery():
 # =======================================================================
 import csv as _csv
 import os as _os
-from parameters.models import EstadoConversaAgente, RelatorioPDF
+from parameters.models import EstadoConversaAgente, ArquivoAtualizacaoAgente
 
 
 class _CelulaFake:
@@ -1010,16 +1010,100 @@ def _atualizar_status_importacao_cf(usuario_id, status, mensagem=None, resultado
     estado.save()
 
 
+def procedure_ainda_rodando_no_banco(padrao_query):
+    """
+    🌟 NOVO: verifica DIRETO no PostgreSQL (pg_stat_activity) se alguma
+    query ativa bate com o padrão dado -- versão genérica, usada por
+    qualquer chamada de procedure de uma etapa só (Genealogia, Consumo
+    Específico, Custo Variável Adicionado) que possa ficar "órfã" no
+    banco caso o worker do Celery que a disparou morra no meio.
+
+    Devolve True (confirmado rodando), False (confirmado que não está
+    rodando), ou None (a própria consulta falhou -- não afirma nada
+    nesse caso, pra nunca avisar "travou" por engano).
+    """
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT count(*) FROM pg_stat_activity "
+                "WHERE state = 'active' AND pid != pg_backend_pid() "
+                "AND query ILIKE %s",
+                [f'%{padrao_query}%']
+            )
+            return cursor.fetchone()[0] > 0
+    except Exception:
+        return None
+
+
+def genealogia_ainda_rodando_no_banco():
+    """Caso específico de procedure_ainda_rodando_no_banco, pra Genealogia."""
+    return procedure_ainda_rodando_no_banco('atualizar_genealogia')
+
+
+def celery_task_ainda_ativa(task_id):
+    """
+    🌟 NOVO: pergunta direto pro Celery (via a API de inspeção, não pro
+    banco) se uma task específica ainda está sendo processada por ALGUM
+    worker vivo -- usado pra Produção Mensal/Distribuição GGF
+    Mensal/correção de Tipo, que (diferente da Genealogia) não ficam
+    "presas" numa única query longa no banco, então checar o Postgres
+    não serve pra saber se elas ainda estão rodando.
+
+    Devolve True (confirmado rodando), False (confirmado que NÃO está
+    rodando em nenhum worker), ou None (não deu pra confirmar -- por
+    exemplo, o broker não respondeu a tempo). Só retorna False quando
+    tem certeza, pra nunca avisar "travou" por engano.
+    """
+    if not task_id:
+        return None
+    try:
+        from celery import current_app
+        inspecao = current_app.control.inspect(timeout=2.0)
+        ativas = inspecao.active() or {}
+        for tarefas_do_worker in ativas.values():
+            for tarefa in tarefas_do_worker:
+                if tarefa.get('id') == task_id:
+                    return True
+        return False
+    except Exception:
+        return None
+
+
+def _apagar_arquivo_atualizacao_por_id(relatorio_id):
+    """
+    🌟 CORRIGIDO: apaga o arquivo do espaço único mesmo quando o
+    processamento deu ERRO (cabeçalho errado, valor inválido na coluna
+    Tipo, etc.) -- sem isso, o arquivo com problema ficava OCUPANDO o
+    espaço (que só cabe um por vez), impedindo o usuário de salvar a
+    versão corrigida ali até ele mesmo remover manualmente.
+    """
+    try:
+        relatorio = ArquivoAtualizacaoAgente.objects.filter(id=relatorio_id).first()
+        if relatorio and relatorio.arquivo:
+            caminho = relatorio.arquivo.path
+            relatorio.delete()
+            if _os.path.exists(caminho):
+                _os.remove(caminho)
+    except Exception:
+        pass
+
+
 @shared_task(bind=True)
 def importar_producao_mensal_de_relatorio_celery(self, relatorio_id, usuario_id):
     try:
-        relatorio = RelatorioPDF.objects.get(id=relatorio_id)
+        relatorio = ArquivoAtualizacaoAgente.objects.get(id=relatorio_id)
         sheet = _carregar_planilha_de_arquivo(relatorio.arquivo.path)
-        resultado = _processar_planilha_producao_mensal(sheet)
+        # 🌟 NOVO: envolve em transação única -- se a task for
+        # interrompida no meio (ex: worker reiniciado), o Postgres desfaz
+        # tudo que já tinha sido gravado, em vez de deixar dados pela metade.
+        with transaction.atomic():
+            resultado = _processar_planilha_producao_mensal(sheet)
     except ValueError as e:
+        _apagar_arquivo_atualizacao_por_id(relatorio_id)
         _atualizar_status_importacao_cf(usuario_id, 'erro', str(e))
         return
     except Exception as e:
+        _apagar_arquivo_atualizacao_por_id(relatorio_id)
         _atualizar_status_importacao_cf(usuario_id, 'erro', f"Erro inesperado ao processar o arquivo: {e}")
         return
 
@@ -1036,13 +1120,19 @@ def importar_producao_mensal_de_relatorio_celery(self, relatorio_id, usuario_id)
 @shared_task(bind=True)
 def importar_distribuicao_ggf_mensal_de_relatorio_celery(self, relatorio_id, usuario_id):
     try:
-        relatorio = RelatorioPDF.objects.get(id=relatorio_id)
+        relatorio = ArquivoAtualizacaoAgente.objects.get(id=relatorio_id)
         sheet = _carregar_planilha_de_arquivo(relatorio.arquivo.path)
-        resultado = _processar_planilha_distribuicao_ggf_mensal(sheet)
+        # 🌟 NOVO: envolve em transação única -- se a task for
+        # interrompida no meio (ex: worker reiniciado), o Postgres desfaz
+        # tudo que já tinha sido gravado, em vez de deixar dados pela metade.
+        with transaction.atomic():
+            resultado = _processar_planilha_distribuicao_ggf_mensal(sheet)
     except ValueError as e:
+        _apagar_arquivo_atualizacao_por_id(relatorio_id)
         _atualizar_status_importacao_cf(usuario_id, 'erro', str(e))
         return
     except Exception as e:
+        _apagar_arquivo_atualizacao_por_id(relatorio_id)
         _atualizar_status_importacao_cf(usuario_id, 'erro', f"Erro inesperado ao processar o arquivo: {e}")
         return
 
@@ -1052,6 +1142,182 @@ def importar_distribuicao_ggf_mensal_de_relatorio_celery(self, relatorio_id, usu
         _os.remove(caminho_antigo)
 
     _atualizar_status_importacao_cf(usuario_id, 'concluido', resultado=resultado)
+
+
+# =======================================================================
+# 🌟 NOVO: etapa extra depois da Distribuição GGF Mensal -- corrige o
+# Tipo (F=Fixo, V=Variável, O=Outro) dos registros de
+# TbContaContabilCentroCusto que ainda estão com Tipo = "A" (indefinido,
+# valor padrão criado durante a importação de Distribuição GGF Mensal
+# quando uma combinação Conta+Centro de Custo é nova). MESMA regra de
+# negócio do def importar_excel em TbContaContabilCentroCustoAdmin, só
+# que lendo do espaço único de atualização em vez da AWS, e com uma
+# validação a mais: a coluna Tipo tem que conter SÓ F, V ou O -- se
+# achar qualquer outro valor, interrompe SEM alterar nada.
+# =======================================================================
+
+CABECALHO_CONTA_CC_TIPO = [
+    'Id', 'Tipo', 'Percentual (%)', 'Id Conta Contábil', 'Código Conta Contábil',
+    'Descrição Conta Contábil', 'Id Centro de Custo', 'Código Centro de Custo',
+    'Descrição Centro de Custo', 'Id Estabelecimento', 'Código Estabelecimento',
+    'Descrição Estabelecimento', 'Observação',
+]
+
+
+def existem_contas_cc_tipo_a():
+    """Diz se existe algum registro de TbContaContabilCentroCusto com Tipo = 'A' (indefinido)."""
+    return TbContaContabilCentroCusto.objects.filter(con_con_cen_cus_tipo='A').exists()
+
+
+def existem_contas_cc_tipo_invalido():
+    """
+    🌟 NOVO: diz se existe algum registro de TbContaContabilCentroCusto com
+    Tipo fora de F, V ou O -- checagem de segurança antes de rodar a
+    Genealogia dos Produtos, já que a procedure usa esse campo pra
+    classificar o GGF em variável/fixo.
+    """
+    return TbContaContabilCentroCusto.objects.exclude(con_con_cen_cus_tipo__in=('F', 'V', 'O')).exists()
+
+
+def gerar_planilha_conta_cc_tipo_a():
+    """
+    Gera a planilha de correção de Tipo pros registros ainda com Tipo =
+    "A" -- MESMO layout de colunas da ação "Exportar Excel" do Admin
+    dessa tabela (TbContaContabilCentroCustoAdmin.exportar_excel), pra
+    poder reaproveitar a mesma lógica de importação/validação depois.
+    Salva em MEDIA_ROOT/planilhas_temp e devolve a URL pra baixar.
+    """
+    import os
+    from openpyxl import Workbook
+    from django.conf import settings
+
+    rows = TbContaContabilCentroCusto.objects.filter(con_con_cen_cus_tipo='A').values_list(
+        'id', 'con_con_cen_cus_tipo', 'con_con_cen_cus_percentual', 'con_con_cen_cus_conta_id',
+        'con_con_cen_cus_conta__con_con_codigo', 'con_con_cen_cus_conta__con_con_descricao',
+        'con_con_cen_cus_cc_id', 'con_con_cen_cus_cc__cen_cus_codigo', 'con_con_cen_cus_cc__cen_cus_descricao',
+        'con_con_cen_cus_estabelecimento_id', 'con_con_cen_cus_estabelecimento__est_codigo',
+        'con_con_cen_cus_estabelecimento__est_nome', 'con_con_cen_cus_observacao',
+    ).order_by('con_con_cen_cus_conta__con_con_descricao')
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Plan 1"
+    ws.append(CABECALHO_CONTA_CC_TIPO)
+    for row in rows:
+        ws.append(list(row))
+
+    pasta = os.path.join(settings.MEDIA_ROOT, 'planilhas_temp')
+    os.makedirs(pasta, exist_ok=True)
+    nome_arquivo = "planilha_conta_cc_tipo_a.xlsx"
+    caminho_completo = os.path.join(pasta, nome_arquivo)
+    wb.save(caminho_completo)
+    wb.close()
+
+    return f"{settings.MEDIA_URL}planilhas_temp/{nome_arquivo}"
+
+
+def _processar_planilha_conta_cc_tipo(sheet):
+    """
+    Processa a planilha de correção de Tipo. Valida o cabeçalho E TODOS
+    os valores da coluna Tipo ANTES de aplicar qualquer mudança -- se
+    algum valor não for F, V ou O (maiúsculo ou minúsculo), interrompe
+    sem alterar nada, listando as linhas problemáticas.
+    """
+    total_colunas = sheet.max_column
+    total_linhas = sheet.max_row
+    lista_colunas = [sheet.cell(row=1, column=i).value for i in range(1, total_colunas + 1)]
+
+    if lista_colunas != CABECALHO_CONTA_CC_TIPO:
+        raise ValueError(
+            "O cabeçalho do arquivo não bate com o esperado.\n"
+            f"Esperado: {CABECALHO_CONTA_CC_TIPO}\nEncontrado: {lista_colunas}"
+        )
+
+    linhas_invalidas = []
+    for i in range(2, total_linhas + 1):
+        if sheet.cell(row=i, column=1).value is None:
+            continue
+        valor_tipo = sheet.cell(row=i, column=2).value
+        tipo_normalizado = str(valor_tipo).strip().upper() if valor_tipo is not None else ''
+        if tipo_normalizado not in ('F', 'V', 'O'):
+            linhas_invalidas.append((i, valor_tipo))
+
+    if linhas_invalidas:
+        detalhes = ", ".join(f"linha {i} = '{v}'" for i, v in linhas_invalidas[:10])
+        a_mais = f" e mais {len(linhas_invalidas) - 10} linha(s)" if len(linhas_invalidas) > 10 else ""
+        raise ValueError(
+            "A coluna 'Tipo' da planilha tem valor(es) diferente(s) de F, V ou O, o que não é "
+            f"permitido: {detalhes}{a_mais}. Corrija e envie de novo -- nada foi alterado."
+        )
+
+    total_atualizadas = 0
+    for i in range(2, total_linhas + 1):
+        valor_id = sheet.cell(row=i, column=1).value
+        if valor_id is None:
+            continue
+        objeto = TbContaContabilCentroCusto.objects.filter(id=valor_id).first()
+        if objeto is None:
+            continue
+        objeto.con_con_cen_cus_conta_id = sheet.cell(row=i, column=4).value
+        objeto.con_con_cen_cus_cc_id = sheet.cell(row=i, column=7).value
+        objeto.con_con_cen_cus_estabelecimento_id = sheet.cell(row=i, column=10).value
+        objeto.con_con_cen_cus_tipo = str(sheet.cell(row=i, column=2).value).strip().upper()
+        objeto.con_con_cen_cus_percentual = sheet.cell(row=i, column=3).value
+        valor_obs = sheet.cell(row=i, column=13).value
+        if valor_obs is not None:
+            objeto.con_con_cen_cus_observacao = str(valor_obs).upper()
+        objeto.save()
+        total_atualizadas += 1
+
+    return {'total_atualizadas': total_atualizadas}
+
+
+@shared_task(bind=True)
+def importar_conta_cc_tipo_de_relatorio_celery(self, relatorio_id, usuario_id):
+    try:
+        relatorio = ArquivoAtualizacaoAgente.objects.get(id=relatorio_id)
+        sheet = _carregar_planilha_de_arquivo(relatorio.arquivo.path)
+        # 🌟 NOVO: envolve em transação única -- se a task for
+        # interrompida no meio (ex: worker reiniciado), o Postgres desfaz
+        # tudo que já tinha sido gravado, em vez de deixar dados pela metade.
+        with transaction.atomic():
+            resultado = _processar_planilha_conta_cc_tipo(sheet)
+    except ValueError as e:
+        _apagar_arquivo_atualizacao_por_id(relatorio_id)
+        _atualizar_status_importacao_cf(usuario_id, 'erro', str(e))
+        return
+    except Exception as e:
+        _apagar_arquivo_atualizacao_por_id(relatorio_id)
+        _atualizar_status_importacao_cf(usuario_id, 'erro', f"Erro inesperado ao processar o arquivo: {e}")
+        return
+
+    caminho_antigo = relatorio.arquivo.path
+    relatorio.delete()
+    if _os.path.exists(caminho_antigo):
+        _os.remove(caminho_antigo)
+
+    _atualizar_status_importacao_cf(usuario_id, 'concluido', resultado=resultado)
+
+
+@shared_task(bind=True)
+def atualizar_genealogia_de_chat_celery(self, usuario_id):
+    """
+    🌟 NOVO: mesma procedure de banco usada por
+    TbItensProducaoAdmin.atualizar_genealogia (ação do Admin), mas
+    disparada pelo fluxo de Custo Ferbasa no chat, com o resultado
+    reportado via EstadoConversaAgente pra a tela conferir. Usa a versão
+    otimizada da procedure (atualizar_genealogia_v2), validada como
+    equivalente à original só que ~3x mais rápida.
+    """
+    from django.db import connection
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("CALL public.atualizar_genealogia_v2();")
+    except Exception as e:
+        _atualizar_status_importacao_cf(usuario_id, 'erro', f"Erro ao atualizar a Genealogia dos Produtos: {e}")
+        return
+
+    _atualizar_status_importacao_cf(usuario_id, 'concluido')
 
 
 @shared_task
@@ -1729,3 +1995,34 @@ def calcular_custo_variavel_adicionado_periodo(ano_mes_inicio, ano_mes_fim):
     sql = "call public.custo_variavel_adicionado_periodo('" + ano_mes_inicio + "', '" + ano_mes_fim + "')"
     cursor.execute(sql)
     cursor.close()
+
+
+# =======================================================================
+# 🌟 NOVO: versões das duas procedures acima (Consumo Específico e Custo
+# Variável Adicionado por período) disparadas pelo fluxo de Custo
+# Ferbasa no chat -- mesma procedure de banco das tasks originais acima
+# (usadas pelo Admin), mas com o resultado reportado via
+# EstadoConversaAgente pra a tela conferir. As tasks originais foram
+# deixadas intactas, sem nenhuma alteração.
+# =======================================================================
+
+@shared_task(bind=True)
+def calcular_consumo_especifico_de_chat_celery(self, ano_mes_inicio, ano_mes_fim, usuario_id):
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("CALL public.consumo_especifico_periodo(%s, %s);", [ano_mes_inicio, ano_mes_fim])
+    except Exception as e:
+        _atualizar_status_importacao_cf(usuario_id, 'erro', f"Erro ao calcular o Consumo Específico: {e}")
+        return
+    _atualizar_status_importacao_cf(usuario_id, 'concluido')
+
+
+@shared_task(bind=True)
+def calcular_custo_variavel_adicionado_de_chat_celery(self, ano_mes_inicio, ano_mes_fim, usuario_id):
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("CALL public.custo_variavel_adicionado_periodo(%s, %s);", [ano_mes_inicio, ano_mes_fim])
+    except Exception as e:
+        _atualizar_status_importacao_cf(usuario_id, 'erro', f"Erro ao calcular o Custo Variável Adicionado: {e}")
+        return
+    _atualizar_status_importacao_cf(usuario_id, 'concluido')
