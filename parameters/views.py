@@ -10,38 +10,44 @@ from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from functools import wraps
-from .models import RelatorioPDF, HistoricoAgente, IDIOMA_CHOICES, TbEmpresa, TbCenarios, ArquivoAtualizacaoAgente
+from .models import RelatorioPDF, HistoricoAgente, IDIOMA_CHOICES, TbEmpresa, TbCenarios, ArquivoAtualizacaoAgente, PerfilUsuario
 from .contexto_usuario import eh_superuser_ou_superuser_empresa
 import datetime
 import re
 from django.utils import timezone
 
-# 🌟 Precisa bater EXATAMENTE (acentos, maiúsculas) com o nome do grupo criado no Django Admin
-# e com a string usada no filtro de template `has_group` do base_site.html
-NOME_GRUPO_AGENTE_IA = "Agente de IA"
+# 🌟 CORRIGIDO: substituído o controle por Grupo de usuários pelo campo
+# PerfilUsuario.pode_acessar_agente_ia (mesmo espírito de
+# "pode_trocar_cenario") -- não precisa mais bater string com o nome do
+# grupo em lugar nenhum.
 
 
 def exige_acesso_ao_agente_ia(view_func):
     """
     Exige que o usuário esteja logado E (seja superusuário, seja
-    superusuário DE EMPRESA, OU membro do grupo 'Agente de IA'). Quem
-    estiver logado mas sem essa permissão recebe um 403 (Permission
-    Denied) em vez de ser redirecionado pra tela de login de novo — o
-    que criaria um loop, já que ele já está autenticado.
+    superusuário DE EMPRESA, OU tenha PerfilUsuario.pode_acessar_agente_ia
+    marcado). Quem estiver logado mas sem essa permissão recebe um 403
+    (Permission Denied) em vez de ser redirecionado pra tela de login de
+    novo -- o que criaria um loop, já que ele já está autenticado.
 
-    🌟 NOVO (multi-empresa): superuser de empresa (PerfilUsuario.
-    eh_superuser_empresa) ganha acesso automático, sem precisar ser
-    adicionado manualmente ao grupo "Agente de IA" -- os dados que ele
-    vai ver/mexer já ficam restritos à própria empresa pelo mesmo
-    mecanismo de cenário ativo/empresa_efetiva_id() usado em todo o
-    resto do sistema.
+    🌟 CORRIGIDO: antes checava membership no grupo "Agente de IA";
+    agora checa direto o campo no perfil do usuário, ajustável
+    individualmente (ver get_readonly_fields em PerfilUsuarioAdmin/
+    PerfilUsuarioInline pra quem pode mudar esse campo).
+
+    Superuser de empresa (PerfilUsuario.eh_superuser_empresa) continua
+    com acesso automático, sem precisar desse campo marcado -- os dados
+    que ele vai ver/mexer já ficam restritos à própria empresa pelo
+    mesmo mecanismo de cenário ativo/empresa_efetiva_id() usado em todo
+    o resto do sistema.
     """
     @login_required
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
+        perfil = getattr(request.user, 'perfilusuario', None)
         tem_acesso = (
             eh_superuser_ou_superuser_empresa(request.user)
-            or request.user.groups.filter(name=NOME_GRUPO_AGENTE_IA).exists()
+            or bool(perfil and perfil.pode_acessar_agente_ia)
         )
         if not tem_acesso:
             raise PermissionDenied("Você não tem permissão para acessar o Agente de IA.")
@@ -269,6 +275,12 @@ def _mapa_acoes_comuns_habilitadas(usuario):
     ações), usado no template pra esconder as opções não habilitadas do
     menu "Ações Comuns". Uma chave AUSENTE do dict é tratada como "não
     habilitada" pelo {% if %} do template (não precisa pré-popular False).
+
+    🌟 NOVO: também exclui as ações restritas INDIVIDUALMENTE pra esse
+    usuário (PerfilUsuario.acoes_comuns_restritas), mesmo habilitadas
+    pra empresa -- mesma regra de empresa_tem_acao_comum_habilitada,
+    replicada aqui porque esse caminho é otimizado (consulta direta),
+    não passa pela função central.
     """
     mapa = {}
     perfil = getattr(usuario, 'perfilusuario', None)
@@ -278,8 +290,11 @@ def _mapa_acoes_comuns_habilitadas(usuario):
     combinacoes = TbEmpresa.objects.filter(id=empresa_id).values_list(
         'acoes_comuns_habilitadas__categoria', 'acoes_comuns_habilitadas__chave'
     )
+    restritas = set(perfil.acoes_comuns_restritas.values_list('categoria', 'chave'))
     for categoria, chave in combinacoes:
         if not categoria or not chave:
+            continue
+        if (categoria, chave) in restritas:
             continue
         prefixo = _PREFIXO_CATEGORIA_ACAO.get(categoria)
         if prefixo:
@@ -362,6 +377,43 @@ def chat_view(request):
             if rotulo:
                 rotulos_opcoes[opcao] = rotulo
 
+        # 🌟 NOVO: reconsulta cenário/empresa/status ativos, sempre
+        # frescos, em toda resposta -- sem isso, o cabeçalho do chat
+        # ("Cenário Ativo: X") ficava desatualizado depois de qualquer
+        # ação que troque o cenário ativo (o wizard de ativar após criar
+        # um cenário, a ferramenta de trocar cenário ativo, etc.), já
+        # que {{ nome_cenario }} no template só é calculado na carga da
+        # página, e essas respostas vêm via AJAX (sem recarregar a
+        # página). O front-end atualiza o próprio texto do cabeçalho com
+        # isso, sem precisar de F5.
+        # 🌟 CORRIGIDO: usa uma consulta NOVA ao banco (não
+        # request.user.perfilusuario) -- esse atributo fica em cache no
+        # objeto request.user assim que acessado uma vez na mesma
+        # requisição (o decorator @exige_acesso_ao_agente_ia já acessa
+        # ele bem no início, pra checar permissão). Se alguma ação nessa
+        # mesma requisição mudou o cenário ativo (como a ferramenta de
+        # trocar cenário, que salva através de uma instância PRÓPRIA,
+        # separada), o valor em cache em request.user.perfilusuario
+        # ficava desatualizado -- o banco já estava certo, só a leitura
+        # aqui é que pegava o valor antigo.
+        perfil_atual = PerfilUsuario.objects.filter(usuario_id=request.user.id).first()
+        empresa_id_atual = perfil_atual.empresa_efetiva_id() if perfil_atual else None
+        nome_empresa_atual = None
+        nome_cenario_atual = None
+        status_cenario_atual = None
+        if empresa_id_atual is not None:
+            empresa_obj_atual = TbEmpresa.objects.filter(id=empresa_id_atual).first()
+            nome_empresa_atual = empresa_obj_atual.emp_nome if empresa_obj_atual else None
+        if perfil_atual and perfil_atual.cenario_ativo_id:
+            cenario_obj_atual = TbCenarios.objects_real.filter(id=perfil_atual.cenario_ativo_id).first()
+            if cenario_obj_atual:
+                numero_exibido_atual = cenario_obj_atual.numero_sequencial if cenario_obj_atual.numero_sequencial is not None else cenario_obj_atual.id
+                nome_cenario_atual = f"{numero_exibido_atual}/{cenario_obj_atual.cen_nome}"
+                if cenario_obj_atual.flag is None:
+                    status_cenario_atual = str(_("Ainda não processado"))
+                else:
+                    status_cenario_atual = str(_(MENSAGENS_FLAG.get(cenario_obj_atual.flag, f"Desconhecido (flag={cenario_obj_atual.flag})")))
+
         return JsonResponse({
             "resposta": resposta,
             "fontes": fontes,
@@ -370,6 +422,9 @@ def chat_view(request):
             "aguardando_poll": aguardando_poll,
             "etapa_atual": etapa_atual,
             "form_periodo": form_periodo,
+            "nome_empresa": nome_empresa_atual,
+            "nome_cenario": nome_cenario_atual,
+            "status_cenario": status_cenario_atual,
         })
 
     # No GET, renderiza a página trazendo os relatórios da empresa efetiva do usuário

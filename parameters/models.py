@@ -1015,6 +1015,20 @@ class PerfilUsuario(models.Model):
         verbose_name=_('Pode trocar cenário ativo'),
         help_text=_('Se desmarcado, o usuário não verá a opção de ativar outro cenário.')
     )
+    # 🌟 NOVO: substitui o controle de acesso ao Agente IA que era feito
+    # por Grupo de usuários ("Agente de IA") -- agora é um campo direto
+    # no perfil, no mesmo espírito de "Pode trocar cenário ativo".
+    # Superusuário de verdade e superusuário de empresa sempre têm
+    # acesso automático, independente deste campo (ver
+    # eh_superuser_ou_superuser_empresa em contexto_usuario.py) -- só
+    # importa pra usuário comum. Só um superusuário de verdade, ou o
+    # superusuário DA EMPRESA desse usuário, pode marcar/desmarcar (ver
+    # get_readonly_fields em PerfilUsuarioAdmin/PerfilUsuarioInline).
+    pode_acessar_agente_ia = models.BooleanField(
+        default=False,
+        verbose_name=_('Acesso ao Agente IA'),
+        help_text=_('Se marcado, o usuário pode acessar o Agente IA (chat).')
+    )
     # 🌟 NOVO (multi-empresa): "superusuário DA EMPRESA" -- tem os mesmos
     # poderes de um superusuário de verdade (criar/excluir cenário,
     # gerenciar usuários), mas restritos à própria empresa: nunca troca
@@ -1063,6 +1077,34 @@ class PerfilUsuario(models.Model):
     cenarios_ativos_por_empresa = models.JSONField(
         default=dict, blank=True,
         verbose_name=_('Cenários ativos por empresa (memória)')
+    )
+    # 🌟 NOVO: restrições INDIVIDUAIS por usuário -- por padrão (lista
+    # vazia), o usuário herda automaticamente tudo que a empresa dele
+    # libera (apps_habilitados/acoes_comuns_habilitadas). Esses 2 campos
+    # servem só pra EXCEÇÃO: marcar aqui um app/ação específico faz esse
+    # usuário, e só ele, deixar de ver aquilo -- mesmo continuando
+    # habilitado pra empresa como um todo, e mesmo que outros usuários da
+    # mesma empresa continuem vendo normalmente. Nunca funciona como
+    # "liberação" (não dá pra marcar aqui algo que a empresa não tenha
+    # habilitado -- ver formfield_for_manytomany em PerfilUsuarioAdmin/
+    # PerfilUsuarioInline, que já filtra as opções mostradas por isso).
+    # Só um superusuário de verdade, ou o superusuário DA empresa desse
+    # usuário, pode editar (ver get_readonly_fields nos dois Admins).
+    apps_restritos = models.ManyToManyField(
+        AppOpcional, blank=True, related_name='usuarios_com_restricao',
+        verbose_name=_('Apps Restritos (deste usuário)'),
+        help_text=_(
+            'Apps que ESTE usuário específico não deve ver, mesmo habilitados para a empresa dele. '
+            'Só é possível restringir apps que a empresa já tem habilitados.'
+        )
+    )
+    acoes_comuns_restritas = models.ManyToManyField(
+        AcaoComum, blank=True, related_name='usuarios_com_restricao',
+        verbose_name=_('Ações Comuns Restritas (deste usuário)'),
+        help_text=_(
+            'Ações do menu "Ações Comuns" que ESTE usuário específico não deve ver, mesmo habilitadas '
+            'para a empresa dele. Só é possível restringir ações que a empresa já tem habilitadas.'
+        )
     )
 
     def lembrar_cenario_ativo_para_empresa_atual(self):

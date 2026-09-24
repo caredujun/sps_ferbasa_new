@@ -1353,6 +1353,10 @@ class PerfilUsuarioAdmin(admin.ModelAdmin):
     list_editable = ('pode_trocar_cenario',)
     search_fields = ('usuario__username', 'usuario__first_name', 'usuario__last_name')
     actions = ['definir_cenario_ativo_em_massa', 'bloquear_troca_cenario', 'desbloquear_troca_cenario']
+    # 🌟 NOVO: widget de duas colunas com busca (igual ao já usado em
+    # TbEmpresaAdmin pra apps_habilitados/acoes_comuns_habilitadas), em
+    # vez da caixa de seleção múltipla padrão do Django.
+    filter_horizontal = ('apps_restritos', 'acoes_comuns_restritas')
 
     # 🌟 CORRIGIDO: removido de vez -- o queryset (get_queryset abaixo)
     # já restringe a listagem a UMA empresa só (a ativa do usuário
@@ -1366,7 +1370,7 @@ class PerfilUsuarioAdmin(admin.ModelAdmin):
     # superusuário ou não, em vez de mostrar os dois sempre (confuso,
     # já que só um dos dois é realmente usado pra cada tipo de usuário).
     campos_base = ('usuario', 'empresa', 'empresa_ativa', 'eh_superuser_empresa', 'idioma', 'cenario_ativo',
-                   'pode_trocar_cenario')
+                   'pode_trocar_cenario', 'pode_acessar_agente_ia', 'apps_restritos', 'acoes_comuns_restritas')
 
     # 🌟 CORRIGIDO: mostra só o campo que faz sentido pro tipo de usuário
     # -- "Empresa" (fixa) pra usuário comum, "Empresa Ativa" (trocável)
@@ -1398,6 +1402,11 @@ class PerfilUsuarioAdmin(admin.ModelAdmin):
 
         if eh_superuser_real or eh_superuser_empresa:
             campos.remove('pode_trocar_cenario')
+            # 🌟 NOVO: quem já tem privilégio elevado já tem acesso
+            # automático ao Agente IA (ver pode_acessar_agente_ia em
+            # context_processors.py/views.py) -- mostrar o campo aqui
+            # seria redundante/confuso.
+            campos.remove('pode_acessar_agente_ia')
 
         return campos
 
@@ -1566,7 +1575,37 @@ class PerfilUsuarioAdmin(admin.ModelAdmin):
         if not request.user.is_superuser:
             readonly.append('empresa')
             readonly.append('empresa_ativa')
+        # 🌟 NOVO: restrição individual de Apps/Ações Comuns só pode ser
+        # ajustada por um superusuário de verdade, ou pelo superusuário
+        # DA EMPRESA do usuário sendo editado (get_queryset acima já
+        # garante que um superusuário de empresa só abre perfis da
+        # própria empresa, então chegar até aqui já implica isso).
+        if not eh_superuser_ou_superuser_empresa(request.user):
+            readonly.append('apps_restritos')
+            readonly.append('acoes_comuns_restritas')
+            # 🌟 NOVO: mesma regra pro acesso ao Agente IA -- só
+            # superusuário de verdade, ou o superusuário DA EMPRESA do
+            # usuário sendo editado, pode marcar/desmarcar.
+            readonly.append('pode_acessar_agente_ia')
         return readonly
+
+    # 🌟 NOVO: restringe as opções de "Apps Restritos"/"Ações Comuns
+    # Restritas" só ao que a EMPRESA desse usuário já tem habilitado --
+    # não faz sentido (nem deveria ser possível) marcar como "restrito"
+    # algo que a empresa nem libera pra ninguém. Mesmo padrão de
+    # formfield_for_foreignkey (acima) pra filtrar cenario_ativo: usa o
+    # object_id da URL pra achar o perfil sendo editado.
+    def formfield_for_manytomany(self, db_field, request, **kwargs):
+        if db_field.name in ('apps_restritos', 'acoes_comuns_restritas'):
+            object_id = request.resolver_match.kwargs.get('object_id')
+            perfil = PerfilUsuario.objects.filter(pk=object_id).first() if object_id else None
+            empresa_id = perfil.empresa_efetiva_id() if perfil else None
+            empresa = TbEmpresa.objects.filter(id=empresa_id).first() if empresa_id else None
+            if db_field.name == 'apps_restritos':
+                kwargs['queryset'] = empresa.apps_habilitados.all() if empresa else AppOpcional.objects.none()
+            else:
+                kwargs['queryset'] = empresa.acoes_comuns_habilitadas.all() if empresa else AcaoComum.objects.none()
+        return super().formfield_for_manytomany(db_field, request, **kwargs)
 
     # 🌟 CORRIGIDO: antes, um superusuário REAL via os perfis de TODAS as
     # empresas ao mesmo tempo (sem filtro nenhum) -- inconsistente com o
@@ -1609,12 +1648,16 @@ class PerfilUsuarioInline(admin.StackedInline):
     form = PerfilUsuarioForm
     formset = PerfilUsuarioInlineFormSet
     can_delete = False
+    # 🌟 NOVO: mesmo widget de duas colunas com busca usado em
+    # PerfilUsuarioAdmin, aqui também.
+    filter_horizontal = ('apps_restritos', 'acoes_comuns_restritas')
     # 🌟 CORRIGIDO: renomeado de "fields" pra "campos_base" -- get_fields
     # (abaixo) tira 'empresa' ou 'empresa_ativa' dessa lista dependendo
     # se o USUÁRIO (pai desse inline) é superusuário ou não, em vez de
     # mostrar os dois sempre juntos (confuso, já que só um dos dois é
     # realmente usado pra cada tipo de conta).
-    campos_base = ('empresa', 'empresa_ativa', 'eh_superuser_empresa', 'idioma', 'cenario_ativo', 'pode_trocar_cenario')
+    campos_base = ('empresa', 'empresa_ativa', 'eh_superuser_empresa', 'idioma', 'cenario_ativo', 'pode_trocar_cenario',
+                   'pode_acessar_agente_ia', 'apps_restritos', 'acoes_comuns_restritas')
     # 🌟 CORRIGIDO: autocomplete tirado -- a tentativa de filtrar via hack
     # no Select2 não funcionou de forma confiável. cenario_ativo volta a
     # ser um select comum, populado via JS puro (fetch + <option>), sem
@@ -1652,62 +1695,25 @@ class PerfilUsuarioInline(admin.StackedInline):
 
         if eh_superuser_real or eh_superuser_empresa:
             campos.remove('pode_trocar_cenario')
+            campos.remove('pode_acessar_agente_ia')
 
         return campos
 
-    # 🌟 CORRIGIDO: mesmo problema de segurança de PerfilUsuarioAdmin --
-    # nada impedia um superusuário DE EMPRESA de trocar o campo
-    # "Empresa" de OUTRO usuário pra uma empresa qualquer, movendo esse
-    # usuário pra fora (ou roubando de outra empresa). Checa quem está
-    # LOGADO agora (request.user), não o usuário sendo editado -- só um
-    # superusuário DE VERDADE pode decidir a que empresa alguém
-    # pertence.
+    # 🌟 CORRIGIDO: existiam DOIS "def get_readonly_fields" e DOIS "def
+    # formfield_for_foreignkey" nessa classe -- em Python, a segunda
+    # definição de um método sobrescreve a primeira silenciosamente, sem
+    # nenhum erro/aviso. Isso significava que a trava de "Empresa"/
+    # "Empresa Ativa" somente leitura (pra impedir um superusuário de
+    # empresa mover um usuário pra outra empresa) e o filtro do dropdown
+    # "Cenário Ativo" por empresa NUNCA estavam de fato ativos -- só o
+    # texto do comentário dizia que sim. A lógica dos dois foi
+    # combinada nos métodos que sobrevivem logo abaixo (get_readonly_fields
+    # e formfield_for_foreignkey), com tudo reunido num só de cada.
     #
-    # 🌟 CORRIGIDO: faltava a mesma trava em "Empresa Ativa" também (ver
-    # comentário completo em PerfilUsuarioAdmin) -- sem isso, dava pra
-    # editar em qual empresa um superusuário DE VERDADE está operando.
-    def get_readonly_fields(self, request, obj=None):
-        readonly = list(super().get_readonly_fields(request, obj))
-        if not request.user.is_superuser:
-            readonly.append('empresa')
-            readonly.append('empresa_ativa')
-        return readonly
-
     # 🌟 NOVO: mesmo motivo de PerfilUsuarioAdmin -- mantém o dropdown
     # "Cenário Ativo" coerente com a empresa escolhida na mesma edição.
     class Media:
         js = ('admin/js/empresa_filtra_cenario.js',)
-
-    # 🌟 CORRIGIDO: mesmo problema e mesma solução de PerfilUsuarioAdmin
-    # (ver o comentário lá) -- só que aqui o object_id da URL é o ID do
-    # USUÁRIO (essa seção aparece dentro da tela de Usuário), não do
-    # PerfilUsuario em si, por isso busca por usuario_id em vez de pk.
-    def formfield_for_foreignkey(self, db_field, request, **kwargs):
-        if db_field.name == 'cenario_ativo':
-            object_id = request.resolver_match.kwargs.get('object_id')
-            perfil = PerfilUsuario.objects.filter(usuario_id=object_id).first() if object_id else None
-
-            empresa_id = None
-            if perfil is not None:
-                # 🌟 CORRIGIDO: mesmo raciocínio de PerfilUsuarioAdmin --
-                # usa o valor SUBMETIDO no POST (se houver) em vez do
-                # salvo, senão trocar de empresa e escolher um cenário
-                # dela na mesma edição sempre falhava a validação. Aqui o
-                # nome do campo no POST vem com o prefixo do formset do
-                # inline (índice 0, já que max_num=1/extra=1 -- só existe
-                # um formulário desse inline por vez).
-                campo_empresa_relevante = 'empresa_ativa' if perfil.usuario.is_superuser else 'empresa'
-                valor_submetido = request.POST.get(f'perfilusuario-0-{campo_empresa_relevante}')
-                if valor_submetido and valor_submetido.isdigit():
-                    empresa_id = int(valor_submetido)
-                else:
-                    empresa_id = perfil.empresa_efetiva_id()
-
-            if empresa_id:
-                kwargs['queryset'] = TbCenarios.objects_real.filter(empresa_id=empresa_id).order_by('-id')
-            else:
-                kwargs['queryset'] = TbCenarios.objects_real.none()
-        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
     # 🌟 NOVO (multi-empresa): o StackedInline tem a PRÓPRIA checagem de
     # permissão (separada da tela de Usuário) -- por padrão, checa se o
@@ -1730,10 +1736,26 @@ class PerfilUsuarioInline(admin.StackedInline):
     # conceder/revogar "superuser de empresa" -- um superuser de empresa
     # não pode fazer isso nem pra si mesmo nem pra ninguém (evita
     # escalonamento de privilégio).
+    #
+    # 🌟 CORRIGIDO: essa era a versão que sobrevivia (a duplicata acima
+    # foi removida -- ver o comentário lá) -- reunidas aqui as travas de
+    # "Empresa"/"Empresa Ativa" (só superusuário DE VERDADE decide a
+    # empresa de alguém) e a de "Apps Restritos"/"Ações Comuns
+    # Restritas" (só superusuário de verdade OU superusuário DA empresa
+    # do usuário sendo editado).
     def get_readonly_fields(self, request, obj=None):
         readonly = list(super().get_readonly_fields(request, obj))
         if not request.user.is_superuser:
             readonly.append('eh_superuser_empresa')
+            readonly.append('empresa')
+            readonly.append('empresa_ativa')
+        if not eh_superuser_ou_superuser_empresa(request.user):
+            readonly.append('apps_restritos')
+            readonly.append('acoes_comuns_restritas')
+            # 🌟 NOVO: mesma regra pro acesso ao Agente IA -- só
+            # superusuário de verdade, ou o superusuário DA EMPRESA do
+            # usuário sendo editado, pode marcar/desmarcar.
+            readonly.append('pode_acessar_agente_ia')
         # 🌟 NOVO (multi-idioma, Fase 1): usuário comum editando o
         # PRÓPRIO perfil só pode mexer no idioma -- empresa, cenário
         # ativo etc. continuam travados (ele já tem telas dedicadas pra
@@ -1743,7 +1765,7 @@ class PerfilUsuarioInline(admin.StackedInline):
                 and not eh_superuser_ou_superuser_empresa(request.user)
         )
         if eh_auto_edicao_comum:
-            for campo in ('empresa', 'empresa_ativa', 'cenario_ativo', 'pode_trocar_cenario'):
+            for campo in ('empresa', 'empresa_ativa', 'cenario_ativo', 'pode_trocar_cenario', 'pode_acessar_agente_ia'):
                 if campo not in readonly:
                     readonly.append(campo)
         return readonly
@@ -1751,13 +1773,58 @@ class PerfilUsuarioInline(admin.StackedInline):
     # 🌟 NOVO: superuser de empresa só pode vincular usuários novos (ou
     # existentes) à PRÓPRIA empresa -- trava o dropdown pra mostrar só
     # ela, sem opção de escolher outra.
+    #
+    # 🌟 CORRIGIDO: essa era a versão que sobrevivia (a duplicata acima
+    # foi removida) -- reunida aqui também a filtragem de "Cenário
+    # Ativo" por empresa (object_id vem do usuário, não do perfil --
+    # essa tela é um inline dentro da edição de Usuário).
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
-        if db_field.name == 'empresa' and not request.user.is_superuser:
+        if db_field.name == 'cenario_ativo':
+            object_id = request.resolver_match.kwargs.get('object_id')
+            perfil = PerfilUsuario.objects.filter(usuario_id=object_id).first() if object_id else None
+
+            empresa_id = None
+            if perfil is not None:
+                # 🌟 usa o valor SUBMETIDO no POST (se houver) em vez do
+                # salvo, senão trocar de empresa e escolher um cenário
+                # dela na mesma edição sempre falhava a validação. Aqui o
+                # nome do campo no POST vem com o prefixo do formset do
+                # inline (índice 0, já que max_num=1/extra=1 -- só existe
+                # um formulário desse inline por vez).
+                campo_empresa_relevante = 'empresa_ativa' if perfil.usuario.is_superuser else 'empresa'
+                valor_submetido = request.POST.get(f'perfilusuario-0-{campo_empresa_relevante}')
+                if valor_submetido and valor_submetido.isdigit():
+                    empresa_id = int(valor_submetido)
+                else:
+                    empresa_id = perfil.empresa_efetiva_id()
+
+            if empresa_id:
+                kwargs['queryset'] = TbCenarios.objects_real.filter(empresa_id=empresa_id).order_by('-id')
+            else:
+                kwargs['queryset'] = TbCenarios.objects_real.none()
+        elif db_field.name == 'empresa' and not request.user.is_superuser:
             perfil = getattr(request.user, 'perfilusuario', None)
             if perfil and perfil.eh_superuser_empresa and perfil.empresa_id:
                 kwargs['queryset'] = TbEmpresa.objects.filter(id=perfil.empresa_id)
                 kwargs['initial'] = perfil.empresa_id
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+    # 🌟 NOVO: mesma restrição de PerfilUsuarioAdmin -- as opções de
+    # "Apps Restritos"/"Ações Comuns Restritas" só podem vir do que a
+    # EMPRESA do usuário (o pai desse inline) já tem habilitado. Usa
+    # usuario_id (não pk do perfil), já que essa tela é um inline dentro
+    # da edição de Usuário.
+    def formfield_for_manytomany(self, db_field, request, **kwargs):
+        if db_field.name in ('apps_restritos', 'acoes_comuns_restritas'):
+            object_id = request.resolver_match.kwargs.get('object_id')
+            perfil = PerfilUsuario.objects.filter(usuario_id=object_id).first() if object_id else None
+            empresa_id = perfil.empresa_efetiva_id() if perfil else None
+            empresa = TbEmpresa.objects.filter(id=empresa_id).first() if empresa_id else None
+            if db_field.name == 'apps_restritos':
+                kwargs['queryset'] = empresa.apps_habilitados.all() if empresa else AppOpcional.objects.none()
+            else:
+                kwargs['queryset'] = empresa.acoes_comuns_habilitadas.all() if empresa else AcaoComum.objects.none()
+        return super().formfield_for_manytomany(db_field, request, **kwargs)
 
 
 # 🌟 CORRIGIDO: Django bloqueia filtro direto por "perfilusuario__empresa"

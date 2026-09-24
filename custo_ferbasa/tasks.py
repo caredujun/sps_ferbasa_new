@@ -2026,3 +2026,81 @@ def calcular_custo_variavel_adicionado_de_chat_celery(self, ano_mes_inicio, ano_
         _atualizar_status_importacao_cf(usuario_id, 'erro', f"Erro ao calcular o Custo Variável Adicionado: {e}")
         return
     _atualizar_status_importacao_cf(usuario_id, 'concluido')
+
+
+@shared_task(bind=True)
+def atualizar_indicadores_consumo_padrao_de_chat_celery(self, usuario_id):
+    """
+    🌟 CORRIGIDO: mesma lógica de TbFluxoConsumoPadraoAdmin.update_indicador_geral
+    (ação do Admin, app fluxos) -- pra TODOS os registros de
+    TbFluxoConsumoPadrao com o campo flu_con_pad_consumo_especifico
+    preenchido, não só os selecionados. O filtro é __isnull=False, não
+    =True -- esse campo não é um booleano de verdade (é preenchido ou
+    vazio, não True/False), confirmado testando direto.
+    """
+    from fluxos.models import TbFluxoConsumoPadrao
+    from fluxos.tasks import update_indicador as update_indicador_fluxo_consumo_padrao
+    try:
+        ids = list(
+            TbFluxoConsumoPadrao.objects.filter(flu_con_pad_consumo_especifico__isnull=False).values_list('id',
+                                                                                                          flat=True)
+        )
+        for id_consumo in ids:
+            update_indicador_fluxo_consumo_padrao(id_consumo)
+    except Exception as e:
+        _atualizar_status_importacao_cf(usuario_id, 'erro',
+                                        f"Erro ao atualizar os indicadores de Consumo Específico: {e}")
+        return
+    _atualizar_status_importacao_cf(usuario_id, 'concluido')
+
+
+@shared_task(bind=True)
+def atualizar_indicadores_equipamentos_consumo_especifico_de_chat_celery(self, usuario_id):
+    """
+    🌟 NOVO: mesma lógica de TbEquipamentosConsumoEspecificoAdmin.update_indicador_geral
+    (ação do Admin, app equipamentos) -- pra TODOS os registros de
+    TbEquipamentosConsumoEspecifico com o campo equ_con_consumo_especifico
+    preenchido, não só os selecionados. Mesmo cuidado com o filtro
+    (__isnull=False, não =True) confirmado no def anterior.
+    """
+    from equipamentos.models import TbEquipamentosConsumoEspecifico
+    from equipamentos.tasks import update_indicador as update_indicador_equipamentos_consumo_especifico
+    try:
+        ids = list(
+            TbEquipamentosConsumoEspecifico.objects.filter(
+                equ_con_consumo_especifico__isnull=False
+            ).values_list('id', flat=True)
+        )
+        for id_consumo in ids:
+            update_indicador_equipamentos_consumo_especifico(id_consumo)
+    except Exception as e:
+        _atualizar_status_importacao_cf(usuario_id, 'erro',
+                                        f"Erro ao atualizar os indicadores de Equipamentos Consumo Específico: {e}")
+        return
+    _atualizar_status_importacao_cf(usuario_id, 'concluido')
+
+
+@shared_task(bind=True)
+def atualizar_custo_variavel_adicionado_item_preco_de_chat_celery(self, usuario_id):
+    """
+    🌟 NOVO: mesma lógica de TbCustoItemPrecoAdmin.update_valor_custo_variavel_adicionado_geral
+    (ação do Admin, app tabelas -- confirmado que a task fica em
+    tabelas.tasks, não custo_ferbasa.tasks) -- pra TODOS os registros de
+    TbCustoItemPreco com o campo cus_ite_pre_custo_variavel_adiconado
+    preenchido, não só os selecionados. Mesmo cuidado com o filtro
+    (__isnull=False, não =True).
+    """
+    from tabelas.models import TbCustoItemPreco
+    from tabelas.tasks import update_custo_variavel_adicionado as update_custo_variavel_adicionado_item_preco
+    try:
+        ids = list(
+            TbCustoItemPreco.objects.filter(
+                cus_ite_pre_custo_variavel_adiconado__isnull=False
+            ).values_list('id', flat=True)
+        )
+        for id_custo in ids:
+            update_custo_variavel_adicionado_item_preco(id_custo)
+    except Exception as e:
+        _atualizar_status_importacao_cf(usuario_id, 'erro', f"Erro ao atualizar Preço/Custo Variável Adicionado: {e}")
+        return
+    _atualizar_status_importacao_cf(usuario_id, 'concluido')

@@ -93,6 +93,11 @@ def empresa_tem_app_habilitado(usuario, app_label):
     espírito de "até o superuser só vê a empresa ativa" já aplicado no
     resto do sistema) -- evita ele ver dado de um app exclusivo de uma
     empresa enquanto está "logado como" outra.
+
+    🌟 NOVO: além do nível empresa, confere também se esse USUÁRIO
+    específico não está com esse app restrito individualmente
+    (PerfilUsuario.apps_restritos) -- a empresa liberar não basta se o
+    usuário, especificamente, foi marcado como exceção.
     """
     if usuario is None or not usuario.is_authenticated:
         return False
@@ -103,7 +108,11 @@ def empresa_tem_app_habilitado(usuario, app_label):
     if empresa_id is None:
         return False
     from .models import TbEmpresa
-    return TbEmpresa.objects.filter(id=empresa_id, apps_habilitados__app_label=app_label).exists()
+    if not TbEmpresa.objects.filter(id=empresa_id, apps_habilitados__app_label=app_label).exists():
+        return False
+    if perfil.apps_restritos.filter(app_label=app_label).exists():
+        return False
+    return True
 
 
 def empresa_tem_acao_comum_habilitada(usuario, categoria, chave):
@@ -115,6 +124,10 @@ def empresa_tem_acao_comum_habilitada(usuario, categoria, chave):
     do menu suspenso quanto pra fazer o agente "esquecer" que esse
     contexto existe, se o usuário pedir por texto livre (ex: "criar o
     gráfico do dólar") sem essa ação estar habilitada pra empresa dele.
+
+    🌟 NOVO: além do nível empresa, confere também se esse USUÁRIO
+    específico não está com essa ação restrita individualmente
+    (PerfilUsuario.acoes_comuns_restritas).
     """
     if usuario is None or not usuario.is_authenticated:
         return False
@@ -125,6 +138,10 @@ def empresa_tem_acao_comum_habilitada(usuario, categoria, chave):
     if empresa_id is None:
         return False
     from .models import TbEmpresa
-    return TbEmpresa.objects.filter(
+    if not TbEmpresa.objects.filter(
         id=empresa_id, acoes_comuns_habilitadas__categoria=categoria, acoes_comuns_habilitadas__chave=chave
-    ).exists()
+    ).exists():
+        return False
+    if perfil.acoes_comuns_restritas.filter(categoria=categoria, chave=chave).exists():
+        return False
+    return True

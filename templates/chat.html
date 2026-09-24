@@ -24,6 +24,8 @@
            indicador visual, atualizado no lugar em vez de empilhar
            mensagens novas a cada sondagem automática. */
         .progresso-container { margin: 12px 0; padding: 10px 12px; background: #f0f4f8; border-radius: 8px; border: 1px solid #dbe4ee; }
+        #progresso-acao-botao { margin-top: 8px; }
+        #progresso-acao-botao:empty { margin-top: 0; }
         .progresso-status { font-size: 13px; color: #444; margin-bottom: 6px; }
         .progresso-barra-fundo { width: 100%; height: 8px; background: #dde5ee; border-radius: 4px; overflow: hidden; }
         .progresso-barra-preenchimento { height: 100%; background: #0056b3; border-radius: 4px; transition: width 0.6s ease; }
@@ -38,6 +40,9 @@
         .input-area { display: flex; gap: 10px; }
         #input-box { flex: 1; padding: 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
         button { padding: 12px 24px; background-color: #417690; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
+        #btn-microfone { padding: 12px 16px; font-size: 18px; line-height: 1; }
+        #btn-microfone.gravando { background-color: #c0392b; animation: pulsar-microfone 1.2s infinite; }
+        @keyframes pulsar-microfone { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
 
         .pdf-item { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding: 8px; border-radius: 4px; background: #fdfdfd; border: 1px solid #eee; font-size: 13px; cursor: pointer; }
         .arquivo-atualizacao-item { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding: 8px; border-radius: 4px; background: #fdfdfd; border: 1px solid #eee; font-size: 13px; }
@@ -61,7 +66,7 @@
         /* Mini-formulário de período (início/fim), embutido na resposta do chat */
         .form-periodo-inline { margin-top: 8px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px; background: #f5f9fb; border: 1px solid #d5e5ec; border-radius: 8px; }
         .form-periodo-inline label { font-size: 12px; color: #417690; font-weight: bold; display: flex; align-items: center; gap: 6px; }
-        .form-periodo-inline input[type="text"] { width: 80px; padding: 5px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; }
+        .form-periodo-inline input[type="month"] { width: 140px; padding: 5px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; }
         .form-periodo-inline .botao-opcao { margin-left: 4px; }
 
         /* Painel lateral direito: Ações Comuns no SPS */
@@ -218,15 +223,15 @@
             <!-- 🌟 NOVO: barra de contexto -- empresa, cenário ativo e status,
             pra o usuário sempre saber onde está trabalhando dentro do SPS. -->
             {% if nome_empresa or nome_cenario %}
-            <div style="display: flex; gap: 16px; align-items: center; justify-content: center; background: #fff3b0; padding: 8px 12px; border-radius: 6px; border: 1px solid #e8d878; margin-bottom: 15px; font-size: 13px; color: #5c4d00; font-weight: bold; flex-wrap: nowrap; overflow-x: auto; white-space: nowrap;">
+            <div id="barra-contexto" style="display: flex; gap: 16px; align-items: center; justify-content: center; background: #fff3b0; padding: 8px 12px; border-radius: 6px; border: 1px solid #e8d878; margin-bottom: 15px; font-size: 13px; color: #5c4d00; font-weight: bold; flex-wrap: nowrap; overflow-x: auto; white-space: nowrap;">
                 {% if nome_empresa %}
-                <span>🏢 <strong>{% trans "Empresa" %}:</strong> {{ nome_empresa }}</span>
+                <span>🏢 <strong>{% trans "Empresa" %}:</strong> <span id="valor-nome-empresa">{{ nome_empresa }}</span></span>
                 {% endif %}
                 {% if nome_cenario %}
-                <span>📊 <strong>{% trans "Cenário Ativo" %}:</strong> {{ nome_cenario }}</span>
+                <span>📊 <strong>{% trans "Cenário Ativo" %}:</strong> <span id="valor-nome-cenario">{{ nome_cenario }}</span></span>
                 {% endif %}
                 {% if status_cenario %}
-                <span>🚦 <strong>{% trans "Status" %}:</strong> {{ status_cenario }}</span>
+                <span>🚦 <strong>{% trans "Status" %}:</strong> <span id="valor-status-cenario">{{ status_cenario }}</span></span>
                 {% endif %}
             </div>
             {% endif %}
@@ -239,6 +244,7 @@
                 {% csrf_token %}
                 <div class="input-area">
                     <input type="text" id="input-box" name="mensagem" placeholder="{% trans 'Digite sua pergunta...' %}" required>
+                    <button type="button" id="btn-microfone" title="{% trans 'Falar em vez de digitar' %}">🎤</button>
                     <button type="submit" id="btn-enviar">{% trans "Enviar" %}</button>
                 </div>
             </form>
@@ -277,7 +283,7 @@
                 <select id="dropdown-custo-ferbasa" class="select-acao-comum" onchange="dispararAcaoDropdown(this)">
                     <option value="">{% trans "Selecione uma ação..." %}</option>
                     {% if acoes_habilitadas.cf_atualizar_producao_ggf_mensal %}<option value="atualizar produção e ggf mensal">{% trans "Atualizar Produção e GGF Mensal" %}</option>{% endif %}
-                    {% if acoes_habilitadas.cf_atualizar_consumo_especifico_custo_variavel %}<option value="atualizar consumo específico e custo variável adicionado">{% trans "Atualizar Consumo Específico e Custo Variável Adicionado" %}</option>{% endif %}
+                    {% if acoes_habilitadas.cf_atualizar_consumo_especifico_custo_variavel %}<option value="atualizar consumo específico e custo variável">{% trans "Atualizar Consumo Específico e Custo Variável" %}</option>{% endif %}
                 </select>
             </div>
             {% endif %}
@@ -333,6 +339,9 @@
         var MSG_HISTORICO_LIMPO = "{{ MSG_HISTORICO_LIMPO|escapejs }}";
         var MSG_O_QUE_POSSO_FAZER = "{{ MSG_O_QUE_POSSO_FAZER|escapejs }}";
         var ROTULO_VOCE = "{{ ROTULO_VOCE|escapejs }}";
+        // 🌟 NOVO: nome do usuário (mesmo usado na saudação inicial) --
+        // mostrado no lugar de "Você:" nas mensagens do próprio usuário.
+        var ROTULO_VOCE_NOME = "{{ user.first_name|default:user.username|escapejs }}";
         var ROTULO_AGENTE = "{{ ROTULO_AGENTE|escapejs }}";
         var MSG_BAIXAR_IMAGEM = "{{ MSG_BAIXAR_IMAGEM|escapejs }}";
         var MSG_PROCESSANDO = "{{ MSG_PROCESSANDO|escapejs }}";
@@ -352,6 +361,25 @@
         // pra próxima mensagem enviada; reseta logo em seguida.
         var rotuloExibicaoOverride = null;
 
+        // 🌟 NOVO: adiciona uma mensagem ao final do chat SEM tocar no
+        // conteúdo já existente -- "chatBox.innerHTML += ..." (o padrão
+        // usado antes) faz o navegador RECONSTRUIR TODO O CONTEÚDO JÁ
+        // EXISTENTE do zero, e nessa reconstrução, qualquer <input> que
+        // o usuário já tinha editado (como os campos de período) volta
+        // pro valor ORIGINAL do HTML -- o navegador serializa um input
+        // pelo atributo "value" de quando ele foi criado, não pelo que
+        // está digitado na tela agora. Criar um elemento novo e usar
+        // appendChild evita esse problema por completo: só o conteúdo
+        // NOVO é interpretado como HTML, o resto do chat nunca é tocado.
+        function adicionarMensagemAoChat(htmlConteudo) {
+            var chatBox = document.getElementById('chat-box');
+            var wrapper = document.createElement('div');
+            wrapper.innerHTML = htmlConteudo;
+            while (wrapper.firstChild) {
+                chatBox.appendChild(wrapper.firstChild);
+            }
+        }
+
         function escolherOpcao(opcao) {
             var botoes = document.querySelectorAll('.botao-opcao');
             botoes.forEach(function(b) { b.disabled = true; b.style.opacity = '0.5'; b.style.cursor = 'default'; });
@@ -361,13 +389,14 @@
             form.dispatchEvent(new Event('submit', { cancelable: true }));
         }
 
-        // 🌟 NOVO: lê os dois campos do mini-formulário de período e manda
-        // como mensagem no formato "início,fim" -- exatamente o formato
-        // que o back-end já sabe interpretar (mesmo mecanismo de
-        // escolherOpcao, reaproveitado).
+        // 🌟 CORRIGIDO: campo type="month" de volta (calendário nativo) --
+        // ele devolve o valor no formato AAAA-MM (com traço), então
+        // convertemos pra AAAA/MM (com barra, o formato que o back-end
+        // espera) antes de enviar como mensagem "início,fim" (mesmo
+        // mecanismo de escolherOpcao, reaproveitado).
         function confirmarFormPeriodo(idInicio, idFim) {
-            var inicio = document.getElementById(idInicio).value.trim();
-            var fim = document.getElementById(idFim).value.trim();
+            var inicio = document.getElementById(idInicio).value.trim().replace('-', '/');
+            var fim = document.getElementById(idFim).value.trim().replace('-', '/');
             escolherOpcao(inicio + ',' + fim);
         }
 
@@ -859,6 +888,27 @@
             }
         }
 
+        // 🌟 NOVO: atualiza os textos de Empresa/Cenário Ativo/Status no
+        // topo do chat com o que a resposta mais recente do back-end
+        // trouxe -- o back-end recalcula esses 3 valores do zero em toda
+        // resposta (ver views.py), então isso cobre QUALQUER ação que
+        // troque o cenário ativo (a ferramenta nova, o wizard de "ativar
+        // esse cenário?" depois de criar um, mudar tipo/período, etc.),
+        // sem precisar identificar qual ação específica foi.
+        function atualizarBarraContexto(data) {
+            var mapaCampos = {
+                'valor-nome-empresa': data.nome_empresa,
+                'valor-nome-cenario': data.nome_cenario,
+                'valor-status-cenario': data.status_cenario,
+            };
+            Object.keys(mapaCampos).forEach(function(id) {
+                var valor = mapaCampos[id];
+                if (valor === undefined || valor === null) return;
+                var elemento = document.getElementById(id);
+                if (elemento) elemento.textContent = valor;
+            });
+        }
+
         function atualizarStatusArquivoAtualizacao() {
             // 🌟 NOVO: sincroniza a tela com o estado real do espaço único
             // no servidor -- chamado depois de qualquer mensagem (normal
@@ -958,14 +1008,28 @@
         // um percentual real; senão, fica um indicador indeterminado
         // (animação indo e voltando), só pra mostrar que algo está
         // rodando.
+        // 🌟 NOVO: desabilita/reabilita os dropdowns de "Ações Comuns"
+        // enquanto uma task do Celery está sendo acompanhada -- evita o
+        // usuário disparar uma ação nova por cima de uma que ainda está
+        // rodando (a ação nova cancelava só o ACOMPANHAMENTO da antiga
+        // no chat, não a task em si, que continuava rodando sozinha e
+        // podia colidir com a nova mais tarde).
+        function definirAcoesComunsHabilitadas(habilitado) {
+            document.querySelectorAll('.select-acao-comum').forEach(function(sel) {
+                sel.disabled = !habilitado;
+            });
+        }
+
         function garantirBarraProgresso() {
             var chatBox = document.getElementById('chat-box');
             var barra = document.getElementById('barra-progresso-celery');
             if (!barra) {
+                definirAcoesComunsHabilitadas(false);
                 chatBox.insertAdjacentHTML('beforeend',
                     '<div id="barra-progresso-celery" class="progresso-container progresso-indeterminado">' +
                     '<div id="progresso-status-texto" class="progresso-status"></div>' +
                     '<div class="progresso-barra-fundo"><div class="progresso-barra-preenchimento" style="width:0%;"></div></div>' +
+                    '<div id="progresso-acao-botao"></div>' +
                     '</div>'
                 );
                 barra = document.getElementById('barra-progresso-celery');
@@ -986,17 +1050,44 @@
         function removerBarraProgresso() {
             var barra = document.getElementById('barra-progresso-celery');
             if (barra) barra.remove();
+            definirAcoesComunsHabilitadas(true);
         }
 
-        function atualizarBarraProgresso(textoStatus) {
+        function atualizarBarraProgresso(textoStatus, opcoes) {
             var barra = garantirBarraProgresso();
-            // 🌟 NOVO: remove o prefixo "Ainda " (case-insensitive) só na
-            // exibição da barra -- fica "Limpando...", "Otimizando..."
-            // em vez de "Ainda limpando...", mais limpo pro formato
-            // compacto da barra.
+            // 🌟 CORRIGIDO: mostra opções clicáveis (ex: "Encerrar Ação")
+            // DENTRO da própria barra -- antes, mensagens de "ainda
+            // processando" repetidas (mesma etapa, sem mudar) só passavam
+            // por aqui, e qualquer botão que a resposta tivesse (extraído
+            // no back-end) ficava perdido, nunca aparecendo pro usuário.
+            // "Cancelar" é excluído de propósito -- ele já está sempre
+            // disponível (digitando "cancelar" a qualquer momento, ou no
+            // botão da mensagem original acima), então mostrar ele de novo
+            // aqui só duplicava o botão na tela.
+            var slotBotao = document.getElementById('progresso-acao-botao');
+            if (slotBotao) {
+                var opcoesFiltradas = (opcoes || []).filter(function(op) { return op !== 'Cancelar'; });
+                if (opcoesFiltradas.length > 0) {
+                    slotBotao.innerHTML = opcoesFiltradas.map(function(op) {
+                        return '<button type="button" class="botao-opcao" onclick="escolherOpcao(' + JSON.stringify(op) + ')">' + escapeHtml(op) + '</button>';
+                    }).join(' ');
+                } else {
+                    slotBotao.innerHTML = '';
+                }
+            }
+            // 🌟 NOVO: remove o prefixo "Ainda " (case-insensitive) e trunca
+            // na primeira frase (até o primeiro ponto) -- mensagens tipo
+            // "Ainda calculando X. Se quiser, pode clicar em..." ficavam
+            // com a explicação inteira do botão dentro da barra compacta,
+            // o que agora é redundante já que o botão aparece de verdade
+            // (ver slotBotao acima).
             var textoExibido = textoStatus.replace(/^ainda\s+(\w)/i, function(m, primeiraLetra) {
                 return primeiraLetra.toUpperCase();
             });
+            var indicePonto = textoExibido.indexOf('. ');
+            if (indicePonto !== -1) {
+                textoExibido = textoExibido.slice(0, indicePonto + 1);
+            }
             document.getElementById('progresso-status-texto').textContent = textoExibido;
 
             var m = textoStatus.match(/(\d+)\s+de\s+(\d+)/i);
@@ -1034,6 +1125,12 @@
 
         function renderizarRespostaAgente(data) {
             var chatBox = document.getElementById('chat-box');
+
+            // 🌟 NOVO: sincroniza o cabeçalho (Empresa/Cenário Ativo/Status)
+            // com o que o back-end mandou nessa resposta -- sem isso, uma
+            // ação que troca o cenário ativo (via ferramenta, ou qualquer
+            // wizard) deixava o texto do topo desatualizado até dar F5.
+            atualizarBarraContexto(data);
 
             // 🌟 NOVO: sincroniza a exibição do espaço único de
             // atualização toda vez que uma resposta chega -- cobre tanto
@@ -1080,15 +1177,30 @@
             if (data.form_periodo) {
                 var idInicio = 'form-periodo-inicio-' + Date.now();
                 var idFim = 'form-periodo-fim-' + Date.now();
+                // 🌟 CORRIGIDO: de volta ao seletor nativo de mês
+                // (type="month", com calendário) -- o bug de "o valor volta
+                // pro original" NÃO era causado por esse tipo de campo; a
+                // causa raiz era o "chatBox.innerHTML += ..." em outro
+                // lugar do código, que reconstruía toda a conversa do zero
+                // a cada mensagem nova (já corrigido, ver
+                // adicionarMensagemAoChat). Esse input trabalha no formato
+                // AAAA-MM (com traço), então convertemos pra AAAA/MM (com
+                // barra, o formato do back-end) na hora de enviar. Só
+                // ressalva que continua existindo: o idioma do calendário
+                // (nomes dos meses) segue o idioma do NAVEGADOR do
+                // usuário, não da página -- isso é uma limitação do
+                // próprio navegador, não tem como forçar via HTML/CSS.
+                var valorInicioMonth = (data.form_periodo.minimo || '').replace('/', '-');
+                var valorFimMonth = (data.form_periodo.maximo || '').replace('/', '-');
                 formPeriodoHtml = '<div class="form-periodo-inline">' +
-                    '<label>Início: <input type="text" id="' + idInicio + '" value="' + escapeHtml(data.form_periodo.minimo) + '" placeholder="AAAA/MM"></label>' +
-                    '<label>Fim: <input type="text" id="' + idFim + '" value="' + escapeHtml(data.form_periodo.maximo) + '" placeholder="AAAA/MM"></label>' +
+                    '<label>Início: <input type="month" id="' + idInicio + '" value="' + escapeHtml(valorInicioMonth) + '"></label>' +
+                    '<label>Fim: <input type="month" id="' + idFim + '" value="' + escapeHtml(valorFimMonth) + '"></label>' +
                     '<button type="button" class="botao-opcao" onclick="confirmarFormPeriodo(\'' + idInicio + '\', \'' + idFim + '\')">Confirmar</button>' +
                     '</div>';
             }
 
             var textoLimpoHTML = processarRespostaCompleta(data.resposta || data.resposta_ia);
-            chatBox.innerHTML += '<div class="chat-box-p" style="color: #2b2b2b;"><strong style="color: #0056b3;">' + ROTULO_AGENTE + ':</strong><div style="margin-top: 5px;">' + textoLimpoHTML + '</div>' + fontesHtml + opcoesHtml + formPeriodoHtml + '</div>';
+            adicionarMensagemAoChat('<div class="chat-box-p" style="color: #2b2b2b;"><strong style="color: #0056b3;">' + ROTULO_AGENTE + ':</strong><div style="margin-top: 5px;">' + textoLimpoHTML + '</div>' + fontesHtml + opcoesHtml + formPeriodoHtml + '</div>');
             desenharGraficosPendentes();
             chatBox.scrollTop = chatBox.scrollHeight;
         }
@@ -1139,7 +1251,7 @@
                     }
                     // Ainda rodando -- garante a barra de progresso (pra
                     // etapa nova ou a mesma) com o texto mais recente.
-                    atualizarBarraProgresso(respostaTexto);
+                    atualizarBarraProgresso(respostaTexto, data.opcoes);
                     temporizadorSondagem = setTimeout(sondarAutomaticamente, 5000);
                 } else {
                     // Terminou de vez (sucesso, erro, ou avançou pra uma
@@ -1160,6 +1272,68 @@
                 temporizadorSondagem = setTimeout(sondarAutomaticamente, 4000);
             });
         }
+
+        // 🌟 NOVO: botão de microfone -- converte fala em texto usando a
+        // Web Speech API do próprio navegador (sem precisar de nenhuma
+        // mudança no back-end: o texto reconhecido só preenche o campo
+        // de mensagem, exatamente como se tivesse sido digitado). Não
+        // envia sozinho -- o usuário confere o texto reconhecido e clica
+        // em "Enviar" (ou aperta Enter) quando estiver certo, já que o
+        // reconhecimento de fala pode errar, especialmente em termos
+        // técnicos (nome de cenário, "consumo específico", etc.).
+        (function() {
+            var SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+            var btnMicrofone = document.getElementById('btn-microfone');
+            if (!btnMicrofone) return;
+            if (!SpeechRecognitionAPI) {
+                // Navegador sem suporte (ex: Firefox, Safari em algumas
+                // versões) -- some o botão em vez de deixar ele visível
+                // sem funcionar.
+                btnMicrofone.style.display = 'none';
+                return;
+            }
+
+            var reconhecimento = new SpeechRecognitionAPI();
+            reconhecimento.lang = 'pt-BR';
+            reconhecimento.interimResults = false;
+            reconhecimento.maxAlternatives = 1;
+            var gravando = false;
+
+            function pararGravacao() {
+                gravando = false;
+                btnMicrofone.classList.remove('gravando');
+            }
+
+            reconhecimento.onresult = function(evento) {
+                var texto = evento.results[0][0].transcript;
+                var input = document.getElementById('input-box');
+                input.value = texto;
+                input.focus();
+            };
+
+            reconhecimento.onerror = function() {
+                pararGravacao();
+            };
+
+            reconhecimento.onend = function() {
+                pararGravacao();
+            };
+
+            btnMicrofone.addEventListener('click', function() {
+                if (gravando) {
+                    reconhecimento.stop();
+                    return;
+                }
+                gravando = true;
+                btnMicrofone.classList.add('gravando');
+                try {
+                    reconhecimento.start();
+                } catch (erro) {
+                    // já estava tentando iniciar (clique duplo, etc.)
+                    pararGravacao();
+                }
+            });
+        })();
 
         document.getElementById('chat-form').addEventListener('submit', function(e) {
             e.preventDefault();
@@ -1184,7 +1358,7 @@
             var ph = document.getElementById('placeholder-text');
             if (ph) ph.remove();
 
-            chatBox.innerHTML += '<div class="chat-box-p"><strong>' + ROTULO_VOCE + ':</strong> ' + escapeHtml(textoExibicaoUsuario) + '</div>';
+            adicionarMensagemAoChat('<div class="chat-box-p"><strong>' + ROTULO_VOCE_NOME + ':</strong> ' + escapeHtml(textoExibicaoUsuario) + '</div>');
             input.value = '';
             chatBox.scrollTop = chatBox.scrollHeight;
 
@@ -1296,11 +1470,11 @@
 
             historico.forEach(function(item) {
                 if (item.comando_usuario) {
-                    chatBox.innerHTML += '<div class="chat-box-p"><strong>' + ROTULO_VOCE + ':</strong> ' + escapeHtml(item.comando_usuario) + '</div>';
+                    adicionarMensagemAoChat('<div class="chat-box-p"><strong>' + ROTULO_VOCE_NOME + ':</strong> ' + escapeHtml(item.comando_usuario) + '</div>');
                 }
                 if (item.resposta_ia) {
                     var textoLimpoHTML = processarRespostaCompleta(item.resposta_ia);
-                    chatBox.innerHTML += '<div class="chat-box-p" style="color: #2b2b2b;"><strong style="color: #0056b3;">' + ROTULO_AGENTE + ':</strong><div style="margin-top: 5px;">' + textoLimpoHTML + '</div></div>';
+                    adicionarMensagemAoChat('<div class="chat-box-p" style="color: #2b2b2b;"><strong style="color: #0056b3;">' + ROTULO_AGENTE + ':</strong><div style="margin-top: 5px;">' + textoLimpoHTML + '</div></div>');
                 }
             });
             desenharGraficosPendentes();

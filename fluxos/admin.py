@@ -225,8 +225,7 @@ class TbFluxoConsumoPadraoAdmin(DjangoObjectActions, admin.ModelAdmin):
         # SÓ ATUALIZA SE FOR INDICADO CONSUMO ESPECÍFICO PARA O CONSUMO PADRÃO
         consumos = queryset.values_list('id', )
         for consumo in consumos:
-            if TbFluxoConsumoPadrao.objects.get(
-                    id=consumo[0]).flu_con_pad_consumo_especifico:  # Se foi indicado consumo específico
+            if TbFluxoConsumoPadrao.objects.get(id=consumo[0]).flu_con_pad_consumo_especifico:  # Se foi indicado consumo específico
                 update_indicador(consumo[0])
 
         messages.success(request, _('Update do indicador dos consumos padrões realizado com sucesso!'))

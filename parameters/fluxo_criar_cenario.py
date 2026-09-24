@@ -15,7 +15,7 @@ Uso esperado, a partir de agents.py:
     else:
         resposta = <fluxo normal do LLM>
 
-Em qualquer etapa, o usuário pode digitar "cancelar" para abortar o wizard
+Em qualquer etapa, o usuário pode digitar "Cancelar" para abortar o wizard
 sem criar nada.
 """
 
@@ -45,7 +45,7 @@ Uso esperado, a partir de agents.py:
     else:
         resposta = <fluxo normal do LLM>
 
-Em qualquer etapa, de qualquer fluxo, o usuário pode digitar "cancelar" para
+Em qualquer etapa, de qualquer fluxo, o usuário pode digitar "Cancelar" para
 abortar sem aplicar nada.
 """
 
@@ -104,6 +104,9 @@ ETAPAS_AGUARDANDO_CELERY = {
     'cf_processando_genealogia',
     'ce_processando_consumo_especifico',
     'ce_processando_custo_variavel',
+    'ce_processando_indicador_fluxo',
+    'ce_processando_indicador_equipamentos',
+    'ce_processando_custo_item_preco',
 }
 
 # 🌟 NOVO: se um fluxo ficar parado por mais que isso, sem nenhuma
@@ -135,12 +138,38 @@ ETAPAS_SEM_EXPIRACAO = {
     'cf_aguardando_conta_cc_tipo', 'cf_processando_conta_cc_tipo',
     'cf_processando_genealogia',
     'ce_processando_consumo_especifico', 'ce_processando_custo_variavel',
+    'ce_processando_indicador_fluxo', 'ce_processando_indicador_equipamentos', 'ce_processando_custo_item_preco',
 }
 
 
 def usuario_esta_em_fluxo(usuario):
-    """True se o usuário tem QUALQUER um dos wizards em andamento agora."""
-    return EstadoConversaAgente.objects.filter(usuario=usuario).exclude(fluxo_ativo__isnull=True).exists()
+    """
+    True se o usuário tem QUALQUER um dos wizards em andamento agora.
+
+    🌟 CORRIGIDO: antes só conferia SE tinha um fluxo marcado, sem
+    checar se ele já tinha EXPIRADO (mais de MINUTOS_EXPIRACAO_FLUXO
+    parado, numa etapa que não é isenta -- ver ETAPAS_SEM_EXPIRACAO).
+    Isso fazia a PRIMEIRA mensagem depois de um fluxo velho (esquecido,
+    ou interrompido por um restart do servidor no meio de um teste) ser
+    ENGOLIDA: o sistema só limpava o estado e devolvia um aviso de
+    "expirou", obrigando a mandar a mesma mensagem de novo pra ela ser
+    processada de verdade. Agora essa limpeza acontece bem aqui,
+    silenciosamente, ANTES do resto do sistema decidir como rotear a
+    mensagem -- assim, uma mensagem que chega logo depois de um fluxo
+    expirado já é tratada como se não houvesse fluxo nenhum, e
+    processada normalmente na mesma tacada, sem aviso nenhum e sem
+    precisar reenviar.
+    """
+    estado = EstadoConversaAgente.objects.filter(usuario=usuario).exclude(fluxo_ativo__isnull=True).first()
+    if estado is None:
+        return False
+    if (
+        estado.etapa_atual not in ETAPAS_SEM_EXPIRACAO
+        and (timezone.now() - estado.atualizado_em) > timedelta(minutes=MINUTOS_EXPIRACAO_FLUXO)
+    ):
+        _encerrar_fluxo(estado)
+        return False
+    return True
 
 
 def etapa_atual_do_usuario(usuario):
@@ -228,7 +257,7 @@ def iniciar_fluxo_criar_cenario(usuario):
         "Vamos criar um novo cenário! 🎬\n\n"
         f"{texto_nomes}"
         "Qual vai ser o **nome** do cenário? (a qualquer momento, clique em "
-        "\"cancelar\" para desistir)"
+        "\"Cancelar\" para desistir)"
     )
 
 
@@ -276,7 +305,7 @@ def iniciar_fluxo_mudar_cenario(usuario, mensagem=""):
             f"Vamos mudar o período do cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** 🔧 "
             f"(mantendo o tipo **{cenario.cen_tipo}**)\n\n"
             f"Período atual: **{cenario.cen_inicio}** a **{cenario.cen_fim}**\n\n"
-            f"Qual o novo **início** do período? (formato {exemplo}, ou \"cancelar\" para desistir)"
+            f"Qual o novo **início** do período? (formato {exemplo}, ou \"Cancelar\" para desistir)"
         )
 
     estado.etapa_atual = 'tipo'
@@ -286,7 +315,7 @@ def iniciar_fluxo_mudar_cenario(usuario, mensagem=""):
         f"Tipo atual: **{cenario.cen_tipo}**\n"
         f"Período atual: **{cenario.cen_inicio}** a **{cenario.cen_fim}**\n\n"
         "Para qual **tipo** você quer mudar? (Mensal / Trimestral / Anual, "
-        "\"manter\" para deixar como está, ou \"cancelar\" para desistir)"
+        "\"Manter\" para deixar como está, ou \"Cancelar\" para desistir)"
     )
 
 
@@ -366,7 +395,7 @@ def _processar_mensagem_fluxo_com_lock(estado, mensagem):
         # aqui o botão mostrado ao usuário é "Encerrar Ação" (em vez de
         # "Cancelar"), justamente pra não dar a entender que a Genealogia
         # em si vai ser interrompida. Mesmo assim, se o usuário digitar
-        # "cancelar" (ou qualquer outro sinônimo) em vez de clicar no
+        # "Cancelar" (ou qualquer outro sinônimo) em vez de clicar no
         # botão, o comportamento e o aviso são os mesmos.
         if estado.fluxo_ativo == FLUXO_IMPORTAR_CF and estado.etapa_atual == 'cf_processando_genealogia':
             _encerrar_fluxo(estado)
@@ -415,6 +444,8 @@ def _processar_mensagem_fluxo_com_lock(estado, mensagem):
         return _processar_importar_cf(estado, texto)
     elif estado.fluxo_ativo == FLUXO_CONSUMO_ESPECIFICO:
         return _processar_consumo_especifico(estado, texto)
+    elif estado.fluxo_ativo == FLUXO_TOOL_CALL:
+        return _processar_tool_call(estado, texto)
 
     # Estado inconsistente (não deveria acontecer) -- encerra por segurança
     _encerrar_fluxo(estado)
@@ -465,7 +496,7 @@ def _etapa_nome(estado, texto):
     if TbCenarios.objects.filter(cen_nome=nome).exists():
         return (
             f"Já existe um cenário chamado **{nome}**. Escolhe outro nome, "
-            "ou clique em \"cancelar\" pra desistir."
+            "ou clique em \"Cancelar\" pra desistir."
         )
 
     dados = estado.dados_coletados
@@ -532,7 +563,7 @@ def _etapa_copiar_de(estado, texto):
     if cenario_origem is None:
         return (
             f"Não encontrei nenhum cenário correspondente a \"{texto}\". "
-            "Tenta de novo com o número ou o nome exato, ou \"cancelar\"."
+            "Tenta de novo com o número ou o nome exato, ou \"Cancelar\"."
         )
 
     # 🌟 NOVO: só pode copiar de um cenário CONSOLIDADO -- copiar de um
@@ -1137,7 +1168,7 @@ def _etapa_mudar_tipo(estado, texto, cenario):
         mapa = {'mensal': 'Mensal', 'trimestral': 'Trimestral', 'anual': 'Anual'}
         tipo_novo = mapa.get(texto_norm)
         if tipo_novo is None:
-            return "Não entendi. Escolhe um: Mensal, Trimestral ou Anual (ou \"manter\" pra deixar como está)."
+            return "Não entendi. Escolhe um: Mensal, Trimestral ou Anual (ou \"Manter\" pra deixar como está)."
 
     dados['tipo_novo'] = tipo_novo
     estado.dados_coletados = dados
@@ -1145,7 +1176,7 @@ def _etapa_mudar_tipo(estado, texto, cenario):
     estado.save()
 
     exemplo = {'Mensal': '2026/06', 'Trimestral': '2026/02', 'Anual': '2026'}[tipo_novo]
-    manter_periodo = " (ou \"manter\" pra deixar como está)" if tipo_novo == dados['tipo_atual'] else ""
+    manter_periodo = " (ou \"Manter\" pra deixar como está)" if tipo_novo == dados['tipo_atual'] else ""
     return f"Tipo definido: **{tipo_novo}**.\n\nQual o novo **início** do período? (formato {exemplo}{manter_periodo})"
 
 
@@ -1172,7 +1203,7 @@ def _etapa_mudar_periodo_inicio(estado, texto, cenario):
 
     tipo_novo = dados['tipo_novo']
     exemplo = {'Mensal': '2026/12', 'Trimestral': '2026/04', 'Anual': '2027'}[tipo_novo]
-    manter_fim = " (ou \"manter\" pra deixar como está)" if tipo_novo == dados['tipo_atual'] else ""
+    manter_fim = " (ou \"Manter\" pra deixar como está)" if tipo_novo == dados['tipo_atual'] else ""
     return f"Início definido: **{periodo}**.\n\nQual o novo **fim** do período? (formato {exemplo}{manter_fim})"
 
 
@@ -1208,7 +1239,7 @@ def _etapa_mudar_periodo_fim(estado, texto, cenario):
         "⚠️ Se o novo período tiver MENOS períodos que o atual, os dados dos períodos "
         "excedentes serão apagados. Se tiver MAIS, os novos períodos serão criados "
         "copiando os dados do último período existente.\n\n"
-        "Confirma a mudança? (sim / não)"
+        "Confirma a mudança? (Sim / Não)"
     )
 
 
@@ -1391,14 +1422,14 @@ def iniciar_fluxo_indicadores(usuario, mensagem=""):
         return (
             f"Vamos plotar um gráfico de indicador no cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** 📊\n\n"
             f"{_lista_indicadores(cenario.id)}"
-            "Qual **indicador** você quer plotar? (ou \"cancelar\")"
+            "Qual **indicador** você quer plotar? (ou \"Cancelar\")"
         )
     elif acao == 'criar':
         estado.etapa_atual = 'ind_criar_nome'
         estado.save()
         return (
             f"Vamos criar um indicador novo no cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** 📊\n\n"
-            "Qual vai ser o **nome** do indicador? (ou \"cancelar\" para desistir)"
+            "Qual vai ser o **nome** do indicador? (ou \"Cancelar\" para desistir)"
         )
     elif acao == 'massa':
         estado.etapa_atual = 'ind_massa_nome'
@@ -1406,7 +1437,7 @@ def iniciar_fluxo_indicadores(usuario, mensagem=""):
         return (
             f"Vamos aplicar um reajuste em massa no cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** 📊\n\n"
             f"{_lista_indicadores(cenario.id)}"
-            "Qual **indicador** você quer reajustar? (ou \"cancelar\")"
+            "Qual **indicador** você quer reajustar? (ou \"Cancelar\")"
         )
     elif acao == 'eliminar':
         estado.etapa_atual = 'ind_eliminar_nome'
@@ -1414,7 +1445,7 @@ def iniciar_fluxo_indicadores(usuario, mensagem=""):
         return (
             f"Vamos eliminar um indicador do cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** 📊\n\n"
             f"{_lista_indicadores(cenario.id)}"
-            "Qual **indicador** você quer eliminar? (ou \"cancelar\")"
+            "Qual **indicador** você quer eliminar? (ou \"Cancelar\")"
         )
     else:
         estado.etapa_atual = 'ind_editar_nome'
@@ -1422,7 +1453,7 @@ def iniciar_fluxo_indicadores(usuario, mensagem=""):
         return (
             f"Vamos mudar um valor de indicador no cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** 📊\n\n"
             f"{_lista_indicadores(cenario.id)}"
-            "Qual **indicador** você quer mudar? (ou \"cancelar\")"
+            "Qual **indicador** você quer mudar? (ou \"Cancelar\")"
         )
 
 
@@ -2218,6 +2249,14 @@ def _lista_indicadores(cenario_id):
 
 
 def _lista_periodos_indicador(cenario, indicador):
+    """
+    🌟 CORRIGIDO: removido o marcador [LISTA_PERIODOS:...] que eu tinha
+    adicionado -- ele estava DUPLICANDO os botões de período, porque o
+    reconhecedor genérico de opções clicáveis (views.py,
+    _extrair_opcoes_clicaveis) já transforma esse formato de texto
+    ("Períodos e valores atuais:\\n- X: Y") em botões sozinho, sem
+    precisar de nenhum marcador extra.
+    """
     from tabelas.models import TbIndicadoresDaugther
     filhas = TbIndicadoresDaugther.objects.filter(mae_id=indicador.id, tbcenarios_id=cenario.id).order_by('dau_order')
     if not filhas:
@@ -2246,7 +2285,7 @@ def _exemplo_periodo(cenario, deslocamento=0):
 def _etapa_ind_editar_nome(estado, texto, cenario):
     indicador = _buscar_indicador(cenario.id, texto)
     if indicador is None:
-        return f"Não encontrei nenhum indicador chamado \"{texto}\" nesse cenário. Tenta de novo, ou \"cancelar\"."
+        return f"Não encontrei nenhum indicador chamado \"{texto}\" nesse cenário. Tenta de novo, ou \"Cancelar\"."
 
     dados = estado.dados_coletados
     dados['indicador_id'] = indicador.id
@@ -2260,7 +2299,7 @@ def _etapa_ind_editar_nome(estado, texto, cenario):
         "Como você quer ajustar os valores? Digite:\n"
         "- **Manual** -- pra mudar um período de cada vez, digitando aqui\n"
         "- **Planilha** -- pra baixar uma planilha, preencher, e reenviar de uma vez\n"
-        "(ou \"cancelar\")"
+        "(ou \"Cancelar\")"
     )
 
 
@@ -2282,7 +2321,7 @@ def _etapa_ind_editar_modo(estado, texto, cenario):
             "atualização (arrastar-e-soltar, logo abaixo dos Relatórios). Clica no botão abaixo "
             "quando terminar (ou manda qualquer mensagem) -- eu identifico automaticamente "
             "pelo arquivo, não precisa repetir o nome do indicador. Ou, se mudou de ideia, "
-            "manda \"cancelar\"."
+            "manda \"Cancelar\"."
         )
 
     if escolha in ('manual', 'digitar', 'digitando', 'm'):
@@ -2295,10 +2334,10 @@ def _etapa_ind_editar_modo(estado, texto, cenario):
         estado.save()
         return (
             f"{_lista_periodos_indicador(cenario, indicador)}"
-            f"Qual **período** você quer mudar? (formato {_exemplo_periodo(cenario)})"
+            f"Clica no período que quer mudar, ou digita (formato {_exemplo_periodo(cenario)})."
         )
 
-    return "Não entendi. Digita **Manual** ou **Planilha** (ou \"cancelar\")."
+    return "Não entendi. Digita **Manual** ou **Planilha** (ou \"Cancelar\")."
 
 
 def _etapa_ind_editar_periodo(estado, texto, cenario):
@@ -2316,7 +2355,7 @@ def _etapa_ind_editar_periodo(estado, texto, cenario):
             "atualização (arrastar-e-soltar, logo abaixo dos Relatórios). Clica no botão abaixo "
             "quando terminar (ou manda qualquer mensagem) -- eu identifico automaticamente pelo "
             "arquivo, não precisa repetir o nome do indicador. Encerrei esse fluxo aqui, pra sua próxima "
-            "mensagem já ser reconhecida certinho. Ou, se mudou de ideia, manda \"cancelar\"."
+            "mensagem já ser reconhecida certinho. Ou, se mudou de ideia, manda \"Cancelar\"."
         )
 
     periodo, erro = _validar_periodo(cenario.cen_tipo, texto)
@@ -2329,7 +2368,7 @@ def _etapa_ind_editar_periodo(estado, texto, cenario):
         mae_id=estado.dados_coletados['indicador_id'], tbcenarios_id=cenario.id, dau_order=dau_order
     ).first()
     if filha is None:
-        return f"O período {periodo} está fora do intervalo do cenário. Informa outro período, ou \"cancelar\"."
+        return f"O período {periodo} está fora do intervalo do cenário. Informa outro período, ou \"Cancelar\"."
 
     dados = estado.dados_coletados
     dados['periodo'] = periodo
@@ -2346,7 +2385,7 @@ def _etapa_ind_editar_valor(estado, texto, cenario):
     try:
         valor_novo = Decimal(texto.strip().replace(',', '.').replace('%', ''))
     except (InvalidOperation, ValueError):
-        return "Não entendi o valor. Informa um número (ex: 5.5), ou \"cancelar\"."
+        return "Não entendi o valor. Informa um número (ex: 5.5), ou \"Cancelar\"."
 
     dados = estado.dados_coletados
     dados['valor_novo'] = str(valor_novo)
@@ -2359,7 +2398,7 @@ def _etapa_ind_editar_valor(estado, texto, cenario):
         f"- Indicador: {dados['indicador_nome']}\n"
         f"- Período: {dados['periodo']}\n"
         f"- Valor: {dados['valor_atual']}% → {valor_novo}%\n\n"
-        "Confirma a mudança? (sim / não)"
+        "Confirma a mudança? (Sim / Não)"
     )
 
 
@@ -2418,7 +2457,7 @@ def _indicador_em_uso(indicador):
 def _etapa_ind_eliminar_nome(estado, texto, cenario):
     indicador = _buscar_indicador(cenario.id, texto)
     if indicador is None:
-        return f"Não encontrei nenhum indicador chamado \"{texto}\" nesse cenário. Tenta de novo, ou \"cancelar\"."
+        return f"Não encontrei nenhum indicador chamado \"{texto}\" nesse cenário. Tenta de novo, ou \"Cancelar\"."
 
     # 🌟 NOVO: bloqueia a eliminação se esse indicador estiver referenciado
     # por qualquer outra tabela do sistema -- eliminar apagaria esses
@@ -2443,7 +2482,7 @@ def _etapa_ind_eliminar_nome(estado, texto, cenario):
 
     return (
         f"⚠️ Confirma que quer **eliminar** o indicador **{indicador.ind_nome}**? "
-        "Isso apaga o indicador E todos os valores dele, em todos os períodos -- não tem como desfazer. (sim / não)"
+        "Isso apaga o indicador E todos os valores dele, em todos os períodos -- não tem como desfazer. (Sim / Não)"
     )
 
 
@@ -2500,7 +2539,7 @@ def _etapa_ind_criar_nome(estado, texto, cenario):
 
     from tabelas.models import TbIndicadores
     if TbIndicadores.objects.filter(tbcenarios_id=cenario.id, ind_nome=nome).exists():
-        return f"Já existe um indicador chamado **{nome}** nesse cenário. Escolhe outro nome, ou \"cancelar\"."
+        return f"Já existe um indicador chamado **{nome}** nesse cenário. Escolhe outro nome, ou \"Cancelar\"."
 
     dados = estado.dados_coletados
     dados['nome'] = nome
@@ -2514,7 +2553,7 @@ def _etapa_ind_criar_valor_inicial(estado, texto, cenario):
     try:
         valor_inicial = Decimal(texto.strip().replace(',', '.').replace('%', ''))
     except (InvalidOperation, ValueError):
-        return "Não entendi o valor. Informa um número (ex: 5.5), ou \"cancelar\"."
+        return "Não entendi o valor. Informa um número (ex: 5.5), ou \"Cancelar\"."
 
     dados = estado.dados_coletados
     dados['valor_inicial'] = str(valor_inicial)
@@ -2538,7 +2577,7 @@ def _etapa_ind_criar_observacao(estado, texto, cenario):
         f"- Nome: {dados['nome']}\n"
         f"- Valor inicial: {dados['valor_inicial']}%\n"
         f"- Observação: {observacao or 'nenhuma'}\n\n"
-        "Confirma a criação? (sim / não)"
+        "Confirma a criação? (Sim / Não)"
     )
 
 
@@ -2592,7 +2631,7 @@ def _etapa_ind_criar_confirmar(estado, texto, cenario):
 def _etapa_ind_massa_nome(estado, texto, cenario):
     indicador = _buscar_indicador(cenario.id, texto)
     if indicador is None:
-        return f"Não encontrei nenhum indicador chamado \"{texto}\" nesse cenário. Tenta de novo, ou \"cancelar\"."
+        return f"Não encontrei nenhum indicador chamado \"{texto}\" nesse cenário. Tenta de novo, ou \"Cancelar\"."
 
     dados = estado.dados_coletados
     dados['indicador_id'] = indicador.id
@@ -2657,7 +2696,7 @@ def _etapa_ind_massa_percentual(estado, texto, cenario):
     try:
         percentual = Decimal(texto.strip().replace(',', '.').replace('%', ''))
     except (InvalidOperation, ValueError):
-        return "Não entendi o percentual. Informa um número (ex: 5 ou -3.5), ou \"cancelar\"."
+        return "Não entendi o percentual. Informa um número (ex: 5 ou -3.5), ou \"Cancelar\"."
 
     dados = estado.dados_coletados
     dados['percentual'] = str(percentual)
@@ -2678,7 +2717,7 @@ def _etapa_ind_massa_percentual(estado, texto, cenario):
         f"- Período: {dados['periodo_inicio_texto']} a {dados['periodo_fim_texto']} ({qtd} período(s))\n"
         f"- Reajuste: {sinal}{percentual}%\n\n"
         f"⚠️ Isso vai salvar {qtd} registro(s), um de cada vez -- pode levar um instante a mais que uma edição única.\n\n"
-        "Confirma a aplicação? (sim / não)"
+        "Confirma a aplicação? (Sim / Não)"
     )
 
 
@@ -2753,7 +2792,7 @@ def iniciar_download_planilha_indicador(usuario, mensagem):
         "atualização (arrastar-e-soltar, logo abaixo dos Relatórios). Clica no botão abaixo "
         "quando terminar (ou manda qualquer mensagem) -- eu identifico automaticamente "
         "pelo arquivo, não precisa repetir o nome do indicador. Ou, se mudou de ideia, "
-        "manda \"cancelar\"."
+        "manda \"Cancelar\"."
     )
 
 
@@ -2843,7 +2882,7 @@ def _processar_planilha_indicador(usuario, mensagem):
         f"Encontrei {len(mudancas)} mudança(s) pro indicador **{indicador.ind_nome}**:\n"
         f"{linhas_resumo}"
         f"{aviso_erros}\n\n"
-        "Confirma a aplicação? (sim / não)"
+        "Confirma a aplicação? (Sim / Não)"
     )
 
 
@@ -2945,7 +2984,7 @@ def _montar_grafico_indicador(cenario, indicador, tipo_grafico):
 def _etapa_ind_grafico_escolher(estado, texto, cenario):
     indicador = _buscar_indicador(cenario.id, texto)
     if indicador is None:
-        return f"Não encontrei nenhum indicador chamado \"{texto}\" nesse cenário. Tenta de novo, ou \"cancelar\"."
+        return f"Não encontrei nenhum indicador chamado \"{texto}\" nesse cenário. Tenta de novo, ou \"Cancelar\"."
 
     estado.dados_coletados['indicador_id'] = indicador.id
     estado.dados_coletados['indicador_nome'] = indicador.ind_nome
@@ -2956,7 +2995,7 @@ def _etapa_ind_grafico_escolher(estado, texto, cenario):
         "Que tipo de gráfico você quer? Escolha:\n\n"
         "- **Gráfico de Linha** -- pra ver a evolução ao longo do tempo\n"
         "- **Gráfico de Barra** -- pra comparar os valores de cada período\n\n"
-        "(ou \"cancelar\")"
+        "(ou \"Cancelar\")"
     )
 
 
@@ -2967,7 +3006,7 @@ def _etapa_ind_grafico_tipo(estado, texto, cenario):
     elif 'linha' in escolha:
         tipo_grafico = 'line'
     else:
-        return "Não entendi. Escolhe **Gráfico de Linha** ou **Gráfico de Barra** (ou \"cancelar\")."
+        return "Não entendi. Escolhe **Gráfico de Linha** ou **Gráfico de Barra** (ou \"Cancelar\")."
 
     from tabelas.models import TbIndicadores
     dados = estado.dados_coletados
@@ -2997,7 +3036,7 @@ def _etapa_ind_confirmar_criar_sem_dados(estado, texto, cenario):
         estado.save()
         return (
             f"Vamos criar um indicador novo no cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** 📊\n\n"
-            "Qual vai ser o **nome** do indicador? (ou \"cancelar\" para desistir)"
+            "Qual vai ser o **nome** do indicador? (ou \"Cancelar\" para desistir)"
         )
     elif resposta in ('nao', 'não', 'n', 'no'):
         _encerrar_fluxo(estado)
@@ -3078,7 +3117,7 @@ def _iniciar_criacao_cambio(estado, cenario):
     return (
         f"Vamos criar uma taxa de câmbio nova no cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** 💱\n\n"
         f"Moedas disponíveis:\n{opcoes}\n\n"
-        "Qual você quer cadastrar? (ou \"cancelar\")"
+        "Qual você quer cadastrar? (ou \"Cancelar\")"
     )
 
 
@@ -3121,7 +3160,7 @@ def iniciar_fluxo_cambio(usuario, mensagem=""):
         return (
             f"Vamos plotar um gráfico de câmbio no cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** 💱\n\n"
             f"{_lista_cambios(cenario.id)}"
-            "Qual **taxa de câmbio** você quer plotar? (ou \"cancelar\")"
+            "Qual **taxa de câmbio** você quer plotar? (ou \"Cancelar\")"
         )
     elif acao == 'criar':
         return _iniciar_criacao_cambio(estado, cenario)
@@ -3131,7 +3170,7 @@ def iniciar_fluxo_cambio(usuario, mensagem=""):
         return (
             f"Vamos aplicar um reajuste em massa no cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** 💱\n\n"
             f"{_lista_cambios(cenario.id)}"
-            "Qual **taxa de câmbio** você quer reajustar? (ou \"cancelar\")"
+            "Qual **taxa de câmbio** você quer reajustar? (ou \"Cancelar\")"
         )
     elif acao == 'eliminar':
         estado.etapa_atual = 'cam_eliminar_moeda'
@@ -3139,7 +3178,7 @@ def iniciar_fluxo_cambio(usuario, mensagem=""):
         return (
             f"Vamos eliminar uma taxa de câmbio do cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** 💱\n\n"
             f"{_lista_cambios(cenario.id)}"
-            "Qual você quer eliminar? (ou \"cancelar\")"
+            "Qual você quer eliminar? (ou \"Cancelar\")"
         )
     else:
         estado.etapa_atual = 'cam_editar_moeda'
@@ -3147,7 +3186,7 @@ def iniciar_fluxo_cambio(usuario, mensagem=""):
         return (
             f"Vamos mudar um valor de câmbio no cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** 💱\n\n"
             f"{_lista_cambios(cenario.id)}"
-            "Qual **taxa de câmbio** você quer mudar? (ou \"cancelar\")"
+            "Qual **taxa de câmbio** você quer mudar? (ou \"Cancelar\")"
         )
 
 
@@ -3176,6 +3215,34 @@ def _lista_cambios(cenario_id):
     return f"Taxas de câmbio cadastradas:\n{lista}\n\n"
 
 
+# 🌟 NOVO: apelidos em português (informal, sem exigir a sigla) pras
+# moedas mais comuns -- "dólar", "euro", "real" e variações (plural,
+# sem acento) além do código técnico (USD/EUR/BRL) que já funcionava.
+# Sem isso, só quem digitasse a sigla exata era reconhecido.
+_APELIDOS_MOEDA = {
+    'USD': ('dolar', 'dolares', 'dolar americano'),
+    'EUR': ('euro', 'euros'),
+    'BRL': ('real', 'reais'),
+}
+
+
+def _codigo_moeda_por_apelido(texto):
+    """
+    Devolve o código (USD/EUR/BRL) se o texto contiver um apelido comum
+    em português dessa moeda -- ignora acentos (compara sem eles) pra
+    aceitar tanto "dólar" quanto "dolar". Devolve None se não achar.
+    """
+    import unicodedata
+    texto_sem_acento = ''.join(
+        c for c in unicodedata.normalize('NFD', texto.lower()) if unicodedata.category(c) != 'Mn'
+    )
+    for codigo, apelidos in _APELIDOS_MOEDA.items():
+        for apelido in apelidos:
+            if apelido in texto_sem_acento:
+                return codigo
+    return None
+
+
 def _buscar_cambio(cenario_id, texto):
     from tabelas.models import TbCambio
     texto_norm = texto.strip().upper()
@@ -3186,6 +3253,12 @@ def _buscar_cambio(cenario_id, texto):
     for c in cambios:
         if texto_norm in c.get_cam_moeda_display().upper():
             return c
+    # 🌟 NOVO: tenta pelo apelido em português (dólar, euro, real)
+    codigo_apelido = _codigo_moeda_por_apelido(texto)
+    if codigo_apelido:
+        for c in cambios:
+            if c.cam_moeda == codigo_apelido:
+                return c
     return None
 
 
@@ -3199,10 +3272,15 @@ def _buscar_cambio_na_mensagem(cenario_id, mensagem):
         nome_display = c.get_cam_moeda_display().upper()
         if c.cam_moeda in texto_upper or nome_display in texto_upper:
             candidatos.append(c)
-    if not candidatos:
-        return None
-    candidatos.sort(key=lambda c: len(c.get_cam_moeda_display()), reverse=True)
-    return candidatos[0]
+    if candidatos:
+        candidatos.sort(key=lambda c: len(c.get_cam_moeda_display()), reverse=True)
+        return candidatos[0]
+    # 🌟 NOVO: nada bateu pelo código/nome cadastrado -- tenta pelo
+    # apelido em português (dólar, euro, real) mencionado na mensagem.
+    codigo_apelido = _codigo_moeda_por_apelido(mensagem or "")
+    if codigo_apelido:
+        return TbCambio.objects.filter(tbcenarios_id=cenario_id, cam_moeda=codigo_apelido).first()
+    return None
 
 
 def _moedas_disponiveis(cenario_id):
@@ -3215,6 +3293,7 @@ def _moedas_disponiveis(cenario_id):
 
 
 def _lista_periodos_cambio(cenario, cambio):
+    """🌟 CORRIGIDO: mesma reversão de _lista_periodos_indicador (marcador era redundante)."""
     from tabelas.models import TbCambioDaugther
     filhas = TbCambioDaugther.objects.filter(mae_id=cambio.id, tbcenarios_id=cenario.id).order_by('dau_order')
     if not filhas:
@@ -3244,7 +3323,7 @@ def _cambio_em_uso(cambio):
 def _etapa_cam_editar_moeda(estado, texto, cenario):
     cambio = _buscar_cambio(cenario.id, texto)
     if cambio is None:
-        return f"Não encontrei nenhuma taxa de câmbio \"{texto}\" nesse cenário. Tenta de novo, ou \"cancelar\"."
+        return f"Não encontrei nenhuma taxa de câmbio \"{texto}\" nesse cenário. Tenta de novo, ou \"Cancelar\"."
 
     dados = estado.dados_coletados
     dados['cambio_id'] = cambio.id
@@ -3258,7 +3337,7 @@ def _etapa_cam_editar_moeda(estado, texto, cenario):
         "Como você quer ajustar os valores? Digite:\n"
         "- **Manual** -- pra mudar um período de cada vez, digitando aqui\n"
         "- **Planilha** -- pra baixar uma planilha, preencher, e reenviar de uma vez\n"
-        "(ou \"cancelar\")"
+        "(ou \"Cancelar\")"
     )
 
 
@@ -3279,7 +3358,7 @@ def _etapa_cam_editar_modo(estado, texto, cenario):
             "Edita os valores que quiser (sem mudar a coluna Período), salva, e solta no espaço de "
             "atualização (arrastar-e-soltar, logo abaixo dos Relatórios). Clica no botão abaixo "
             "quando terminar (ou manda qualquer mensagem) -- eu identifico automaticamente "
-            "pelo arquivo, não precisa repetir a moeda. Ou, se mudou de ideia, manda \"cancelar\"."
+            "pelo arquivo, não precisa repetir a moeda. Ou, se mudou de ideia, manda \"Cancelar\"."
         )
 
     if escolha in ('manual', 'digitar', 'digitando', 'm'):
@@ -3292,10 +3371,10 @@ def _etapa_cam_editar_modo(estado, texto, cenario):
         estado.save()
         return (
             f"{_lista_periodos_cambio(cenario, cambio)}"
-            f"Qual **período** você quer mudar? (formato {_exemplo_periodo(cenario)})"
+            f"Clica no período que quer mudar, ou digita (formato {_exemplo_periodo(cenario)})."
         )
 
-    return "Não entendi. Digita **Manual** ou **Planilha** (ou \"cancelar\")."
+    return "Não entendi. Digita **Manual** ou **Planilha** (ou \"Cancelar\")."
 
 
 def _etapa_cam_editar_periodo(estado, texto, cenario):
@@ -3313,7 +3392,7 @@ def _etapa_cam_editar_periodo(estado, texto, cenario):
             "atualização (arrastar-e-soltar, logo abaixo dos Relatórios). Clica no botão abaixo "
             "quando terminar (ou manda qualquer mensagem) -- eu identifico automaticamente pelo "
             "arquivo, não precisa repetir a moeda. Encerrei esse fluxo aqui, pra sua próxima "
-            "mensagem já ser reconhecida certinho. Ou, se mudou de ideia, manda \"cancelar\"."
+            "mensagem já ser reconhecida certinho. Ou, se mudou de ideia, manda \"Cancelar\"."
         )
 
     periodo, erro = _validar_periodo(cenario.cen_tipo, texto)
@@ -3326,7 +3405,7 @@ def _etapa_cam_editar_periodo(estado, texto, cenario):
         mae_id=estado.dados_coletados['cambio_id'], tbcenarios_id=cenario.id, dau_order=dau_order
     ).first()
     if filha is None:
-        return f"O período {periodo} está fora do intervalo do cenário. Informa outro período, ou \"cancelar\"."
+        return f"O período {periodo} está fora do intervalo do cenário. Informa outro período, ou \"Cancelar\"."
 
     dados = estado.dados_coletados
     dados['periodo'] = periodo
@@ -3343,7 +3422,7 @@ def _etapa_cam_editar_valor(estado, texto, cenario):
     try:
         valor_novo = Decimal(texto.strip().replace(',', '.'))
     except (InvalidOperation, ValueError):
-        return "Não entendi o valor. Informa um número (ex: 5.20), ou \"cancelar\"."
+        return "Não entendi o valor. Informa um número (ex: 5.20), ou \"Cancelar\"."
 
     dados = estado.dados_coletados
     dados['valor_novo'] = str(valor_novo)
@@ -3356,7 +3435,7 @@ def _etapa_cam_editar_valor(estado, texto, cenario):
         f"- Câmbio: {dados['cambio_nome']}\n"
         f"- Período: {dados['periodo']}\n"
         f"- Valor: {dados['valor_atual']} → {valor_novo}\n\n"
-        "Confirma a mudança? (sim / não)"
+        "Confirma a mudança? (Sim / Não)"
     )
 
 
@@ -3388,7 +3467,7 @@ def _etapa_cam_editar_confirmar(estado, texto, cenario):
 def _etapa_cam_eliminar_moeda(estado, texto, cenario):
     cambio = _buscar_cambio(cenario.id, texto)
     if cambio is None:
-        return f"Não encontrei nenhuma taxa de câmbio \"{texto}\" nesse cenário. Tenta de novo, ou \"cancelar\"."
+        return f"Não encontrei nenhuma taxa de câmbio \"{texto}\" nesse cenário. Tenta de novo, ou \"Cancelar\"."
 
     usos = _cambio_em_uso(cambio)
     if usos:
@@ -3408,7 +3487,7 @@ def _etapa_cam_eliminar_moeda(estado, texto, cenario):
 
     return (
         f"⚠️ Confirma que quer **eliminar** a taxa de câmbio **{cambio.get_cam_moeda_display()}**? "
-        "Isso apaga o câmbio E todos os valores dele, em todos os períodos -- não tem como desfazer. (sim / não)"
+        "Isso apaga o câmbio E todos os valores dele, em todos os períodos -- não tem como desfazer. (Sim / Não)"
     )
 
 
@@ -3472,7 +3551,7 @@ def _etapa_cam_criar_moeda(estado, texto, cenario):
             _encerrar_fluxo(estado)
             return "Não tem mais nenhuma moeda disponível pra cadastrar nesse cenário -- todas já foram usadas."
         opcoes = ", ".join(f"{c} ({n})" for c, n in disponiveis.items())
-        return f"Não entendi. Escolhe uma dessas: {opcoes}, ou \"cancelar\"."
+        return f"Não entendi. Escolhe uma dessas: {opcoes}, ou \"Cancelar\"."
 
     dados = estado.dados_coletados
     dados['cam_moeda'] = codigo_escolhido
@@ -3487,7 +3566,7 @@ def _etapa_cam_criar_valor_inicial(estado, texto, cenario):
     try:
         valor_inicial = Decimal(texto.strip().replace(',', '.'))
     except (InvalidOperation, ValueError):
-        return "Não entendi o valor. Informa um número (ex: 5.20), ou \"cancelar\"."
+        return "Não entendi o valor. Informa um número (ex: 5.20), ou \"Cancelar\"."
 
     dados = estado.dados_coletados
     dados['valor_inicial'] = str(valor_inicial)
@@ -3511,7 +3590,7 @@ def _etapa_cam_criar_observacao(estado, texto, cenario):
         f"- Moeda: {dados['cam_moeda_nome']} ({dados['cam_moeda']})\n"
         f"- Valor inicial: {dados['valor_inicial']}\n"
         f"- Observação: {observacao or 'nenhuma'}\n\n"
-        "Confirma a criação? (sim / não)"
+        "Confirma a criação? (Sim / Não)"
     )
 
 
@@ -3565,7 +3644,7 @@ def _etapa_cam_criar_confirmar(estado, texto, cenario):
 def _etapa_cam_massa_moeda(estado, texto, cenario):
     cambio = _buscar_cambio(cenario.id, texto)
     if cambio is None:
-        return f"Não encontrei nenhuma taxa de câmbio \"{texto}\" nesse cenário. Tenta de novo, ou \"cancelar\"."
+        return f"Não encontrei nenhuma taxa de câmbio \"{texto}\" nesse cenário. Tenta de novo, ou \"Cancelar\"."
 
     dados = estado.dados_coletados
     dados['cambio_id'] = cambio.id
@@ -3630,7 +3709,7 @@ def _etapa_cam_massa_percentual(estado, texto, cenario):
     try:
         percentual = Decimal(texto.strip().replace(',', '.').replace('%', ''))
     except (InvalidOperation, ValueError):
-        return "Não entendi o percentual. Informa um número (ex: 5 ou -3.5), ou \"cancelar\"."
+        return "Não entendi o percentual. Informa um número (ex: 5 ou -3.5), ou \"Cancelar\"."
 
     dados = estado.dados_coletados
     dados['percentual'] = str(percentual)
@@ -3651,7 +3730,7 @@ def _etapa_cam_massa_percentual(estado, texto, cenario):
         f"- Período: {dados['periodo_inicio_texto']} a {dados['periodo_fim_texto']} ({qtd} período(s))\n"
         f"- Reajuste: {sinal}{percentual}%\n\n"
         f"⚠️ Isso vai salvar {qtd} registro(s), um de cada vez -- pode levar um instante a mais que uma edição única.\n\n"
-        "Confirma a aplicação? (sim / não)"
+        "Confirma a aplicação? (Sim / Não)"
     )
 
 
@@ -3712,7 +3791,7 @@ def iniciar_download_planilha_cambio(usuario, mensagem):
         "Edita os valores que quiser (sem mudar a coluna Período), salva, e solta no espaço de "
         "atualização (arrastar-e-soltar, logo abaixo dos Relatórios). Clica no botão abaixo "
         "quando terminar (ou manda qualquer mensagem) -- eu identifico automaticamente "
-        "pelo arquivo, não precisa repetir a moeda. Ou, se mudou de ideia, manda \"cancelar\"."
+        "pelo arquivo, não precisa repetir a moeda. Ou, se mudou de ideia, manda \"Cancelar\"."
     )
 
 
@@ -3798,7 +3877,7 @@ def _processar_planilha_cambio(usuario, mensagem):
         f"Encontrei {len(mudancas)} mudança(s) pra taxa de câmbio **{cambio.get_cam_moeda_display()}**:\n"
         f"{linhas_resumo}"
         f"{aviso_erros}\n\n"
-        "Confirma a aplicação? (sim / não)"
+        "Confirma a aplicação? (Sim / Não)"
     )
 
 
@@ -3890,7 +3969,7 @@ def _montar_grafico_cambio(cenario, cambio, tipo_grafico):
 def _etapa_cam_grafico_escolher(estado, texto, cenario):
     cambio = _buscar_cambio(cenario.id, texto)
     if cambio is None:
-        return f"Não encontrei nenhuma taxa de câmbio \"{texto}\" nesse cenário. Tenta de novo, ou \"cancelar\"."
+        return f"Não encontrei nenhuma taxa de câmbio \"{texto}\" nesse cenário. Tenta de novo, ou \"Cancelar\"."
 
     estado.dados_coletados['cambio_id'] = cambio.id
     estado.dados_coletados['cambio_nome'] = cambio.get_cam_moeda_display()
@@ -3901,7 +3980,7 @@ def _etapa_cam_grafico_escolher(estado, texto, cenario):
         "Que tipo de gráfico você quer? Escolha:\n\n"
         "- **Gráfico de Linha** -- pra ver a evolução ao longo do tempo\n"
         "- **Gráfico de Barra** -- pra comparar os valores de cada período\n\n"
-        "(ou \"cancelar\")"
+        "(ou \"Cancelar\")"
     )
 
 
@@ -3912,7 +3991,7 @@ def _etapa_cam_grafico_tipo(estado, texto, cenario):
     elif 'linha' in escolha:
         tipo_grafico = 'line'
     else:
-        return "Não entendi. Escolhe **Gráfico de Linha** ou **Gráfico de Barra** (ou \"cancelar\")."
+        return "Não entendi. Escolhe **Gráfico de Linha** ou **Gráfico de Barra** (ou \"Cancelar\")."
 
     from tabelas.models import TbCambio
     dados = estado.dados_coletados
@@ -4016,7 +4095,7 @@ def iniciar_consulta_status(usuario, mensagem=""):
         estado.etapa_atual = 'proc_pos_limpeza_otimizar'
         estado.dados_coletados = {'cenario_id': cenario.id, 'cenario_nome': cenario.cen_nome}
         estado.save()
-        return f"O cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** está: **{status_atual}**. Quer que eu já dispare a **otimização**? (sim / não)"
+        return f"O cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** está: **{status_atual}**. Quer que eu já dispare a **otimização**? (Sim / Não)"
 
     if cenario.flag == 3:  # OTIMIZADO
         estado = _get_estado(usuario)
@@ -4024,7 +4103,7 @@ def iniciar_consulta_status(usuario, mensagem=""):
         estado.etapa_atual = 'proc_pos_otimizacao_consolidar'
         estado.dados_coletados = {'cenario_id': cenario.id, 'cenario_nome': cenario.cen_nome}
         estado.save()
-        return f"O cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** está: **{status_atual}**. Quer que eu já dispare a **consolidação**? (sim / não)"
+        return f"O cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** está: **{status_atual}**. Quer que eu já dispare a **consolidação**? (Sim / Não)"
 
     if cenario.flag == 1 or cenario.flag is None:  # CONSOLIDADO ou nunca processado
         estado = _get_estado(usuario)
@@ -4032,7 +4111,7 @@ def iniciar_consulta_status(usuario, mensagem=""):
         estado.etapa_atual = 'proc_pos_consolidacao_limpar'
         estado.dados_coletados = {'cenario_id': cenario.id, 'cenario_nome': cenario.cen_nome}
         estado.save()
-        return f"O cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** está: **{status_atual}**. Quer que eu já dispare a **limpeza** (pra começar o ciclo de novo)? (sim / não)"
+        return f"O cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** está: **{status_atual}**. Quer que eu já dispare a **limpeza** (pra começar o ciclo de novo)? (Sim / Não)"
 
     return f"O cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** está: **{status_atual}**."
 
@@ -4364,7 +4443,7 @@ def _etapa_proc_aguardando_limpeza(estado, texto):
     if cenario.flag == 2:  # LIMPO
         estado.etapa_atual = 'proc_pos_limpeza_otimizar'
         estado.save()
-        return f"✅ Cenário **{numero_exibido}/{cenario_nome}** limpo! Quer que eu já dispare a **otimização**? (sim / não)"
+        return f"✅ Cenário **{numero_exibido}/{cenario_nome}** limpo! Quer que eu já dispare a **otimização**? (Sim / Não)"
 
     if cenario.flag == 5:  # ainda limpando
         return f"Ainda limpando o cenário **{numero_exibido}/{cenario_nome}**."
@@ -4456,7 +4535,7 @@ def _etapa_proc_aguardando_otimizacao(estado, texto):
 
     estado.etapa_atual = 'proc_pos_otimizacao_consolidar'
     estado.save()
-    return f"✅ Cenário **{numero_exibido}/{cenario_nome}** otimizado! Quer que eu já dispare a **consolidação**? (sim / não)"
+    return f"✅ Cenário **{numero_exibido}/{cenario_nome}** otimizado! Quer que eu já dispare a **consolidação**? (Sim / Não)"
 
 
 def _etapa_proc_pos_otimizacao_consolidar(estado, texto):
@@ -4638,7 +4717,7 @@ def _texto_selecao_exclusao(dados):
         "Clique num cenário pra marcar/desmarcar pra exclusão (pode marcar mais de um). Se o "
         "que você quer excluir não está nessa lista (ela só mostra os mais recentes), digite "
         "o **número** ou o **nome** dele diretamente. Quando terminar de escolher, digite ou "
-        "clique em \"concluir\". (ou \"cancelar\")"
+        "clique em \"Concluir\". (ou \"Cancelar\")"
     )
 
 
@@ -4661,13 +4740,13 @@ def _etapa_cen_excluir_selecionar(estado, texto):
 
     if escolha == 'concluir':
         if not dados['selecionados']:
-            return "Você ainda não marcou nenhum cenário. Clica num cenário da lista pra marcar, ou \"cancelar\"."
+            return "Você ainda não marcou nenhum cenário. Clica num cenário da lista pra marcar, ou \"Cancelar\"."
         estado.etapa_atual = 'cen_excluir_confirmar'
         estado.save()
         nomes = ", ".join(f"{candidatos[id_str]['numero']}/{candidatos[id_str]['nome']}" for id_str in dados['selecionados'])
         return (
             f"⚠️ Confirma a EXCLUSÃO PERMANENTE do(s) cenário(s): **{nomes}**?\n\n"
-            "Essa ação não pode ser desfeita. (sim / não)"
+            "Essa ação não pode ser desfeita. (Sim / Não)"
         )
 
     # 🌟 CORRIGIDO: aceita clicar/digitar o NÚMERO SEQUENCIAL (o que o
@@ -4709,7 +4788,7 @@ def _etapa_cen_excluir_selecionar(estado, texto):
             "Não encontrei nenhum cenário elegível com esse número/nome (lembrando: o cenário ativo "
             "de qualquer usuário e os cenários base nunca podem ser excluídos). Pode digitar o "
             "número ou nome de QUALQUER cenário elegível, mesmo que ele não esteja na lista mostrada "
-            "-- ela só traz os mais recentes. Ou digite \"concluir\" quando terminar (ou \"cancelar\")."
+            "-- ela só traz os mais recentes. Ou digite \"Concluir\" quando terminar (ou \"Cancelar\")."
         )
 
     selecionados = dados['selecionados']
@@ -4788,7 +4867,7 @@ def _etapa_cen_excluir_aguardando(estado, texto):
     if 'verificar' not in texto.strip().lower():
         return (
             "Ainda estou de olho na exclusão desses cenários "
-            "(ou digite \"cancelar\" pra parar de acompanhar -- a "
+            "(ou digite \"Cancelar\" pra parar de acompanhar -- a "
             "exclusão em si continua rodando em segundo plano de qualquer jeito)."
         )
 
@@ -4842,7 +4921,7 @@ def iniciar_fluxo_importar_custo_ferbasa(usuario, mensagem=""):
         "Primeiro a **Produção Mensal**: solta o arquivo (Excel ou CSV, qualquer nome) no espaço "
         "de atualização (logo abaixo dos Relatórios) e manda qualquer mensagem (ou clica em "
         "\"Já enviei o arquivo\") quando terminar. Se quiser atualizar só a Distribuição GGF Mensal, "
-        "clica em \"Pular\" pra ir direto pra ela. (ou \"cancelar\")"
+        "clica em \"Pular\" pra ir direto pra ela. (ou \"Cancelar\")"
     )
 
 
@@ -4924,7 +5003,7 @@ def _texto_iniciar_conta_cc_tipo():
         "igual a Aguardando (A). Edita a coluna **Tipo** da planilha acima disponibilizada para "
         "download pra **F** (Custo Fixo), **V** (Custo Variável) ou **O** (Outro), salva, e "
         "solta o arquivo no espaço de atualização. Manda qualquer mensagem (ou clica em \"Já "
-        "enviei o arquivo\") quando terminar. (ou \"cancelar\")"
+        "enviei o arquivo\") quando terminar. (ou \"Cancelar\")"
     )
 
 
@@ -4985,12 +5064,12 @@ def _processar_importar_cf(estado, texto):
                 "Ok, pulando a Produção Mensal. Agora a **Distribuição GGF Mensal**: solta o "
                 "arquivo (Excel ou CSV, qualquer nome) no espaço de atualização e manda qualquer "
                 "mensagem (ou clica em \"Já enviei o arquivo\") quando terminar. Se quiser pular "
-                "essa também, clica em \"Pular\". (ou \"cancelar\")"
+                "essa também, clica em \"Pular\". (ou \"Cancelar\")"
             )
         return (
             "Ainda esperando o arquivo de **Produção Mensal**. Solta ele (Excel ou CSV) no espaço "
             "de atualização e manda de novo (ou clica em \"Já enviei o arquivo\"). Se quiser "
-            "atualizar só a Distribuição GGF Mensal, clica em \"Pular\". (ou \"cancelar\")"
+            "atualizar só a Distribuição GGF Mensal, clica em \"Pular\". (ou \"Cancelar\")"
         )
     elif estado.etapa_atual == 'cf_aguardando_ggf':
         # 🌟 NOVO: permite pular direto pra próxima etapa que fizer
@@ -5002,12 +5081,12 @@ def _processar_importar_cf(estado, texto):
         return (
             "Ainda esperando o arquivo de **Distribuição GGF Mensal**. Solta ele (Excel ou CSV) no "
             "espaço de atualização e manda de novo (ou clica em \"Já enviei o arquivo\"). Se quiser "
-            "pular essa etapa, clica em \"Pular\". (ou \"cancelar\")"
+            "pular essa etapa, clica em \"Pular\". (ou \"Cancelar\")"
         )
     elif estado.etapa_atual == 'cf_aguardando_conta_cc_tipo':
         return (
             "Ainda esperando o arquivo de correção de Tipo. Solta ele (Excel ou CSV) no espaço de "
-            "atualização e manda de novo (ou clica em \"Já enviei o arquivo\") (ou \"cancelar\")."
+            "atualização e manda de novo (ou clica em \"Já enviei o arquivo\") (ou \"Cancelar\")."
         )
     elif estado.etapa_atual == 'cf_processando_producao':
         return _etapa_cf_processando_producao(estado, texto)
@@ -5096,7 +5175,7 @@ def _etapa_cf_processando_producao(estado, texto):
             f"❌ Deu erro ao processar a Produção Mensal: {mensagem_erro}\n\n"
             "Corrige o arquivo e solta ele de novo no espaço de atualização. Manda qualquer "
             "mensagem (ou clica em \"Já enviei o arquivo\") quando terminar. Se quiser pular "
-            "essa etapa, clica em \"Pular\". (ou \"cancelar\")"
+            "essa etapa, clica em \"Pular\". (ou \"Cancelar\")"
         )
 
     if status == 'concluido':
@@ -5108,7 +5187,7 @@ def _etapa_cf_processando_producao(estado, texto):
             f"✅ **Produção Mensal** atualizada{resumo}!\n\n"
             "Agora a **Distribuição GGF Mensal**: solta o arquivo (Excel ou CSV, qualquer nome) no "
             "espaço de atualização e manda qualquer mensagem (ou clica em \"Já enviei o arquivo\") "
-            "quando terminar. Se quiser pular essa etapa, clica em \"Pular\". (ou \"cancelar\")"
+            "quando terminar. Se quiser pular essa etapa, clica em \"Pular\". (ou \"Cancelar\")"
         )
 
     aviso = _checar_travamento_celery(estado, 'Produção Mensal', 'cf_aguardando_producao')
@@ -5130,7 +5209,7 @@ def _etapa_cf_processando_ggf(estado, texto):
             f"❌ Deu erro ao processar a Distribuição GGF Mensal: {mensagem_erro}\n\n"
             "Corrige o arquivo e solta ele de novo no espaço de atualização. Manda qualquer "
             "mensagem (ou clica em \"Já enviei o arquivo\") quando terminar. Se quiser pular "
-            "essa etapa, clica em \"Pular\". (ou \"cancelar\")"
+            "essa etapa, clica em \"Pular\". (ou \"Cancelar\")"
         )
 
     if status == 'concluido':
@@ -5156,7 +5235,7 @@ def _etapa_cf_processando_conta_cc_tipo(estado, texto):
         return (
             f"❌ Deu erro ao processar a correção de Tipo: {mensagem_erro}\n\n"
             "Corrige o arquivo e solta ele de novo no espaço de atualização. Manda qualquer "
-            "mensagem (ou clica em \"Já enviei o arquivo\") quando terminar. (ou \"cancelar\")"
+            "mensagem (ou clica em \"Já enviei o arquivo\") quando terminar. (ou \"Cancelar\")"
         )
 
     if status == 'concluido':
@@ -5196,7 +5275,7 @@ def _etapa_cf_processando_genealogia(estado, texto):
 # ---------------------------------------------------------------------
 # Fluxo: consumo_especifico_custo_variavel -- Consumo Específico seguido
 # de Custo Variável Adicionado, por período (app custo_ferbasa, Ações
-# Comuns: "Atualizar Consumo Específico e Custo Variável Adicionado").
+# Comuns: "Atualizar Consumo Específico e Custo Variável").
 # Reaproveita as MESMAS procedures de banco já usadas pelas ações
 # "Calcular / Atualizar Por Período" do Admin (TbConsumoEspecificoAdmin
 # e TbCustoVariavelAdicionadoAdmin) -- só que dessa vez atualizando
@@ -5243,7 +5322,7 @@ def iniciar_fluxo_consumo_especifico(usuario, mensagem=""):
         "Adicionado** 🏭\n\n"
         f"Com base no que já está cadastrado em Produção Mensal, o período sugerido é de "
         f"**{ano_mes_minimo}** até **{ano_mes_maximo}** -- ajuste se precisar e confirme "
-        "abaixo, ou clica em \"cancelar\".\n\n"
+        "abaixo, ou clica em \"Cancelar\".\n\n"
         f"[FORM_PERIODO:{ano_mes_minimo}:{ano_mes_maximo}]"
     )
 
@@ -5255,6 +5334,14 @@ def _processar_consumo_especifico(estado, texto):
         return _etapa_ce_processando_consumo_especifico(estado, texto)
     elif estado.etapa_atual == 'ce_processando_custo_variavel':
         return _etapa_ce_processando_custo_variavel(estado, texto)
+    elif estado.etapa_atual == 'ce_confirmar_indicadores':
+        return _etapa_ce_confirmar_indicadores(estado, texto)
+    elif estado.etapa_atual == 'ce_processando_indicador_fluxo':
+        return _etapa_ce_processando_indicador_fluxo(estado, texto)
+    elif estado.etapa_atual == 'ce_processando_indicador_equipamentos':
+        return _etapa_ce_processando_indicador_equipamentos(estado, texto)
+    elif estado.etapa_atual == 'ce_processando_custo_item_preco':
+        return _etapa_ce_processando_custo_item_preco(estado, texto)
 
     _encerrar_fluxo(estado)
     return "Não consegui identificar em qual etapa estávamos. Cancelei o fluxo -- pode começar de novo se quiser."
@@ -5283,7 +5370,7 @@ def _etapa_ce_confirmar_periodo(estado, texto):
         periodos_encontrados = re.findall(r'\d{4}/\d{2}', texto_bruto)
         if len(periodos_encontrados) != 2:
             return (
-                "Não consegui entender esse período. Ajuste abaixo, ou clica em \"cancelar\".\n\n"
+                "Não consegui entender esse período. Ajuste abaixo, ou clica em \"Cancelar\".\n\n"
                 f"[FORM_PERIODO:{ano_mes_minimo}:{ano_mes_maximo}]"
             )
         ano_mes_inicio, ano_mes_fim = periodos_encontrados
@@ -5291,20 +5378,20 @@ def _etapa_ce_confirmar_periodo(estado, texto):
         if ano_mes_fim < ano_mes_inicio:
             return (
                 f"O fim ({ano_mes_fim}) não pode ser antes do início ({ano_mes_inicio}). Ajuste "
-                "abaixo, ou clica em \"cancelar\".\n\n"
-                f"[FORM_PERIODO:{ano_mes_minimo}:{ano_mes_maximo}]"
+                "abaixo, ou clica em \"Cancelar\".\n\n"
+                f"[FORM_PERIODO:{ano_mes_inicio}:{ano_mes_fim}]"
             )
         if ano_mes_inicio < ano_mes_minimo:
             return (
                 f"O início ({ano_mes_inicio}) não pode ser antes de {ano_mes_minimo} (não tem "
-                "Produção Mensal cadastrada antes disso). Ajuste abaixo, ou clica em \"cancelar\".\n\n"
-                f"[FORM_PERIODO:{ano_mes_minimo}:{ano_mes_maximo}]"
+                "Produção Mensal cadastrada antes disso). Ajuste abaixo, ou clica em \"Cancelar\".\n\n"
+                f"[FORM_PERIODO:{ano_mes_inicio}:{ano_mes_fim}]"
             )
         if ano_mes_fim > ano_mes_maximo:
             return (
                 f"O fim ({ano_mes_fim}) não pode ser depois de {ano_mes_maximo} (não tem "
-                "Produção Mensal cadastrada depois disso). Ajuste abaixo, ou clica em \"cancelar\".\n\n"
-                f"[FORM_PERIODO:{ano_mes_minimo}:{ano_mes_maximo}]"
+                "Produção Mensal cadastrada depois disso). Ajuste abaixo, ou clica em \"Cancelar\".\n\n"
+                f"[FORM_PERIODO:{ano_mes_inicio}:{ano_mes_fim}]"
             )
 
     from custo_ferbasa.models import TbConsumoEspecifico
@@ -5348,7 +5435,7 @@ def _etapa_ce_processando_consumo_especifico(estado, texto):
             "servidor ou o worker do Celery reiniciou no meio). Se quiser, pode iniciar de novo."
         )
     return (
-        "⏳ Ainda calculando o **Consumo Específico**. Se quiser, pode clicar em \"cancelar\" -- "
+        "⏳ Ainda calculando o **Consumo Específico**. Se quiser, pode clicar em \"Cancelar\" -- "
         "isso interrompe a sequência (o Custo Variável Adicionado não vai disparar automaticamente "
         "depois), mas o cálculo do Consumo Específico já disparado no banco continua rodando "
         "normalmente até terminar."
@@ -5393,8 +5480,19 @@ def _etapa_ce_processando_custo_variavel(estado, texto):
         return f"❌ Deu erro ao calcular o Custo Variável Adicionado: {mensagem_erro}"
 
     if status == 'concluido':
-        _encerrar_fluxo(estado)
-        return "✅ Custo Variável Adicionado calculado com sucesso! Todas as etapas foram concluídas."
+        # 🌟 NOVO: em vez de encerrar direto, pergunta se quer também
+        # atualizar os indicadores de Consumo Específico no SPS (ação
+        # equivalente a TbFluxoConsumoPadraoAdmin.update_indicador_geral,
+        # só que pra TODOS os registros, não só os selecionados).
+        estado.etapa_atual = 'ce_confirmar_indicadores'
+        estado.dados_coletados = {}
+        estado.save()
+        return (
+            "✅ Custo Variável Adicionado calculado com sucesso!\n\n"
+            "Quer que eu também atualize os **indicadores de Consumo Específico** (Consumo Padrão "
+            "nos Fluxos de Produção e Consumo Específico nos Equipamentos) e **Custo Variável "
+            "Adicionado** (Equipamentos) no SPS? (Sim / Não)"
+        )
 
     from custo_ferbasa.tasks import procedure_ainda_rodando_no_banco
     ainda_rodando = procedure_ainda_rodando_no_banco('custo_variavel_adicionado_periodo')
@@ -5410,3 +5508,196 @@ def _etapa_ce_processando_custo_variavel(estado, texto):
         "\"Encerrar Ação\" -- isso só para de acompanhar por aqui, o cálculo em si continua "
         "rodando normalmente até terminar."
     )
+
+
+def _etapa_ce_confirmar_indicadores(estado, texto):
+    """
+    🌟 NOVO: trata a resposta sim/não pra pergunta de atualizar os
+    indicadores de Consumo Específico no SPS, feita logo depois que o
+    Custo Variável Adicionado termina. Dispara a primeira das 3 etapas
+    em sequência (Fluxo Consumo Padrão -> Equipamentos Consumo
+    Específico -> Custo Item Preço), cada uma só começando depois que a
+    anterior termina.
+    """
+    resposta = (texto or '').strip().lower()
+
+    if resposta not in ('sim', 's', 'yes', 'y'):
+        _encerrar_fluxo(estado)
+        return "Ok, não atualizei os indicadores."
+
+    from custo_ferbasa.tasks import atualizar_indicadores_consumo_padrao_de_chat_celery
+    resultado_async = atualizar_indicadores_consumo_padrao_de_chat_celery.delay(estado.usuario_id)
+    estado.etapa_atual = 'ce_processando_indicador_fluxo'
+    estado.dados_coletados = {'celery_task_id': resultado_async.id}
+    estado.save()
+    return "⏳ Atualizando os indicadores de Consumo Específico (Fluxo Consumo Padrão) em segundo plano..."
+
+
+def _etapa_ce_processando_indicador_fluxo(estado, texto):
+    dados = estado.dados_coletados or {}
+    status = dados.get('status_importacao_cf')
+
+    if status == 'erro':
+        mensagem_erro = dados.get('mensagem_importacao_cf', 'motivo não especificado')
+        _encerrar_fluxo(estado)
+        return f"❌ Deu erro ao atualizar os indicadores de Consumo Específico (Fluxo Consumo Padrão): {mensagem_erro}"
+
+    if status == 'concluido':
+        from custo_ferbasa.tasks import atualizar_indicadores_equipamentos_consumo_especifico_de_chat_celery
+        resultado_async = atualizar_indicadores_equipamentos_consumo_especifico_de_chat_celery.delay(estado.usuario_id)
+        estado.etapa_atual = 'ce_processando_indicador_equipamentos'
+        estado.dados_coletados = {'celery_task_id': resultado_async.id}
+        estado.save()
+        return (
+            "✅ Indicadores de Consumo Específico (Fluxo Consumo Padrão) atualizados!\n\n"
+            "⏳ Agora atualizando a **Atualização Indicador de Consumo Específico nos Equipamentos "
+            "do SPS** em segundo plano..."
+        )
+
+    from custo_ferbasa.tasks import celery_task_ainda_ativa
+    ainda_ativa = celery_task_ainda_ativa(dados.get('celery_task_id'))
+    if ainda_ativa is False:
+        _encerrar_fluxo(estado)
+        return (
+            "⚠️ Não encontrei mais nenhum processamento em andamento pra atualização dos "
+            "indicadores (Fluxo Consumo Padrão), mas ela também não chegou a terminar -- "
+            "provavelmente foi interrompida (por exemplo, o servidor ou o worker do Celery "
+            "reiniciou no meio). Se quiser, pode iniciar de novo."
+        )
+    return (
+        "⏳ Ainda atualizando os indicadores de Consumo Específico (Fluxo Consumo Padrão). Se "
+        "quiser, pode clicar em \"Encerrar Ação\" -- isso só para de acompanhar por aqui, a "
+        "atualização em si continua rodando normalmente até terminar."
+    )
+
+
+def _etapa_ce_processando_indicador_equipamentos(estado, texto):
+    dados = estado.dados_coletados or {}
+    status = dados.get('status_importacao_cf')
+
+    if status == 'erro':
+        mensagem_erro = dados.get('mensagem_importacao_cf', 'motivo não especificado')
+        _encerrar_fluxo(estado)
+        return (
+            "❌ Deu erro na **Atualização Indicador de Consumo Específico nos Equipamentos do "
+            f"SPS**: {mensagem_erro}"
+        )
+
+    if status == 'concluido':
+        from custo_ferbasa.tasks import atualizar_custo_variavel_adicionado_item_preco_de_chat_celery
+        resultado_async = atualizar_custo_variavel_adicionado_item_preco_de_chat_celery.delay(estado.usuario_id)
+        estado.etapa_atual = 'ce_processando_custo_item_preco'
+        estado.dados_coletados = {'celery_task_id': resultado_async.id}
+        estado.save()
+        return (
+            "✅ **Atualização Indicador de Consumo Específico nos Equipamentos do SPS** concluída!\n\n"
+            "⏳ Agora a **Atualização do Custo Variável Adicionado nos Equipamentos do SPS** em "
+            "segundo plano..."
+        )
+
+    from custo_ferbasa.tasks import celery_task_ainda_ativa
+    ainda_ativa = celery_task_ainda_ativa(dados.get('celery_task_id'))
+    if ainda_ativa is False:
+        _encerrar_fluxo(estado)
+        return (
+            "⚠️ Não encontrei mais nenhum processamento em andamento pra **Atualização Indicador "
+            "de Consumo Específico nos Equipamentos do SPS**, mas ela também não chegou a terminar "
+            "-- provavelmente foi interrompida (por exemplo, o servidor ou o worker do Celery "
+            "reiniciou no meio). Se quiser, pode iniciar de novo."
+        )
+    return (
+        "⏳ Ainda na **Atualização Indicador de Consumo Específico nos Equipamentos do SPS**. Se "
+        "quiser, pode clicar em \"Encerrar Ação\" -- isso só para de acompanhar por aqui, a "
+        "atualização em si continua rodando normalmente até terminar."
+    )
+
+
+def _etapa_ce_processando_custo_item_preco(estado, texto):
+    dados = estado.dados_coletados or {}
+    status = dados.get('status_importacao_cf')
+
+    if status == 'erro':
+        mensagem_erro = dados.get('mensagem_importacao_cf', 'motivo não especificado')
+        _encerrar_fluxo(estado)
+        return f"❌ Deu erro na **Atualização do Custo Variável Adicionado nos Equipamentos do SPS**: {mensagem_erro}"
+
+    if status == 'concluido':
+        _encerrar_fluxo(estado)
+        return (
+            "✅ **Atualização do Custo Variável Adicionado nos Equipamentos do SPS** concluída com "
+            "sucesso! Todas as etapas foram concluídas."
+        )
+
+    from custo_ferbasa.tasks import celery_task_ainda_ativa
+    ainda_ativa = celery_task_ainda_ativa(dados.get('celery_task_id'))
+    if ainda_ativa is False:
+        _encerrar_fluxo(estado)
+        return (
+            "⚠️ Não encontrei mais nenhum processamento em andamento pra **Atualização do Custo "
+            "Variável Adicionado nos Equipamentos do SPS**, mas ela também não chegou a terminar "
+            "-- provavelmente foi interrompida (por exemplo, o servidor ou o worker do Celery "
+            "reiniciou no meio). Se quiser, pode iniciar de novo."
+        )
+    return (
+        "⏳ Ainda na **Atualização do Custo Variável Adicionado nos Equipamentos do SPS**. Se "
+        "quiser, pode clicar em \"Encerrar Ação\" -- isso só para de acompanhar por aqui, a "
+        "atualização em si continua rodando normalmente até terminar."
+    )
+
+
+# =======================================================================
+# 🌟 NOVO: fluxo GENÉRICO de confirmação pra "ferramentas" (tool calling
+# -- ver FERRAMENTAS em agents.py). Diferente de todos os fluxos acima
+# (cada um escrito à mão, com suas próprias etapas), esse aqui serve
+# pra QUALQUER ferramenta nova que precise de confirmação antes de
+# gravar -- não precisa escrever uma etapa nova pra cada ferramenta,
+# só registrar a ferramenta em FERRAMENTAS (agents.py) com uma função
+# "preparar" (valida e monta a mensagem de confirmação) e uma "executar"
+# (grava de verdade, só chamada depois do "Sim").
+# =======================================================================
+FLUXO_TOOL_CALL = 'tool_call_generico'
+
+
+def iniciar_fluxo_tool_call(usuario, nome_ferramenta, dados, mensagem_confirmacao):
+    """
+    Guarda qual ferramenta foi escolhida pelo LLM e os dados já
+    validados (preparados pela própria ferramenta, em agents.py), e
+    espera sim/não antes de executar de verdade.
+    """
+    estado = _get_estado(usuario)
+    estado.fluxo_ativo = FLUXO_TOOL_CALL
+    estado.etapa_atual = 'tc_confirmar'
+    estado.dados_coletados = {'nome_ferramenta': nome_ferramenta, 'dados': dados}
+    estado.save()
+    return mensagem_confirmacao
+
+
+def _processar_tool_call(estado, texto):
+    if estado.etapa_atual == 'tc_confirmar':
+        return _etapa_tc_confirmar(estado, texto)
+    _encerrar_fluxo(estado)
+    return "Não consegui identificar em qual etapa estávamos. Cancelei o fluxo -- pode começar de novo se quiser."
+
+
+def _etapa_tc_confirmar(estado, texto):
+    resposta = (texto or '').strip().lower()
+    if resposta not in ('sim', 's', 'yes', 'y'):
+        _encerrar_fluxo(estado)
+        return "Ok, não fiz a alteração."
+
+    dados_estado = estado.dados_coletados or {}
+    nome_ferramenta = dados_estado.get('nome_ferramenta')
+    dados = dados_estado.get('dados')
+    _encerrar_fluxo(estado)
+
+    # 🌟 Import tardio (dentro da função, não no topo do arquivo) --
+    # evita import circular, já que agents.py importa várias funções
+    # DESTE arquivo lá no topo dele.
+    from .agents import FERRAMENTAS
+    ferramenta = FERRAMENTAS.get(nome_ferramenta)
+    if ferramenta is None or 'executar' not in ferramenta:
+        return "Não consegui encontrar a ferramenta pra executar essa ação. Cancelei."
+    try:
+        return ferramenta['executar'](dados)
+    except Exception as e:
+        return f"Deu erro ao aplicar a mudança: {e}."

@@ -2735,3 +2735,6 @@ msgstr "Nombre original"
 
 msgid "Atualizar Consumo Específico e Custo Variável Adicionado"
 msgstr "Actualizar Consumo Específico y Costo Variable Añadido"
+
+msgid "Falar em vez de digitar"
+msgstr "Hablar en vez de escribir"

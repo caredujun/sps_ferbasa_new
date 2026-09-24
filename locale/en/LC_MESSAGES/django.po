@@ -2735,3 +2735,6 @@ msgstr "Original name"
 
 msgid "Atualizar Consumo Específico e Custo Variável Adicionado"
 msgstr "Update Specific Consumption and Added Variable Cost"
+
+msgid "Falar em vez de digitar"
+msgstr "Speak instead of typing"

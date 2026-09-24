@@ -2735,3 +2735,6 @@ msgstr "原始名称"
 
 msgid "Atualizar Consumo Específico e Custo Variável Adicionado"
 msgstr "更新特定消耗和附加可变成本"
+
+msgid "Falar em vez de digitar"
+msgstr "说话代替打字"

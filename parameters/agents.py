@@ -880,6 +880,25 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
     # antiga, em vez de começar o comando novo. Agora, cada detector que
     # bater cancela o fluxo velho primeiro (se houver) e começa o novo.
     esta_em_fluxo = usuario_esta_em_fluxo(usuario)
+    etapa_atual_usuario = etapa_atual_do_usuario(usuario) if esta_em_fluxo else None
+
+    # 🌟 NOVO: se o usuário está numa etapa esperando uma task do Celery
+    # terminar (ex: Genealogia, Custo Variável Adicionado, atualização de
+    # indicadores), NENHUMA Ação Comum nova tem prioridade sobre isso --
+    # vai direto pro tratamento da etapa atual, sem checar nenhum
+    # detector de comando abaixo. Antes, clicar numa Ação Comum diferente
+    # nesse meio tempo cancelava só o ACOMPANHAMENTO da task antiga no
+    # chat (não a task em si, que continuava rodando sozinha) e começava
+    # uma nova -- criando risco de as duas tasks escreverem no mesmo
+    # campo de status e se atropelarem. Mensagens comuns (digitação
+    # livre) já eram tratadas com segurança por essas etapas (só
+    # reconferem o status), então isso não muda nada pra esse caso -- só
+    # fecha a brecha específica de uma Ação Comum nova.
+    if etapa_atual_usuario in ETAPAS_AGUARDANDO_CELERY:
+        resposta = processar_mensagem_fluxo(usuario, mensagem_usuario)
+        if salvar_historico:
+            _salvar_historico(usuario, mensagem_usuario, resposta)
+        return resposta, []
 
     # 🌟 NOVO: "cancelar" digitado (ou clicado) fora de qualquer fluxo
     # com estado registrado -- acontece na etapa de baixar planilha
@@ -982,8 +1001,8 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
     # Relatórios) mencionando um indicador ou câmbio -- checa ANTES dos
     # wizards normais de editar, senão "atualizar indicador X com essa
     # planilha" cairia no fluxo de editar comum (que também reconhece
-    # "atualizar" + "indicador").
-    etapa_atual_usuario = etapa_atual_do_usuario(usuario) if esta_em_fluxo else None
+    # "atualizar" + "indicador"). (🌟 etapa_atual_usuario já foi computado
+    # mais acima, logo depois de esta_em_fluxo -- reaproveitado aqui.)
 
     # 🌟 CORRIGIDO: agora usa o espaço ÚNICO de atualização
     # (ArquivoAtualizacaoAgente), completamente separado da lista de
@@ -1089,6 +1108,29 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
         if salvar_historico:
             _salvar_historico(usuario, mensagem_usuario, resposta)
         return resposta, []
+
+    # 🌟 NOVO: tool calling -- nenhuma Ação Comum reconhecida bateu, mas
+    # a mensagem ainda pode corresponder a uma das "ferramentas"
+    # registradas em FERRAMENTAS (mais abaixo neste arquivo): ações
+    # pontuais e simples, onde o próprio LLM decide se alguma ferramenta
+    # se aplica e extrai os parâmetros direto da linguagem natural, sem
+    # precisar escrever um detector de regex + wizard dedicado pra cada
+    # uma. Se nenhuma ferramenta bater, cai pro chat livre normalmente
+    # (comportamento de hoje, sem nenhuma mudança). Só tenta em
+    # mensagens de verdade do usuário -- sondagens automáticas
+    # silenciosas (salvar_historico=False) não passam por aqui, pra não
+    # gastar uma chamada de IA à toa a cada poucos segundos.
+    if salvar_historico:
+        resposta_ferramenta, eh_falha_generica = _tentar_tool_calling(mensagem_usuario, usuario)
+        if resposta_ferramenta is not None:
+            # 🌟 NOVO: ferramenta bateu mas genuinamente não encontrou o
+            # que o usuário pediu -- sinaliza igual ao mecanismo já
+            # usado pro chat livre (MARCA_NAO_RESPONDIDO, mais abaixo),
+            # pra disparar o mesmo aviso por e-mail aos superusuários.
+            if eh_falha_generica and _sinalizador_falha is not None:
+                _sinalizador_falha['falhou'] = True
+            _salvar_historico(usuario, mensagem_usuario, resposta_ferramenta)
+            return resposta_ferramenta, []
 
     try:
         # 1. Recupera as instruções de personalidade do seu Django Admin
@@ -1339,3 +1381,482 @@ def executar_agente_com_prompt_do_admin(mensagem_usuario: str, pdf_ids: list, us
         _avisar_superusers_falha_resposta(usuario, mensagem_usuario, resposta_traduzida, codigo_idioma_resposta)
 
     return resposta_traduzida, fontes, resposta_original
+
+
+# =======================================================================
+# 🌟 NOVO: Tool Calling -- ações pontuais e simples que o próprio LLM
+# reconhece e executa, sem precisar de um detector de regex + wizard
+# escrito à mão pra cada uma (como as Ações Comuns tradicionais). Pra
+# adicionar uma ferramenta nova: escreve a função "preparar" (valida e,
+# se não precisar de confirmação, já executa e devolve a resposta final;
+# se precisar, devolve os dados prontos pra confirmação) e registra na
+# lista FERRAMENTAS -- não precisa mexer em mais nada, nem no roteador,
+# nem no fluxo de confirmação (genérico, em fluxo_criar_cenario.py:
+# FLUXO_TOOL_CALL).
+#
+# Continua sendo tentado só DEPOIS de todos os detectores de Ações
+# Comuns tradicionais (não muda nada do que já existe) -- então uma
+# ferramenta nova aqui só realmente entra em ação pras frases que o
+# jeito antigo NÃO reconhecia.
+# =======================================================================
+
+def _tool_consultar_valor_indicador(usuario, nome_indicador, periodo):
+    """
+    🌟 NOVO (ferramenta, só leitura -- sem confirmação): devolve o valor
+    atual de um indicador cadastrado, num período, no cenário ativo do
+    usuário. Reaproveita as mesmas funções de busca/validação já usadas
+    no wizard tradicional de indicadores (_buscar_indicador,
+    _periodo_para_dau_order), pra ficar 100% consistente com o que o
+    wizard já reconhece.
+    """
+    from .fluxo_criar_cenario import _buscar_indicador, _periodo_para_dau_order
+    from .models import TbCenarios
+    from tabelas.models import TbIndicadoresDaugther
+
+    perfil = getattr(usuario, 'perfilusuario', None)
+    if perfil is None or perfil.cenario_ativo_id is None:
+        return False, "Você ainda não tem um cenário ativo escolhido.", None
+    cenario = TbCenarios.objects_real.filter(id=perfil.cenario_ativo_id).first()
+    if cenario is None:
+        return False, "O cenário que estava ativo pra você não existe mais.", None
+
+    indicador = _buscar_indicador(cenario.id, nome_indicador)
+    if indicador is None:
+        return False, f"Não encontrei nenhum indicador chamado \"{nome_indicador}\" nesse cenário.", None
+
+    try:
+        dau_order = _periodo_para_dau_order(cenario, periodo)
+    except (ValueError, IndexError):
+        return False, f"Não entendi o período \"{periodo}\".", None
+
+    filha = TbIndicadoresDaugther.objects.filter(mae_id=indicador.id, tbcenarios_id=cenario.id, dau_order=dau_order).first()
+    if filha is None:
+        return False, f"O período {periodo} está fora do intervalo do cenário.", None
+
+    return True, f"O valor de **{indicador.ind_nome}** em **{periodo}** é **{filha.dau_valor}%**.", None
+
+
+def _tool_preparar_editar_indicador(usuario, nome_indicador, periodo=None, valor=None):
+    """
+    🌟 CORRIGIDO: período e valor agora são OPCIONAIS -- se a mensagem só
+    tinha o nome do indicador (ex: "altere o IPCA", sem dizer qual
+    período/valor), em vez de desistir, entra direto no wizard
+    tradicional de editar indicador (FLUXO_INDICADORES), já sabendo qual
+    indicador é (pula a etapa de perguntar o nome), direto na etapa de
+    escolher o período -- que agora mostra os períodos como BOTÕES
+    clicáveis (ver _lista_periodos_indicador em fluxo_criar_cenario.py).
+    Só quando período E valor já vêm na mensagem é que confirma e grava
+    numa tacada só, como antes.
+    """
+    from .fluxo_criar_cenario import _buscar_indicador, _periodo_para_dau_order
+    from .models import TbCenarios
+    from tabelas.models import TbIndicadoresDaugther
+    from decimal import Decimal, InvalidOperation
+
+    perfil = getattr(usuario, 'perfilusuario', None)
+    if perfil is None or perfil.cenario_ativo_id is None:
+        return False, "Você ainda não tem um cenário ativo escolhido.", None
+    cenario = TbCenarios.objects_real.filter(id=perfil.cenario_ativo_id).first()
+    if cenario is None:
+        return False, "O cenário que estava ativo pra você não existe mais.", None
+
+    indicador = _buscar_indicador(cenario.id, nome_indicador)
+    if indicador is None:
+        return False, f"Não encontrei nenhum indicador chamado \"{nome_indicador}\" nesse cenário.", None
+
+    if periodo is None or valor is None:
+        # 🌟 NOVO: informação incompleta pro tool-call de uma tirada só --
+        # entra no wizard tradicional, já com o indicador escolhido.
+        # Retorna ok=False de propósito (mesmo já tendo "resolvido" a
+        # situação) -- isso avisa o roteador (_tentar_tool_calling) pra
+        # só devolver a mensagem, SEM tentar empacotar numa confirmação
+        # genérica (FLUXO_TOOL_CALL) por cima do estado que acabamos de
+        # montar aqui, que já é o certo. dados=_FALLBACK_PROPRIO (em vez
+        # de None) também avisa que isso NÃO é uma falha de verdade --
+        # não deve disparar o aviso por e-mail aos superusuários.
+        from .fluxo_criar_cenario import _get_estado, FLUXO_INDICADORES, _lista_periodos_indicador
+        estado = _get_estado(usuario)
+        estado.fluxo_ativo = FLUXO_INDICADORES
+        estado.etapa_atual = 'ind_editar_periodo'
+        estado.dados_coletados = {'cenario_id': cenario.id, 'indicador_id': indicador.id, 'indicador_nome': indicador.ind_nome}
+        estado.save()
+        mensagem = (
+            f"Indicador: **{indicador.ind_nome}**.\n\n"
+            f"{_lista_periodos_indicador(cenario, indicador)}"
+            "Clica no período que quer mudar (ou digita, ou \"Cancelar\")."
+        )
+        return False, mensagem, _FALLBACK_PROPRIO
+
+    try:
+        dau_order = _periodo_para_dau_order(cenario, periodo)
+    except (ValueError, IndexError):
+        return False, f"Não entendi o período \"{periodo}\".", None
+
+    filha = TbIndicadoresDaugther.objects.filter(mae_id=indicador.id, tbcenarios_id=cenario.id, dau_order=dau_order).first()
+    if filha is None:
+        return False, f"O período {periodo} está fora do intervalo do cenário.", None
+
+    try:
+        valor_novo = Decimal(str(valor))
+    except (InvalidOperation, ValueError, TypeError):
+        return False, f"Não entendi o valor \"{valor}\".", None
+
+    dados = {
+        'filha_id': filha.id,
+        'indicador_nome': indicador.ind_nome,
+        'periodo': periodo,
+        'valor_novo': str(valor_novo),
+    }
+    mensagem = (
+        "Resumo:\n"
+        f"- Indicador: {indicador.ind_nome}\n"
+        f"- Período: {periodo}\n"
+        f"- Valor: {filha.dau_valor}% → {valor_novo}%\n\n"
+        "Confirma a mudança? (Sim / Não)"
+    )
+    return True, mensagem, dados
+
+
+def _tool_executar_editar_indicador(dados):
+    """Chamada só depois do 'Sim' -- grava de verdade."""
+    from tabelas.models import TbIndicadoresDaugther
+    from decimal import Decimal
+
+    filha = TbIndicadoresDaugther.objects.get(id=dados['filha_id'])
+    filha.dau_valor = Decimal(dados['valor_novo'])
+    filha.save()
+    return f"✅ Indicador **{dados['indicador_nome']}**, período **{dados['periodo']}**, atualizado para **{dados['valor_novo']}%**."
+
+
+def _tool_preparar_trocar_cenario_ativo(usuario, cenario):
+    """
+    🌟 NOVO (ferramenta, com confirmação): valida e monta a confirmação
+    pra trocar qual cenário está ativo pro usuário. Respeita a MESMA
+    permissão já usada no resto do sistema
+    (PerfilUsuario.pode_trocar_cenario) -- superusuário e superusuário
+    de empresa sempre podem, igual já valia antes dessa ferramenta
+    existir.
+    """
+    from .fluxo_criar_cenario import _resolver_cenario
+    from .contexto_usuario import eh_superuser_ou_superuser_empresa
+
+    perfil = getattr(usuario, 'perfilusuario', None)
+    if perfil is None:
+        return False, "Não consegui identificar seu perfil de usuário.", None
+    if not eh_superuser_ou_superuser_empresa(usuario) and not perfil.pode_trocar_cenario:
+        return False, "Você não tem permissão para trocar o cenário ativo.", None
+
+    empresa_id = perfil.empresa_efetiva_id()
+    if empresa_id is None:
+        return False, "Não consegui identificar sua empresa.", None
+
+    cenario_encontrado = _resolver_cenario(str(cenario), empresa_id)
+    if cenario_encontrado is None:
+        return False, f"Não encontrei nenhum cenário correspondente a \"{cenario}\".", None
+
+    numero_exibido = cenario_encontrado.numero_sequencial if cenario_encontrado.numero_sequencial is not None else cenario_encontrado.id
+    dados = {
+        'perfil_id': perfil.id,
+        'cenario_id': cenario_encontrado.id,
+        'numero_exibido': numero_exibido,
+        'cenario_nome': cenario_encontrado.cen_nome,
+    }
+    mensagem = f"Confirma trocar o cenário ativo para **{numero_exibido}/{cenario_encontrado.cen_nome}**? (Sim / Não)"
+    return True, mensagem, dados
+
+
+def _tool_executar_trocar_cenario_ativo(dados):
+    """Chamada só depois do 'Sim' -- grava de verdade."""
+    from .models import PerfilUsuario
+    perfil = PerfilUsuario.objects.get(id=dados['perfil_id'])
+    perfil.cenario_ativo_id = dados['cenario_id']
+    perfil.save()
+    return f"✅ Cenário ativo alterado para **{dados['numero_exibido']}/{dados['cenario_nome']}**."
+
+
+# 🌟 Catálogo de ferramentas disponíveis pro LLM -- cada uma com o
+# schema (formato OpenAI/Groq de function calling) que descreve pro
+# modelo quando e como usar, e a função Python que efetivamente executa.
+def _tool_preparar_editar_cambio(usuario, moeda, periodo=None, valor=None):
+    """
+    🌟 NOVO (ferramenta, com confirmação): mesma ideia de
+    _tool_preparar_editar_indicador, só que pra taxas de câmbio.
+    Reaproveita _buscar_cambio, que já reconhece apelidos em português
+    (dólar, euro, real) além da sigla (USD, EUR, BRL). Período e valor
+    também são opcionais aqui -- mesmo fallback pro wizard tradicional
+    (com botões de período) quando faltar informação.
+    """
+    from .fluxo_criar_cenario import _buscar_cambio, _periodo_para_dau_order
+    from .models import TbCenarios
+    from tabelas.models import TbCambioDaugther
+    from decimal import Decimal, InvalidOperation
+
+    perfil = getattr(usuario, 'perfilusuario', None)
+    if perfil is None or perfil.cenario_ativo_id is None:
+        return False, "Você ainda não tem um cenário ativo escolhido.", None
+    cenario = TbCenarios.objects_real.filter(id=perfil.cenario_ativo_id).first()
+    if cenario is None:
+        return False, "O cenário que estava ativo pra você não existe mais.", None
+
+    cambio = _buscar_cambio(cenario.id, moeda)
+    if cambio is None:
+        return False, f"Não encontrei nenhuma taxa de câmbio \"{moeda}\" nesse cenário.", None
+
+    if periodo is None or valor is None:
+        # dados=_FALLBACK_PROPRIO (em vez de None) avisa que isso NÃO é
+        # uma falha de verdade -- não deve disparar o aviso por e-mail.
+        from .fluxo_criar_cenario import _get_estado, FLUXO_CAMBIO, _lista_periodos_cambio
+        estado = _get_estado(usuario)
+        estado.fluxo_ativo = FLUXO_CAMBIO
+        estado.etapa_atual = 'cam_editar_periodo'
+        estado.dados_coletados = {'cenario_id': cenario.id, 'cambio_id': cambio.id, 'cambio_nome': cambio.get_cam_moeda_display()}
+        estado.save()
+        mensagem = (
+            f"Câmbio: **{cambio.get_cam_moeda_display()}**.\n\n"
+            f"{_lista_periodos_cambio(cenario, cambio)}"
+            "Clica no período que quer mudar (ou digita, ou \"Cancelar\")."
+        )
+        return False, mensagem, _FALLBACK_PROPRIO
+
+    try:
+        dau_order = _periodo_para_dau_order(cenario, periodo)
+    except (ValueError, IndexError):
+        return False, f"Não entendi o período \"{periodo}\".", None
+
+    filha = TbCambioDaugther.objects.filter(mae_id=cambio.id, tbcenarios_id=cenario.id, dau_order=dau_order).first()
+    if filha is None:
+        return False, f"O período {periodo} está fora do intervalo do cenário.", None
+
+    try:
+        valor_novo = Decimal(str(valor))
+    except (InvalidOperation, ValueError, TypeError):
+        return False, f"Não entendi o valor \"{valor}\".", None
+
+    dados = {
+        'filha_id': filha.id,
+        'cambio_nome': cambio.get_cam_moeda_display(),
+        'periodo': periodo,
+        'valor_novo': str(valor_novo),
+    }
+    mensagem = (
+        "Resumo:\n"
+        f"- Câmbio: {cambio.get_cam_moeda_display()}\n"
+        f"- Período: {periodo}\n"
+        f"- Valor: {filha.dau_valor} → {valor_novo}\n\n"
+        "Confirma a mudança? (Sim / Não)"
+    )
+    return True, mensagem, dados
+
+
+def _tool_executar_editar_cambio(dados):
+    """Chamada só depois do 'Sim' -- grava de verdade."""
+    from tabelas.models import TbCambioDaugther
+    from decimal import Decimal
+
+    filha = TbCambioDaugther.objects.get(id=dados['filha_id'])
+    filha.dau_valor = Decimal(dados['valor_novo'])
+    filha.save()
+    return f"✅ Câmbio **{dados['cambio_nome']}**, período **{dados['periodo']}**, atualizado para **{dados['valor_novo']}**."
+
+
+FERRAMENTAS = {
+    'consultar_valor_indicador': {
+        'schema': {
+            "type": "function",
+            "function": {
+                "name": "consultar_valor_indicador",
+                "description": (
+                    "Consulta o valor atual de um indicador cadastrado (ex: IPCA, INPC), num "
+                    "período específico, no cenário ativo do usuário. Use quando o usuário "
+                    "perguntar qual é/está o valor de um indicador, sem pedir pra mudar nada."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "nome_indicador": {"type": "string", "description": "Nome do indicador, ex: IPCA, INPC."},
+                        "periodo": {"type": "string", "description": "Período no formato AAAA/MM (ou só AAAA, se o cenário for anual), ex: 2026/08."},
+                    },
+                    "required": ["nome_indicador", "periodo"],
+                },
+            },
+        },
+        'preparar': lambda usuario, **kw: _tool_consultar_valor_indicador(usuario, **kw),
+        'requer_confirmacao': False,
+    },
+    'editar_valor_indicador': {
+        'schema': {
+            "type": "function",
+            "function": {
+                "name": "editar_valor_indicador",
+                "description": (
+                    "Altera o valor de um INDICADOR ECONÔMICO cadastrado (ex: IPCA, INPC -- "
+                    "índices de inflação/reajuste) no cenário ativo do usuário. NÃO use pra "
+                    "moeda/câmbio (dólar, euro, real, USD, EUR, BRL) -- pra isso existe a "
+                    "ferramenta editar_valor_cambio. Use quando o usuário pedir explicitamente "
+                    "pra MUDAR/ALTERAR/ATUALIZAR o valor de um indicador. Chame mesmo que só "
+                    "souber o NOME do indicador -- período e valor são OPCIONAIS: se algum "
+                    "faltar na mensagem, o próprio sistema pergunta o que falta depois. Só "
+                    "inclua período e/ou valor se a mensagem realmente disser esses dados "
+                    "explicitamente."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "nome_indicador": {"type": "string", "description": "Nome do indicador econômico, ex: IPCA, INPC (nunca dólar/euro/real)."},
+                        "periodo": {"type": "string", "description": "Período no formato AAAA/MM (ou só AAAA, se o cenário for anual), ex: 2026/08. Deixe de fora se a mensagem não disser."},
+                        "valor": {"type": "number", "description": "Novo valor percentual, ex: 1.8. Deixe de fora se a mensagem não disser."},
+                    },
+                    "required": ["nome_indicador"],
+                },
+            },
+        },
+        'preparar': lambda usuario, **kw: _tool_preparar_editar_indicador(usuario, **kw),
+        'requer_confirmacao': True,
+        'executar': _tool_executar_editar_indicador,
+    },
+    'editar_valor_cambio': {
+        'schema': {
+            "type": "function",
+            "function": {
+                "name": "editar_valor_cambio",
+                "description": (
+                    "Altera o valor de uma TAXA DE CÂMBIO/MOEDA cadastrada (ex: dólar, euro, "
+                    "real, USD, EUR, BRL) no cenário ativo do usuário. NÃO use pra indicador "
+                    "econômico (IPCA, INPC) -- pra isso existe a ferramenta "
+                    "editar_valor_indicador. Use quando o usuário pedir explicitamente pra "
+                    "MUDAR/ALTERAR/ATUALIZAR o valor de uma moeda/câmbio. Chame mesmo que só "
+                    "souber qual moeda -- período e valor são OPCIONAIS: se algum faltar na "
+                    "mensagem, o próprio sistema pergunta o que falta depois."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "moeda": {"type": "string", "description": "Nome ou sigla da moeda, ex: dólar, euro, real, USD, EUR, BRL."},
+                        "periodo": {"type": "string", "description": "Período no formato AAAA/MM (ou só AAAA, se o cenário for anual), ex: 2026/08. Deixe de fora se a mensagem não disser."},
+                        "valor": {"type": "number", "description": "Novo valor da taxa de câmbio, ex: 5.20. Deixe de fora se a mensagem não disser."},
+                    },
+                    "required": ["moeda"],
+                },
+            },
+        },
+        'preparar': lambda usuario, **kw: _tool_preparar_editar_cambio(usuario, **kw),
+        'requer_confirmacao': True,
+        'executar': _tool_executar_editar_cambio,
+    },
+    'trocar_cenario_ativo': {
+        'schema': {
+            "type": "function",
+            "function": {
+                "name": "trocar_cenario_ativo",
+                "description": (
+                    "Troca qual cenário está ATIVO para o usuário (o cenário que ele está "
+                    "trabalhando agora no sistema). Use quando o usuário pedir explicitamente "
+                    "pra ativar/trocar/mudar pra outro cenário, informando o número ou o nome dele."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "cenario": {"type": "string", "description": "Número (ex: 25) ou nome do cenário a ativar."},
+                    },
+                    "required": ["cenario"],
+                },
+            },
+        },
+        'preparar': lambda usuario, **kw: _tool_preparar_trocar_cenario_ativo(usuario, **kw),
+        'requer_confirmacao': True,
+        'executar': _tool_executar_trocar_cenario_ativo,
+    },
+}
+
+
+# 🌟 NOVO: sentinela usada como "dados" quando uma ferramenta, em vez de
+# genuinamente falhar, só está encaminhando pro wizard tradicional
+# (precisa de mais informação -- ver _tool_preparar_editar_indicador/
+# _tool_preparar_editar_cambio). Qualquer OUTRO valor de "dados" num
+# retorno ok=False (o mais comum sendo None) é tratado como falha DE
+# VERDADE, e aciona o aviso por e-mail pros superusuários -- útil pra
+# perceber padrões de pedido que ainda não têm ferramenta.
+_FALLBACK_PROPRIO = object()
+
+
+def _tentar_tool_calling(mensagem_usuario, usuario):
+    """
+    🌟 CORRIGIDO: manda a mensagem do usuário pro LLM junto com o
+    catálogo de ferramentas (FERRAMENTAS) -- o próprio modelo decide se
+    alguma se aplica, e se sim, extrai os parâmetros da linguagem
+    natural. Devolve (resposta, eh_falha_generica):
+    - (None, False) se nenhuma ferramenta bateu -- o chamador segue pro
+      chat livre normalmente, sem nenhuma mudança de comportamento.
+    - (texto, False) se uma ferramenta respondeu com sucesso (ou só
+      encaminhou pro wizard tradicional, pedindo mais informação --
+      isso NÃO é falha, é o esperado).
+    - (texto, True) se uma ferramenta bateu mas genuinamente não
+      encontrou o que o usuário pediu (indicador/câmbio/cenário
+      inexistente, etc.) -- aciona o mesmo aviso por e-mail já usado
+      quando o chat livre não consegue ajudar, pra dar visibilidade de
+      pedidos que talvez precisem de uma ferramenta nova.
+    """
+    if not FERRAMENTAS:
+        return None, False
+
+    try:
+        from groq import Groq
+        client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+        response = client.chat.completions.create(
+            model="openai/gpt-oss-120b",
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "Você decide se a mensagem do usuário corresponde a uma das ferramentas "
+                        "disponíveis. Só chame uma ferramenta se a intenção for claramente essa "
+                        "operação específica. Preencha os parâmetros que a mensagem realmente "
+                        "informar; parâmetros marcados como opcionais no schema (fora da lista "
+                        "\"required\") podem ficar de fora se a mensagem não disser -- não invente "
+                        "nem assuma um valor pra eles. Se não tiver certeza de qual ferramenta usar, "
+                        "ou nem o parâmetro obrigatório estiver claro, NÃO chame nenhuma ferramenta "
+                        "-- é melhor não chamar do que chamar errado."
+                    ),
+                },
+                {"role": "user", "content": mensagem_usuario},
+            ],
+            tools=[f['schema'] for f in FERRAMENTAS.values()],
+            tool_choice="auto",
+            temperature=0,
+        )
+    except Exception:
+        # Qualquer falha na chamada (timeout, erro de rede, etc.) -- não
+        # afirma nada, só deixa o chat livre normal assumir.
+        return None, False
+
+    chamadas = getattr(response.choices[0].message, 'tool_calls', None)
+    if not chamadas:
+        return None, False
+
+    chamada = chamadas[0]
+    ferramenta = FERRAMENTAS.get(chamada.function.name)
+    if ferramenta is None:
+        return None, False
+
+    try:
+        argumentos = json.loads(chamada.function.arguments)
+    except (ValueError, TypeError):
+        return None, False
+
+    try:
+        ok, mensagem, dados = ferramenta['preparar'](usuario, **argumentos)
+    except TypeError:
+        # O LLM montou os argumentos de um jeito que não bate com a
+        # assinatura da função (ex: parâmetro faltando) -- não afirma
+        # nada, deixa o chat livre normal assumir.
+        return None, False
+
+    if not ok:
+        eh_falha_generica = dados is not _FALLBACK_PROPRIO
+        return mensagem, eh_falha_generica
+
+    if not ferramenta.get('requer_confirmacao'):
+        return mensagem, False
+
+    from .fluxo_criar_cenario import iniciar_fluxo_tool_call
+    return iniciar_fluxo_tool_call(usuario, chamada.function.name, dados, mensagem), False

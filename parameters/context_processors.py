@@ -91,21 +91,21 @@ def empresa_ativa_usuario(request):
 
 def pode_acessar_agente_ia(request):
     """
-    🌟 NOVO (multi-empresa): injeta, em toda página do Admin, se o
-    usuário logado pode acessar o Agente IA -- usado pelo botão do
-    cabeçalho (templates/admin/sps/base_site.html), que antes checava só
-    "é superusuário ou está no grupo Agente de IA" direto no template
-    (sem saber do superuser de empresa, que também deve ter acesso
-    automático).
+    🌟 CORRIGIDO: injeta, em toda página do Admin, se o usuário logado
+    pode acessar o Agente IA -- usado pelo botão do cabeçalho
+    (templates/admin/sps/base_site.html). Antes checava se o usuário
+    estava no grupo "Agente de IA"; agora checa direto o campo
+    PerfilUsuario.pode_acessar_agente_ia -- superusuário e superusuário
+    de empresa continuam com acesso automático, independente do campo.
     """
     if not request.user.is_authenticated:
         return {}
 
     from .contexto_usuario import eh_superuser_ou_superuser_empresa
-    NOME_GRUPO_AGENTE_IA = "Agente de IA"
 
+    perfil = getattr(request.user, 'perfilusuario', None)
     tem_acesso = (
         eh_superuser_ou_superuser_empresa(request.user)
-        or request.user.groups.filter(name=NOME_GRUPO_AGENTE_IA).exists()
+        or bool(perfil and perfil.pode_acessar_agente_ia)
     )
     return {'pode_acessar_agente_ia': tem_acesso}
