@@ -148,7 +148,7 @@ WSGI_APPLICATION = 'sps.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': os.environ.get('DB_NAME', 'spsferbasa_dev'),
+        'NAME': os.environ.get('DB_NAME', 'spsdemosteel'),
         'USER': os.environ.get('DB_USER', 'postgres'),
         'PASSWORD': os.environ.get('DB_PASS', 'Kodaka32354211'),
         'HOST': 'localhost',

@@ -100,25 +100,42 @@ def _gerar_resposta_com_busca_web(system_instruction, mensagem_usuario, historic
         mensagens.append({"role": papel, "content": msg.content})
     mensagens.append({"role": "user", "content": mensagem_usuario})
 
-    response = client.chat.completions.create(
-        model="openai/gpt-oss-120b",
-        messages=mensagens,
-        temperature=0.1,  # Baixa variação para blindar a precisão de relatórios contábeis
-        timeout=60,
-        # 🌟 CORRIGIDO: "web_search" só funciona com os sistemas
-        # groq/compound e groq/compound-mini -- com openai/gpt-oss-120b
-        # (o modelo que já validamos pra análise financeira) a ferramenta
-        # certa é "browser_search". É mais lenta que web_search (navega os
-        # sites de forma mais completa, em vez de só recuperar trechos),
-        # mas é a que existe pra esse modelo específico.
-        tools=[{"type": "browser_search"}],
-        # 🌟 NOVO: recomendação oficial da Groq para Browser Search -- sem
-        # isso, o modelo pode navegar várias páginas e gastar muito mais
-        # tokens do que o necessário pra a maioria das perguntas, o que
-        # esgota mais rápido o limite diário do plano gratuito (200.000
-        # tokens/dia, o mesmo tanto pro gpt-oss-120b quanto pro -20b).
-        reasoning_effort="low",
-    )
+    # 🌟 CORRIGIDO: durante uma cadeia de várias chamadas de ferramenta
+    # dentro da mesma resposta (buscar -> abrir página -> abrir outra
+    # página, típico de "compare com a internet"), o modelo às vezes
+    # gera uma continuação mal formada que a Groq rejeita com
+    # "output_parse_failed" (erro 400) -- visto na prática num teste
+    # real. Antes, isso propagava como exceção e chegava no usuário como
+    # "Erro no processamento interno do servidor: Error code: 400 -
+    # ...", sem nenhum tratamento. Agora, captura aqui e devolve string
+    # vazia -- _resposta_suspeita() (no chamador) já trata vazio como
+    # "suspeito" e aciona uma segunda tentativa automática, sem o
+    # usuário precisar perceber nada na maioria das vezes; só se a
+    # segunda tentativa TAMBÉM falhar é que aparece a mensagem amigável
+    # de "tive um problema, tenta de novo" que já existia.
+    try:
+        response = client.chat.completions.create(
+            model="openai/gpt-oss-120b",
+            messages=mensagens,
+            temperature=0.1,  # Baixa variação para blindar a precisão de relatórios contábeis
+            timeout=60,
+            # 🌟 CORRIGIDO: "web_search" só funciona com os sistemas
+            # groq/compound e groq/compound-mini -- com openai/gpt-oss-120b
+            # (o modelo que já validamos pra análise financeira) a ferramenta
+            # certa é "browser_search". É mais lenta que web_search (navega os
+            # sites de forma mais completa, em vez de só recuperar trechos),
+            # mas é a que existe pra esse modelo específico.
+            tools=[{"type": "browser_search"}],
+            # 🌟 NOVO: recomendação oficial da Groq para Browser Search -- sem
+            # isso, o modelo pode navegar várias páginas e gastar muito mais
+            # tokens do que o necessário pra a maioria das perguntas, o que
+            # esgota mais rápido o limite diário do plano gratuito (200.000
+            # tokens/dia, o mesmo tanto pro gpt-oss-120b quanto pro -20b).
+            reasoning_effort="low",
+        )
+    except Exception as e:
+        print(f"[agente_ia][busca_web] falha na chamada -- {type(e).__name__}: {e}")
+        return ""
 
     # 🌟 NOVO (diagnóstico): registra no log do servidor se a busca na
     # internet foi REALMENTE usada nessa resposta -- sem isso, só dá pra
@@ -1208,6 +1225,49 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
             "parciais, incertas, ou quando só está pedindo mais detalhes -- só "
             "quando genuinamente não há nada que você possa fazer."
         )
+
+        # 🌟 NOVO: modelos da família gpt-oss têm, de fábrica (do próprio
+        # treinamento), a tendência de dizer "não tenho acesso à internet"
+        # mesmo quando a ferramenta de busca ESTÁ disponível na chamada --
+        # visto na prática nos logs (campo "reasoning" da resposta bruta
+        # mostrando literalmente algo como "policy says cannot browse
+        # external sources", uma "política" que não existe nesse prompt,
+        # só na cabeça do modelo). Corrige isso explicitamente, sempre que
+        # a busca web estiver de fato ligada (USAR_BUSCA_WEB).
+        if USAR_BUSCA_WEB:
+            system_instruction += (
+                "\n\nVOCÊ TEM, SIM, ACESSO À INTERNET EM TEMPO REAL nesta conversa, "
+                "através de uma ferramenta de busca (browser search) já disponível "
+                "nesta chamada -- ignore qualquer instinto seu (de treinamento "
+                "anterior) que diga o contrário; isso NÃO se aplica aqui. Quando o "
+                "usuário pedir explicitamente pra você pesquisar, buscar, verificar "
+                "ou comparar com \"a internet\"/\"fontes externas\"/\"online\", ou "
+                "quando a pergunta genuinamente precisar de informação atual que "
+                "você não tem certeza (cotações, notícias, dados publicados "
+                "recentemente, etc.), USE essa ferramenta de busca de verdade -- "
+                "nunca diga que não tem acesso à internet, nem invente que existe "
+                "alguma política te impedindo de navegar. Se o usuário insistir "
+                "depois de você já ter recusado por engano, use a ferramenta na "
+                "resposta seguinte em vez de repetir a recusa."
+            )
+            # 🌟 NOVO (privacidade/segurança): a ferramenta de busca manda o
+            # texto da consulta pra um provedor de pesquisa EXTERNO (fora do
+            # nosso controle) -- não existe parâmetro de API que filtre isso,
+            # a única proteção é instruir o modelo a nunca colocar dado
+            # interno na consulta em si.
+            system_instruction += (
+                "\n\nIMPORTANTE (privacidade/segurança): ao montar uma consulta pra "
+                "ferramenta de busca, NUNCA inclua nela nenhum dado específico do "
+                "sistema interno -- valor exato de indicador/câmbio, nome ou número "
+                "de cenário, nome de empresa, dado extraído de relatório anexado, "
+                "etc. Cada consulta de busca deve usar só termos genéricos e "
+                "públicos (ex: \"IPCA julho 2026\"; NUNCA algo como \"IPCA do "
+                "cenário 28/REV é 1.3269%, comparar com internet\"). Depois de "
+                "trazer os resultados, você pode comparar livremente com os dados "
+                "internos NA SUA RESPOSTA final pro usuário (isso não sai do "
+                "sistema) -- a restrição vale só pro texto que vai na consulta de "
+                "busca em si, que é o que realmente é enviado pra fora."
+            )
 
         # 🌟 NOVO: consulta dados REAIS do cenário ativo (indicadores, câmbio)
         # quando a pergunta parecer precisar deles -- não só o que estiver

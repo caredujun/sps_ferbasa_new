@@ -529,3 +529,9 @@ WHERE state != 'idle' AND pid != pg_backend_pid()
 ORDER BY duracao DESC;
 
 ------------------------------------------------------------------------------------------
+
+Comando para interromper processo pelo pid no postgresql
+
+SELECT pg_cancel_backend(9431);
+
+-----------------------------------------------------------------------------------------
