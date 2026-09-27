@@ -2738,3 +2738,19 @@ msgstr "更新特定消耗和附加可变成本"
 
 msgid "Falar em vez de digitar"
 msgstr "说话代替打字"
+
+# 🌟 NOVO: personalização do cabeçalho do Django Admin (urls.py)
+msgid "Administração do Sistema"
+msgstr "系统管理"
+
+msgid "Administração"
+msgstr "管理"
+
+
+# 🌟 NOVO: campo ultimas_alteracoes em TbCenarios (models.py)
+msgid "Últimas Alterações"
+msgstr "最近更改"
+
+msgid "Histórico de alterações em outras tabelas que fizeram este cenário ficar \"ALTERADO\" -- uma linha por alteração, preenchido automaticamente."
+msgstr "记录导致此场景变为\"已更改\"状态的其他表格中的修改历史 -- 每次修改一行，自动填写。"
+

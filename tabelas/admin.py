@@ -1099,25 +1099,31 @@ class TbImpostoRendaAdmin(admin.ModelAdmin):
     fields = ('imp_observacao',)
     list_display = ['imp_observacao']
 
-    # Cria os registros para os cenários As Is (Mensal, Trimestral e Anual se não existirem)
+    # Cria os registros de imposto de renda para os cenários se não existir. Assume o valor de 32% como padrão que poderá ser alterado pelo usuário
     # Temos que primeiro ver se a tabela TbImpostoRenda existe no banco de dados
     all_tables = connection.introspection.table_names()
     if 'tabelas_tbimpostorenda' in all_tables:
-        # Existe. Vamos ver se os registros
-        qtde = TbImpostoRenda.objects.count()
+        # Existe. Vamos verificar se foi criado o registro do imposto de renda para todos os cenários existentes
+        lista_cenarios = list(TbCenarios.objects.values_list('id', flat=True))
+        for id_registro in lista_cenarios:
+            if TbImpostoRenda.objects.filter(tbcenarios_id=id_registro).count() == 0:
+                emp = TbImpostoRenda.objects.create(imp_observacao='IMPOSTO DE RENDA. Registro criado pelo sistema. Alterar se necessário.',
+                                                    tbcenarios_id=id_registro)
+                # Vamos atualizar as filhas usando o procedure verifica_filha
+                cursor = connection.cursor()
+                # Montando a expressão sql para rodar o Stored Procedure Verifica_Filha
+                sql = "call public.verifica_filha('tabelas_tbimpostorendadaugther', " + str(emp.id) + ", " + str(
+                    id_registro) + ", '32'" + ")"
+                cursor.execute(sql)
+                cursor.close()
 
-        if TbImpostoRenda.objects.filter(id=1).count() == 0:
-            emp = TbImpostoRenda.objects.create(id=1,
-                                                imp_observacao='IMPOSTO DE RENDA. Registro criado pelo sistema. CLICK AQUI para mostrar e ajustar se necessário.',
-                                                tbcenarios_id=1)
-            # Vamos atualizar as filhas usando o procedure verifica_filha
-            cursor = connection.cursor()
-            # Montando a expressão sql para rodar o Stored Procedure Verifica_Filha
-            sql = "call public.verifica_filha('tabelas_tbimpostorendadaugther', " + str(1) + ", " + str(
-                1) + ", '32'" + ")"
-            cursor.execute(sql)
-            cursor.close()
-
+                # Vamos ajustar a sequência da tabela tabelas_tbimpostorenda
+                cursor = connection.cursor()
+                # Montando a expressão sql para rodar o Stored Procedure ajustar_sequencia
+                sql = "call public.ajustar_sequencia('tabelas_tbimpostorenda'" + ")"
+                cursor.execute(sql)
+                cursor.close()
+        '''
         if TbImpostoRenda.objects.filter(id=2).count() == 0:
             emp = TbImpostoRenda.objects.create(id=2,
                                                 imp_observacao='IMPOSTO DE RENDA. Registro criado pelo sistema. CLICK AQUI para mostrar e ajustar se necessário.',
@@ -1141,13 +1147,8 @@ class TbImpostoRendaAdmin(admin.ModelAdmin):
                 3) + ", '32'" + ")"
             cursor.execute(sql)
             cursor.close()
+        '''
 
-        # Vamos ajustar a sequência da tabela tabelas_tbimpostorenda
-        cursor = connection.cursor()
-        # Montando a expressão sql para rodar o Stored Procedure ajustar_sequencia
-        sql = "call public.ajustar_sequencia('tabelas_tbimpostorenda'" + ")"
-        cursor.execute(sql)
-        cursor.close()
 
     formfield_overrides = {
         models.CharField: {'widget': TextInput(attrs={'size': '15'})},
@@ -1230,6 +1231,33 @@ class TbTaxaDescontoAdmin(admin.ModelAdmin):
     fields = ('tax_observacao',)
     list_display = ['tax_observacao']
 
+    # Cria os registros de WACC para os cenários se não existir. Assume o valor de 10% como padrão que poderá ser alterado pelo usuário
+    # Temos que primeiro ver se a tabela TbTaxaDesconto existe no banco de dados
+    all_tables = connection.introspection.table_names()
+    if 'tabelas_tbtaxadesconto' in all_tables:
+        # Existe. Vamos verificar se foi criado o registro de WACC para todos os cenários existentes
+        lista_cenarios = list(TbCenarios.objects.values_list('id', flat=True))
+        for id_registro in lista_cenarios:
+            if TbTaxaDesconto.objects.filter(tbcenarios_id=id_registro).count() == 0:
+                emp = TbTaxaDesconto.objects.create(
+                    tax_observacao='TAXA DE DESCONTO (WACC). Registro criado pelo sistema. Alterar se necessário.',
+                    tbcenarios_id=id_registro)
+                # Vamos atualizar as filhas usando o procedure verifica_filha
+                cursor = connection.cursor()
+                # Montando a expressão sql para rodar o Stored Procedure Verifica_Filha
+                sql = "call public.verifica_filha('tabelas_tbtaxadescontodaugther', " + str(emp.id) + ", " + str(
+                    id_registro) + ", '10'" + ")"
+                cursor.execute(sql)
+                cursor.close()
+
+                # Vamos ajustar a sequência da tabela tabelas_tbimpostorenda
+                cursor = connection.cursor()
+                # Montando a expressão sql para rodar o Stored Procedure ajustar_sequencia
+                sql = "call public.ajustar_sequencia('tabelas_tbtaxadesconto'" + ")"
+                cursor.execute(sql)
+                cursor.close()
+
+    '''
     # Cria os registros para os cenários As Is (Mensal, Trimestral e Anual se não existirem)
     # Temos que primeiro ver se a tabela TbTaxaDesconto existe no banco de dados
     all_tables = connection.introspection.table_names()
@@ -1276,6 +1304,7 @@ class TbTaxaDescontoAdmin(admin.ModelAdmin):
         sql = "call public.ajustar_sequencia('tabelas_tbtaxadesconto'" + ")"
         cursor.execute(sql)
         cursor.close()
+    '''
 
     # Tabela tipo parâmetro.
     def has_delete_permission(self, request, obj=None):

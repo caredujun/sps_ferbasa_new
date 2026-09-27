@@ -253,6 +253,21 @@ class TbCenarios(models.Model):
     cen_grupo = models.ForeignKey('tabelas.TbGrupoCenarios', blank=True, null=True, on_delete=models.CASCADE, verbose_name=_('Grupo'))
     cen_copiar_de = models.ForeignKey('self', null=True, blank=False, on_delete=models.SET_NULL, verbose_name=_('Copiar de '))
     flag = models.IntegerField(blank=True, null=True, verbose_name=_('Controle'))
+    # 🌟 NOVO: histórico de alterações em OUTRAS tabelas que fizeram este
+    # cenário ficar "ALTERADO" (ver parameters/signals.py). Uma linha por
+    # alteração, em ordem cronológica (a mais antiga primeiro, novas
+    # linhas vão sendo acrescentadas ao final) -- data, hora, usuário,
+    # tabela e (quando dá pra saber) o campo. Só é preenchido a partir da
+    # primeira alteração; continua recebendo linhas novas mesmo depois
+    # que o flag já foi pra 0 (o flag não muda de novo, mas o histórico
+    # continua registrando cada alteração seguinte).
+    ultimas_alteracoes = models.TextField(
+        blank=True, null=True, verbose_name=_('Últimas Alterações'),
+        help_text=_(
+            'Histórico de alterações em outras tabelas que fizeram este cenário ficar '
+            '"ALTERADO" -- uma linha por alteração, preenchido automaticamente.'
+        )
+    )
     # 🌟 NOVO (multi-empresa): a que empresa esse cenário pertence -- fica
     # opcional (null=True) só na transição, pra não quebrar cenários já
     # existentes antes da migração de dados; todo cenário NOVO deve
@@ -279,6 +294,18 @@ class TbCenarios(models.Model):
 
     def clean(self):
         self.cen_nome = self.cen_nome.upper()
+
+        # 🌟 NOVO: só faz sentido checar isso na CRIAÇÃO (self.pk is
+        # None) -- cen_copiar_de é só a origem histórica, escolhida uma
+        # vez; reeditar um cenário já existente depois não deveria travar
+        # por causa do status ATUAL do cenário que serviu de origem lá
+        # atrás.
+        if self.pk is None and self.cen_copiar_de is not None and self.cen_copiar_de.flag != 1:
+            raise ValidationError(
+                'O cenário escolhido para cópia não está CONSOLIDADO. Antes de criar o '
+                'novo cenário, é preciso Limpar, Otimizar e Consolidar o cenário escolhido '
+                'para cópia.'
+            )
 
         if self.cen_fim < self.cen_inicio:
             tipo = self.cen_tipo
@@ -323,6 +350,8 @@ class TbCenarios(models.Model):
 
     def status_cenario(self):
         '''
+        0 = ALTERADO (uma tabela que alimenta o cálculo mudou depois do
+            último processamento -- ver parameters/signals.py)
         1 = CONSOLIDADO
         2 = LIMPO
         3 = OTIMIZADO
@@ -334,6 +363,10 @@ class TbCenarios(models.Model):
         9 = TEM FLUXO(S) ATIVO(S) COM ERRO
         OUTRO = NÃO DEFINIDO
         '''
+        # 🌟 NOVO: precisa vir ANTES do resto -- 0 é um valor "de
+        # verdade" agora (não cai mais em "OUTRO = NÃO DEFINIDO").
+        if self.flag == 0:
+            return 'ALTERADO'
 
         if self.flag == 1:
             return 'CONSOLIDADO'
@@ -668,7 +701,16 @@ class TbCenariosDaugther(models.Model):
                                     if self.flag == 7:
                                         return 'Fluxos atualizados'
                                     else:
-                                        return 'Não definido ...'
+                                        # 🌟 NOVO: 8 sinaliza que uma tabela que
+                                        # alimenta o cálculo mudou depois do
+                                        # último processamento (ver
+                                        # parameters/signals.py) -- separado
+                                        # de 0="Não" pra não confundir com
+                                        # "essa linha não é a solução ótima".
+                                        if self.flag == 8:
+                                            return 'ALTERADO'
+                                        else:
+                                            return 'Não definido ...'
 
     solucao_otima.short_description = _('Solução')
 

@@ -4057,6 +4057,10 @@ FLUXO_PROCESSAR = 'processar_cenario'
 FLUXO_EXCLUIR_CENARIO = 'excluir_cenario'
 
 MENSAGENS_FLAG = {
+    # 🌟 NOVO: 0 sinaliza que uma tabela que alimenta o cálculo mudou
+    # depois do último processamento (ver parameters/signals.py) --
+    # antes caía em "Desconhecido (flag=0)" por não estar nesse dict.
+    0: 'ALTERADO',
     1: 'CONSOLIDADO', 2: 'LIMPO', 3: 'OTIMIZADO',
     4: 'OTIMIZANDO', 5: 'LIMPANDO', 6: 'CONSOLIDANDO', 7: 'ATUALIZANDO FLUXOS',
 }

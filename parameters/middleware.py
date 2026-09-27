@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib import messages
 from django.shortcuts import redirect
 from django.utils import translation
@@ -47,6 +48,29 @@ class DefinirUsuarioAtualMiddleware:
                 # Garante que o cabeçalho HTTP bata com o idioma que
                 # ativamos pra essa requisição.
                 response.headers.setdefault('Content-Language', translation.get_language())
+                # 🌟 CORRIGIDO: faltava gravar o COOKIE de idioma (o
+                # LocaleMiddleware, que roda em toda requisição --
+                # inclusive as de antes/depois do login -- só sabe o
+                # idioma por esse cookie, quando não tem usuário logado
+                # pra consultar). Sem isso, translation.activate() valia
+                # só ENQUANTO essa requisição durava: o idioma escolhido
+                # "sumia" assim que o usuário deslogava, porque nada
+                # tinha sido persistido fora do banco (e o login em si
+                # não tem usuário logado pra ler o PerfilUsuario). Mesmos
+                # parâmetros de cookie (nome, idade, path, domínio,
+                # segurança) que o próprio Django usa na view padrão de
+                # troca de idioma (django.views.i18n.set_language), pra
+                # ficar coerente com o resto do framework.
+                response.set_cookie(
+                    getattr(settings, 'LANGUAGE_COOKIE_NAME', 'django_language'),
+                    translation.get_language(),
+                    max_age=getattr(settings, 'LANGUAGE_COOKIE_AGE', None),
+                    path=getattr(settings, 'LANGUAGE_COOKIE_PATH', '/'),
+                    domain=getattr(settings, 'LANGUAGE_COOKIE_DOMAIN', None),
+                    secure=getattr(settings, 'LANGUAGE_COOKIE_SECURE', False),
+                    httponly=getattr(settings, 'LANGUAGE_COOKIE_HTTPONLY', False),
+                    samesite=getattr(settings, 'LANGUAGE_COOKIE_SAMESITE', 'Lax'),
+                )
         finally:
             # Sempre limpa, mesmo se a view levantar exceção -- evita que o
             # usuário de uma requisição vaze pra próxima na mesma thread

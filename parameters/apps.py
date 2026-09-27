@@ -13,6 +13,15 @@ class ParametersConfig(AppConfig):
     verbose_name = _("       PARÂMETROS")  # 7 espaços
 
     def ready(self):
+        # 🌟 NOVO: conecta os sinais que resetam TbCenarios.flag quando
+        # uma tabela que alimenta o cálculo do cenário muda (ver
+        # parameters/signals.py). Roda SEMPRE, em qualquer processo
+        # (runserver, worker do Celery, comandos de management) --
+        # diferente do reinício automático do worker abaixo, que é
+        # específico de desenvolvimento local via runserver.
+        from .signals import conectar_sinais
+        conectar_sinais()
+
         # 🌟 NOVO: em desenvolvimento local, (re)inicia o worker do Celery
         # automaticamente toda vez que o runserver sobe/recarrega --
         # resolve o "esqueci de deixar o `python -m celery -A sps worker

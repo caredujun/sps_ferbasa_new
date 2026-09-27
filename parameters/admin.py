@@ -74,17 +74,34 @@ class TbCenariosAdmin(DjangoObjectActions, admin.ModelAdmin):
     # o id real da tabela agora é compartilhado entre várias empresas e
     # não faz mais sentido como número visível; numero_sequencial é o
     # número certo, específico da empresa.
-    list_display = ['numero_sequencial', 'ativo', 'botao_ativar', 'cen_nome', 'status_cenario', 'cen_descricao',
-                    'cen_tipo',
+    # 🌟 NOVO: 'ultimas_alteracoes' logo depois de 'ativo', como pedido.
+    list_display = ['numero_sequencial', 'ativo', 'botao_ativar', 'cen_nome', 'status_cenario',
+                    'cen_descricao', 'cen_tipo',
                     'cen_inicio', 'cen_fim', 'cen_grupo']
     search_fields = ('cen_nome',)
-    readonly_fields = ['status_cenario']
+    readonly_fields = ['status_cenario', 'ultimas_alteracoes']
     list_display_links = ['numero_sequencial', 'cen_nome']
     # 🌟 REMOVIDO: list_editable = ['cen_ativo'] -- editava o campo global,
     # confundindo com o conceito de "cenário ativo por usuário". Substituído
     # pela coluna 'ativo' (calculada por usuário) + botão 'Ativar' por linha
     # (ver get_urls/ativar_para_mim/botao_ativar mais abaixo).
     list_filter = (('cen_grupo', admin.RelatedOnlyFieldListFilter),)
+
+    # 🌟 NOVO: "Últimas Alterações" só aparece no formulário de edição
+    # quando o cenário JÁ TEM alguma coisa registrada nesse campo (ver
+    # parameters/signals.py) -- um cenário nunca alterado (ou recém
+    # Limpo, que reseta esse campo) não mostra a linha vazia à toa.
+    '''
+    def get_fields(self, request, obj=None):
+        campos = list(super().get_fields(request, obj))
+        if obj is None or not obj.ultimas_alteracoes:
+        
+            if 'ultimas_alteracoes' in campos:
+                campos.remove('ultimas_alteracoes')
+        elif 'ultimas_alteracoes' not in campos:
+            campos.append('ultimas_alteracoes')
+        return campos
+    '''
 
     class Media:
         js = ('jquery.mask.min.js', 'custom.js')
@@ -870,14 +887,15 @@ class TbCenariosAdmin(DjangoObjectActions, admin.ModelAdmin):
     # sem mais ids fixos forçados, o autoincremento do banco cuida disso
     # sozinho.
 
-    # Mostra o campo ind_valor_inicial somente se estiver incluindo novo registro
+    # Mostra o campo cen_copiar_de somente se estiver incluindo novo registro
     def get_fields(self, request, obj=None):
         if not obj:  # Se estiver adicionando,  irá aparecer o campo para informar o cenário para copiar
             return self.fields + ('cen_copiar_de',)
         # 🌟 'ativo' acrescentado aqui -- mostra se ESTE registro é o
         # cenário ativo do usuário logado, direto no formulário de edição
         # (como você pediu, igual a como era antes com o campo cen_ativo).
-        return self.fields + (('cen_tipo', 'status_cenario'), ('cen_inicio', 'cen_fim'), 'ativo')
+
+        return self.fields + (('cen_tipo', 'status_cenario'), ('cen_inicio', 'cen_fim'), 'ativo', 'ultimas_alteracoes')
 
     # Campo cen_tipo não poderá ser editado
     readonly_fields = ('cen_tipo', 'status_cenario', 'ativo')

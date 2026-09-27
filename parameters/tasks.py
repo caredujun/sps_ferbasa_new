@@ -283,6 +283,8 @@ def limpar_cenario_celery(self, id_cenario):
     cursor.execute(sql)
     cursor.close()
 
+    TbCenarios.objects.filter(id=id_cenario).update(ultimas_alteracoes='')
+
 @shared_task(bind=True)
 def duplica_tabela_celery(self,lista_tabela, chave_pk, copiar_de_id):
     # * self is a representation from app.Task

@@ -4,6 +4,27 @@ from django.conf import settings  # Importe settings
 from django.conf.urls.static import static  # Importe static
 from django.views.generic import RedirectView
 from parameters import views
+# 🌟 NOVO: gettext_lazy (não gettext "eager") -- essencial aqui porque as
+# 3 linhas abaixo rodam só UMA VEZ, na inicialização do servidor, não a
+# cada requisição. Com a versão eager, o texto seria traduzido uma única
+# vez pro idioma que estivesse ativo naquele instante do startup, e
+# ficaria TRAVADO nesse idioma pro resto da vida do processo -- errado
+# num sistema multi-idioma onde cada usuário pode ver um idioma
+# diferente. gettext_lazy adia a tradução de verdade pra quando o texto
+# for efetivamente exibido (aí sim, usando o idioma daquela requisição).
+from django.utils.translation import gettext_lazy as _
+
+# 🌟 NOVO: personalização do cabeçalho/título do Django Admin.
+# Altera o título da página de login e do topo do painel
+admin.site.site_header = _("Administração do Sistema")
+
+# Altera o título da aba do navegador -- "SPS" é a marca/sigla do
+# produto, igual em qualquer idioma -- por isso NÃO é envolvida em
+# gettext_lazy, propositalmente.
+admin.site.site_title = "SPS"
+
+# Altera o texto de boas-vindas da página inicial do admin
+admin.site.index_title = _("Administração")
 
 # 1. Comece com uma lista de URLs vazia ou apenas com a regra de mídia
 urlpatterns = []

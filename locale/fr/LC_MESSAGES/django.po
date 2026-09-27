@@ -2738,3 +2738,19 @@ msgstr "Mettre à jour la Consommation Spécifique et le Coût Variable Ajouté"
 
 msgid "Falar em vez de digitar"
 msgstr "Parler au lieu d'écrire"
+
+# 🌟 NOVO: personalização do cabeçalho do Django Admin (urls.py)
+msgid "Administração do Sistema"
+msgstr "Administration du Système"
+
+msgid "Administração"
+msgstr "Administration"
+
+
+# 🌟 NOVO: campo ultimas_alteracoes em TbCenarios (models.py)
+msgid "Últimas Alterações"
+msgstr "Dernières Modifications"
+
+msgid "Histórico de alterações em outras tabelas que fizeram este cenário ficar \"ALTERADO\" -- uma linha por alteração, preenchido automaticamente."
+msgstr "Historique des modifications dans d'autres tables qui ont fait que ce scénario devienne \"MODIFIÉ\" -- une ligne par modification, rempli automatiquement."
+
