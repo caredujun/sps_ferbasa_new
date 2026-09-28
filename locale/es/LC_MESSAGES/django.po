@@ -2754,3 +2754,14 @@ msgstr "Últimos Cambios"
 msgid "Histórico de alterações em outras tabelas que fizeram este cenário ficar \"ALTERADO\" -- uma linha por alteração, preenchido automaticamente."
 msgstr "Historial de cambios en otras tablas que hicieron que este escenario quedara \"ALTERADO\" -- una línea por cambio, completado automáticamente."
 
+
+# 🌟 NOVO: chat -- placeholder e botão Limpar chat
+msgid "Digite sua pergunta ou mensagem..."
+msgstr "Escribe tu pregunta o mensaje..."
+
+msgid "Limpar chat"
+msgstr "Limpiar chat"
+
+msgid "Limpa só a tela. As mensagens continuam salvas no histórico."
+msgstr "Solo limpia la pantalla. Los mensajes siguen guardados en el historial."
+

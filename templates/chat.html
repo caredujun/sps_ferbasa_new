@@ -238,6 +238,9 @@
             <div style="display: flex; gap: 10px; align-items: center; background: #fff; padding: 10px; border-radius: 6px; border: 1px solid #eee; margin-bottom: 15px; flex-wrap: wrap;">
                 <h2 style="margin: 0; padding: 0; border: none; flex: 1; font-size: 20px;">🤖 {% trans "Agente IA do SPS" %}</h2>
 
+                <!-- 🌟 NOVO: limpa SÓ a tela do chat -- as mensagens já foram gravadas no histórico (HistoricoAgente) no momento do envio, nada é apagado do banco. -->
+                <button type="button" id="btn-limpar-chat" title="{% trans 'Limpa só a tela. As mensagens continuam salvas no histórico.' %}" style="padding: 7px 14px; background-color: #546e7a; font-size: 12px; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">🧹 {% trans "Limpar chat" %}</button>
+
                 <select id="seletor-periodo" style="padding: 6px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px; cursor: pointer; background: #fff;">
                     <option value="hoje">{% trans "Limpar Hoje" %}</option>
                     <option value="7_dias">{% trans "Limpar Últimos 7 dias" %}</option>
@@ -259,11 +262,12 @@
             <div id="chat-box">
                 <p id="placeholder-text" style="color: gray;"><em>{% blocktrans with nome_usuario=user.first_name|default:user.username %}Olá {{ nome_usuario }}! O que posso fazer por você hoje?{% endblocktrans %}</em></p>
             </div>
+            <template id="saudacao-modelo"><p id="placeholder-text" style="color: gray;"><em>{% blocktrans with nome_usuario=user.first_name|default:user.username %}Olá {{ nome_usuario }}! O que posso fazer por você hoje?{% endblocktrans %}</em></p></template>
 
             <form id="chat-form">
                 {% csrf_token %}
                 <div class="input-area">
-                    <input type="text" id="input-box" name="mensagem" placeholder="{% trans 'Digite sua pergunta...' %}" required>
+                    <input type="text" id="input-box" name="mensagem" placeholder="{% trans 'Digite sua pergunta ou mensagem...' %}" required>
                     <button type="button" id="btn-microfone" title="{% trans 'Falar em vez de digitar' %}">🎤</button>
                     <button type="submit" id="btn-enviar">{% trans "Enviar" %}</button>
                 </div>
@@ -1503,6 +1507,16 @@
             desenharGraficosPendentes();
             chatBox.scrollTop = chatBox.scrollHeight;
         })();
+
+        // 🌟 NOVO: "Limpar chat" -- esvazia só a tela e volta a saudação
+        // inicial. Não apaga nada do histórico (já gravado no envio).
+        document.getElementById('btn-limpar-chat').addEventListener('click', function() {
+            var chatBox = document.getElementById('chat-box');
+            var modelo = document.getElementById('saudacao-modelo');
+            chatBox.innerHTML = '';
+            if (modelo) chatBox.appendChild(modelo.content.cloneNode(true));
+            document.getElementById('input-box').focus();
+        });
     </script>
 </body>
 </html>

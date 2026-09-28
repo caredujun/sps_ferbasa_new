@@ -2754,3 +2754,14 @@ msgstr "最近更改"
 msgid "Histórico de alterações em outras tabelas que fizeram este cenário ficar \"ALTERADO\" -- uma linha por alteração, preenchido automaticamente."
 msgstr "记录导致此场景变为\"已更改\"状态的其他表格中的修改历史 -- 每次修改一行，自动填写。"
 
+
+# 🌟 NOVO: chat -- placeholder e botão Limpar chat
+msgid "Digite sua pergunta ou mensagem..."
+msgstr "输入您的问题或消息..."
+
+msgid "Limpar chat"
+msgstr "清空聊天"
+
+msgid "Limpa só a tela. As mensagens continuam salvas no histórico."
+msgstr "仅清空屏幕。消息仍保存在历史记录中。"
+

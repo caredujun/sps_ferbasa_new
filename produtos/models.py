@@ -479,7 +479,7 @@ class TbMercadoOutbound(models.Model):
                                         verbose_name=_('Planta de Produção'), limit_choices_to=limit_choices_to_empresa_ativa)
     mer_out_produto = models.ForeignKey(TbProdutos, on_delete=models.CASCADE, verbose_name=_('Produto'))
     mer_out_indicador = models.ForeignKey(TbIndicadores, null=True, blank=True, on_delete=models.PROTECT,
-                                          verbose_name=_('Indicador'), limit_choices_to=limit_choices_to_empresa_ativa)
+                                          verbose_name=_('Indicador'))
     mer_out_moeda = models.CharField(max_length=3, choices=MerOutChoices.choices, null=False, blank=False,
                                      default='BRL', verbose_name=_('Moeda'))
     mer_out_observacao = models.TextField(max_length=80, verbose_name=_('Observação'), blank=True, null=True)

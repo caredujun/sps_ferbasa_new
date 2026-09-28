@@ -881,7 +881,7 @@ def _etapa_confirmar_processar(estado, texto):
 
     resposta_fluxos = _perguntar_atualizar_fluxos_ou_encaminhar(
         estado.usuario, cenario, 'confirmar_processar',
-        dados_extra={'cenario_criado_id': cenario_id, 'cenario_criado_nome': cenario_nome, 'cenario_criado_numero_sequencial': numero_exibido},
+        dados_extra={**dados, 'cenario_criado_id': cenario_id, 'cenario_criado_nome': cenario_nome, 'cenario_criado_numero_sequencial': numero_exibido},
     )
     if resposta_fluxos is not None:
         return resposta_fluxos
@@ -890,10 +890,10 @@ def _etapa_confirmar_processar(estado, texto):
         _encerrar_fluxo(estado)
         return "Tem fluxo(s) de produção ativo(s) com custo variável zerado. Verifica isso no Admin antes de tentar de novo."
 
-    return _dispatch_limpeza_pos_criacao(estado.usuario, cenario_id, cenario_nome, numero_exibido)
+    return _dispatch_limpeza_pos_criacao(estado.usuario, cenario_id, cenario_nome, numero_exibido, dados_base=dados)
 
 
-def _dispatch_limpeza_pos_criacao(usuario, cenario_id, cenario_nome, numero_exibido):
+def _dispatch_limpeza_pos_criacao(usuario, cenario_id, cenario_nome, numero_exibido, dados_base=None):
     """
     🌟 NOVO: extraído de _etapa_confirmar_processar -- despacha a
     limpeza logo após criar um cenário novo (flag=5 + limpar_cenario_
@@ -915,11 +915,19 @@ def _dispatch_limpeza_pos_criacao(usuario, cenario_id, cenario_nome, numero_exib
     estado = _get_estado(usuario)
     estado.fluxo_ativo = FLUXO_CRIAR
     estado.etapa_atual = 'aguardando_limpeza'
-    estado.dados_coletados = {
+    # 🌟 CORRIGIDO: preserva TODOS os dados que o fluxo já tinha (em
+    # especial cen_copiar_de_id, usado no final pra comparar o cenário
+    # novo com o de origem). Antes substituía por só 3 chaves e a
+    # comparação final rodava contra "nenhum cenário".
+    novos_dados = dict(dados_base if dados_base is not None else (estado.dados_coletados or {}))
+    for chave_temporaria in ('continuar_com', 'cenario_id', 'cenario_nome', 'task_ids', 'disparado_em'):
+        novos_dados.pop(chave_temporaria, None)
+    novos_dados.update({
         'cenario_criado_id': cenario_id,
         'cenario_criado_nome': cenario_nome,
         'cenario_criado_numero_sequencial': numero_exibido,
-    }
+    })
+    estado.dados_coletados = novos_dados
     estado.save()
     return (
         f"Beleza, disparei a **limpeza** do cenário **{numero_exibido}/{cenario_nome}** em segundo plano. "
@@ -1067,6 +1075,9 @@ def _montar_tabela_comparacao(cenario_novo_id, cenario_origem_id):
     filhas_novo = {f.dau_order: f for f in TbCenariosDaugther.objects.filter(mae_id=cenario_novo_id)}
     filhas_origem = {f.dau_order: f for f in TbCenariosDaugther.objects.filter(mae_id=cenario_origem_id)}
 
+    if not cenario_origem_id:
+        return "Não consegui identificar de qual cenário este foi copiado, então não fiz a comparação."
+
     ordens = sorted(set(filhas_novo.keys()) & set(filhas_origem.keys()))
     if not ordens:
         return "Não encontrei períodos em comum entre os dois cenários pra comparar."
@@ -1088,6 +1099,20 @@ def _montar_tabela_comparacao(cenario_novo_id, cenario_origem_id):
 
     if not algo_diferente:
         linhas.append("Nenhuma diferença encontrada -- os valores ficaram idênticos ao cenário de origem, em todos os períodos.")
+
+    # 🌟 NOVO: a comparação é feita mesmo com grupos diferentes, mas o
+    # usuário precisa saber -- a tela "Comparação de Cenários" do Admin
+    # só permite comparar cenários do mesmo grupo.
+    novo = TbCenarios.objects_real.filter(id=cenario_novo_id).select_related('cen_grupo').first()
+    origem = TbCenarios.objects_real.filter(id=cenario_origem_id).select_related('cen_grupo').first()
+    if novo is not None and origem is not None and novo.cen_grupo_id != origem.cen_grupo_id:
+        grupo_novo = novo.cen_grupo.gru_cen_codigo if novo.cen_grupo_id else 'nenhum'
+        grupo_origem = origem.cen_grupo.gru_cen_codigo if origem.cen_grupo_id else 'nenhum'
+        linhas.append(
+            f"\n⚠️ Atenção: os dois cenários estão em **grupos diferentes** (novo: {grupo_novo}; origem: {grupo_origem}). "
+            "A comparação acima foi feita normalmente, mas a tela de Comparação de Cenários do Admin só "
+            "permite comparar cenários do mesmo grupo."
+        )
 
     return "\n".join(linhas)
 
@@ -4173,12 +4198,17 @@ def iniciar_ciclo_completo(usuario, mensagem):
     return _disparar_ciclo_completo(usuario, cenario)
 
 
-def _disparar_ciclo_completo(usuario, cenario):
+def _disparar_ciclo_completo(usuario, cenario, sem_checar_em_andamento=False):
     from fluxos.models import TbFluxoProducaoDaugther01
     from django.db import connection
     from .tasks import limpar_cenario_celery
 
     cenario_id = cenario.id
+
+    if not sem_checar_em_andamento:
+        pergunta_interromper = _perguntar_interromper_ou_encaminhar(usuario, cenario, 'ciclo_completo')
+        if pergunta_interromper is not None:
+            return pergunta_interromper
 
     if TbFluxoProducaoDaugther01.objects.filter(custo_variavel=None, tbcenarios_id=cenario_id, mae_id__flu_pro_ativo=True).count() > 0:
         return "Tem fluxo(s) de produção ativo(s) sem o cálculo dos custos variáveis. Não posso limpar automaticamente -- verifica isso no Admin primeiro."
@@ -4440,37 +4470,247 @@ def _etapa_proc_pos_consolidacao_limpar(estado, texto):
     return _disparar_limpeza_standalone(estado.usuario, cenario)
 
 
-def _todas_tasks_mortas(task_ids):
-    """
-    🌟 NOVO: confere, via Celery (não pelo banco), se NENHUMA das tasks
-    despachadas pra uma operação (limpar/otimizar/consolidar/atualizar
-    fluxos) ainda está rodando em algum worker vivo -- usado pra
-    detectar quando o flag do cenário fica preso num status "em
-    andamento" (OTIMIZANDO, LIMPANDO, etc.) porque o worker que rodava
-    aquilo morreu no meio (ex: um restart do servidor durante testes),
-    em vez de ficar esperando pra sempre um flag que nunca vai mudar
-    sozinho -- reaproveita celery_task_ainda_ativa, já usado com o mesmo
-    propósito no custo_ferbasa.
+# ---------------------------------------------------------------------
+# 🌟 NOVO: interromper operações do Celery em andamento antes de limpar
+# ---------------------------------------------------------------------
+# nome da task -> posição do id do cenário nos argumentos dela
+_TASKS_DO_CICLO = {
+    'limpar_cenario_celery': 0,
+    'consolidar_cenario_celery': 0,
+    'atualizar_fluxos_celery': 0,
+    'otimizar_cenario_celery': 1,   # (periodo, cen_ativo, total_variaveis)
+}
+_ROTULO_TASK = {
+    'limpar_cenario_celery': 'limpeza',
+    'consolidar_cenario_celery': 'consolidação',
+    'atualizar_fluxos_celery': 'atualização de fluxos',
+    'otimizar_cenario_celery': 'otimização',
+}
 
-    Devolve True só quando tem CERTEZA que todas as tasks morreram (sem
-    nenhuma incerteza no meio) -- assim nunca recupera por engano uma
-    operação que só está demorando mais que o normal. False se
-    encontrar QUALQUER uma confirmada ainda ativa. None se não tiver
-    nenhum task_id guardado, ou se não foi possível confirmar (por
-    exemplo, o broker não respondeu a tempo) -- nesses casos, melhor
-    continuar esperando do que arriscar um falso alarme.
+
+def _valor_como_estrutura(valor):
+    """A inspeção do Celery devolve args/kwargs ora como lista/dict, ora como texto."""
+    import ast
+    if isinstance(valor, (list, tuple, dict)):
+        return valor
+    if isinstance(valor, str):
+        try:
+            return ast.literal_eval(valor)
+        except Exception:
+            return None
+    return None
+
+
+def _encontrar_tasks_do_cenario(cenario_id):
     """
-    if not task_ids:
+    Lista as tasks do ciclo (limpar/otimizar/consolidar/atualizar fluxos)
+    deste cenário que estão rodando, reservadas por um worker ou agendadas.
+    Identifica pelo nome da task + id do cenário nos argumentos -- pega
+    também as disparadas pelos botões do Admin, cujo id não fica guardado.
+    Limitação: task ainda na fila do broker (não entregue a nenhum worker)
+    é invisível pra essa inspeção. Devolve [] se não achou nada ou se
+    nenhum worker respondeu.
+    """
+    try:
+        from celery import current_app
+        inspecao = current_app.control.inspect(timeout=2.0)
+        ativas = inspecao.active() or {}
+        reservadas = inspecao.reserved() or {}
+        agendadas = inspecao.scheduled() or {}
+    except Exception:
+        return []
+
+    achadas = []
+
+    def _considerar(t, situacao):
+        nome = (t.get('name') or '').rsplit('.', 1)[-1]
+        if nome not in _TASKS_DO_CICLO:
+            return
+        args = _valor_como_estrutura(t.get('args')) or []
+        kwargs = _valor_como_estrutura(t.get('kwargs')) or {}
+        pos = _TASKS_DO_CICLO[nome]
+        valor = args[pos] if isinstance(args, (list, tuple)) and len(args) > pos else None
+        if valor is None and isinstance(kwargs, dict):
+            valor = kwargs.get('id_cenario', kwargs.get('cen_ativo'))
+        try:
+            bate = int(valor) == int(cenario_id)
+        except (TypeError, ValueError):
+            bate = False
+        if bate and t.get('id'):
+            achadas.append({'id': t['id'], 'nome': nome, 'situacao': situacao})
+
+    for grupo, situacao in ((ativas, 'rodando'), (reservadas, 'na fila de um worker')):
+        for tarefas in grupo.values():
+            for t in tarefas:
+                _considerar(t, situacao)
+    for tarefas in agendadas.values():
+        for t in tarefas:
+            _considerar(t.get('request') or {}, 'agendada')
+    return achadas
+
+
+def _cancelar_consultas_do_cenario(cenario_id):
+    """
+    Matar a task do Celery NÃO mata a consulta que ela já mandou pro
+    Postgres -- uma procedure longa pode continuar rodando órfã e
+    concorrer com a limpeza. Cancela (pg_cancel_backend) as consultas
+    ATIVAS dessas procedures que mencionam este cenário. Devolve quantas
+    foram canceladas.
+    """
+    import re
+    from django.db import connection
+    n = str(int(cenario_id))
+    padroes = [
+        rf'limpa_cenario\(\s*{n}\s*\)',
+        rf'consolida_resultados\(\s*{n}\s*\)',
+        rf'atualiza_input_output_geral\(\s*{n}\s*\)',
+        rf'salva_resultados_order\(\s*{n}\s*,',
+        rf'calcula_media_preco_custo_margem_horaria\(\s*{n}\s*,',
+        rf'media_preco_custo_margem_horaria_venda_zerada\(\s*{n}\s*\)',
+        rf'oti_\w+\(\s*\d+\s*,\s*{n}\s*\)',
+    ]
+    canceladas = 0
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "select pid, query from pg_stat_activity "
+                "where state = 'active' and datname = current_database() and pid <> pg_backend_pid()"
+            )
+            for pid, consulta in cursor.fetchall():
+                if any(re.search(pad, consulta or '', re.IGNORECASE) for pad in padroes):
+                    cursor.execute("select pg_cancel_backend(%s)", [pid])
+                    canceladas += 1
+    except Exception:
+        pass
+    return canceladas
+
+
+def _perguntar_interromper_ou_encaminhar(usuario, cenario, continuar_com):
+    """
+    Se o cenário tem operação(ões) do Celery em andamento, avisa o que
+    está rodando e pergunta se pode interromper antes de limpar. Devolve
+    a pergunta (texto), ou None se não há nada em andamento (o chamador
+    segue normalmente). Só inspeciona o Celery quando o status do cenário
+    já indica operação em andamento -- evita 6s de espera à toa em toda
+    limpeza normal.
+    """
+    if cenario.flag not in FLAGS_OPERACAO_EM_ANDAMENTO:
         return None
-    from custo_ferbasa.tasks import celery_task_ainda_ativa
-    incerto = False
-    for task_id in task_ids:
-        resultado = celery_task_ainda_ativa(task_id)
-        if resultado is True:
+    tasks = _encontrar_tasks_do_cenario(cenario.id)
+    if not tasks:
+        return None
+
+    from collections import Counter
+    numero_exibido = cenario.numero_sequencial if cenario.numero_sequencial is not None else cenario.id
+    por_tipo = {}
+    for t in tasks:
+        por_tipo.setdefault(t['nome'], Counter())[t['situacao']] += 1
+    linhas = []
+    for nome, contagem in por_tipo.items():
+        detalhe = ", ".join(f"{qtd} {sit}" for sit, qtd in contagem.items())
+        linhas.append(f"- {_ROTULO_TASK[nome]}: {sum(contagem.values())} task(s) ({detalhe})")
+
+    estado = _get_estado(usuario)
+    estado.fluxo_ativo = FLUXO_PROCESSAR
+    estado.etapa_atual = 'proc_confirmar_interromper'
+    estado.dados_coletados = {
+        'cenario_id': cenario.id, 'cenario_nome': cenario.cen_nome, 'continuar_com': continuar_com,
+    }
+    estado.save()
+    return (
+        f"O cenário **{numero_exibido}/{cenario.cen_nome}** tem operação em andamento agora "
+        f"({FLAGS_OPERACAO_EM_ANDAMENTO[cenario.flag]}):\n" + "\n".join(linhas) + "\n\n"
+        "Quer que eu **interrompa tudo isso** e faça a limpeza em seguida? (Sim / Não)\n"
+        "A limpeza refaz o cenário do zero, então interromper no meio não deixa nada inconsistente. "
+        "Se essa operação foi disparada por outra pessoa, ela também será interrompida."
+    )
+
+
+def _etapa_proc_confirmar_interromper(estado, texto):
+    import time
+    resposta = texto.strip().lower()
+    dados = estado.dados_coletados
+    cenario_id = dados['cenario_id']
+    cenario_nome = dados['cenario_nome']
+    numero_exibido = _numero_sequencial_por_id(cenario_id)
+
+    if resposta not in ('sim', 's', 'yes', 'y'):
+        _encerrar_fluxo(estado)
+        return f"Ok, não interrompi nada. O cenário **{numero_exibido}/{cenario_nome}** não foi limpo."
+
+    cenario = TbCenarios.objects_real.filter(id=cenario_id).first()
+    if cenario is None:
+        _encerrar_fluxo(estado)
+        return f"O cenário {numero_exibido}/{cenario_nome} não existe mais. Cancelei."
+
+    tasks = _encontrar_tasks_do_cenario(cenario_id)
+    if tasks:
+        from celery import current_app
+        current_app.control.revoke([t['id'] for t in tasks], terminate=True, signal='SIGTERM')
+    canceladas = _cancelar_consultas_do_cenario(cenario_id)
+    time.sleep(2)  # dá tempo dos processos morrerem e soltarem os bloqueios
+
+    aviso = f"Interrompi {len(tasks)} operação(ões) em andamento"
+    if canceladas:
+        aviso += f" e cancelei {canceladas} consulta(s) ainda rodando no banco"
+    aviso += "."
+
+    if dados.get('continuar_com') == 'ciclo_completo':
+        proxima = _disparar_ciclo_completo(estado.usuario, cenario, sem_checar_em_andamento=True)
+    else:
+        proxima = _disparar_limpeza_standalone(estado.usuario, cenario, sem_checar_em_andamento=True)
+    return f"{aviso}\n\n{proxima}"
+
+
+def _todas_tasks_mortas(task_ids, disparado_em=None):
+    """
+    🌟 CORRIGIDO: detecta operação (limpar/otimizar/consolidar/atualizar
+    fluxos) que travou de verdade, MAS de forma bem conservadora. A
+    versão anterior olhava só as tasks "rodando agora" (active) e
+    concluía "morreu" pra qualquer task que ainda estivesse na fila ou
+    reservada por um worker ocupado -- zerando o cenário e cancelando o
+    acompanhamento enquanto a task ainda ia rodar.
+
+    Agora só devolve True quando TODAS estas condições valem:
+      1. passaram pelo menos 10 minutos desde o disparo (task na fila do
+         broker é invisível pra inspeção do Celery, então precisa dar
+         tempo dela ser pega por um worker);
+      2. nenhuma das tasks aparece em active, reserved nem scheduled em
+         nenhum worker;
+      3. o broker respondeu à inspeção (se não respondeu, não afirma nada).
+    Sem 'disparado_em' guardado (estado antigo), nunca declara morta.
+    Devolve None quando não dá pra afirmar, False se achou alguma viva.
+    """
+    if not task_ids or not disparado_em:
+        return None
+    from datetime import datetime, timezone as _tz
+    try:
+        disparo = datetime.fromisoformat(disparado_em)
+        if disparo.tzinfo is None:
+            disparo = disparo.replace(tzinfo=_tz.utc)
+        if (datetime.now(_tz.utc) - disparo).total_seconds() < 600:
+            return None  # cedo demais pra afirmar qualquer coisa
+    except Exception:
+        return None
+    try:
+        from celery import current_app
+        inspecao = current_app.control.inspect(timeout=3.0)
+        ativas = inspecao.active()
+        reservadas = inspecao.reserved()
+        agendadas = inspecao.scheduled()
+        if ativas is None or reservadas is None or agendadas is None:
+            return None  # broker/worker não respondeu -- não afirma nada
+        vivas = set()
+        for grupo in (ativas, reservadas):
+            for tarefas in grupo.values():
+                vivas.update(t.get('id') for t in tarefas)
+        for tarefas in agendadas.values():
+            vivas.update((t.get('request') or {}).get('id') for t in tarefas)
+        if any(tid in vivas for tid in task_ids):
             return False
-        if resultado is None:
-            incerto = True
-    return None if incerto else True
+        return True
+    except Exception:
+        return None
 
 
 def _perguntar_atualizar_fluxos_ou_encaminhar(usuario, cenario, continuar_com, dados_extra=None):
@@ -4536,6 +4776,7 @@ def _continuar_apos_atualizar_fluxos(estado, cenario, dados):
         return _dispatch_limpeza_pos_criacao(
             estado.usuario, cenario.id, cenario.cen_nome,
             numero_exibido if numero_exibido is not None else cenario.numero_sequencial,
+            dados_base=dados,
         )
 
     if continuar_com == 'standalone':
@@ -4570,13 +4811,18 @@ def _disparar_atualizar_fluxos_standalone(usuario, cenario):
     return _perguntar_atualizar_fluxos_ou_encaminhar(usuario, cenario, 'standalone')
 
 
-def _disparar_limpeza_standalone(usuario, cenario):
+def _disparar_limpeza_standalone(usuario, cenario, sem_checar_em_andamento=False):
     numero_exibido = cenario.numero_sequencial if cenario.numero_sequencial is not None else cenario.id
     from fluxos.models import TbFluxoProducaoDaugther01
     from django.db import connection
     from .tasks import limpar_cenario_celery
 
     cenario_id = cenario.id
+
+    if not sem_checar_em_andamento:
+        pergunta_interromper = _perguntar_interromper_ou_encaminhar(usuario, cenario, 'limpeza_standalone')
+        if pergunta_interromper is not None:
+            return pergunta_interromper
 
     if TbFluxoProducaoDaugther01.objects.filter(custo_variavel=None, tbcenarios_id=cenario_id, mae_id__flu_pro_ativo=True).count() > 0:
         return "Tem fluxo(s) de produção ativo(s) sem o cálculo dos custos variáveis. Não posso limpar automaticamente -- verifica isso no Admin primeiro."
@@ -4599,7 +4845,7 @@ def _disparar_limpeza_standalone(usuario, cenario):
     estado = _get_estado(usuario)
     estado.fluxo_ativo = FLUXO_PROCESSAR
     estado.etapa_atual = 'proc_aguardando_limpeza'
-    estado.dados_coletados = {'cenario_id': cenario_id, 'cenario_nome': cenario.cen_nome, 'task_ids': [resultado_async.id]}
+    estado.dados_coletados = {'cenario_id': cenario_id, 'cenario_nome': cenario.cen_nome, 'task_ids': [resultado_async.id], 'disparado_em': __import__('django.utils.timezone', fromlist=['now']).now().isoformat()}
     estado.save()
 
     return (
@@ -4635,6 +4881,7 @@ def _etapa_proc_confirmar_atualizar_fluxos(estado, texto):
 
     estado.etapa_atual = 'proc_aguardando_atualizar_fluxos'
     dados['task_ids'] = [resultado_async.id]
+    dados['disparado_em'] = __import__('django.utils.timezone', fromlist=['now']).now().isoformat()
     estado.dados_coletados = dados  # preserva continuar_com (e qualquer dado extra) pra depois
     estado.save()
 
@@ -4656,7 +4903,7 @@ def _etapa_proc_aguardando_atualizar_fluxos(estado, texto):
         return _continuar_apos_atualizar_fluxos(estado, cenario, dados)
 
     if cenario.flag == 7:  # ainda atualizando
-        if _todas_tasks_mortas(dados.get('task_ids')) is True:
+        if _todas_tasks_mortas(dados.get('task_ids'), dados.get('disparado_em')) is True:
             cursor = connection.cursor()
             sql = "update parameters_tbcenarios set flag = 0 where id = " + str(cenario_id)
             cursor.execute(sql)
@@ -4693,7 +4940,7 @@ def _etapa_proc_aguardando_limpeza(estado, texto):
         # 🌟 NOVO: se nenhuma task ainda está rodando de verdade (worker
         # morreu no meio, por exemplo), o flag=5 nunca ia mudar sozinho
         # -- detecta isso e recupera, em vez de esperar pra sempre.
-        if _todas_tasks_mortas(dados.get('task_ids')) is True:
+        if _todas_tasks_mortas(dados.get('task_ids'), dados.get('disparado_em')) is True:
             cursor = connection.cursor()
             sql = "update parameters_tbcenarios set flag = 0 where id = " + str(cenario_id)
             cursor.execute(sql)
@@ -4758,7 +5005,7 @@ def _disparar_otimizacao_standalone(usuario, cenario):
     estado = _get_estado(usuario)
     estado.fluxo_ativo = FLUXO_PROCESSAR
     estado.etapa_atual = 'proc_aguardando_otimizacao'
-    estado.dados_coletados = {'cenario_id': cenario_id, 'cenario_nome': cenario.cen_nome, 'total_periodos': total_periodos, 'task_ids': task_ids}
+    estado.dados_coletados = {'cenario_id': cenario_id, 'cenario_nome': cenario.cen_nome, 'total_periodos': total_periodos, 'task_ids': task_ids, 'disparado_em': __import__('django.utils.timezone', fromlist=['now']).now().isoformat()}
     estado.save()
 
     return (
@@ -4780,7 +5027,7 @@ def _etapa_proc_aguardando_otimizacao(estado, texto):
     )
 
     if total_otimizado < total_periodos:
-        if _todas_tasks_mortas(dados.get('task_ids')) is True:
+        if _todas_tasks_mortas(dados.get('task_ids'), dados.get('disparado_em')) is True:
             from django.db import connection
             cursor = connection.cursor()
             sql = "update parameters_tbcenarios set flag = 0 where id = " + str(cenario_id)
@@ -4844,7 +5091,7 @@ def _disparar_consolidacao_standalone(usuario, cenario):
     estado = _get_estado(usuario)
     estado.fluxo_ativo = FLUXO_PROCESSAR
     estado.etapa_atual = 'proc_aguardando_consolidacao'
-    estado.dados_coletados = {'cenario_id': cenario_id, 'cenario_nome': cenario.cen_nome, 'task_ids': [resultado_async.id]}
+    estado.dados_coletados = {'cenario_id': cenario_id, 'cenario_nome': cenario.cen_nome, 'task_ids': [resultado_async.id], 'disparado_em': __import__('django.utils.timezone', fromlist=['now']).now().isoformat()}
     estado.save()
 
     return (
@@ -4868,7 +5115,7 @@ def _etapa_proc_aguardando_consolidacao(estado, texto):
         return f"✅ Cenário **{numero_exibido}/{cenario_nome}** consolidado!"
 
     if cenario.flag == 6:  # ainda consolidando
-        if _todas_tasks_mortas(dados.get('task_ids')) is True:
+        if _todas_tasks_mortas(dados.get('task_ids'), dados.get('disparado_em')) is True:
             cursor = connection.cursor()
             sql = "update parameters_tbcenarios set flag = 0 where id = " + str(cenario_id)
             cursor.execute(sql)
@@ -4900,6 +5147,7 @@ _HANDLERS_PROCESSAR = {
     'proc_pos_consolidacao_limpar': _etapa_proc_pos_consolidacao_limpar,
     'proc_aguardando_limpeza': _etapa_proc_aguardando_limpeza,
     'proc_confirmar_atualizar_fluxos': _etapa_proc_confirmar_atualizar_fluxos,
+    'proc_confirmar_interromper': _etapa_proc_confirmar_interromper,
     'proc_aguardando_atualizar_fluxos': _etapa_proc_aguardando_atualizar_fluxos,
     'proc_pos_limpeza_otimizar': _etapa_proc_pos_limpeza_otimizar,
     'proc_aguardando_otimizacao': _etapa_proc_aguardando_otimizacao,
