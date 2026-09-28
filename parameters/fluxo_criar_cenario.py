@@ -95,6 +95,7 @@ ETAPAS_AGUARDANDO_CELERY = {
     'proc_ciclo_aguardando_otimizacao',
     'proc_ciclo_aguardando_consolidacao',
     'proc_aguardando_limpeza',
+    'proc_aguardando_atualizar_fluxos',
     'proc_aguardando_otimizacao',
     'proc_aguardando_consolidacao',
     'cen_excluir_aguardando',
@@ -126,7 +127,7 @@ MINUTOS_EXPIRACAO_FLUXO = 15
 ETAPAS_SEM_EXPIRACAO = {
     'aguardando_duplicacao', 'aguardando_limpeza', 'aguardando_otimizacao',
     'aguardando_consolidacao', 'aguardando_verificacao_filhas',
-    'proc_aguardando_limpeza', 'proc_aguardando_otimizacao', 'proc_aguardando_consolidacao',
+    'proc_aguardando_limpeza', 'proc_aguardando_atualizar_fluxos', 'proc_aguardando_otimizacao', 'proc_aguardando_consolidacao',
     'proc_ciclo_aguardando_limpeza', 'proc_ciclo_aguardando_otimizacao', 'proc_ciclo_aguardando_consolidacao',
     # 🌟 NOVO: esperar o usuário preparar/subir um arquivo pode levar bem
     # mais que 15 minutos (procurar o relatório certo, exportar do
@@ -867,22 +868,42 @@ def _etapa_confirmar_processar(estado, texto):
         _encerrar_fluxo(estado)
         return f"Ok, não vou processar o cenário **{numero_exibido}/{cenario_nome}** agora. Ele já está criado, pode processar manualmente quando quiser."
 
-    from fluxos.models import TbFluxoProducaoDaugther01, TbFluxoProducao
-    from django.db import connection
+    from fluxos.models import TbFluxoProducaoDaugther01
 
     if TbFluxoProducaoDaugther01.objects.filter(custo_variavel=None, tbcenarios_id=cenario_id, mae_id__flu_pro_ativo=True).count() > 0:
         _encerrar_fluxo(estado)
         return "Tem fluxo(s) de produção ativo(s) sem o cálculo dos custos variáveis. Não posso limpar automaticamente -- verifica isso no Admin primeiro."
 
-    if TbFluxoProducao.objects.filter(flu_pro_input_output_atualizado=False, tbcenarios_id=cenario_id, flu_pro_ativo=True).count() > 0:
+    cenario = TbCenarios.objects_real.filter(id=cenario_id).first()
+    if cenario is None:
         _encerrar_fluxo(estado)
-        return "Tem fluxo(s) de produção ativo(s) com I/O desatualizado. Usa \"Atualizar Fluxos\" no Admin antes de tentar de novo."
+        return f"O cenário {numero_exibido}/{cenario_nome} não existe mais. Cancelei o acompanhamento."
+
+    resposta_fluxos = _perguntar_atualizar_fluxos_ou_encaminhar(
+        estado.usuario, cenario, 'confirmar_processar',
+        dados_extra={'cenario_criado_id': cenario_id, 'cenario_criado_nome': cenario_nome, 'cenario_criado_numero_sequencial': numero_exibido},
+    )
+    if resposta_fluxos is not None:
+        return resposta_fluxos
 
     if TbFluxoProducaoDaugther01.objects.filter(custo_variavel=0, tbcenarios_id=cenario_id, mae_id__flu_pro_ativo=True).count() > 0:
         _encerrar_fluxo(estado)
         return "Tem fluxo(s) de produção ativo(s) com custo variável zerado. Verifica isso no Admin antes de tentar de novo."
 
+    return _dispatch_limpeza_pos_criacao(estado.usuario, cenario_id, cenario_nome, numero_exibido)
+
+
+def _dispatch_limpeza_pos_criacao(usuario, cenario_id, cenario_nome, numero_exibido):
+    """
+    🌟 NOVO: extraído de _etapa_confirmar_processar -- despacha a
+    limpeza logo após criar um cenário novo (flag=5 + limpar_cenario_
+    celery.delay + etapa 'aguardando_limpeza' do FLUXO_CRIAR).
+    Também chamada por _continuar_apos_atualizar_fluxos, quando o
+    usuário pediu pra atualizar os fluxos antes de continuar.
+    """
+    from django.db import connection
     from .tasks import limpar_cenario_celery
+
     cursor = connection.cursor()
     sql = "update parameters_tbcenarios set flag = 5 where id = " + str(cenario_id)
     cursor.execute(sql)
@@ -891,7 +912,14 @@ def _etapa_confirmar_processar(estado, texto):
     cursor.close()
     limpar_cenario_celery.delay(cenario_id)
 
+    estado = _get_estado(usuario)
+    estado.fluxo_ativo = FLUXO_CRIAR
     estado.etapa_atual = 'aguardando_limpeza'
+    estado.dados_coletados = {
+        'cenario_criado_id': cenario_id,
+        'cenario_criado_nome': cenario_nome,
+        'cenario_criado_numero_sequencial': numero_exibido,
+    }
     estado.save()
     return (
         f"Beleza, disparei a **limpeza** do cenário **{numero_exibido}/{cenario_nome}** em segundo plano. "
@@ -4146,7 +4174,7 @@ def iniciar_ciclo_completo(usuario, mensagem):
 
 
 def _disparar_ciclo_completo(usuario, cenario):
-    from fluxos.models import TbFluxoProducaoDaugther01, TbFluxoProducao
+    from fluxos.models import TbFluxoProducaoDaugther01
     from django.db import connection
     from .tasks import limpar_cenario_celery
 
@@ -4155,8 +4183,9 @@ def _disparar_ciclo_completo(usuario, cenario):
     if TbFluxoProducaoDaugther01.objects.filter(custo_variavel=None, tbcenarios_id=cenario_id, mae_id__flu_pro_ativo=True).count() > 0:
         return "Tem fluxo(s) de produção ativo(s) sem o cálculo dos custos variáveis. Não posso limpar automaticamente -- verifica isso no Admin primeiro."
 
-    if TbFluxoProducao.objects.filter(flu_pro_input_output_atualizado=False, tbcenarios_id=cenario_id, flu_pro_ativo=True).count() > 0:
-        return "Tem fluxo(s) de produção ativo(s) com I/O desatualizado. Usa \"Atualizar Fluxos\" no Admin antes de tentar de novo."
+    resposta_fluxos = _perguntar_atualizar_fluxos_ou_encaminhar(usuario, cenario, 'ciclo_completo')
+    if resposta_fluxos is not None:
+        return resposta_fluxos
 
     if TbFluxoProducaoDaugther01.objects.filter(custo_variavel=0, tbcenarios_id=cenario_id, mae_id__flu_pro_ativo=True).count() > 0:
         return "Tem fluxo(s) de produção ativo(s) com custo variável zerado. Verifica isso no Admin antes de tentar de novo."
@@ -4317,10 +4346,19 @@ def _etapa_proc_ciclo_aguardando_consolidacao(estado, texto):
 def determinar_acao_processar(mensagem):
     """
     Mesma ideia de determinar_acao_indicadores, pra limpar/otimizar/
-    consolidar. Devolve None se a mensagem não bater com nenhuma das 3.
+    consolidar/atualizar fluxos. Devolve None se a mensagem não bater
+    com nenhuma das 4.
     """
     texto = (mensagem or '').lower()
-    if re.search(r'limp[ae]r?', texto):
+    # 🌟 NOVO: precisa checar "atualizar fluxo" ANTES de "limpar" -- não
+    # tem sobreposição de palavra entre os dois, mas mantém a ordem
+    # consistente com a do menu (Atualizar Fluxos aparece antes de
+    # Limpar). Exige a palavra "fluxo" junto com "atualizar", pra não
+    # confundir com outras ações de "atualizar" do sistema (atualizar
+    # indicador, atualizar consumo específico, etc.).
+    if re.search(r'atualiz[ae]r?.*fluxo', texto):
+        return 'atualizar_fluxos'
+    elif re.search(r'limp[ae]r?', texto):
         return 'limpar'
     elif re.search(r'otimiz[ae]r?', texto):
         return 'otimizar'
@@ -4340,13 +4378,15 @@ def iniciar_fluxo_processar(usuario, mensagem):
 
     acao = determinar_acao_processar(mensagem)
     if acao is None:
-        return "Não entendi se você quer **limpar**, **otimizar**, ou **consolidar** o cenário ativo. Pode repetir dizendo qual dessas ações?"
+        return "Não entendi se você quer **atualizar fluxos**, **limpar**, **otimizar**, ou **consolidar** o cenário ativo. Pode repetir dizendo qual dessas ações?"
 
     # 🌟 CORRIGIDO: a trava de "já tem operação em andamento" NÃO deve
     # valer pra "limpar" -- limpar é sempre permitido, independente do
     # status atual do cenário (é justamente o jeito de "resetar" um
     # cenário que ficou travado ou num estado inconsistente). Só faz
-    # sentido bloquear otimizar/consolidar enquanto algo já está rodando.
+    # sentido bloquear otimizar/consolidar/atualizar_fluxos enquanto algo
+    # já está rodando (inclusive uma OUTRA atualização de fluxos já em
+    # andamento -- flag=7 já está em FLAGS_OPERACAO_EM_ANDAMENTO).
     if acao != 'limpar' and cenario.flag in FLAGS_OPERACAO_EM_ANDAMENTO:
         return (
             f"O cenário {cenario.numero_sequencial}/{cenario.cen_nome} já está com uma operação em andamento agora "
@@ -4371,7 +4411,9 @@ def iniciar_fluxo_processar(usuario, mensagem):
             "antes de consolidar."
         )
 
-    if acao == 'limpar':
+    if acao == 'atualizar_fluxos':
+        return _disparar_atualizar_fluxos_standalone(usuario, cenario)
+    elif acao == 'limpar':
         return _disparar_limpeza_standalone(usuario, cenario)
     elif acao == 'otimizar':
         return _disparar_otimizacao_standalone(usuario, cenario)
@@ -4398,9 +4440,139 @@ def _etapa_proc_pos_consolidacao_limpar(estado, texto):
     return _disparar_limpeza_standalone(estado.usuario, cenario)
 
 
+def _todas_tasks_mortas(task_ids):
+    """
+    🌟 NOVO: confere, via Celery (não pelo banco), se NENHUMA das tasks
+    despachadas pra uma operação (limpar/otimizar/consolidar/atualizar
+    fluxos) ainda está rodando em algum worker vivo -- usado pra
+    detectar quando o flag do cenário fica preso num status "em
+    andamento" (OTIMIZANDO, LIMPANDO, etc.) porque o worker que rodava
+    aquilo morreu no meio (ex: um restart do servidor durante testes),
+    em vez de ficar esperando pra sempre um flag que nunca vai mudar
+    sozinho -- reaproveita celery_task_ainda_ativa, já usado com o mesmo
+    propósito no custo_ferbasa.
+
+    Devolve True só quando tem CERTEZA que todas as tasks morreram (sem
+    nenhuma incerteza no meio) -- assim nunca recupera por engano uma
+    operação que só está demorando mais que o normal. False se
+    encontrar QUALQUER uma confirmada ainda ativa. None se não tiver
+    nenhum task_id guardado, ou se não foi possível confirmar (por
+    exemplo, o broker não respondeu a tempo) -- nesses casos, melhor
+    continuar esperando do que arriscar um falso alarme.
+    """
+    if not task_ids:
+        return None
+    from custo_ferbasa.tasks import celery_task_ainda_ativa
+    incerto = False
+    for task_id in task_ids:
+        resultado = celery_task_ainda_ativa(task_id)
+        if resultado is True:
+            return False
+        if resultado is None:
+            incerto = True
+    return None if incerto else True
+
+
+def _perguntar_atualizar_fluxos_ou_encaminhar(usuario, cenario, continuar_com, dados_extra=None):
+    """
+    🌟 NOVO: checagem reutilizável de "tem fluxo de produção ativo com
+    I/O desatualizado?", usada pelos 3 lugares que precisam dela antes
+    de limpar um cenário (_disparar_limpeza_standalone,
+    _disparar_ciclo_completo, _etapa_confirmar_processar). Se tiver
+    fluxo desatualizado, pergunta se quer que o Agente atualize (mesma
+    rotina do botão "Atualizar Fluxos" do Admin) antes de continuar --
+    guardando em 'continuar_com' QUAL fluxo retomar depois que a
+    atualização terminar (ver _continuar_apos_atualizar_fluxos). Se não
+    tiver nenhum desatualizado, devolve None -- o chamador segue com a
+    própria lógica normalmente, sem nenhuma mudança de comportamento.
+    """
+    from fluxos.models import TbFluxoProducao
+
+    cenario_id = cenario.id
+    numero_exibido = cenario.numero_sequencial if cenario.numero_sequencial is not None else cenario.id
+
+    qtd_desatualizados = TbFluxoProducao.objects.filter(
+        flu_pro_input_output_atualizado=False, tbcenarios_id=cenario_id, flu_pro_ativo=True
+    ).count()
+    if qtd_desatualizados == 0:
+        return None
+
+    estado = _get_estado(usuario)
+    estado.fluxo_ativo = FLUXO_PROCESSAR
+    estado.etapa_atual = 'proc_confirmar_atualizar_fluxos'
+    estado.dados_coletados = {
+        'cenario_id': cenario_id,
+        'cenario_nome': cenario.cen_nome,
+        'continuar_com': continuar_com,
+        **(dados_extra or {}),
+    }
+    estado.save()
+    plural = 's' if qtd_desatualizados > 1 else ''
+    return (
+        f"Existem **{qtd_desatualizados} fluxo(s)** de produção ativo{plural} com I/O desatualizado no "
+        f"cenário **{numero_exibido}/{cenario.cen_nome}**. Quer que eu atualize os fluxos agora, antes de "
+        "continuar? (Sim / Não)"
+    )
+
+
+def _continuar_apos_atualizar_fluxos(estado, cenario, dados):
+    """
+    🌟 NOVO: retoma o fluxo certo depois que os I/O de produção
+    terminaram de ser atualizados -- qual retomar vem de
+    dados['continuar_com'], guardado por
+    _perguntar_atualizar_fluxos_ou_encaminhar no momento em que a
+    pergunta foi feita.
+    """
+    continuar_com = dados.get('continuar_com')
+
+    if continuar_com == 'limpeza_standalone':
+        return _disparar_limpeza_standalone(estado.usuario, cenario)
+
+    if continuar_com == 'ciclo_completo':
+        return _disparar_ciclo_completo(estado.usuario, cenario)
+
+    if continuar_com == 'confirmar_processar':
+        numero_exibido = dados.get('cenario_criado_numero_sequencial')
+        return _dispatch_limpeza_pos_criacao(
+            estado.usuario, cenario.id, cenario.cen_nome,
+            numero_exibido if numero_exibido is not None else cenario.numero_sequencial,
+        )
+
+    if continuar_com == 'standalone':
+        # 🌟 NOVO: ação "Atualizar Fluxos de Produção" avulsa -- não
+        # encadeia em nada depois, só confirma que terminou.
+        numero_exibido = cenario.numero_sequencial if cenario.numero_sequencial is not None else cenario.id
+        _encerrar_fluxo(estado)
+        return f"✅ Fluxos de produção do cenário **{numero_exibido}/{cenario.cen_nome}** atualizados com sucesso."
+
+    _encerrar_fluxo(estado)
+    return "Os fluxos foram atualizados, mas não consegui identificar o que fazer em seguida. Tenta de novo."
+
+
+def _disparar_atualizar_fluxos_standalone(usuario, cenario):
+    """
+    🌟 NOVO: Ação Comum "Atualizar Fluxos de Produção" -- checa se
+    existe fluxo de produção ativo com I/O desatualizado no cenário
+    ativo. Se não tiver nenhum, avisa e encerra (nada a fazer). Se
+    tiver, informa a quantidade e pergunta se quer atualizar (reaproveita
+    _perguntar_atualizar_fluxos_ou_encaminhar, a mesma pergunta usada
+    quando "Limpar" encontra fluxo desatualizado no meio do caminho).
+    """
+    numero_exibido = cenario.numero_sequencial if cenario.numero_sequencial is not None else cenario.id
+
+    from fluxos.models import TbFluxoProducao
+    qtd_desatualizados = TbFluxoProducao.objects.filter(
+        flu_pro_input_output_atualizado=False, tbcenarios_id=cenario.id, flu_pro_ativo=True
+    ).count()
+    if qtd_desatualizados == 0:
+        return f"Não existem fluxos de produção desatualizados no cenário **{numero_exibido}/{cenario.cen_nome}**."
+
+    return _perguntar_atualizar_fluxos_ou_encaminhar(usuario, cenario, 'standalone')
+
+
 def _disparar_limpeza_standalone(usuario, cenario):
     numero_exibido = cenario.numero_sequencial if cenario.numero_sequencial is not None else cenario.id
-    from fluxos.models import TbFluxoProducaoDaugther01, TbFluxoProducao
+    from fluxos.models import TbFluxoProducaoDaugther01
     from django.db import connection
     from .tasks import limpar_cenario_celery
 
@@ -4409,8 +4581,9 @@ def _disparar_limpeza_standalone(usuario, cenario):
     if TbFluxoProducaoDaugther01.objects.filter(custo_variavel=None, tbcenarios_id=cenario_id, mae_id__flu_pro_ativo=True).count() > 0:
         return "Tem fluxo(s) de produção ativo(s) sem o cálculo dos custos variáveis. Não posso limpar automaticamente -- verifica isso no Admin primeiro."
 
-    if TbFluxoProducao.objects.filter(flu_pro_input_output_atualizado=False, tbcenarios_id=cenario_id, flu_pro_ativo=True).count() > 0:
-        return "Tem fluxo(s) de produção ativo(s) com I/O desatualizado. Usa \"Atualizar Fluxos\" no Admin antes de tentar de novo."
+    resposta_fluxos = _perguntar_atualizar_fluxos_ou_encaminhar(usuario, cenario, 'limpeza_standalone')
+    if resposta_fluxos is not None:
+        return resposta_fluxos
 
     if TbFluxoProducaoDaugther01.objects.filter(custo_variavel=0, tbcenarios_id=cenario_id, mae_id__flu_pro_ativo=True).count() > 0:
         return "Tem fluxo(s) de produção ativo(s) com custo variável zerado. Verifica isso no Admin antes de tentar de novo."
@@ -4421,12 +4594,12 @@ def _disparar_limpeza_standalone(usuario, cenario):
     sql = "update parameters_tbcenariosdaugther set flag = 3 where otimizar = true and mae_id = " + str(cenario_id)
     cursor.execute(sql)
     cursor.close()
-    limpar_cenario_celery.delay(cenario_id)
+    resultado_async = limpar_cenario_celery.delay(cenario_id)
 
     estado = _get_estado(usuario)
     estado.fluxo_ativo = FLUXO_PROCESSAR
     estado.etapa_atual = 'proc_aguardando_limpeza'
-    estado.dados_coletados = {'cenario_id': cenario_id, 'cenario_nome': cenario.cen_nome}
+    estado.dados_coletados = {'cenario_id': cenario_id, 'cenario_nome': cenario.cen_nome, 'task_ids': [resultado_async.id]}
     estado.save()
 
     return (
@@ -4434,7 +4607,74 @@ def _disparar_limpeza_standalone(usuario, cenario):
     )
 
 
+def _etapa_proc_confirmar_atualizar_fluxos(estado, texto):
+    """
+    🌟 NOVO: resposta ao "quer que eu atualize os fluxos desatualizados
+    antes de continuar?" (ver _perguntar_atualizar_fluxos_ou_encaminhar).
+    Se sim, dispara atualizar_fluxos_celery (mesma rotina do botão
+    "Atualizar Fluxos" do Admin) e acompanha via polling; quando
+    terminar, retoma o fluxo certo (ver _continuar_apos_atualizar_fluxos).
+    """
+    resposta = texto.strip().lower()
+    dados = estado.dados_coletados
+    cenario_id = dados['cenario_id']
+    cenario_nome = dados['cenario_nome']
+    numero_exibido = _numero_sequencial_por_id(cenario_id)
+
+    if resposta not in ('sim', 's', 'yes', 'y'):
+        _encerrar_fluxo(estado)
+        return f"Ok, não atualizei os fluxos. Cenário **{numero_exibido}/{cenario_nome}** não foi processado -- resolve isso no Admin quando quiser tentar de novo."
+
+    cenario = TbCenarios.objects_real.filter(id=cenario_id).first()
+    if cenario is None:
+        _encerrar_fluxo(estado)
+        return f"O cenário {numero_exibido}/{cenario_nome} não existe mais. Cancelei o acompanhamento."
+
+    from .tasks import atualizar_fluxos_celery
+    resultado_async = atualizar_fluxos_celery.delay(cenario_id)
+
+    estado.etapa_atual = 'proc_aguardando_atualizar_fluxos'
+    dados['task_ids'] = [resultado_async.id]
+    estado.dados_coletados = dados  # preserva continuar_com (e qualquer dado extra) pra depois
+    estado.save()
+
+    return f"Disparei a **atualização dos fluxos** do cenário **{numero_exibido}/{cenario_nome}** em segundo plano."
+
+
+def _etapa_proc_aguardando_atualizar_fluxos(estado, texto):
+    from django.db import connection
+    dados = estado.dados_coletados
+    cenario_id = dados['cenario_id']
+    cenario_nome = dados['cenario_nome']
+    numero_exibido = _numero_sequencial_por_id(cenario_id)
+    cenario = TbCenarios.objects_real.filter(id=cenario_id).first()
+    if cenario is None:
+        _encerrar_fluxo(estado)
+        return f"O cenário {numero_exibido}/{cenario_nome} não existe mais. Cancelei o acompanhamento."
+
+    if cenario.flag == 8:  # FLUXOS ATUALIZADOS
+        return _continuar_apos_atualizar_fluxos(estado, cenario, dados)
+
+    if cenario.flag == 7:  # ainda atualizando
+        if _todas_tasks_mortas(dados.get('task_ids')) is True:
+            cursor = connection.cursor()
+            sql = "update parameters_tbcenarios set flag = 0 where id = " + str(cenario_id)
+            cursor.execute(sql)
+            cursor.close()
+            _encerrar_fluxo(estado)
+            return (
+                f"A atualização de fluxos do cenário **{numero_exibido}/{cenario_nome}** parece ter "
+                "travado (nenhum processo ainda está rodando, mas ela não terminou). Marquei o "
+                "cenário como ALTERADO -- pode tentar de novo."
+            )
+        return f"Ainda atualizando os fluxos do cenário **{numero_exibido}/{cenario_nome}**."
+
+    _encerrar_fluxo(estado)
+    return f"O status do cenário **{numero_exibido}/{cenario_nome}** mudou pra algo inesperado (flag={cenario.flag}) -- melhor conferir manualmente no Admin. Cancelei o acompanhamento automático aqui."
+
+
 def _etapa_proc_aguardando_limpeza(estado, texto):
+    from django.db import connection
     dados = estado.dados_coletados
     cenario_id = dados['cenario_id']
     cenario_nome = dados['cenario_nome']
@@ -4450,6 +4690,20 @@ def _etapa_proc_aguardando_limpeza(estado, texto):
         return f"✅ Cenário **{numero_exibido}/{cenario_nome}** limpo! Quer que eu já dispare a **otimização**? (Sim / Não)"
 
     if cenario.flag == 5:  # ainda limpando
+        # 🌟 NOVO: se nenhuma task ainda está rodando de verdade (worker
+        # morreu no meio, por exemplo), o flag=5 nunca ia mudar sozinho
+        # -- detecta isso e recupera, em vez de esperar pra sempre.
+        if _todas_tasks_mortas(dados.get('task_ids')) is True:
+            cursor = connection.cursor()
+            sql = "update parameters_tbcenarios set flag = 0 where id = " + str(cenario_id)
+            cursor.execute(sql)
+            cursor.close()
+            _encerrar_fluxo(estado)
+            return (
+                f"A limpeza do cenário **{numero_exibido}/{cenario_nome}** parece ter travado (nenhum "
+                "processo ainda está rodando, mas ela não terminou). Marquei o cenário como ALTERADO "
+                "-- pode tentar limpar de novo."
+            )
         return f"Ainda limpando o cenário **{numero_exibido}/{cenario_nome}**."
 
     _encerrar_fluxo(estado)
@@ -4495,14 +4749,16 @@ def _disparar_otimizacao_standalone(usuario, cenario):
     from otimizacao.models import TbProdutoMercadoFluxo
     total_variaveis = TbProdutoMercadoFluxo.objects.filter(tbcenarios_id=cenario_id, flag=True).count()
 
+    task_ids = []
     for i in range(total_periodos):
         if TbCenariosDaugther.objects.get(mae_id=cenario_id, dau_order=i + 1).otimizar:
-            otimizar_cenario_celery.delay(i, cenario_id, total_variaveis)
+            resultado_async = otimizar_cenario_celery.delay(i, cenario_id, total_variaveis)
+            task_ids.append(resultado_async.id)
 
     estado = _get_estado(usuario)
     estado.fluxo_ativo = FLUXO_PROCESSAR
     estado.etapa_atual = 'proc_aguardando_otimizacao'
-    estado.dados_coletados = {'cenario_id': cenario_id, 'cenario_nome': cenario.cen_nome, 'total_periodos': total_periodos}
+    estado.dados_coletados = {'cenario_id': cenario_id, 'cenario_nome': cenario.cen_nome, 'total_periodos': total_periodos, 'task_ids': task_ids}
     estado.save()
 
     return (
@@ -4524,6 +4780,18 @@ def _etapa_proc_aguardando_otimizacao(estado, texto):
     )
 
     if total_otimizado < total_periodos:
+        if _todas_tasks_mortas(dados.get('task_ids')) is True:
+            from django.db import connection
+            cursor = connection.cursor()
+            sql = "update parameters_tbcenarios set flag = 0 where id = " + str(cenario_id)
+            cursor.execute(sql)
+            cursor.close()
+            _encerrar_fluxo(estado)
+            return (
+                f"A otimização do cenário **{numero_exibido}/{cenario_nome}** parece ter travado "
+                f"({total_otimizado} de {total_periodos} período(s) concluídos, mas nenhum processo "
+                "ainda está rodando). Marquei o cenário como ALTERADO -- pode tentar otimizar de novo."
+            )
         return (
             f"Ainda otimizando o cenário **{numero_exibido}/{cenario_nome}** "
             f"({total_otimizado} de {total_periodos} período(s) concluídos). "
@@ -4571,12 +4839,12 @@ def _disparar_consolidacao_standalone(usuario, cenario):
     sql = "update parameters_tbcenarios set flag = 6 where id = " + str(cenario_id)
     cursor.execute(sql)
     cursor.close()
-    consolidar_cenario_celery.delay(cenario_id)
+    resultado_async = consolidar_cenario_celery.delay(cenario_id)
 
     estado = _get_estado(usuario)
     estado.fluxo_ativo = FLUXO_PROCESSAR
     estado.etapa_atual = 'proc_aguardando_consolidacao'
-    estado.dados_coletados = {'cenario_id': cenario_id, 'cenario_nome': cenario.cen_nome}
+    estado.dados_coletados = {'cenario_id': cenario_id, 'cenario_nome': cenario.cen_nome, 'task_ids': [resultado_async.id]}
     estado.save()
 
     return (
@@ -4585,6 +4853,7 @@ def _disparar_consolidacao_standalone(usuario, cenario):
 
 
 def _etapa_proc_aguardando_consolidacao(estado, texto):
+    from django.db import connection
     dados = estado.dados_coletados
     cenario_id = dados['cenario_id']
     cenario_nome = dados['cenario_nome']
@@ -4599,6 +4868,17 @@ def _etapa_proc_aguardando_consolidacao(estado, texto):
         return f"✅ Cenário **{numero_exibido}/{cenario_nome}** consolidado!"
 
     if cenario.flag == 6:  # ainda consolidando
+        if _todas_tasks_mortas(dados.get('task_ids')) is True:
+            cursor = connection.cursor()
+            sql = "update parameters_tbcenarios set flag = 0 where id = " + str(cenario_id)
+            cursor.execute(sql)
+            cursor.close()
+            _encerrar_fluxo(estado)
+            return (
+                f"A consolidação do cenário **{numero_exibido}/{cenario_nome}** parece ter travado "
+                "(nenhum processo ainda está rodando, mas ela não terminou). Marquei o cenário como "
+                "ALTERADO -- pode tentar consolidar de novo."
+            )
         return f"Ainda consolidando o cenário **{numero_exibido}/{cenario_nome}**."
 
     _encerrar_fluxo(estado)
@@ -4619,6 +4899,8 @@ _HANDLERS_PROCESSAR = {
     'proc_ciclo_aguardando_consolidacao': _etapa_proc_ciclo_aguardando_consolidacao,
     'proc_pos_consolidacao_limpar': _etapa_proc_pos_consolidacao_limpar,
     'proc_aguardando_limpeza': _etapa_proc_aguardando_limpeza,
+    'proc_confirmar_atualizar_fluxos': _etapa_proc_confirmar_atualizar_fluxos,
+    'proc_aguardando_atualizar_fluxos': _etapa_proc_aguardando_atualizar_fluxos,
     'proc_pos_limpeza_otimizar': _etapa_proc_pos_limpeza_otimizar,
     'proc_aguardando_otimizacao': _etapa_proc_aguardando_otimizacao,
     'proc_pos_otimizacao_consolidar': _etapa_proc_pos_otimizacao_consolidar,

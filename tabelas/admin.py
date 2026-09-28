@@ -1571,6 +1571,19 @@ class TbCustoTipoAdmin(_EmpresaFiltradaAdminMixin, admin.ModelAdmin):
         models.TextField: {'widget': Textarea(attrs={'rows': 3, 'cols': 100})},
     }
 
+    # 🌟 NOVO (multi-empresa): grupos agora pertencem a uma empresa
+    # (TbGrupoEmpresa) -- sem esse filtro, esse campo listava TODOS os
+    # grupos do sistema, de qualquer empresa.
+    def formfield_for_manytomany(self, db_field, request, **kwargs):
+        if db_field.name == 'cus_tip_group':
+            perfil = getattr(request.user, 'perfilusuario', None)
+            empresa_id = perfil.empresa_efetiva_id() if perfil is not None else None
+            if empresa_id is not None:
+                kwargs['queryset'] = Group.objects.filter(empresa_vinculo__empresa_id=empresa_id)
+            else:
+                kwargs['queryset'] = Group.objects.none()
+        return super().formfield_for_manytomany(db_field, request, **kwargs)
+
 
 admin.site.register(TbCustoTipo, TbCustoTipoAdmin)
 
@@ -2987,7 +3000,3 @@ class TbEquacaoAjustePrecoAdmin(_EmpresaFiltradaAdminMixin, DjangoObjectActions,
 
 # Registrando
 admin.site.register(TbEquacaoAjustePreco, TbEquacaoAjustePrecoAdmin)
-
-
-
-

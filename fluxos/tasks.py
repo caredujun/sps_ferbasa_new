@@ -8,7 +8,6 @@ from celery import shared_task
 from equipamentos.models import TbEquipamentosCadastro, TbEquipamentos
 from fluxos.models import TbFluxoProducao, TbFluxoProducaoInputOutput, TbFluxoProducaoDaugther, \
     TbFluxoProducaoDaugther01
-from parameters.models import TbCenarios
 import io
 from django.core.files.base import ContentFile
 from django.utils.safestring import mark_safe
@@ -25,7 +24,7 @@ import openpyxl  # Para ler Excel xlsx
 
 
 @shared_task(bind=True)
-def importar_excel_fluxo_producao_celery(self, lista):
+def importar_excel_fluxo_producao_celery(self, lista, cenario_id):
     '''
     # * self is a representation from app.Task
     task_result = TaskResult.objects.get_task(self.request.id)
@@ -115,7 +114,13 @@ def importar_excel_fluxo_producao_celery(self, lista):
                 #  Vamos ver se o total de lançamentos na filha está de acordo com o total de mães. Vamos precisar do total de períodos do cenário ativo.
 
                 #  Vamos obter o total de períodos para o cenário ativo
-                cen_ativo_id = TbCenarios.objects.get(cen_ativo=True).id
+                # 🌟 CORRIGIDO: usa o cenario_id recebido explicitamente
+                # como parâmetro (resolvido no admin, onde HÁ usuário
+                # logado) em vez de TbCenarios.objects.get(cen_ativo=True)
+                # -- essa task roda num worker do Celery, sem usuário no
+                # contexto, então o flag global não é confiável com mais
+                # de um usuário no sistema.
+                cen_ativo_id = cenario_id
                 cursor = connection.cursor()
                 sql = "select conta_periodos(" + str(cen_ativo_id) + ")"
                 cursor.execute(sql)
@@ -131,7 +136,7 @@ def importar_excel_fluxo_producao_celery(self, lista):
 
                     #  Vamos ver se o cenário informado no fluxo, sequência e na filhas é o cenário ativo.
                     # Cenário ativo
-                    cen_ativo = TbCenarios.objects.get(cen_ativo=True).id
+                    cen_ativo = cenario_id
 
                     wb.active = wb['fluxo']
                     sheet = wb.active  # Abrindo a aba fluxo
@@ -441,7 +446,7 @@ def update_fluxo_lista(self, lista):
 
 
 @shared_task(bind=True)
-def importar_excel_new_segundo_celery(self):
+def importar_excel_new_segundo_celery(self, cenario_id):
     # * self is a representation from app.Task
     task_result = TaskResult.objects.get_task(self.request.id)
     task_result.status = 'RUNNING'
@@ -493,7 +498,7 @@ def importar_excel_new_segundo_celery(self):
         # Vamos verificar se os dados informados estão ok.
         dados_ok = True
         # Cenário ativo
-        cen_ativo = TbCenarios.objects.get(cen_ativo=True).id
+        cen_ativo = cenario_id  # 🌟 CORRIGIDO: recebido como parâmetro, não mais via flag global
 
         for i in range(total_linhas_mae):
             if i > 0:  # Porque a linha 0 é o cabeçalho
@@ -580,7 +585,7 @@ def importar_excel_new_segundo_celery(self):
         #messages.error(request, 'Cabeçalho do arquivo Excel não está correto. Favor verificar!')
 
 @shared_task(bind=True)
-def importar_excel_xlsx_new_segundo_celery(self):
+def importar_excel_xlsx_new_segundo_celery(self, cenario_id):
     # * self is a representation from app.Task
     task_result = TaskResult.objects.get_task(self.request.id)
     task_result.status = 'RUNNING'
@@ -621,7 +626,7 @@ def importar_excel_xlsx_new_segundo_celery(self):
         # Vamos verificar se os dados informados estão ok.
         dados_ok = True
         # Cenário ativo
-        cen_ativo = TbCenarios.objects.get(cen_ativo=True).id
+        cen_ativo = cenario_id  # 🌟 CORRIGIDO: recebido como parâmetro, não mais via flag global
 
         for i in range(1, total_linhas_mae + 1):
             if i > 1:  # Porque a linha 1 é o cabeçalho
@@ -721,8 +726,14 @@ def update_fluxo_celery(id_fluxo):
     # Create a file-like buffer to receive PDF data.
     buffer = io.BytesIO()
 
-    # Vamos pegar o cenário ativo
-    ativo = TbCenarios.objects.get(cen_ativo=True).id
+    # 🌟 CORRIGIDO: antes usava TbCenarios.objects.get(cen_ativo=True) --
+    # o flag global "cenário ativo", que não existe mais de forma
+    # confiável dentro de uma Celery task (sem usuário logado no
+    # contexto, cada worker resolveria um usuário DIFERENTE, ou nenhum).
+    # Como id_fluxo já pertence a um cenário específico (tbcenarios_id),
+    # é mais preciso e mais seguro derivar o cenário a partir do próprio
+    # fluxo -- mesmo padrão já usado em atualizar_fluxo_celery, acima.
+    ativo = TbFluxoProducao.objects.get(id=id_fluxo).tbcenarios_id
 
     # Vamos pegar a descrição do fluxo e produto
     descricao_fluxo = TbFluxoProducao.objects.get(id=id_fluxo).flu_pro_descricao

@@ -3,13 +3,14 @@ from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 from django.db import connection, transaction # para ter acesso as tabelas e stored procedures do banco de dados e executar celery task após commit
 from django.core.exceptions import ValidationError
+from django.contrib.auth.models import Group
 
 from admin_interface.models import Theme
 from django.conf import settings  # para referenciar o modelo de usuário do projeto
 
 import locale
 from django.conf import settings
-from .contexto_usuario import get_usuario_atual
+from .contexto_usuario import get_usuario_atual, limit_choices_to_empresa_ativa
 
 locale.setlocale(locale.LC_ALL, 'pt_BR.utf8')  #  Estou usando esse pois Heroku não aceita pt_BR
 
@@ -176,11 +177,17 @@ class TbCenariosManager(models.Manager):
     inteiro) -- sem precisar editar cada uma -- só que agora resolvendo
     por usuário, não mais por um único flag global no banco.
 
-    Se não houver usuário no contexto atual (ex: chamado de dentro de uma
-    Celery task, de um shell do Django, ou de um teste sem o middleware
-    ativo), cai de volta no comportamento antigo (busca real por
-    cen_ativo=True no banco) -- assim nada quebra em código que ainda não
-    passou pela migração para "cenário ativo por usuário".
+    🌟 CORRIGIDO: o campo cen_ativo (BooleanField) foi REMOVIDO do banco --
+    era um único "cenário ativo" global pro sistema inteiro, incompatível
+    com múltiplos usuários trabalhando em cenários diferentes ao mesmo
+    tempo. Antes, sem usuário no contexto (Celery, shell, comando de
+    management), essa interceptação caía de volta na busca real por
+    cen_ativo=True no banco -- isso não é mais possível (a coluna não
+    existe mais), então agora levanta um erro claro nesse caso, em vez de
+    deixar o Django estourar um FieldError genérico e confuso. Todo
+    código que roda sem usuário no contexto precisa RECEBER o id do
+    cenário explicitamente como parâmetro, em vez de resolver sozinho por
+    aqui (padrão já aplicado nas Celery tasks que precisavam disso).
 
     🌟 NOVO: se HÁ um usuário real no contexto, mas ele ainda não escolheu
     um cenário ativo no perfil, NÃO cai mais no fallback global em
@@ -215,11 +222,20 @@ class TbCenariosManager(models.Manager):
                 "Acesse a tela de Cenários e clique em 'Ativar' no cenário desejado."
             )
 
-        # Sem usuário no contexto (Celery, shell, comando de management,
-        # teste sem o middleware ativo, etc.): mantém o comportamento
-        # antigo (fallback), não muda os kwargs -- a query original
-        # 'cen_ativo=True' segue em frente.
-        return kwargs
+        # 🌟 CORRIGIDO: sem usuário no contexto (Celery, shell, comando de
+        # management, teste sem o middleware ativo, etc.) -- antes caía
+        # de volta numa busca real por cen_ativo=True no banco; agora essa
+        # coluna nem existe mais. Levanta um erro claro, apontando pra
+        # correção certa (passar o id explicitamente), em vez de deixar
+        # o Django estourar um FieldError genérico mais abaixo.
+        raise RuntimeError(
+            "TbCenarios.objects.get/filter(cen_ativo=True) foi chamado sem "
+            "usuário logado no contexto (Celery, shell, comando de "
+            "management, ou teste sem o middleware ativo) -- o campo "
+            "cen_ativo não existe mais no banco. Esse código precisa "
+            "receber o id do cenário explicitamente como parâmetro, em vez "
+            "de tentar resolver sozinho aqui."
+        )
 
     def get(self, *args, **kwargs):
         return super().get(*args, **self._resolver_kwargs(kwargs))
@@ -244,13 +260,20 @@ class TbCenarios(models.Model):
     cen_tipo = models.CharField(max_length=10, choices=cen_tipo_choice, null=False, blank=False, verbose_name=_('Tipo'))
     cen_inicio = models.CharField(max_length=7, null=False, blank=False, verbose_name=_('Início'), default='2021/01')
     cen_fim = models.CharField(max_length=7, null=False, blank=False, verbose_name=_('Fim'), default='2021/12')
-    cen_ativo = models.BooleanField(blank=False, null=False, default=False, verbose_name=_('Ativo'))
+    # 🌟 REMOVIDO: campo cen_ativo (BooleanField) -- era um único "cenário
+    # ativo" global pro sistema inteiro, incompatível com múltiplos
+    # usuários trabalhando em cenários diferentes ao mesmo tempo. Quem
+    # resolve isso agora é PerfilUsuario.cenario_ativo, por usuário.
+    # Migração já removeu a coluna do banco. Verificado antes de remover:
+    # nenhum SQL bruto no projeto filtra essa coluna por nome, e as
+    # stored procedures que usam o nome "cen_ativo" fazem isso como
+    # PARÂMETRO (o id do cenário), não como referência à coluna.
     objects = TbCenariosManager()
     objects_real = models.Manager()  # 🌟 NOVO — Manager sem interceptação, só pra lógica
     # interna de invariante (save() abaixo). Nunca use
     # este fora daqui — o resto do sistema deve continuar
     # usando "objects" (por usuário).
-    cen_grupo = models.ForeignKey('tabelas.TbGrupoCenarios', blank=True, null=True, on_delete=models.CASCADE, verbose_name=_('Grupo'))
+    cen_grupo = models.ForeignKey('tabelas.TbGrupoCenarios', blank=True, null=True, on_delete=models.CASCADE, verbose_name=_('Grupo'), limit_choices_to=limit_choices_to_empresa_ativa)
     cen_copiar_de = models.ForeignKey('self', null=True, blank=False, on_delete=models.SET_NULL, verbose_name=_('Copiar de '))
     flag = models.IntegerField(blank=True, null=True, verbose_name=_('Controle'))
     # 🌟 NOVO: histórico de alterações em OUTRAS tabelas que fizeram este
@@ -404,17 +427,6 @@ class TbCenarios(models.Model):
             status = 'Adicionando'
         else:
             status = 'Modificando'
-
-        if self.cen_ativo:
-            qs = type(self).objects_real.filter(cen_ativo=True)
-            if self.pk:
-                qs = qs.exclude(pk=self.pk)
-            qs.update(cen_ativo=False)
-
-        if self.cen_ativo == False:
-            if TbCenarios.objects_real.filter(cen_ativo=True).count() == 1:
-                if self.pk == TbCenarios.objects_real.get(cen_ativo=True).id:
-                    self.cen_ativo = True
 
         if status == 'Adicionando':
             # 🌟 NOVO (multi-empresa): cenários-base (os 3 criados
@@ -594,7 +606,7 @@ def criar_estrutura_base_para_empresa_nova(sender, instance, created, **kwargs):
         cenario = TbCenarios(
             cen_nome=nome,
             cen_descricao=f'{nome}. Cenário base criado automaticamente pelo sistema!',
-            cen_tipo=tipo, cen_inicio=inicio, cen_fim=fim, cen_ativo=False,
+            cen_tipo=tipo, cen_inicio=inicio, cen_fim=fim,
             cen_grupo=grupo, empresa=instance, eh_cenario_base=True,
         )
         cenario.save()
@@ -1034,6 +1046,26 @@ class EstadoConversaAgente(models.Model):
     class Meta:
         verbose_name = _('Estado de Conversa do Agente')
         verbose_name_plural = _('Estados de Conversa do Agente')
+
+
+class TbGrupoEmpresa(models.Model):
+    """
+    🌟 NOVO: liga cada Grupo (django.contrib.auth.models.Group) a UMA
+    empresa -- o Group em si é modelo pronto do Django, não dá pra
+    acrescentar campo direto nele. Sem isso, os grupos ficavam globais:
+    qualquer usuário via e podia escolher o grupo de qualquer empresa
+    cadastrada no sistema, não só da própria. Editado via inline dentro
+    do próprio Grupo no Admin (ver CustomGroupAdmin).
+    """
+    grupo = models.OneToOneField(Group, on_delete=models.CASCADE, verbose_name=_('Grupo'), related_name='empresa_vinculo')
+    empresa = models.ForeignKey(TbEmpresa, on_delete=models.CASCADE, verbose_name=_('Empresa'))
+
+    class Meta:
+        verbose_name = _('Empresa do Grupo')
+        verbose_name_plural = _('Empresa dos Grupos')
+
+    def __str__(self):
+        return f'{self.grupo.name} / {self.empresa}'
 
 
 class PerfilUsuario(models.Model):

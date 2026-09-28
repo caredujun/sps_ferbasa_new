@@ -443,9 +443,27 @@ def chat_view(request):
     nome_empresa = None
     nome_cenario = None
     status_cenario = None
+    logo_empresa_url = None
     if empresa_id is not None:
         empresa_obj = TbEmpresa.objects.filter(id=empresa_id).first()
         nome_empresa = empresa_obj.emp_nome if empresa_obj else None
+        # 🌟 NOVO: logo da empresa ativa, mostrado no topo direito do chat.
+        if empresa_obj and empresa_obj.emp_logo:
+            logo_empresa_url = empresa_obj.emp_logo.url
+
+    # 🌟 NOVO: logo do Tema em uso (django-admin-interface), mostrado no
+    # topo esquerdo do chat -- mesmo tema já usado no cabeçalho do Admin.
+    # cor_header_tema: mesma cor de fundo do cabeçalho do Admin, usada
+    # agora também na faixa dos logos do chat.
+    logo_tema_url = None
+    cor_header_tema = None
+    from admin_interface.models import Theme
+    tema_ativo = Theme.objects.filter(active=True).first()
+    if tema_ativo:
+        if tema_ativo.logo:
+            logo_tema_url = tema_ativo.logo.url
+        cor_header_tema = tema_ativo.css_header_background_color
+
     if perfil and perfil.cenario_ativo_id:
         cenario_obj = TbCenarios.objects_real.filter(id=perfil.cenario_ativo_id).first()
         if cenario_obj:
@@ -499,6 +517,9 @@ def chat_view(request):
         "nome_empresa": nome_empresa,
         "nome_cenario": nome_cenario,
         "status_cenario": status_cenario,
+        "logo_empresa_url": logo_empresa_url,
+        "logo_tema_url": logo_tema_url,
+        "cor_header_tema": cor_header_tema,
         "acoes_habilitadas": _mapa_acoes_comuns_habilitadas(request.user),
         "historico_json": json.dumps(historico_recente),
         "forcar_restaurar_historico": forcar_restaurar_historico,

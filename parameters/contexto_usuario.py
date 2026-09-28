@@ -145,3 +145,29 @@ def empresa_tem_acao_comum_habilitada(usuario, categoria, chave):
     if perfil.acoes_comuns_restritas.filter(categoria=categoria, chave=chave).exists():
         return False
     return True
+
+
+def limit_choices_to_empresa_ativa():
+    """
+    🌟 NOVO: usado como limit_choices_to em ForeignKeys que apontam pra
+    tabelas cadastradas só por empresa (sem tbcenarios_id -- ex:
+    TbUnidadeProducao, TbMercado, TbCustoTipo, TbCustoItem,
+    TbTipoProducao, TbFamiliaProduto, TbGrupoCenarios,
+    TbEquacaoAjustePreco). Filtra o dropdown do Admin pra mostrar só os
+    registros da empresa efetiva do usuário logado -- sem isso, um
+    usuário poderia escolher um "Mercado" ou "Tipo de Custo" de QUALQUER
+    empresa cadastrada no sistema, não só da própria.
+
+    Precisa ser uma FUNÇÃO (não um dict fixo) -- limit_choices_to aceita
+    um callable, e o Django o chama de novo a cada formulário montado, o
+    que garante que cada usuário vê o filtro da PRÓPRIA empresa, mesmo
+    reaproveitando o mesmo processo/worker entre requisições.
+
+    Sem usuário no contexto (Celery, shell, comando de management):
+    devolve um filtro que não bate com nada (id=None) -- mais seguro
+    errar pro lado do "vazio" do que vazar registros de outra empresa.
+    """
+    usuario = get_usuario_atual()
+    perfil = getattr(usuario, 'perfilusuario', None) if usuario is not None else None
+    empresa_id = perfil.empresa_efetiva_id() if perfil is not None else None
+    return {'empresa_id': empresa_id}

@@ -5,6 +5,7 @@ from django.utils.translation import gettext_lazy as _
 from equipamentos.models import TbEquipamentos, TbEquipamentosCadastro, TbEquipamentosDaugther
 from fluxos.models import TbFluxoProducao
 from parameters.models import TbCenarios, TbCenariosDaugther, TbEmpresa
+from parameters.contexto_usuario import limit_choices_to_empresa_ativa
 from produtos.models import TbProdutos
 from custo_ferbasa.models import TbConsumoEspecifico
 from tabelas.models import TbMercado, TbCustoItemPreco, TbCustoItem, TbTipoProducao, TbTaxaDescontoDaugther, atualiza_cenario
@@ -25,12 +26,12 @@ def verifica_filha_tbotimizacaocomparacaocenarios(sender, instance, **kwargs):
     cursor.close()
 
 class TbOtimizacaoProduto(models.Model):
-    oti_pro_produto = models.ForeignKey(TbProdutos, on_delete=models.CASCADE, verbose_name=_('Produto'))
-    flag = models.BooleanField(blank=True, null=True, default=False, verbose_name=_('Controle'))
+    oti_pro_produto = models.ForeignKey(TbProdutos, on_delete=models.CASCADE, verbose_name='Produto')
+    flag = models.BooleanField(blank=True, null=True, default=False, verbose_name='Controle')
     # Este campo (flag) é somente para controle.
     # Se for igual a zero significa que é lixo. Deixamos na tabela pois pode voltar a ser utilizado
     # Se for igual a um (1) significa que está sendo usado no sistema
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
     id_origem = models.IntegerField(blank=True, null=True)  # Origem no caso de duplicação de tabela
 
     def __str__(self):
@@ -44,14 +45,14 @@ class TbOtimizacaoProduto(models.Model):
         else:
             return 'Sem imagem!'
 
-    produto_imagem_tag_small.short_description = _('Imagem')
+    produto_imagem_tag_small.short_description = 'Imagem'
 
     # Campo para mostrar a unidade do produto
     def produto_unidade(self):
         unidade = TbProdutos.objects.get(id=self.oti_pro_produto_id).pro_unidade_producao
         return unidade
 
-    produto_unidade.short_description = _('Unidade')
+    produto_unidade.short_description = 'Unidade'
 
     # Vamos criar um campo para mostrar o somatório do volume de vendas de todos os periodos
     def vendas_periodo(self):
@@ -107,7 +108,7 @@ class TbOtimizacaoProduto(models.Model):
         else:
             return ''
 
-    preco_medio_periodo.short_description = _('Preço Médio')
+    preco_medio_periodo.short_description = 'Preço Médio'
 
     # Vamos criar um campo para mostrar o custo variável médio ponderado do produto para todos os periodos
     def custo_variavel_medio_periodo(self):
@@ -129,7 +130,7 @@ class TbOtimizacaoProduto(models.Model):
         else:
             return ''
 
-    custo_variavel_medio_periodo.short_description = _('Custo Var. Médio')
+    custo_variavel_medio_periodo.short_description = 'Custo Var. Médio'
 
     # Vamos criar um campo para mostrar a margem de contribuição média ponderada do produto para todos os periodos
     def margem_contribuicao_media_periodo(self):
@@ -155,7 +156,7 @@ class TbOtimizacaoProduto(models.Model):
         else:
             return ''
 
-    margem_contribuicao_media_periodo.short_description = _('Margem Contrib. Média')
+    margem_contribuicao_media_periodo.short_description = 'Margem Contrib. Média'
 
     # Vamos criar um campo para mostrar o percentual da margem de contribuição do produto para todos os periodos
     def margem_percentual_periodo(self):
@@ -181,7 +182,7 @@ class TbOtimizacaoProduto(models.Model):
         else:
             return ''
 
-    margem_percentual_periodo.short_description = _('Margem Contrib. (%)')
+    margem_percentual_periodo.short_description = 'Margem Contrib. (%)'
 
     # Vamos criar um campo para mostrar a margem horária média ponderada do produto para todos os periodos
     def margem_horaria_media_periodo(self):
@@ -203,7 +204,7 @@ class TbOtimizacaoProduto(models.Model):
         else:
             return ''
 
-    margem_horaria_media_periodo.short_description = _('Margem Horária Média')
+    margem_horaria_media_periodo.short_description = 'Margem Horária Média'
 
     class Meta:
         verbose_name = _('      Produto')
@@ -212,19 +213,19 @@ class TbOtimizacaoProduto(models.Model):
 
 
 class TbOtimizacaoProdutoDaugther(models.Model):
-    dau_order = models.IntegerField(verbose_name=_('Ano/Mês'))
-    dau_valor_1 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name=_('Volume Mínimo'), default=0)
-    dau_valor_2 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name=_('Volume Máximo'), default=0)
-    dau_valor_3 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name=_('Vendas'), default=0)
-    dau_valor_5 = models.DecimalField(max_digits=20, decimal_places=2, verbose_name=_('Preço Médio'), default=0)
-    dau_valor_6 = models.DecimalField(max_digits=20, decimal_places=2, verbose_name=_('Custo Var. Médio'), default=0)
-    dau_valor_7 = models.DecimalField(max_digits=20, decimal_places=2, verbose_name=_('Margem Cont. Horária Média'), default=0)
-    flag = models.BooleanField(blank=True, null=True, default=False, verbose_name=_('Controle'))
+    dau_order = models.IntegerField(verbose_name='Ano/Mês')
+    dau_valor_1 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name='Volume Mínimo', default=0)
+    dau_valor_2 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name='Volume Máximo', default=0)
+    dau_valor_3 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name='Vendas', default=0)
+    dau_valor_5 = models.DecimalField(max_digits=20, decimal_places=2, verbose_name='Preço Médio', default=0)
+    dau_valor_6 = models.DecimalField(max_digits=20, decimal_places=2, verbose_name='Custo Var. Médio', default=0)
+    dau_valor_7 = models.DecimalField(max_digits=20, decimal_places=2, verbose_name='Margem Cont. Horária Média', default=0)
+    flag = models.BooleanField(blank=True, null=True, default=False, verbose_name='Controle')
     # Este campo (flag) é somente para controle.
     # Se for igual a zero significa que é lixo. Deixamos na tabela pois pode voltar a ser utilizado
     # Se for igual a um (1) significa que está sendo usado no sistema
-    mae = models.ForeignKey('TbOtimizacaoProduto', on_delete=models.CASCADE, verbose_name=_('Mãe'))
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
+    mae = models.ForeignKey('TbOtimizacaoProduto', on_delete=models.CASCADE, verbose_name='Mãe')
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
 
     def __str__(self):
         return ''
@@ -233,7 +234,7 @@ class TbOtimizacaoProdutoDaugther(models.Model):
     def margem_cont_bruta_media(self):
         return self.dau_valor_5 - self.dau_valor_6
 
-    margem_cont_bruta_media.short_description = _('Margem Cont. Bruta Média')
+    margem_cont_bruta_media.short_description = 'Margem Cont. Bruta Média'
 
     # Vamos criar um campo para mostrar o periodo no formato adequado
     def display_order(self):
@@ -291,15 +292,15 @@ class TbOtimizacaoProdutoDaugther(models.Model):
 
 
 class TbProdutoMercadoFluxo(models.Model):
-    pro_mer_flu_variavel = models.IntegerField(verbose_name=_('Variável'))
-    pro_mer_flu_produto = models.ForeignKey(TbProdutos, on_delete=models.CASCADE, verbose_name=_('Produto'))
-    pro_mer_flu_mercado = models.ForeignKey(TbMercado, on_delete=models.CASCADE, verbose_name=_('Mercado'))
-    pro_mer_flu_fluxo_producao = models.ForeignKey(TbFluxoProducao, on_delete=models.CASCADE, verbose_name=_('Fluxo Produção'))
-    flag = models.BooleanField(blank=True, null=True, default=False, verbose_name=_('Controle'))
+    pro_mer_flu_variavel = models.IntegerField(verbose_name='Variável')
+    pro_mer_flu_produto = models.ForeignKey(TbProdutos, on_delete=models.CASCADE, verbose_name='Produto')
+    pro_mer_flu_mercado = models.ForeignKey(TbMercado, on_delete=models.CASCADE, verbose_name='Mercado', limit_choices_to=limit_choices_to_empresa_ativa)
+    pro_mer_flu_fluxo_producao = models.ForeignKey(TbFluxoProducao, on_delete=models.CASCADE, verbose_name='Fluxo Produção')
+    flag = models.BooleanField(blank=True, null=True, default=False, verbose_name='Controle')
     # Este campo (flag) é somente para controle.
     # Se for igual a zero significa que é lixo. Deixamos na tabela pois pode voltar a ser utilizado
     # Se for igual a um (1) significa que está sendo usado no sistema
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
     id_origem = models.IntegerField(blank=True, null=True)  # Origem no caso de duplicação de tabela
 
     def __str__(self):
@@ -314,7 +315,7 @@ class TbProdutoMercadoFluxo(models.Model):
         else:
             return 'Sem imagem!'
 
-    produto_imagem_tag_small.short_description = _('Imagem')
+    produto_imagem_tag_small.short_description = 'Imagem'
     produto_imagem_tag_small.allow_tags = True
 
     # Vamos criar um campo para mostrar o preço médio no periodo
@@ -334,7 +335,7 @@ class TbProdutoMercadoFluxo(models.Model):
 
         return retorno
 
-    preco_medio.short_description = _('Preço Médio')
+    preco_medio.short_description = 'Preço Médio'
 
     # Vamos criar um campo para mostrar o custo médio no periodo
     def custo_medio(self):
@@ -353,7 +354,7 @@ class TbProdutoMercadoFluxo(models.Model):
 
         return retorno
 
-    custo_medio.short_description = _('Custo Médio')
+    custo_medio.short_description = 'Custo Médio'
 
     # Vamos criar um campo para mostrar o custo médio no periodo
     def margem_media(self):
@@ -372,7 +373,7 @@ class TbProdutoMercadoFluxo(models.Model):
 
         return retorno
 
-    margem_media.short_description = _('Margem Média')
+    margem_media.short_description = 'Margem Média'
 
     # Vamos criar um campo para mostrar o somatório do volume de vendas de todos os periodos
     def vendas_periodo(self):
@@ -416,24 +417,24 @@ class TbProdutoMercadoFluxo(models.Model):
 
 
 class TbProdutoMercadoFluxoDaugther(models.Model):
-    dau_order    = models.IntegerField(verbose_name=_('Ano/Mês'))
-    dau_valor_1  = models.BooleanField(blank=False, null=False, default=True, verbose_name=_('Fluxo'))
-    dau_valor_2  = models.DecimalField(max_digits=18, decimal_places=0, verbose_name=_('Vendas'), default=0.00)
-    dau_valor_3  = models.DecimalField(max_digits=18, decimal_places=2, verbose_name=_('Margem Contrib.'), default=0.00)
-    dau_valor_4  = models.DecimalField(max_digits=18, decimal_places=2, verbose_name=_('Preço'), default=0.00)
-    dau_valor_5  = models.DecimalField(max_digits=18, decimal_places=2, verbose_name=_('Custo Variável'), default=0.00)
-    dau_valor_6  = models.DecimalField(max_digits=18, decimal_places=2, verbose_name=_('Parcela Outbound'), default=0.00)
-    dau_valor_7  = models.BooleanField(blank=False, null=False, default=True, verbose_name=_('Equip.'))
-    dau_valor_8  = models.DecimalField(max_digits=18, decimal_places=2, verbose_name=_('Parcela Itens'), default=0.00)
-    dau_valor_9  = models.DecimalField(max_digits=18, decimal_places=2, verbose_name=_('Parcela Inbound'), default=0.00)
-    dau_valor_10 = models.DecimalField(max_digits=18, decimal_places=2, verbose_name=_('Parcela Manutenção'), default=0.00)
-    dau_valor_11 = models.DecimalField(max_digits=18, decimal_places=2, verbose_name=_('Margem Horária'), default=0.00)
-    flag = models.BooleanField(blank=True, null=True, default=False, verbose_name=_('Controle'))
+    dau_order    = models.IntegerField(verbose_name='Ano/Mês')
+    dau_valor_1  = models.BooleanField(blank=False, null=False, default=True, verbose_name='Fluxo')
+    dau_valor_2  = models.DecimalField(max_digits=18, decimal_places=0, verbose_name='Vendas', default=0.00)
+    dau_valor_3  = models.DecimalField(max_digits=18, decimal_places=2, verbose_name='Margem Contrib.', default=0.00)
+    dau_valor_4  = models.DecimalField(max_digits=18, decimal_places=2, verbose_name='Preço', default=0.00)
+    dau_valor_5  = models.DecimalField(max_digits=18, decimal_places=2, verbose_name='Custo Variável', default=0.00)
+    dau_valor_6  = models.DecimalField(max_digits=18, decimal_places=2, verbose_name='Parcela Outbound', default=0.00)
+    dau_valor_7  = models.BooleanField(blank=False, null=False, default=True, verbose_name='Equip.')
+    dau_valor_8  = models.DecimalField(max_digits=18, decimal_places=2, verbose_name='Parcela Itens', default=0.00)
+    dau_valor_9  = models.DecimalField(max_digits=18, decimal_places=2, verbose_name='Parcela Inbound', default=0.00)
+    dau_valor_10 = models.DecimalField(max_digits=18, decimal_places=2, verbose_name='Parcela Manutenção', default=0.00)
+    dau_valor_11 = models.DecimalField(max_digits=18, decimal_places=2, verbose_name='Margem Horária', default=0.00)
+    flag = models.BooleanField(blank=True, null=True, default=False, verbose_name='Controle')
     # Este campo (flag) é somente para controle.
     # Se for igual a zero significa que é lixo. Deixamos na tabela pois pode voltar a ser utilizado
     # Se for igual a um (1) significa que está sendo usado no sistema
-    mae = models.ForeignKey('TbProdutoMercadoFluxo', on_delete=models.CASCADE, verbose_name=_('Mãe'))
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
+    mae = models.ForeignKey('TbProdutoMercadoFluxo', on_delete=models.CASCADE, verbose_name='Mãe')
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
 
     def __str__(self):
         return ''
@@ -503,7 +504,7 @@ class TbProdutoMercadoFluxoDaugther(models.Model):
 
         return retorno
 
-    margem_horaria.short_description = _('Margem Horária')
+    margem_horaria.short_description = 'Margem Horária'
     '''
 
     # Vamos criar um campo para mostrar o equipamento gargalo
@@ -521,7 +522,7 @@ class TbProdutoMercadoFluxoDaugther(models.Model):
 
         return retorno
 
-    equipamento_gargalo.short_description = _('Gargalo/Produtividade')
+    equipamento_gargalo.short_description = 'Gargalo/Produtividade'
 
     class Meta:
         verbose_name = _('Detalhe')
@@ -530,13 +531,13 @@ class TbProdutoMercadoFluxoDaugther(models.Model):
 
 
 class TbProdutoMercado(models.Model):
-    pro_mer_produto = models.ForeignKey(TbProdutos, on_delete=models.CASCADE, verbose_name=_('Produto'))
-    pro_mer_mercado = models.ForeignKey(TbMercado, on_delete=models.CASCADE, verbose_name=_('Mercado'))
-    flag = models.BooleanField(blank=True, null=True, default=False, verbose_name=_('Controle'))
+    pro_mer_produto = models.ForeignKey(TbProdutos, on_delete=models.CASCADE, verbose_name='Produto')
+    pro_mer_mercado = models.ForeignKey(TbMercado, on_delete=models.CASCADE, verbose_name='Mercado', limit_choices_to=limit_choices_to_empresa_ativa)
+    flag = models.BooleanField(blank=True, null=True, default=False, verbose_name='Controle')
     # Este campo (flag) é somente para controle.
     # Se for igual a zero significa que é lixo. Deixamos na tabela pois pode voltar a ser utilizado
     # Se for igual a um (1) significa que está sendo usado no sistema
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
     id_origem = models.IntegerField(blank=True, null=True)  # Origem no caso de duplicação de tabela
 
     def __str__(self):
@@ -550,7 +551,7 @@ class TbProdutoMercado(models.Model):
         else:
             return 'Sem imagem!'
 
-    produto_imagem_tag_small.short_description = _('Imagem')
+    produto_imagem_tag_small.short_description = 'Imagem'
     produto_imagem_tag_small.allow_tags = True
 
     # Vamos criar um campo para mostrar o somatório do volume de vendas de todos os periodos
@@ -649,7 +650,7 @@ class TbProdutoMercado(models.Model):
             return locale.format_string('%.2f', retorno, True)
 
         cursor.close()
-    preco.short_description = _('Preço Médio')
+    preco.short_description = 'Preço Médio'
 
 
     # Vamos criar um campo para mostrar o custo medio do produto / mercado
@@ -676,7 +677,7 @@ class TbProdutoMercado(models.Model):
 
             return locale.format_string('%.2f', retorno, True)
         cursor.close()
-    custo.short_description = _('Custo Médio')
+    custo.short_description = 'Custo Médio'
 
     # Vamos criar um campo para mostrar a margem de contribuição média do produto / mercado
     def margem_contribuicao(self):
@@ -713,7 +714,7 @@ class TbProdutoMercado(models.Model):
             return locale.format_string('%.2f', retorno1 - retorno2, True)
         cursor.close()
 
-    margem_contribuicao.short_description = _('Margem Contrib. Média')
+    margem_contribuicao.short_description = 'Margem Contrib. Média'
 
     # Vamos criar um campo para mostrar a margem de contribuição percentual média do produto / mercado
     def margem_contribuicao_percentual(self):
@@ -750,7 +751,7 @@ class TbProdutoMercado(models.Model):
                 return ''
         cursor.close()
 
-    margem_contribuicao_percentual.short_description = _('Margem Contrib.(%) Média')
+    margem_contribuicao_percentual.short_description = 'Margem Contrib.(%) Média'
 
     # Vamos criar um campo para mostrar a margem horária média do produto / mercado
     def margem_horaria(self):
@@ -778,7 +779,7 @@ class TbProdutoMercado(models.Model):
             return locale.format_string('%.2f', retorno, True)
         cursor.close()
 
-    margem_horaria.short_description = _('Margem Horária Média')
+    margem_horaria.short_description = 'Margem Horária Média'
 
     class Meta:
         verbose_name = _('     Produto / Mercado')
@@ -787,19 +788,19 @@ class TbProdutoMercado(models.Model):
 
 
 class TbProdutoMercadoDaugther(models.Model):
-    dau_order = models.IntegerField(verbose_name=_('Ano/Mês'))
-    dau_valor_1 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name=_('Volume Mínimo'), default=0)
-    dau_valor_2 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name=_('Volume Máximo'), default=0)
-    dau_valor_3 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name=_('Vendas'), default=0)
-    dau_valor_5 = models.DecimalField(max_digits=20, decimal_places=2, verbose_name=_('Preço Médio'), default=0)
-    dau_valor_6 = models.DecimalField(max_digits=20, decimal_places=2, verbose_name=_('Custo Var. Médio'), default=0)
-    dau_valor_7 = models.DecimalField(max_digits=20, decimal_places=2, verbose_name=_('Margem Cont. Horária Média'), default=0)
-    flag = models.BooleanField(blank=True, null=True, default=False, verbose_name=_('Controle'))
+    dau_order = models.IntegerField(verbose_name='Ano/Mês')
+    dau_valor_1 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name='Volume Mínimo', default=0)
+    dau_valor_2 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name='Volume Máximo', default=0)
+    dau_valor_3 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name='Vendas', default=0)
+    dau_valor_5 = models.DecimalField(max_digits=20, decimal_places=2, verbose_name='Preço Médio', default=0)
+    dau_valor_6 = models.DecimalField(max_digits=20, decimal_places=2, verbose_name='Custo Var. Médio', default=0)
+    dau_valor_7 = models.DecimalField(max_digits=20, decimal_places=2, verbose_name='Margem Cont. Horária Média', default=0)
+    flag = models.BooleanField(blank=True, null=True, default=False, verbose_name='Controle')
     # Este campo (flag) é somente para controle.
     # Se for igual a zero significa que é lixo. Deixamos na tabela pois pode voltar a ser utilizado
     # Se for igual a um (1) significa que está sendo usado no sistema
-    mae = models.ForeignKey('TbProdutoMercado', on_delete=models.CASCADE, verbose_name=_('Mãe'))
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
+    mae = models.ForeignKey('TbProdutoMercado', on_delete=models.CASCADE, verbose_name='Mãe')
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
 
     def __str__(self):
         return ''
@@ -808,7 +809,7 @@ class TbProdutoMercadoDaugther(models.Model):
     def margem_cont_bruta_media(self):
         return self.dau_valor_5 -  self.dau_valor_6
 
-    margem_cont_bruta_media.short_description = _('Margem Cont. Bruta Média')
+    margem_cont_bruta_media.short_description = 'Margem Cont. Bruta Média'
 
 
     # Vamos criar um campo para mostrar o periodo no formato adequado
@@ -860,12 +861,12 @@ class TbProdutoMercadoDaugther(models.Model):
 
 class TbOtimizacaoEquipamentos(models.Model):
     oti_equ_equipamento = models.ForeignKey(TbEquipamentosCadastro, on_delete=models.CASCADE,
-                                            verbose_name=_('Equipamento'))
-    flag = models.BooleanField(blank=True, null=True, default=False, verbose_name=_('Controle'))
+                                            verbose_name='Equipamento')
+    flag = models.BooleanField(blank=True, null=True, default=False, verbose_name='Controle')
     # Este campo (flag) é somente para controle.
     # Se for igual a zero significa que é lixo. Deixamos na tabela pois pode voltar a ser utilizado
     # Se for igual a um (1) significa que está sendo usado no sistema
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
     id_origem = models.IntegerField(blank=True, null=True)  # Origem no caso de duplicação de tabela
 
     def __str__(self):
@@ -874,12 +875,12 @@ class TbOtimizacaoEquipamentos(models.Model):
     def output_equipamento(self):  # Mostra o output do equipamento (t, m3, etc)
         return TbEquipamentosCadastro.objects.get(id=self.oti_equ_equipamento_id).equ_cad_output
 
-    output_equipamento.short_description = _('Output')
+    output_equipamento.short_description = 'Output'
 
     def gargalo_equipamento(self):  # Mostra se o equipamento é gargalo ou não
         return TbEquipamentosCadastro.objects.get(id=self.oti_equ_equipamento_id).equ_cad_gargalo
 
-    gargalo_equipamento.short_description = _('Gargalo')
+    gargalo_equipamento.short_description = 'Gargalo'
     gargalo_equipamento.boolean = True  # To show an icon instead of True or False
 
     # Campo para mostrar a imagem do equipamento
@@ -890,7 +891,7 @@ class TbOtimizacaoEquipamentos(models.Model):
         else:
             return 'Sem imagem!'
 
-    equipamento_imagem_tag_small.short_description = _('Imagem')
+    equipamento_imagem_tag_small.short_description = 'Imagem'
     equipamento_imagem_tag_small.allow_tags = True
 
     # Vamos criar um campo para mostrar o somatório da produção de todos os periodos
@@ -1021,21 +1022,21 @@ class TbOtimizacaoEquipamentos(models.Model):
 
 
 class TbOtimizacaoEquipamentosDaugther(models.Model):
-    dau_order   = models.IntegerField(verbose_name=_('Ano/Mês'))
-    dau_valor_1 = models.BooleanField(blank=False, null=False, default=True, verbose_name=_('Running'))
-    dau_valor_2 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name=_('Prod.(Volume)'), default=0.00)
-    dau_valor_3 = models.DecimalField(max_digits=20, decimal_places=2, verbose_name=_('Loading Time(h)'), default=0.00)
-    dau_valor_4 = models.DecimalField(max_digits=6, decimal_places=2, verbose_name=_('Ocupação(%)'), default=0.00)
-    dau_valor_5 = models.DecimalField(max_digits=6, decimal_places=2, verbose_name=_('Ocupação Mín.(%)'), default=0.00)
-    dau_valor_7 = models.DecimalField(max_digits=6, decimal_places=2, verbose_name=_('Ocupação Máx.(%)'), default=100.00)
-    dau_valor_6 = models.DecimalField(max_digits=20, decimal_places=2, verbose_name=_('Prod.(Horas)'), default=0.00)
-    flag        = models.BooleanField(blank=True, null=True, default=False, verbose_name=_('Controle'))
+    dau_order   = models.IntegerField(verbose_name='Ano/Mês')
+    dau_valor_1 = models.BooleanField(blank=False, null=False, default=True, verbose_name='Running')
+    dau_valor_2 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name='Prod.(Volume)', default=0.00)
+    dau_valor_3 = models.DecimalField(max_digits=20, decimal_places=2, verbose_name='Loading Time(h)', default=0.00)
+    dau_valor_4 = models.DecimalField(max_digits=6, decimal_places=2, verbose_name='Ocupação(%)', default=0.00)
+    dau_valor_5 = models.DecimalField(max_digits=6, decimal_places=2, verbose_name='Ocupação Mín.(%)', default=0.00)
+    dau_valor_7 = models.DecimalField(max_digits=6, decimal_places=2, verbose_name='Ocupação Máx.(%)', default=100.00)
+    dau_valor_6 = models.DecimalField(max_digits=20, decimal_places=2, verbose_name='Prod.(Horas)', default=0.00)
+    flag        = models.BooleanField(blank=True, null=True, default=False, verbose_name='Controle')
 
     # Este campo (flag) é somente para controle.
     # Se for igual a zero significa que é lixo. Deixamos na tabela pois pode voltar a ser utilizado
     # Se for igual a um (1) significa que está sendo usado no sistema
-    mae = models.ForeignKey('TbOtimizacaoEquipamentos', on_delete=models.CASCADE, verbose_name=_('Mãe'))
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
+    mae = models.ForeignKey('TbOtimizacaoEquipamentos', on_delete=models.CASCADE, verbose_name='Mãe')
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
 
     def __str__(self):
         return ''
@@ -1098,12 +1099,12 @@ class TbOtimizacaoEquipamentosDaugther(models.Model):
 
 class TbOtimizacaoEquipamentosOrdem(models.Model):
     oti_equ_ord_equipamento = models.ForeignKey(TbEquipamentos, on_delete=models.CASCADE,
-                                                verbose_name=_('Equipamento/Ordem de Produção'))
-    flag = models.BooleanField(blank=True, null=True, default=False, verbose_name=_('Controle'))
+                                                verbose_name='Equipamento/Ordem de Produção')
+    flag = models.BooleanField(blank=True, null=True, default=False, verbose_name='Controle')
     # Este campo (flag) é somente para controle.
     # Se for igual a zero significa que é lixo. Deixamos na tabela pois pode voltar a ser utilizado
     # Se for igual a um (1) significa que está sendo usado no sistema
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
     id_origem = models.IntegerField(blank=True, null=True)  # Origem no caso de duplicação de tabela
 
     def __str__(self):
@@ -1114,14 +1115,14 @@ class TbOtimizacaoEquipamentosOrdem(models.Model):
         id_equipamento = TbEquipamentos.objects.get(id=self.oti_equ_ord_equipamento_id).equ_codigo_id
         return TbEquipamentosCadastro.objects.get(id=id_equipamento).equ_cad_output
 
-    output_equipamento_ordem.short_description = _('Output')
+    output_equipamento_ordem.short_description = 'Output'
 
     def gargalo_equipamento_ordem(self):  # Mostra se o equipamento é gargalo ou não
         # Vamos pegar o id do equipamento
         id_equipamento = TbEquipamentos.objects.get(id=self.oti_equ_ord_equipamento_id).equ_codigo_id
         return TbEquipamentosCadastro.objects.get(id=id_equipamento).equ_cad_gargalo
 
-    gargalo_equipamento_ordem.short_description = _('Gargalo')
+    gargalo_equipamento_ordem.short_description = 'Gargalo'
     gargalo_equipamento_ordem.boolean = True  # To show an icon instead of True or False
 
     # Campo para mostrar a imagem do equipamento
@@ -1134,14 +1135,14 @@ class TbOtimizacaoEquipamentosOrdem(models.Model):
         else:
             return 'Sem imagem!'
 
-    equipamento_ordem_imagem_tag_small.short_description = _('Imagem')
+    equipamento_ordem_imagem_tag_small.short_description = 'Imagem'
     equipamento_ordem_imagem_tag_small.allow_tags = True
 
     def tipo_producao(self):  # Mostra o tipo de produção
         id_tipo_producao = TbEquipamentos.objects.get(id=self.oti_equ_ord_equipamento_id).equ_tipo_producao_id
         return TbTipoProducao.objects.get(id=id_tipo_producao).tip_nome
 
-    tipo_producao.short_description = _('Tipo de Produção')
+    tipo_producao.short_description = 'Tipo de Produção'
 
     # Vamos criar um campo para mostrar o somatório da produção de todos os periodos
     def producao_periodo(self):
@@ -1240,17 +1241,17 @@ class TbOtimizacaoEquipamentosOrdem(models.Model):
 
 
 class TbOtimizacaoEquipamentosOrdemDaugther(models.Model):
-    dau_order = models.IntegerField(verbose_name=_('Ano/Mês'))
-    dau_valor_1 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name=_('Produção (Volume)'), default=0.00)
-    dau_valor_2 = models.DecimalField(max_digits=9, decimal_places=0, verbose_name=_('Produção (Horas)'), default=0.00)
-    dau_valor_3 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name=_('WIP (Volume)'), default=0.00)
-    dau_valor_4 = models.DecimalField(max_digits=18, decimal_places=2, verbose_name=_('WIP (Valor)'), default=0.00)
-    flag = models.BooleanField(blank=True, null=True, default=False, verbose_name=_('Controle'))
+    dau_order = models.IntegerField(verbose_name='Ano/Mês')
+    dau_valor_1 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name='Produção (Volume)', default=0.00)
+    dau_valor_2 = models.DecimalField(max_digits=9, decimal_places=0, verbose_name='Produção (Horas)', default=0.00)
+    dau_valor_3 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name='WIP (Volume)', default=0.00)
+    dau_valor_4 = models.DecimalField(max_digits=18, decimal_places=2, verbose_name='WIP (Valor)', default=0.00)
+    flag = models.BooleanField(blank=True, null=True, default=False, verbose_name='Controle')
     # Este campo (flag) é somente para controle.
     # Se for igual a zero significa que é lixo. Deixamos na tabela pois pode voltar a ser utilizado
     # Se for igual a um (1) significa que está sendo usado no sistema
-    mae = models.ForeignKey('TbOtimizacaoEquipamentosOrdem', on_delete=models.CASCADE, verbose_name=_('Mãe'))
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
+    mae = models.ForeignKey('TbOtimizacaoEquipamentosOrdem', on_delete=models.CASCADE, verbose_name='Mãe')
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
 
     def __str__(self):
         return ''
@@ -1322,7 +1323,7 @@ class TbOtimizacaoEquipamentosOrdemDaugther(models.Model):
 
         return retorno
 
-    participacao.short_description = _('Part. (%)')
+    participacao.short_description = 'Part. (%)'
 
     # Vamos criar um campo para mostrar se o equipamento/ordem esta running para o periodo
     def running(self):
@@ -1331,7 +1332,7 @@ class TbOtimizacaoEquipamentosOrdemDaugther(models.Model):
             retorno = TbEquipamentosDaugther.objects.get(mae_id=id_equipamento_ordem, dau_order=self.dau_order).dau_valor_3
             return retorno
 
-    running.short_description = _('Running')
+    running.short_description = 'Running'
     running.boolean = True # Para mostrar um ícon
 
     class Meta:
@@ -1340,11 +1341,11 @@ class TbOtimizacaoEquipamentosOrdemDaugther(models.Model):
         ordering = ['dau_order']
 
 class TbOtimizacaoConjuntoEquipamentos(models.Model):
-    oti_con_equ_descricao    = models.CharField(max_length=50, verbose_name=_('Descrição'))
-    oti_con_equ_ativo        = models.BooleanField(blank=False, null=False, default=True, verbose_name=_('Ativo'))
-    oti_con_equ_equipamentos = models.ManyToManyField(TbEquipamentosCadastro, verbose_name=_('Equipamentos'))
-    oti_con_equ_observacao   = models.TextField(verbose_name=_('Observação'), blank=True, null=True)
-    tbcenarios               = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
+    oti_con_equ_descricao    = models.CharField(max_length=50, verbose_name='Descrição')
+    oti_con_equ_ativo        = models.BooleanField(blank=False, null=False, default=True, verbose_name='Ativo')
+    oti_con_equ_equipamentos = models.ManyToManyField(TbEquipamentosCadastro, verbose_name='Equipamentos')
+    oti_con_equ_observacao   = models.TextField(verbose_name='Observação', blank=True, null=True)
+    tbcenarios               = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
     id_origem                = models.IntegerField(blank=True, null=True)  # Origem no caso de duplicação de tabela
 
     def __str__(self):
@@ -1391,12 +1392,12 @@ class TbOtimizacaoConjuntoEquipamentos(models.Model):
         cursor.close()
 
 class TbOtimizacaoConjuntoEquipamentosDaugther(models.Model):
-    dau_order = models.IntegerField(verbose_name=_('Ano/Mês'))
-    dau_valor_1 = models.DecimalField(max_digits=9, decimal_places=0, verbose_name=_('Produção Mínima'), default=0)
-    dau_valor_2 = models.DecimalField(max_digits=9, decimal_places=0, verbose_name=_('Produção Máxima'), default=999999999)
-    dau_valor_3 = models.DecimalField(max_digits=9, blank=True, null=True, decimal_places=0, verbose_name=_('Produção'), default=0)
-    mae = models.ForeignKey('TbOtimizacaoConjuntoEquipamentos', on_delete=models.CASCADE, verbose_name=_('Mãe'))
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
+    dau_order = models.IntegerField(verbose_name='Ano/Mês')
+    dau_valor_1 = models.DecimalField(max_digits=9, decimal_places=0, verbose_name='Produção Mínima', default=0)
+    dau_valor_2 = models.DecimalField(max_digits=9, decimal_places=0, verbose_name='Produção Máxima', default=999999999)
+    dau_valor_3 = models.DecimalField(max_digits=9, blank=True, null=True, decimal_places=0, verbose_name='Produção', default=0)
+    mae = models.ForeignKey('TbOtimizacaoConjuntoEquipamentos', on_delete=models.CASCADE, verbose_name='Mãe')
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
 
     def __str__(self):
         return ''
@@ -1457,12 +1458,12 @@ class TbOtimizacaoConjuntoEquipamentosDaugther(models.Model):
 
 class TbOtimizacaoCustoItem(models.Model):
     oti_cus_ite_item = models.ForeignKey(TbCustoItemPreco, on_delete=models.CASCADE,
-                                         verbose_name=_('Item de Custo/Unidade de Produção'))
-    flag = models.BooleanField(blank=True, null=True, default=False, verbose_name=_('Controle'))
+                                         verbose_name='Item de Custo/Unidade de Produção')
+    flag = models.BooleanField(blank=True, null=True, default=False, verbose_name='Controle')
     # Este campo (flag) é somente para controle.
     # Se for igual a zero significa que é lixo. Deixamos na tabela pois pode voltar a ser utilizado
     # Se for igual a um (1) significa que está sendo usado no sistema
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
     id_origem = models.IntegerField(blank=True, null=True)  # Origem no caso de duplicação de tabela
 
     def __str__(self):
@@ -1472,7 +1473,7 @@ class TbOtimizacaoCustoItem(models.Model):
         id_custo_item = TbCustoItemPreco.objects.get(id=self.oti_cus_ite_item_id).cus_ite_pre_item_id
         return TbCustoItem.objects.get(id=id_custo_item).cus_ite_unidade
 
-    unidade_item.short_description = _('Unidade')
+    unidade_item.short_description = 'Unidade'
 
     # Campo para mostrar a imagem do item de custo
     def custo_item_imagem_tag_small(self):
@@ -1483,7 +1484,7 @@ class TbOtimizacaoCustoItem(models.Model):
         else:
             return 'Sem imagem!'
 
-    custo_item_imagem_tag_small.short_description = _('Imagem')
+    custo_item_imagem_tag_small.short_description = 'Imagem'
     custo_item_imagem_tag_small.allow_tags = True
 
     class Meta:
@@ -1493,20 +1494,20 @@ class TbOtimizacaoCustoItem(models.Model):
 
 
 class TbOtimizacaoCustoItemDaugther(models.Model):
-    dau_order = models.IntegerField(verbose_name=_('Ano/Mês'))
-    dau_valor_1 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name=_('Consumo Mínimo'), default=0.00)
-    dau_valor_2 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name=_('Consumo Máximo'), default=0.00)
-    dau_valor_3 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name=_('Consumo Calculado'), default=0.00)
-    dau_valor_4 = models.BooleanField(blank=False, null=False, verbose_name=_('Ativo'), default=False)
-    dau_valor_5 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name=_('Estoque (Qtde)'), default=0.00)
-    dau_valor_6 = models.DecimalField(max_digits=18, decimal_places=2, verbose_name=_('Estoque (Valor)'), default=0.00)
+    dau_order = models.IntegerField(verbose_name='Ano/Mês')
+    dau_valor_1 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name='Consumo Mínimo', default=0.00)
+    dau_valor_2 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name='Consumo Máximo', default=0.00)
+    dau_valor_3 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name='Consumo Calculado', default=0.00)
+    dau_valor_4 = models.BooleanField(blank=False, null=False, verbose_name='Ativo', default=False)
+    dau_valor_5 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name='Estoque (Qtde)', default=0.00)
+    dau_valor_6 = models.DecimalField(max_digits=18, decimal_places=2, verbose_name='Estoque (Valor)', default=0.00)
 
-    flag = models.BooleanField(blank=True, null=True, default=False, verbose_name=_('Controle'))
+    flag = models.BooleanField(blank=True, null=True, default=False, verbose_name='Controle')
     # Este campo (flag) é somente para controle.
     # Se for igual a zero significa que é lixo. Deixamos na tabela pois pode voltar a ser utilizado
     # Se for igual a um (1) significa que está sendo usado no sistema
-    mae = models.ForeignKey('TbOtimizacaoCustoItem', on_delete=models.CASCADE, verbose_name=_('Mãe'))
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
+    mae = models.ForeignKey('TbOtimizacaoCustoItem', on_delete=models.CASCADE, verbose_name='Mãe')
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
 
     def __str__(self):
         return ''
@@ -1570,20 +1571,20 @@ class TbConsumoEspecificoTipoProducao(models.Model): # Essa tabela é para calcu
                       ('Multiplicação', 'Multiplicação'),
                       ('Divisão', 'Divisão')
                       )
-    con_esp_tip_pro_descricao                = models.CharField(max_length=100, null=False, blank=False, verbose_name=_('Descrição'))
-    con_esp_tip_pro_qtde_produzida           = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name=_('Qtde Produzida'))
-    con_esp_tip_pro_qtde_consumo             = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name=_('Qtde Consumo'))
-    con_esp_tip_pro_indicador                = models.DecimalField(max_digits=12, null=True, blank=True, decimal_places=4, verbose_name=_('Indicador'))
-    con_esp_tip_pro_indicador_referencia     = models.ForeignKey(TbConsumoEspecifico, related_name='con_esp_tip_pro_indicador_referencia', on_delete=models.CASCADE, blank=True, null=True, verbose_name=_('Referência'))
-    con_esp_tip_pro_tipo_producao            = models.ManyToManyField(TbTipoProducao, related_name='con_esp_tip_pro_tipo_producao', verbose_name=_('Tipo de Produção'))
-    con_esp_tip_pro_consumo_via_equipamento  = models.ManyToManyField(TbTipoProducao, related_name='con_esp_tip_pro_consumo_via_equipamento', blank=True, verbose_name=_('Consumo Via Equipamento'))
-    con_esp_tip_pro_ajuste1                  = models.ForeignKey(TbConsumoEspecifico, related_name='con_esp_tip_pro_ajuste1', on_delete=models.CASCADE, blank=True, null=True, verbose_name=_('Indicador Ajuste'))
-    con_esp_tip_pro_operacao1                = models.CharField(max_length = 13, choices=operacao_choice, blank=True, null=True, verbose_name=_('Operação'))
-    con_esp_tip_pro_consumo_via_item_consumo = models.ManyToManyField(TbCustoItem, blank=True, verbose_name=_('Consumo Via Item de Consumo'))
-    con_esp_tip_pro_ajuste2                  = models.ForeignKey(TbConsumoEspecifico, related_name='con_esp_tip_pro_ajuste2', on_delete=models.CASCADE, blank=True, null=True, verbose_name=_('Indicador Ajuste'))
-    con_esp_tip_pro_operacao2                = models.CharField(max_length=13, choices=operacao_choice, blank=True, null=True, verbose_name=_('Operação'))
-    con_esp_tip_pro_observacao               = models.TextField(verbose_name=_('Observação'), blank=True, null=True)
-    tbcenarios                               = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
+    con_esp_tip_pro_descricao                = models.CharField(max_length=100, null=False, blank=False, verbose_name='Descrição')
+    con_esp_tip_pro_qtde_produzida           = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name='Qtde Produzida')
+    con_esp_tip_pro_qtde_consumo             = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name='Qtde Consumo')
+    con_esp_tip_pro_indicador                = models.DecimalField(max_digits=12, null=True, blank=True, decimal_places=4, verbose_name='Indicador')
+    con_esp_tip_pro_indicador_referencia     = models.ForeignKey(TbConsumoEspecifico, related_name='con_esp_tip_pro_indicador_referencia', on_delete=models.CASCADE, blank=True, null=True, verbose_name='Referência')
+    con_esp_tip_pro_tipo_producao            = models.ManyToManyField(TbTipoProducao, related_name='con_esp_tip_pro_tipo_producao', verbose_name='Tipo de Produção')
+    con_esp_tip_pro_consumo_via_equipamento  = models.ManyToManyField(TbTipoProducao, related_name='con_esp_tip_pro_consumo_via_equipamento', blank=True, verbose_name='Consumo Via Equipamento')
+    con_esp_tip_pro_ajuste1                  = models.ForeignKey(TbConsumoEspecifico, related_name='con_esp_tip_pro_ajuste1', on_delete=models.CASCADE, blank=True, null=True, verbose_name='Indicador Ajuste')
+    con_esp_tip_pro_operacao1                = models.CharField(max_length = 13, choices=operacao_choice, blank=True, null=True, verbose_name='Operação')
+    con_esp_tip_pro_consumo_via_item_consumo = models.ManyToManyField(TbCustoItem, blank=True, verbose_name='Consumo Via Item de Consumo')
+    con_esp_tip_pro_ajuste2                  = models.ForeignKey(TbConsumoEspecifico, related_name='con_esp_tip_pro_ajuste2', on_delete=models.CASCADE, blank=True, null=True, verbose_name='Indicador Ajuste')
+    con_esp_tip_pro_operacao2                = models.CharField(max_length=13, choices=operacao_choice, blank=True, null=True, verbose_name='Operação')
+    con_esp_tip_pro_observacao               = models.TextField(verbose_name='Observação', blank=True, null=True)
+    tbcenarios                               = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
     id_origem                                = models.IntegerField(blank=True, null=True)  # Origem no caso de duplicação de tabela
 
     def __str__(self):
@@ -1621,10 +1622,10 @@ class TbConsumoEspecificoTipoProducao(models.Model): # Essa tabela é para calcu
 
 class TbOtimizacaoComparacaoCenarios(models.Model):
     oti_com_cenario_referencia = models.ForeignKey(TbCenarios, on_delete=models.CASCADE,
-                                                   verbose_name=_('Cenário Referência'),
+                                                   verbose_name='Cenário Referência',
                                                    related_name='oti_com_cenario_referencia')
     id_origem = models.IntegerField(blank=True, null=True)  # Origem no caso de duplicação de tabela
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'),
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário',
                                    related_name='tbcenarios_1')
 
     def __str__(self):
@@ -1636,12 +1637,29 @@ class TbOtimizacaoComparacaoCenarios(models.Model):
         cenario_ativo = TbCenarios.objects.get(cen_ativo=True)
         ativo = cenario_ativo.id
 
+        # 🌟 NOVO: só faz sentido comparar cenários com resultado FECHADO
+        # -- comparar um cenário ainda sendo otimizado/limpo (ou já
+        # alterado depois de consolidado) contra outro dá números que
+        # não refletem um resultado de verdade.
+        if cenario_ativo.flag != 1:
+            raise ValidationError(
+                'O cenário ativo não está CONSOLIDADO -- só é possível comparar cenários '
+                'já Consolidados. Limpe, Otimize e Consolide o cenário ativo antes de comparar.'
+            )
+
         # 🌟 NOVO: a comparação só faz sentido entre cenários do mesmo grupo,
         # mesmo tipo (Mensal/Trimestral/Anual) e mesmo período — caso contrário
         # vpl()/tir()/payback_descontado() acabam cruzando dau_order de
         # períodos que não representam o mesmo intervalo de tempo real.
         if self.oti_com_cenario_referencia_id:
             referencia = self.oti_com_cenario_referencia
+
+            if referencia.flag != 1:
+                raise ValidationError(
+                    'O cenário de referência não está CONSOLIDADO -- só é possível comparar '
+                    'cenários já Consolidados. Limpe, Otimize e Consolide o cenário de '
+                    'referência antes de comparar.'
+                )
 
             if referencia.cen_grupo_id != cenario_ativo.cen_grupo_id:
                 raise ValidationError('O cenário de referência precisa estar no mesmo grupo do cenário ativo.')
@@ -1713,7 +1731,7 @@ class TbOtimizacaoComparacaoCenarios(models.Model):
 
         return retorno
 
-    vpl.short_description = _('VPL')
+    vpl.short_description = 'VPL'
 
     def payback_descontado(self):
         # Cenário ativo
@@ -1772,7 +1790,7 @@ class TbOtimizacaoComparacaoCenarios(models.Model):
 
         return retorno
 
-    payback_descontado.short_description = _('Payback Descontado')
+    payback_descontado.short_description = 'Payback Descontado'
 
     def tir(self):
         # Cenário ativo
@@ -1809,7 +1827,7 @@ class TbOtimizacaoComparacaoCenarios(models.Model):
 
         return retorno + ' (%)'
 
-    tir.short_description = _('TIR (%)')
+    tir.short_description = 'TIR (%)'
 
     class Meta:
         verbose_name = _('Comparação de Cenários')
@@ -1830,9 +1848,9 @@ class TbOtimizacaoComparacaoCenarios(models.Model):
 post_save.connect(verifica_filha_tbotimizacaocomparacaocenarios, sender=TbOtimizacaoComparacaoCenarios)
 
 class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
-    dau_order = models.IntegerField(verbose_name=_('Ano/Mês'))
-    mae = models.ForeignKey('TbOtimizacaoComparacaoCenarios', on_delete=models.CASCADE, verbose_name=_('Mãe'))
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
+    dau_order = models.IntegerField(verbose_name='Ano/Mês')
+    mae = models.ForeignKey('TbOtimizacaoComparacaoCenarios', on_delete=models.CASCADE, verbose_name='Mãe')
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
 
     def __str__(self):
         return ''
@@ -1890,7 +1908,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    ofcf_referencia.short_description = _('OFCF Referência')
+    ofcf_referencia.short_description = 'OFCF Referência'
 
     def ofcf_ativo(self):
 
@@ -1903,7 +1921,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    ofcf_ativo.short_description = _('OFCF Ativo')
+    ofcf_ativo.short_description = 'OFCF Ativo'
 
     def delta_ofcf(self):
 
@@ -1921,7 +1939,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    delta_ofcf.short_description = _('Delta OFCF')
+    delta_ofcf.short_description = 'Delta OFCF'
 
     def wacc(self):
 
@@ -1935,7 +1953,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    wacc.short_description = _('WACC (%)')
+    wacc.short_description = 'WACC (%)'
 
     def delta_ofcf_descontado(self):
 
@@ -1961,7 +1979,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    delta_ofcf_descontado.short_description = _('Delta OFCF Descontado')
+    delta_ofcf_descontado.short_description = 'Delta OFCF Descontado'
 
     def vendas_referencia(self):
 
@@ -1974,7 +1992,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    vendas_referencia.short_description = _('Vendas Referência')
+    vendas_referencia.short_description = 'Vendas Referência'
 
     def vendas_ativo(self):
 
@@ -1987,7 +2005,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    vendas_ativo.short_description = _('Vendas Ativo')
+    vendas_ativo.short_description = 'Vendas Ativo'
 
     def delta_vendas(self):
 
@@ -2005,7 +2023,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    delta_vendas.short_description = _('Delta Vendas')
+    delta_vendas.short_description = 'Delta Vendas'
 
     def variavel_referencia(self):
 
@@ -2018,7 +2036,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    variavel_referencia.short_description = _('Variável Referência')
+    variavel_referencia.short_description = 'Variável Referência'
 
     def variavel_ativo(self):
 
@@ -2031,7 +2049,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    variavel_ativo.short_description = _('Variável Ativo')
+    variavel_ativo.short_description = 'Variável Ativo'
 
     def delta_variavel(self):
 
@@ -2049,7 +2067,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    delta_variavel.short_description = _('Delta Variável')
+    delta_variavel.short_description = 'Delta Variável'
 
     def inbound_referencia(self):
 
@@ -2062,7 +2080,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    inbound_referencia.short_description = _('Inbound Referência')
+    inbound_referencia.short_description = 'Inbound Referência'
 
     def inbound_ativo(self):
 
@@ -2075,7 +2093,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    inbound_ativo.short_description = _('Inbound Ativo')
+    inbound_ativo.short_description = 'Inbound Ativo'
 
     def delta_inbound(self):
 
@@ -2093,7 +2111,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    delta_inbound.short_description = _('Delta Inbound')
+    delta_inbound.short_description = 'Delta Inbound'
 
     def outbound_referencia(self):
 
@@ -2106,7 +2124,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    outbound_referencia.short_description = _('Outbound Referência')
+    outbound_referencia.short_description = 'Outbound Referência'
 
     def outbound_ativo(self):
 
@@ -2119,7 +2137,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    outbound_ativo.short_description = _('Outbound Ativo')
+    outbound_ativo.short_description = 'Outbound Ativo'
 
     def delta_outbound(self):
 
@@ -2137,7 +2155,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    delta_outbound.short_description = _('Delta Outbound')
+    delta_outbound.short_description = 'Delta Outbound'
 
     def manutencao_referencia(self):
 
@@ -2150,7 +2168,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    manutencao_referencia.short_description = _('Manutenção Referência')
+    manutencao_referencia.short_description = 'Manutenção Referência'
 
     def manutencao_ativo(self):
 
@@ -2163,7 +2181,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    manutencao_ativo.short_description = _('Manutenção Ativo')
+    manutencao_ativo.short_description = 'Manutenção Ativo'
 
     def delta_manutencao(self):
 
@@ -2181,7 +2199,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    delta_manutencao.short_description = _('Delta Manutenção')
+    delta_manutencao.short_description = 'Delta Manutenção'
 
     def margem_contribuicao_referencia(self):
 
@@ -2194,7 +2212,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    margem_contribuicao_referencia.short_description = _('Margem Cont. Referência')
+    margem_contribuicao_referencia.short_description = 'Margem Cont. Referência'
 
     def margem_contribuicao_ativo(self):
 
@@ -2207,7 +2225,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    margem_contribuicao_ativo.short_description = _('Margem Cont. Ativo')
+    margem_contribuicao_ativo.short_description = 'Margem Cont. Ativo'
 
     def delta_margem_contribuicao(self):
 
@@ -2225,7 +2243,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    delta_margem_contribuicao.short_description = _('Delta Margem Cont.')
+    delta_margem_contribuicao.short_description = 'Delta Margem Cont.'
 
     def custo_fixo_referencia(self):
 
@@ -2238,7 +2256,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    custo_fixo_referencia.short_description = _('Custo Fixo Referência')
+    custo_fixo_referencia.short_description = 'Custo Fixo Referência'
 
     def custo_fixo_ativo(self):
 
@@ -2251,7 +2269,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    custo_fixo_ativo.short_description = _('Custo Fixo Ativo')
+    custo_fixo_ativo.short_description = 'Custo Fixo Ativo'
 
     def delta_custo_fixo(self):
 
@@ -2269,7 +2287,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    delta_custo_fixo.short_description = _('Delta Custo Fixo')
+    delta_custo_fixo.short_description = 'Delta Custo Fixo'
 
     def EBITDA_referencia(self):
 
@@ -2282,7 +2300,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    EBITDA_referencia.short_description = _('EBITDA Referência')
+    EBITDA_referencia.short_description = 'EBITDA Referência'
 
     def EBITDA_ativo(self):
 
@@ -2295,7 +2313,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    EBITDA_ativo.short_description = _('EBITDA Ativo')
+    EBITDA_ativo.short_description = 'EBITDA Ativo'
 
     def delta_EBITDA(self):
 
@@ -2313,7 +2331,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    delta_EBITDA.short_description = _('Delta EBITDA')
+    delta_EBITDA.short_description = 'Delta EBITDA'
 
     def EBITDA_PERC_referencia(self):
 
@@ -2326,7 +2344,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    EBITDA_PERC_referencia.short_description = _('EBITDA (%) Referência')
+    EBITDA_PERC_referencia.short_description = 'EBITDA (%) Referência'
 
     def EBITDA_PERC_ativo(self):
 
@@ -2339,7 +2357,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    EBITDA_PERC_ativo.short_description = _('EBITDA (%) Ativo')
+    EBITDA_PERC_ativo.short_description = 'EBITDA (%) Ativo'
 
     def delta_EBITDA_PERC(self):
 
@@ -2357,7 +2375,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    delta_EBITDA_PERC.short_description = _('Delta EBITDA (%)')
+    delta_EBITDA_PERC.short_description = 'Delta EBITDA (%)'
 
     def da_referencia(self):
 
@@ -2370,7 +2388,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    da_referencia.short_description = _('D&A Referência')
+    da_referencia.short_description = 'D&A Referência'
 
     def da_ativo(self):
 
@@ -2383,7 +2401,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    da_ativo.short_description = _('D&A Ativo')
+    da_ativo.short_description = 'D&A Ativo'
 
     def delta_da(self):
 
@@ -2401,7 +2419,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    delta_da.short_description = _('Delta D&A')
+    delta_da.short_description = 'Delta D&A'
 
     def IR_PERC_referencia(self):
 
@@ -2414,7 +2432,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    IR_PERC_referencia.short_description = _('IR (%) Referência')
+    IR_PERC_referencia.short_description = 'IR (%) Referência'
 
     def IR_PERC_ativo(self):
 
@@ -2427,7 +2445,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    IR_PERC_ativo.short_description = _('IR (%) Ativo')
+    IR_PERC_ativo.short_description = 'IR (%) Ativo'
 
     def delta_IR_PERC(self):
 
@@ -2445,7 +2463,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    delta_IR_PERC.short_description = _('Delta IR (%)')
+    delta_IR_PERC.short_description = 'Delta IR (%)'
 
     def mp_referencia(self):
 
@@ -2458,7 +2476,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    mp_referencia.short_description = _('MP Referência')
+    mp_referencia.short_description = 'MP Referência'
 
     def mp_ativo(self):
 
@@ -2471,7 +2489,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    mp_ativo.short_description = _('MP Ativo')
+    mp_ativo.short_description = 'MP Ativo'
 
     def delta_mp(self):
 
@@ -2489,7 +2507,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    delta_mp.short_description = _('Delta MP')
+    delta_mp.short_description = 'Delta MP'
 
     def wip_referencia(self):
 
@@ -2502,7 +2520,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    wip_referencia.short_description = _('WIP Referência')
+    wip_referencia.short_description = 'WIP Referência'
 
     def wip_ativo(self):
 
@@ -2515,7 +2533,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    wip_ativo.short_description = _('WIP Ativo')
+    wip_ativo.short_description = 'WIP Ativo'
 
     def delta_wip(self):
 
@@ -2533,7 +2551,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    delta_wip.short_description = _('Delta WIP')
+    delta_wip.short_description = 'Delta WIP'
 
     def pf_referencia(self):
 
@@ -2546,7 +2564,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    pf_referencia.short_description = _('PF Referência')
+    pf_referencia.short_description = 'PF Referência'
 
     def pf_ativo(self):
 
@@ -2559,7 +2577,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    pf_ativo.short_description = _('PF Ativo')
+    pf_ativo.short_description = 'PF Ativo'
 
     def delta_pf(self):
 
@@ -2577,7 +2595,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    delta_pf.short_description = _('Delta PF')
+    delta_pf.short_description = 'Delta PF'
 
     def estoque_referencia(self):
 
@@ -2590,7 +2608,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    estoque_referencia.short_description = _('estoque Referência')
+    estoque_referencia.short_description = 'estoque Referência'
 
     def estoque_ativo(self):
 
@@ -2603,7 +2621,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    estoque_ativo.short_description = _('estoque Ativo')
+    estoque_ativo.short_description = 'estoque Ativo'
 
     def delta_estoque(self):
 
@@ -2621,7 +2639,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    delta_estoque.short_description = _('Delta estoque')
+    delta_estoque.short_description = 'Delta estoque'
 
     def receber_referencia(self):
 
@@ -2634,7 +2652,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    receber_referencia.short_description = _('Receber Referência')
+    receber_referencia.short_description = 'Receber Referência'
 
     def receber_ativo(self):
 
@@ -2647,7 +2665,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    receber_ativo.short_description = _('Receber Ativo')
+    receber_ativo.short_description = 'Receber Ativo'
 
     def delta_receber(self):
 
@@ -2665,7 +2683,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    delta_receber.short_description = _('Delta Receber')
+    delta_receber.short_description = 'Delta Receber'
 
     def pagar_referencia(self):
 
@@ -2678,7 +2696,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    pagar_referencia.short_description = _('pagar Referência')
+    pagar_referencia.short_description = 'pagar Referência'
 
     def pagar_ativo(self):
 
@@ -2691,7 +2709,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    pagar_ativo.short_description = _('pagar Ativo')
+    pagar_ativo.short_description = 'pagar Ativo'
 
     def delta_pagar(self):
 
@@ -2709,7 +2727,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    delta_pagar.short_description = _('Delta pagar')
+    delta_pagar.short_description = 'Delta pagar'
 
     def owcr_referencia(self):
 
@@ -2722,7 +2740,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    owcr_referencia.short_description = _('OWCR Referência')
+    owcr_referencia.short_description = 'OWCR Referência'
 
     def owcr_ativo(self):
 
@@ -2735,7 +2753,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    owcr_ativo.short_description = _('OWCR Ativo')
+    owcr_ativo.short_description = 'OWCR Ativo'
 
     def delta_owcr(self):
 
@@ -2753,7 +2771,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    delta_owcr.short_description = _('Delta OWCR')
+    delta_owcr.short_description = 'Delta OWCR'
 
     def capex_referencia(self):
 
@@ -2766,7 +2784,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    capex_referencia.short_description = _('capex Referência')
+    capex_referencia.short_description = 'capex Referência'
 
     def capex_ativo(self):
 
@@ -2779,7 +2797,7 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    capex_ativo.short_description = _('capex Ativo')
+    capex_ativo.short_description = 'capex Ativo'
 
     def delta_capex(self):
 
@@ -2797,11 +2815,11 @@ class TbOtimizacaoComparacaoCenariosDaugther(models.Model):
 
         return retorno
 
-    delta_capex.short_description = _('Delta capex')
+    delta_capex.short_description = 'Delta capex'
 
     class Meta:
-        # verbose_name = _('Análise Comparativa Cenário Ativo - Cenário Referência (Valores em ') + TbEmpresa.objects.get(id=1).emp_moeda + ')'
-        # verbose_name_plural = _('Análise Comparativa Cenário Ativo - Cenário Referência (Valores em ') + TbEmpresa.objects.get(id=1).emp_moeda + ')'
+        # verbose_name = 'Análise Comparativa Cenário Ativo - Cenário Referência (Valores em ' + TbEmpresa.objects.get(id=1).emp_moeda + ')'
+        # verbose_name_plural = 'Análise Comparativa Cenário Ativo - Cenário Referência (Valores em ' + TbEmpresa.objects.get(id=1).emp_moeda + ')'
         verbose_name = _('Análise Comparativa Cenário Ativo - Cenário Referência')
         verbose_name_plural = _('Análise Comparativa Cenário Ativo - Cenário Referência')
 
@@ -2815,31 +2833,31 @@ class TbOtimizacaoShadow(models.Model):
             P  = ('P', 'PRODUTO')
             PN = ('PM', 'PRODUTO/MERCADO')
             IC = ('IC', 'ITEM DE CUSTO')
-    oti_shadow_restricao = models.CharField(max_length=100, verbose_name=_('Restrição'))
-    oti_shadow_tipo = models.CharField(max_length=2, choices=TipoRestricao.choices, verbose_name=_('Tipo'))
-    oti_shadow_id_1 = models.IntegerField(blank=True, null=True, verbose_name=_('Id 1'))
-    oti_shadow_id_2 = models.IntegerField(blank=True, null=True, verbose_name=_('Id 2'))
-    dau_order       = models.IntegerField(blank=True, null=True, verbose_name=_('Periodo Order'))
-    dau_valor_1     = models.DecimalField(max_digits=18, decimal_places=0, verbose_name=_('Sombra Mín') , default=0)
-    dau_valor_2     = models.DecimalField(max_digits=18, decimal_places=0, verbose_name=_('Sombra Máx') , default=0)
-    dau_valor_3     = models.DecimalField(max_digits=18, decimal_places=0, verbose_name=_('Res. Mín')   , default=0)
-    dau_valor_4     = models.DecimalField(max_digits=18, decimal_places=0, verbose_name=_('Res. Máx')   , default=0)
-    dau_valor_5     = models.DecimalField(max_digits=18, decimal_places=0, verbose_name=_('Mín')        , default=0)
-    dau_valor_6     = models.DecimalField(max_digits=18, decimal_places=0, verbose_name=_('Máx')        , default=0)
-    dau_valor_7     = models.DecimalField(max_digits=18, decimal_places=0, verbose_name=_('Real')       , default=0)
-    dau_valor_8     = models.DecimalField(max_digits=18, decimal_places=0, null=True, blank=True, verbose_name=_('Lim Inf Mín'), default=0)
-    dau_valor_9     = models.DecimalField(max_digits=18, decimal_places=0, null=True, blank=True, verbose_name=_('Lim Sup Mín'), default=0)
-    dau_valor_10    = models.DecimalField(max_digits=18, decimal_places=0, null=True, blank=True, verbose_name=_('Lim Inf Máx'), default=0)
-    dau_valor_11    = models.DecimalField(max_digits=18, decimal_places=0, null=True, blank=True, verbose_name=_('Lim Sup Máx'), default=0)
-    dau_texto_1     = models.CharField(max_length=20,  null=True, blank=True                    , verbose_name=_('Tipo'))
-    dau_texto_2     = models.CharField(max_length=300, null=True, blank=True                    , verbose_name=_('Conc Reduzir'))  # concorrente ao reduzir
-    dau_texto_3     = models.CharField(max_length=300, null=True, blank=True                    , verbose_name=_('Conc Aumentar'))  # concorrente ao aumentar
+    oti_shadow_restricao = models.CharField(max_length=100, verbose_name='Restrição')
+    oti_shadow_tipo = models.CharField(max_length=2, choices=TipoRestricao.choices, verbose_name='Tipo')
+    oti_shadow_id_1 = models.IntegerField(blank=True, null=True, verbose_name='Id 1')
+    oti_shadow_id_2 = models.IntegerField(blank=True, null=True, verbose_name='Id 2')
+    dau_order       = models.IntegerField(blank=True, null=True, verbose_name='Periodo Order')
+    dau_valor_1     = models.DecimalField(max_digits=18, decimal_places=0, verbose_name='Sombra Mín' , default=0)
+    dau_valor_2     = models.DecimalField(max_digits=18, decimal_places=0, verbose_name='Sombra Máx' , default=0)
+    dau_valor_3     = models.DecimalField(max_digits=18, decimal_places=0, verbose_name='Res. Mín'   , default=0)
+    dau_valor_4     = models.DecimalField(max_digits=18, decimal_places=0, verbose_name='Res. Máx'   , default=0)
+    dau_valor_5     = models.DecimalField(max_digits=18, decimal_places=0, verbose_name='Mín'        , default=0)
+    dau_valor_6     = models.DecimalField(max_digits=18, decimal_places=0, verbose_name='Máx'        , default=0)
+    dau_valor_7     = models.DecimalField(max_digits=18, decimal_places=0, verbose_name='Real'       , default=0)
+    dau_valor_8     = models.DecimalField(max_digits=18, decimal_places=0, null=True, blank=True, verbose_name='Lim Inf Mín', default=0)
+    dau_valor_9     = models.DecimalField(max_digits=18, decimal_places=0, null=True, blank=True, verbose_name='Lim Sup Mín', default=0)
+    dau_valor_10    = models.DecimalField(max_digits=18, decimal_places=0, null=True, blank=True, verbose_name='Lim Inf Máx', default=0)
+    dau_valor_11    = models.DecimalField(max_digits=18, decimal_places=0, null=True, blank=True, verbose_name='Lim Sup Máx', default=0)
+    dau_texto_1     = models.CharField(max_length=20,  null=True, blank=True                    , verbose_name='Tipo')
+    dau_texto_2     = models.CharField(max_length=300, null=True, blank=True                    , verbose_name='Conc Reduzir')  # concorrente ao reduzir
+    dau_texto_3     = models.CharField(max_length=300, null=True, blank=True                    , verbose_name='Conc Aumentar')  # concorrente ao aumentar
     id_origem       = models.IntegerField(blank=True, null=True)  # Origem no caso de duplicação de tabela
-    flag            = models.BooleanField(blank=True, null=True, default=False, verbose_name=_('Controle'))
+    flag            = models.BooleanField(blank=True, null=True, default=False, verbose_name='Controle')
     # Este campo (flag) é somente para controle.
     # Se for igual a zero significa que é lixo. Deixamos na tabela pois pode voltar a ser utilizado
     # Se for igual a um (1) significa que está sendo usado no sistema
-    tbcenarios      = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
+    tbcenarios      = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
 
     def __str__(self):
         return ('Restrição: ') + str(self.oti_shadow_restricao)
@@ -2891,13 +2909,13 @@ class TbOtimizacaoShadow(models.Model):
     # arquivo.
     try:
         if TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Anual':
-            display_order.short_description = _('Ano')
+            display_order.short_description = 'Ano'
         elif TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Trimestral':
-            display_order.short_description = _('Ano/Trimestre')
+            display_order.short_description = 'Ano/Trimestre'
         else:
-            display_order.short_description = _('Ano/Mês')
+            display_order.short_description = 'Ano/Mês'
     except Exception:
-        display_order.short_description = _('Período')
+        display_order.short_description = 'Período'
 
     class Meta:
         verbose_name = _('Sombra da Otimização Simplex')

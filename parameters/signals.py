@@ -12,7 +12,9 @@ sinal por tabela interposta. NÃO cobre as tasks de atualização em massa
 (usam .update(), que não dispara sinal do Django -- são só acionadas por
 comando explícito do usuário, então ficam de fora por enquanto).
 """
+from django.apps import apps
 from django.db.models.signals import post_save, post_delete
+from django.urls import reverse, NoReverseMatch
 from django.utils import timezone
 
 from .contexto_usuario import get_usuario_atual
@@ -53,29 +55,64 @@ def _nome_tabela_para_historico(sender, instance):
 
 def _montar_linha_historico(sender, instance, **kwargs):
     """
-    🌟 NOVO: monta uma linha do histórico de "Últimas Alterações" --
-    data, hora, usuário, tabela e (quando dá pra saber) o campo. O
-    campo só dá pra saber quando quem chamou .save() passou
-    update_fields explicitamente (o Admin do Django faz isso na maioria
-    dos casos) -- senão, omite essa parte (não tem como adivinhar quais
-    campos mudaram sem isso).
+    🌟 CORRIGIDO: monta uma linha do histórico de "Últimas Alterações" --
+    data, hora, usuário, app, tabela e (quando dá pra saber) o campo,
+    seguido de um link pro registro alterado (igual a "Ações recentes"
+    do Django Admin).
+
+    O nome do app usa o verbose_name do AppConfig (apps.py de cada app)
+    -- o mesmo nome que já aparece no menu lateral do Admin -- em vez do
+    app_label cru (minúsculo, sem espaço).
+
+    O link: tenta primeiro a URL de edição do PRÓPRIO registro alterado.
+    A maioria das tabelas "filha" (*Daugther), porém, só é editável via
+    INLINE dentro da tela da tabela MÃE -- não têm URL de edição própria
+    no Admin, então essa 1ª tentativa falha (NoReverseMatch) pra quase
+    todas elas. Nesse caso, cai pra URL de edição da MÃE (instance.mae),
+    que é onde a edição de verdade acontece. Só omite o link de vez
+    quando nem uma coisa nem outra tem página no Admin, ou quando o
+    registro foi excluído (não tem mais o que abrir).
     """
     agora = timezone.now().strftime('%d/%m/%Y %H:%M:%S')
 
     usuario = get_usuario_atual()
     nome_usuario = usuario.get_username() if usuario is not None else 'Sistema'
 
+    try:
+        nome_app = str(apps.get_app_config(sender._meta.app_label).verbose_name).strip()
+    except LookupError:
+        nome_app = sender._meta.app_label
     nome_tabela = _nome_tabela_para_historico(sender, instance)
 
-    if kwargs.get('signal') is post_delete:
+    eh_delete = kwargs.get('signal') is post_delete
+    if eh_delete:
         detalhe_campo = 'registro excluído'
     else:
         update_fields = kwargs.get('update_fields')
         detalhe_campo = ', '.join(sorted(update_fields)) if update_fields else None
 
-    linha = f"{agora} - {nome_usuario} - {nome_tabela}"
+    linha = f"{agora} - {nome_usuario} - {nome_app} - {nome_tabela}"
     if detalhe_campo:
         linha += f" - {detalhe_campo}"
+
+    if not eh_delete:
+        url = None
+        try:
+            url = reverse(f'admin:{sender._meta.app_label}_{sender._meta.model_name}_change', args=[instance.pk])
+        except NoReverseMatch:
+            mae_id = getattr(instance, 'mae_id', None)
+            if mae_id is not None:
+                try:
+                    mae_model = instance.mae._meta.model
+                    url = reverse(
+                        f'admin:{mae_model._meta.app_label}_{mae_model._meta.model_name}_change',
+                        args=[mae_id],
+                    )
+                except Exception:
+                    url = None
+        if url:
+            linha += f" | {url}"
+
     return linha
 
 

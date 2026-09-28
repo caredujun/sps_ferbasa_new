@@ -197,11 +197,46 @@
             </div>
         </div>
 
+        <!-- 🌟 CORRIGIDO: wrapper vertical novo -- sem ele, a faixa dos
+        logos virava mais um item HORIZONTAL dentro do .app-container
+        (que é display:flex), ficando espremida ao lado do painel em vez
+        de empilhada acima dele. Esse wrapper ocupa o mesmo espaço que
+        .chat-container ocupava sozinho (flex: 1), e empilha a faixa +
+        o chat-container um em cima do outro dentro dele. -->
+        <div style="flex: 1; display: flex; flex-direction: column; min-width: 0;">
+
+        <!-- 🌟 CORRIGIDO: faixa com fundo na cor do cabeçalho do Tema em
+        uso (mesma cor do cabeçalho do Admin) e borda, pra destacar os
+        logos -- Tema na ponta esquerda, Empresa ativa na ponta direita,
+        mesmo tamanho (altura fixa, largura livre) pros dois. No meio,
+        o mesmo texto que já aparece no cabeçalho do Admin ("Empresa |
+        Cenário X/Y"), acrescido do status do cenário no final, também
+        separado por "|" -- branco, centralizado. Usa as mesmas
+        variáveis (nome_empresa/nome_cenario/status_cenario) que a
+        resposta do chat já atualiza sozinha via AJAX (ver
+        atualizarBarraContexto), então continua sem precisar de F5. -->
+        {% if logo_tema_url or logo_empresa_url or nome_empresa or nome_cenario %}
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 8px 15px; border: 1px solid #000; border-radius: 6px; background-color: {{ cor_header_tema|default:'#0C4B33' }};">
+            <div style="flex: 0 0 auto;">
+                {% if logo_tema_url %}<img src="{{ logo_tema_url }}" alt="SPS" style="height: 45px; width: auto; object-fit: contain;">{% endif %}
+            </div>
+            <div style="flex: 1; text-align: center; color: #fff; font-weight: bold; font-size: 20px; padding: 0 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;">
+                {% if nome_empresa %}<span id="valor-nome-empresa">{{ nome_empresa }}</span>{% endif %}
+                {% if nome_empresa and nome_cenario %} | {% endif %}
+                {% if nome_cenario %}{% trans "Cenário" %} <span id="valor-nome-cenario">{{ nome_cenario }}</span>{% endif %}
+                {% if status_cenario %} | <span id="valor-status-cenario">{{ status_cenario }}</span>{% endif %}
+            </div>
+            <div style="flex: 0 0 auto;">
+                {% if logo_empresa_url %}<img src="{{ logo_empresa_url }}" alt="{{ nome_empresa }}" style="height: 45px; width: auto; object-fit: contain;">{% endif %}
+            </div>
+        </div>
+        {% endif %}
+
         <!-- CONTAINER PRINCIPAL DO CHAT -->
         <div class="chat-container">
             <!-- PAINEL DE CONTROLE DE LIMPEZA INTEGRADO NO TOPO -->
             <div style="display: flex; gap: 10px; align-items: center; background: #fff; padding: 10px; border-radius: 6px; border: 1px solid #eee; margin-bottom: 15px; flex-wrap: wrap;">
-                <h2 style="margin: 0; padding: 0; border: none; flex: 1; font-size: 20px;">🤖 {% trans "Central de IA do SPS" %}</h2>
+                <h2 style="margin: 0; padding: 0; border: none; flex: 1; font-size: 20px;">🤖 {% trans "Agente IA do SPS" %}</h2>
 
                 <select id="seletor-periodo" style="padding: 6px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px; cursor: pointer; background: #fff;">
                     <option value="hoje">{% trans "Limpar Hoje" %}</option>
@@ -220,21 +255,6 @@
                 <button type="button" id="btn-limpar" style="padding: 7px 14px; background-color: #d32f2f; font-size: 12px; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">{% trans "Executar Limpeza" %}</button>
             </div>
 
-            <!-- 🌟 NOVO: barra de contexto -- empresa, cenário ativo e status,
-            pra o usuário sempre saber onde está trabalhando dentro do SPS. -->
-            {% if nome_empresa or nome_cenario %}
-            <div id="barra-contexto" style="display: flex; gap: 16px; align-items: center; justify-content: center; background: #fff3b0; padding: 8px 12px; border-radius: 6px; border: 1px solid #e8d878; margin-bottom: 15px; font-size: 13px; color: #5c4d00; font-weight: bold; flex-wrap: nowrap; overflow-x: auto; white-space: nowrap;">
-                {% if nome_empresa %}
-                <span>🏢 <strong>{% trans "Empresa" %}:</strong> <span id="valor-nome-empresa">{{ nome_empresa }}</span></span>
-                {% endif %}
-                {% if nome_cenario %}
-                <span>📊 <strong>{% trans "Cenário Ativo" %}:</strong> <span id="valor-nome-cenario">{{ nome_cenario }}</span></span>
-                {% endif %}
-                {% if status_cenario %}
-                <span>🚦 <strong>{% trans "Status" %}:</strong> <span id="valor-status-cenario">{{ status_cenario }}</span></span>
-                {% endif %}
-            </div>
-            {% endif %}
 
             <div id="chat-box">
                 <p id="placeholder-text" style="color: gray;"><em>{% blocktrans with nome_usuario=user.first_name|default:user.username %}Olá {{ nome_usuario }}! O que posso fazer por você hoje?{% endblocktrans %}</em></p>
@@ -249,6 +269,8 @@
                 </div>
             </form>
         </div>
+        </div>
+        <!-- fim do wrapper vertical (faixa de logos + chat-container) -->
 
         <!-- PAINEL LATERAL DIREITO: AÇÕES COMUNS -->
         <div class="sidebar">
@@ -267,6 +289,7 @@
                     {% if acoes_habilitadas.cen_criar %}<option value="criar um cenário novo">{% trans "Criar cenário novo" %}</option>{% endif %}
                     {% if acoes_habilitadas.cen_mudar %}<option value="mudar o tipo ou período do cenário ativo">{% trans "Mudar tipo/período" %}</option>{% endif %}
                     {% if acoes_habilitadas.cen_status %}<option value="qual é o status do cenário?">{% trans "Ver status" %}</option>{% endif %}
+                    {% if acoes_habilitadas.cen_atualizar_fluxos %}<option value="atualizar fluxos de produção do cenário ativo">{% trans "Atualizar Fluxos de Produção" %}</option>{% endif %}
                     {% if acoes_habilitadas.cen_limpar %}<option value="limpar cenário">{% trans "Limpar" %}</option>{% endif %}
                     {% if acoes_habilitadas.cen_otimizar %}<option value="otimizar cenário">{% trans "Otimizar" %}</option>{% endif %}
                     {% if acoes_habilitadas.cen_consolidar %}<option value="consolidar cenário">{% trans "Consolidar" %}</option>{% endif %}

@@ -305,7 +305,7 @@ def _detectar_intencao_cambio(mensagem):
 # disponível a qualquer momento, não só durante a criação de um cenário
 # novo. Palavras de ação diferentes das de mudar/criar cenário, então não
 # tem risco de conflito entre os detectores.
-PADRAO_PROCESSAR_ACAO = re.compile(r'limp[ae]r?|otimiz[ae]r?|consolid[ae]r?', re.IGNORECASE)
+PADRAO_PROCESSAR_ACAO = re.compile(r'limp[ae]r?|otimiz[ae]r?|consolid[ae]r?|atualiz[ae]r?.*fluxo', re.IGNORECASE)
 
 
 def _detectar_intencao_processar(mensagem):

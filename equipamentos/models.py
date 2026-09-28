@@ -12,6 +12,7 @@ from django.db.models.signals import post_save, pre_save
 from django.utils.safestring import mark_safe
 from django.core.exceptions import ValidationError
 from tabelas.models import atualiza_cenario, TbCustoItemPreco
+from parameters.contexto_usuario import limit_choices_to_empresa_ativa
 
 # Para permitir mostrar valores numéricos no padrão Brasil
 # Estou usando nos campos numéricos criados no model
@@ -116,7 +117,7 @@ class TbEquipamentosCadastro(models.Model):  # Esta tabela é geral. Não possui
     equ_cad_gargalo = models.BooleanField(blank=False, null=False, default=True, verbose_name=_('Gargalo'))
     equ_cad_expedicao = models.BooleanField(blank=False, null=False, default=False, verbose_name=_('Expedição'))
     equ_cad_output = models.CharField(max_length=3, choices=OutputUnidChoices.choices, verbose_name=_('Output'))
-    equ_cad_unidade_producao = models.ForeignKey(TbUnidadeProducao, on_delete=models.CASCADE, verbose_name=_('Planta'))
+    equ_cad_unidade_producao = models.ForeignKey(TbUnidadeProducao, on_delete=models.CASCADE, verbose_name=_('Planta'), limit_choices_to=limit_choices_to_empresa_ativa)
     equ_cad_imagem = models.ImageField(upload_to='equipamentos', null=True, blank=True, verbose_name=_('Imagem'))
     equ_cad_indicador_manutencao = models.ForeignKey(TbIndicadores, null=True, blank=True, on_delete=models.PROTECT, verbose_name=_('Indicador Custo Manutenção'))
     equ_cad_moeda_manutencao = models.CharField(max_length=3, choices=EquipamentoCadastroMoedaChoices.choices, verbose_name=_('Moeda Custo Manutenção'))
@@ -308,7 +309,7 @@ class TbEquipamentosCadastroDaugther(models.Model):
 
 class TbEquipamentos(models.Model):
     equ_codigo = models.ForeignKey(TbEquipamentosCadastro, on_delete=models.CASCADE, verbose_name=_('Equipamento'))
-    equ_tipo_producao = models.ForeignKey(TbTipoProducao, on_delete=models.CASCADE, verbose_name=_('Tipo Produção'))
+    equ_tipo_producao = models.ForeignKey(TbTipoProducao, on_delete=models.CASCADE, verbose_name=_('Tipo Produção'), limit_choices_to=limit_choices_to_empresa_ativa)
     equ_wip = models.IntegerField(default=0, verbose_name=_('WIP (Dias Produção)'))
     equ_ordem_codigo = models.IntegerField(verbose_name=_('Ordem'))
     equ_ordem_descricao = models.CharField(max_length=60, verbose_name=_('Descrição da Ordem'))

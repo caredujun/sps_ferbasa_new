@@ -7,6 +7,7 @@ from django.core.exceptions import ValidationError
 from tabelas.models import TbFamiliaProduto, TbMercado, TbEquacaoAjustePreco, TbEmpresa, TbCambio, atualiza_cenario, \
     TbUnidadeProducao, TbIndicadores
 from parameters.models import TbCenarios
+from parameters.contexto_usuario import limit_choices_to_empresa_ativa
 import fluxos
 
 # Para permitir mostrar valores numéricos no padrão Brasil
@@ -92,7 +93,7 @@ class TbProdutos(models.Model):  # NÃO TEM CAMPO DO CENÁRIO. SERÁ USADO POR T
     pro_ativo = models.BooleanField(blank=False, null=False, default=True, verbose_name=_('Ativo'))
     pro_unidade_producao = models.CharField(max_length=3, choices=UnidadeProducaoChoices.choices,
                                             verbose_name=_('Unidade'))
-    pro_familia = models.ForeignKey(TbFamiliaProduto, on_delete=models.CASCADE, verbose_name=_('Família'))
+    pro_familia = models.ForeignKey(TbFamiliaProduto, on_delete=models.CASCADE, verbose_name=_('Família'), limit_choices_to=limit_choices_to_empresa_ativa)
     pro_imagem = models.ImageField(upload_to='produtos', null=True, blank=True, verbose_name=_('Imagem'))
     pro_observacao = models.TextField(verbose_name=_('Observação'), blank=True, null=True)
     tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
@@ -169,7 +170,7 @@ class TbProdutoMercadoPreco(models.Model):
         EUR = ('EUR', 'EURO')
 
     pro_mer_pre_produto = models.ForeignKey(TbProdutos, on_delete=models.CASCADE, verbose_name=_('Produto'))
-    pro_mer_pre_mercado = models.ForeignKey(TbMercado, on_delete=models.CASCADE, verbose_name=_('Mercado'))
+    pro_mer_pre_mercado = models.ForeignKey(TbMercado, on_delete=models.CASCADE, verbose_name=_('Mercado'), limit_choices_to=limit_choices_to_empresa_ativa)
     pro_mer_pre_codigo_interno = models.CharField(max_length=8, blank=True, null=True, verbose_name=_('Cód. Interno'))
     pro_mer_pre_descricao_interna = models.CharField(max_length=51, blank=True, null=True,
                                                      verbose_name=_('Desc. Interna'))
@@ -189,7 +190,7 @@ class TbProdutoMercadoPreco(models.Model):
     pro_mer_pre_outbound = models.BooleanField(blank=False, null=False, default=True,
                                                verbose_name=_('Considerar Outbound (se existir...)'))
     pro_mer_pre_equacao = models.ForeignKey(TbEquacaoAjustePreco, null=True, blank=True, on_delete=models.CASCADE,
-                                            verbose_name=_('Equação de Preço'))
+                                            verbose_name=_('Equação de Preço'), limit_choices_to=limit_choices_to_empresa_ativa)
     pro_mer_pre_observacao = models.TextField(verbose_name=_('Observação'), blank=True, null=True)
     pro_mer_pre_fonte = models.FileField(upload_to='fontes', null=True, blank=True, verbose_name=_('Fonte'))
     valor_inicial_1 = models.DecimalField(max_digits=18, decimal_places=2, verbose_name=_('Volume Mín. Inicial'))
@@ -473,12 +474,12 @@ class TbMercadoOutbound(models.Model):
         USD = ('USD', 'DÓLAR')
         EUR = ('EUR', 'EURO')
 
-    mer_out_mercado = models.ForeignKey(TbMercado, on_delete=models.CASCADE, verbose_name=_('Mercado'))
+    mer_out_mercado = models.ForeignKey(TbMercado, on_delete=models.CASCADE, verbose_name=_('Mercado'), limit_choices_to=limit_choices_to_empresa_ativa)
     mer_out_unidade = models.ForeignKey(TbUnidadeProducao, on_delete=models.CASCADE,
-                                        verbose_name=_('Planta de Produção'))
+                                        verbose_name=_('Planta de Produção'), limit_choices_to=limit_choices_to_empresa_ativa)
     mer_out_produto = models.ForeignKey(TbProdutos, on_delete=models.CASCADE, verbose_name=_('Produto'))
     mer_out_indicador = models.ForeignKey(TbIndicadores, null=True, blank=True, on_delete=models.PROTECT,
-                                          verbose_name=_('Indicador'))
+                                          verbose_name=_('Indicador'), limit_choices_to=limit_choices_to_empresa_ativa)
     mer_out_moeda = models.CharField(max_length=3, choices=MerOutChoices.choices, null=False, blank=False,
                                      default='BRL', verbose_name=_('Moeda'))
     mer_out_observacao = models.TextField(max_length=80, verbose_name=_('Observação'), blank=True, null=True)

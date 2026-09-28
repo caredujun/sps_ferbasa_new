@@ -832,11 +832,18 @@ class TbFluxoConsumoPadraoAdmin(DjangoObjectActions, admin.ModelAdmin):
         cen_ativo = TbCenarios.objects.get(cen_ativo=True).id
         return super(TbFluxoConsumoPadraoAdmin, self).get_queryset(request).filter(tbcenarios=cen_ativo)
 
+    def get_fields(self, request, obj=None):
+        if not obj:
+            return self.fields + ('valor_inicial',)
+        return self.fields
+
+    '''
     # Mostra o campo ind_valor_inicial somente se estiver incluindo novo registro
     def get_fields(self, request, obj=None):
         if not obj:  # editing an existing object. Se estiver adicionando no indicador, irá aparecer o campo para informar o valor inicial
             return self.fields + ('valor_inicial',)
         return self.fields
+    '''
 
     inlines = [TbFluxoConsumoPadraoDaugtherAdmin]
 
@@ -1040,11 +1047,6 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
-
-    def get_fieldsets(self, request, obj=None):
-        if not obj:  # Se for uma adição (obj=None)
-            return self.add_fieldsets
-        return super().get_fieldsets(request, obj)
 
     '''
     def get_fields(self, request, obj=None):
@@ -1392,7 +1394,9 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
 
     def importar_excel_new_segundo(self, request, queryset):
 
-        importar_excel_new_segundo_celery.delay()
+        # 🌟 CORRIGIDO: mesmo motivo de importar_excel, acima.
+        cenario_id = TbCenarios.objects.get(cen_ativo=True).id
+        importar_excel_new_segundo_celery.delay(cenario_id)
         messages.success(request, _('Importação Novos Fluxos de Produção sendo realizada em segundo plano!'))
 
     importar_excel_new_segundo.short_description = _('Importar Excel/xls 2º Plano (Novos)')
@@ -1442,6 +1446,7 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
                                                       tbcenarios_id=cen_ativo).count() == 0:
                         # Não existe. Podemos contonuar.
                         # Vamos ver se o id do produto informado existe.
+                        #print(sheet.cell(i, 2).value)
                         if TbProdutos.objects.filter(id=sheet.cell(i, 2).value).count() > 0:
                             # Existe. Podemos continuar.
                             # Vamos ver se id do consumo padrão informado existe.
@@ -1522,7 +1527,9 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
 
     def importar_excel_xlsx_new_segundo(self, request, queryset):
 
-        importar_excel_xlsx_new_segundo_celery.delay()
+        # 🌟 CORRIGIDO: mesmo motivo de importar_excel, acima.
+        cenario_id = TbCenarios.objects.get(cen_ativo=True).id
+        importar_excel_xlsx_new_segundo_celery.delay(cenario_id)
         messages.success(request, _('Importação Novos Fluxos de Produção sendo realizada em segundo plano!'))
 
     importar_excel_xlsx_new_segundo.short_description = _('Importar Excel/xlsx 2º Plano (Novos)')
@@ -1547,7 +1554,14 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
         for i in id_lista:
             lista.append(i)
 
-        importar_excel_fluxo_producao_celery.delay(lista)
+        # 🌟 CORRIGIDO: resolve o cenário ativo AQUI, dentro da action do
+        # Admin -- onde HÁ um usuário logado de verdade no contexto -- e
+        # passa explicitamente pra task, que roda depois num worker do
+        # Celery sem esse contexto (múltiplos usuários com cenários
+        # ativos diferentes quebrariam se a task tentasse resolver
+        # sozinha via TbCenarios.objects.get(cen_ativo=True)).
+        cenario_id = TbCenarios.objects.get(cen_ativo=True).id
+        importar_excel_fluxo_producao_celery.delay(lista, cenario_id)
         messages.success(request, _('Tabela Fluxo de Produção sendo atualizada em segundo plano!'))
 
     importar_excel.short_description = _('Importar Excel')

@@ -877,6 +877,7 @@ class TbEquipamentosConsumoEspecificoAdmin(DjangoObjectActions, admin.ModelAdmin
             for i in range(total_linhas_mae):  # A coluna do cenário é a de ordem 8
                 if i > 0:  # Porque a linha 0 é o cabeçalho
                     if sheet.cell_value(i, 8) != cen_ativo:
+                        print("Passei 1")
                         ok_cenario = False
                         break
 
@@ -893,6 +894,7 @@ class TbEquipamentosConsumoEspecificoAdmin(DjangoObjectActions, admin.ModelAdmin
                                 equ_con_esp_equipamento_id=sheet.cell_value(i, 1),
                                 equ_con_esp_custoitempreco_id=sheet.cell_value(i, 3),
                                 tbcenarios_id=cen_ativo).count() > 0:
+                            print("Passei 2")
                             existe = True
                             break
                 if not existe:
@@ -901,7 +903,8 @@ class TbEquipamentosConsumoEspecificoAdmin(DjangoObjectActions, admin.ModelAdmin
                     existe = True
                     for i in range(total_linhas_mae):
                         if i > 0:  # Porque a linha 0 é o cabeçalho
-                            if TbEquipamentos.objects.filter(id=sheet.cell_value(i, 1)).count() == 0:
+                            if TbEquipamentos.objects.filter(id=int(sheet.cell_value(i, 1))).count() == 0:
+                                print("Passei 3")
                                 existe = False
                                 break
                     if existe:
@@ -910,7 +913,8 @@ class TbEquipamentosConsumoEspecificoAdmin(DjangoObjectActions, admin.ModelAdmin
                         existe = True
                         for i in range(total_linhas_mae):
                             if i > 0:  # Porque a linha 0 é o cabeçalho
-                                if TbCustoItemPreco.objects.filter(id=sheet.cell_value(i, 3)).count() == 0:
+                                if TbCustoItemPreco.objects.filter(id=int(sheet.cell_value(i, 3))).count() == 0:
+                                    print("Passei 4")
                                     existe = False
                                     break
                         if existe:
@@ -925,6 +929,7 @@ class TbEquipamentosConsumoEspecificoAdmin(DjangoObjectActions, admin.ModelAdmin
                                     id_unidade_item_custo_preco = TbCustoItemPreco.objects.get(
                                         id=sheet.cell_value(i, 3)).cus_ite_pre_unidade_producao_id
                                     if id_unidade_equipamento_ordem != id_unidade_item_custo_preco:
+                                        print("Passei 5")
                                         existe = False
                                         break
                             if existe:
@@ -971,8 +976,8 @@ class TbEquipamentosConsumoEspecificoAdmin(DjangoObjectActions, admin.ModelAdmin
                                 sheet.cell_value(i, 2)) + ' cadastrado. Favor verificar!')
 
                     else:
-                        messages.error(request, 'Não existe o equipamento/ordem id = ' + str(
-                            sheet.cell_value(i, 1)) + ' cadastrado. Favor verificar!')
+                        messages.error(request, ' 1 - Não existe o equipamento/ordem id = ' + str(
+                            int(sheet.cell_value(i, 1))) + ' cadastrado. Favor verificar!')
 
                 else:
                     messages.error(request, 'Já existe o equipamento/order id = ' + str(

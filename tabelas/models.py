@@ -1,5 +1,5 @@
 from parameters.models import TbCenarios, TbEmpresa
-from parameters.contexto_usuario import get_usuario_atual
+from parameters.contexto_usuario import get_usuario_atual, limit_choices_to_empresa_ativa
 from custo_ferbasa.models import TbCustoVariavelAdicionado
 from django.utils.translation import gettext_lazy as _
 from django.db import models
@@ -1089,15 +1089,19 @@ class TbUnidadeProducao(models.Model): # Independe do cenário. Não é necessá
     def clean(self):
 
         self.uni_nome = self.uni_nome.upper()
+        usuario = get_usuario_atual()
+        perfil = getattr(usuario, 'perfilusuario', None)
+        if perfil is not None:
+            empresa_id = perfil.empresa_efetiva_id()
 
-        # Verificando se já foi cadastrado registro com o mesmo nome para o cenário
+        # Verificando se já foi cadastrado registro com o mesmo nome para a empresa
         count = 0
         # Se estiver adicionando
         if self.pk is None:
-            count = TbUnidadeProducao.objects.filter(uni_nome=self.uni_nome).count()
+            count = TbUnidadeProducao.objects.filter(uni_nome=self.uni_nome, empresa_id=empresa_id).count()
         else:  # Está modificando
             # filter não aceita !=. Só aceita =. Seleciono e depois uso o exclude. Coisa de louco, mas funciona.
-            count = TbUnidadeProducao.objects.filter(uni_nome=self.uni_nome).exclude(id=self.pk).count()
+            count = TbUnidadeProducao.objects.filter(uni_nome=self.uni_nome, empresa_id=empresa_id).exclude(id=self.pk).count()
 
         if count >= 1:
             raise ValidationError('Planta de Produção ' + self.uni_nome + ' já cadastrada!')
@@ -1143,21 +1147,27 @@ class TbMercado(models.Model): # Independe do cenário. Não é necessário dupl
         cen_ativo = TbCenarios.objects.get(cen_ativo=True).id
         return super(TbMercado, self).get_queryset(request).filter(tbcenarios=cen_ativo)
 
+
     def clean(self):
 
         self.mer_nome = self.mer_nome.upper()
+        usuario = get_usuario_atual()
+        perfil = getattr(usuario, 'perfilusuario', None)
+        if perfil is not None:
+            empresa_id = perfil.empresa_efetiva_id()
 
-        # Verificando se já foi cadastrado registro com o mesmo nome para o cenário
+        # Verificando se já foi cadastrado registro com o mesmo nome para a empresa
         count = 0
         # Se estiver adicionando
         if self.pk is None:
-            count = TbMercado.objects.filter(mer_nome=self.mer_nome).count()
+            count = TbMercado.objects.filter(mer_nome=self.mer_nome, empresa_id=empresa_id).count()
         else:  # Está modificando
             # filter não aceita !=. Só aceita =. Seleciono e depois uso o exclude. Coisa de louco, mas funciona.
-            count = TbMercado.objects.filter(mer_nome=self.mer_nome).exclude(id=self.pk).count()
+            count = TbMercado.objects.filter(mer_nome=self.mer_nome, empresa_id=empresa_id).exclude(id=self.pk).count()
 
         if count >= 1:
             raise ValidationError('Mercado ' + self.mer_nome + ' já cadastrado!')
+
 
     class Meta:
         verbose_name = _('        Mercado')
@@ -1181,15 +1191,19 @@ class TbCustoTipo(models.Model): # Independe do cenário. Não é necessário du
     def clean(self):
 
         self.cus_tip_nome = self.cus_tip_nome.upper()
+        usuario = get_usuario_atual()
+        perfil = getattr(usuario, 'perfilusuario', None)
+        if perfil is not None:
+            empresa_id = perfil.empresa_efetiva_id()
 
-        # Verificando se já foi cadastrado registro com o mesmo nome
+        # Verificando se já foi cadastrado registro com o mesmo nome para a empresa
         count = 0
         # Se estiver adicionando
         if self.pk is None:
-            count = TbCustoTipo.objects.filter(cus_tip_nome=self.cus_tip_nome).count()
+            count = TbCustoTipo.objects.filter(cus_tip_nome=self.cus_tip_nome, empresa_id=empresa_id).count()
         else:  # Está modificando
             # filter não aceita !=. Só aceita =. Seleciono e depois uso o exclude. Coisa de louco, mas funciona.
-            count = TbCustoTipo.objects.filter(cus_tip_nome=self.cus_tip_nome).exclude(
+            count = TbCustoTipo.objects.filter(cus_tip_nome=self.cus_tip_nome, empresa_id=empresa_id).exclude(
                 id=self.pk).count()
 
         if count >= 1:
@@ -1226,7 +1240,7 @@ class TbCustoItem(models.Model): # Independe do cenário. Não é necessário du
     cus_ite_nome = models.CharField(max_length=60, verbose_name=_('Nome'))
     cus_ite_codigo_interno = models.CharField(max_length=15, blank=True, null=True, verbose_name=_('Código Interno'))
     cus_ite_unidade = models.CharField(max_length=3, choices=UnidadeItemChoices.choices, verbose_name=_('Unidade'))
-    cus_ite_tipo = models.ForeignKey(TbCustoTipo, null=True, blank=True, verbose_name=_('Tipo'), on_delete=models.CASCADE)
+    cus_ite_tipo = models.ForeignKey(TbCustoTipo, null=True, blank=True, verbose_name=_('Tipo'), on_delete=models.CASCADE, limit_choices_to=limit_choices_to_empresa_ativa)
     cus_ite_imagem = models.ImageField(upload_to='tabelas', null=True, blank=True, verbose_name=_('Imagem do Item'))
     cus_ite_observacao = models.TextField(verbose_name=_('Observação'), blank=True, null=True)
     # 🌟 NOVO (multi-empresa, Parte 3): tabela independente de cenário.
@@ -1254,15 +1268,19 @@ class TbCustoItem(models.Model): # Independe do cenário. Não é necessário du
     def clean(self):
 
         self.cus_ite_nome = self.cus_ite_nome.upper()
+        usuario = get_usuario_atual()
+        perfil = getattr(usuario, 'perfilusuario', None)
+        if perfil is not None:
+            empresa_id = perfil.empresa_efetiva_id()
 
-        # Verificando se já foi cadastrado registro
+        # Verificando se já foi cadastrado registro para a empresa
         count = 0
         # Se estiver adicionando
         if self.pk is None:
-            count = TbCustoItem.objects.filter(cus_ite_nome=self.cus_ite_nome).count()
+            count = TbCustoItem.objects.filter(cus_ite_nome=self.cus_ite_nome, empresa_id=empresa_id).count()
         else:  # Está modificando
             # filter não aceita !=. Só aceita =. Seleciono e depois uso o exclude. Coisa de louco, mas funciona.
-            count = TbCustoItem.objects.filter(cus_ite_nome=self.cus_ite_nome).exclude(id=self.pk).count()
+            count = TbCustoItem.objects.filter(cus_ite_nome=self.cus_ite_nome, empresa_id=empresa_id).exclude(id=self.pk).count()
 
         if count >= 1:
             raise ValidationError('Item ' + self.cus_ite_nome + ' já cadastrado!')
@@ -1288,8 +1306,8 @@ class TbCustoItemPreco(models.Model):
         USD = ('USD', 'DÓLAR')
         EUR = ('EUR', 'EURO')
 
-    cus_ite_pre_item = models.ForeignKey(TbCustoItem, on_delete=models.CASCADE, verbose_name=_('Item de Custo'))
-    cus_ite_pre_unidade_producao = models.ForeignKey(TbUnidadeProducao, on_delete=models.CASCADE,  verbose_name=_('Unidade de Produção'))
+    cus_ite_pre_item = models.ForeignKey(TbCustoItem, on_delete=models.CASCADE, verbose_name=_('Item de Custo'), limit_choices_to=limit_choices_to_empresa_ativa)
+    cus_ite_pre_unidade_producao = models.ForeignKey(TbUnidadeProducao, on_delete=models.CASCADE,  verbose_name=_('Unidade de Produção'), limit_choices_to=limit_choices_to_empresa_ativa)
     cus_ite_pre_validado = models.BooleanField(blank=False, null=False, default=False, verbose_name=_('Validado'))
     cus_ite_pre_custo_variavel_adiconado = models.ForeignKey(TbCustoVariavelAdicionado, on_delete=models.SET_NULL, null=True, blank=True, verbose_name=_('Custo Var. Adic. CF'))
     cus_ite_pre_indicador_preco = models.ForeignKey(TbIndicadores, null=True, blank=True, on_delete=models.PROTECT, verbose_name=_('Indicador do Preço'), related_name='cus_ite_pre_indicador_preco')
@@ -1574,15 +1592,19 @@ class TbTipoProducao(models.Model): # Independe do cenário. Não é necessário
     def clean(self):
 
         self.tip_nome = self.tip_nome.upper()
+        usuario = get_usuario_atual()
+        perfil = getattr(usuario, 'perfilusuario', None)
+        if perfil is not None:
+            empresa_id = perfil.empresa_efetiva_id()
 
-        # Verificando se já foi cadastrado registro com o mesmo nome para o cenário
+        # Verificando se já foi cadastrado registro com o mesmo nome para a empresa
         count = 0
         # Se estiver adicionando
         if self.pk is None:
-            count = TbTipoProducao.objects.filter(tip_nome=self.tip_nome).count()
+            count = TbTipoProducao.objects.filter(tip_nome=self.tip_nome, empresa_id=empresa_id).count()
         else:  # Está modificando
             # filter não aceita !=. Só aceita =. Seleciono e depois uso o exclude. Coisa de louco, mas funciona.
-            count = TbTipoProducao.objects.filter(tip_nome=self.tip_nome).exclude(
+            count = TbTipoProducao.objects.filter(tip_nome=self.tip_nome, empresa_id=empresa_id).exclude(
                 id=self.pk).count()
 
         if count >= 1:
@@ -1608,15 +1630,19 @@ class TbFamiliaProduto(models.Model): # Independe do cenário. Não é necessár
     def clean(self):
 
         self.fam_pro_codigo = self.fam_pro_codigo.upper()
+        usuario = get_usuario_atual()
+        perfil = getattr(usuario, 'perfilusuario', None)
+        if perfil is not None:
+            empresa_id = perfil.empresa_efetiva_id()
 
-        # Verificando se já foi cadastrado registro com o mesmo código de família do produto
+        # Verificando se já foi cadastrado registro com o mesmo código de família do produto para a empresa
         count = 0
         # Se estiver adicionando
         if self.pk is None:
-            count = TbFamiliaProduto.objects.filter(fam_pro_codigo=self.fam_pro_codigo).count()
+            count = TbFamiliaProduto.objects.filter(fam_pro_codigo=self.fam_pro_codigo, empresa_id=empresa_id).count()
         else:  # Está modificando
             # filter não aceita !=. Só aceita =. Seleciono e depois uso o exclude. Coisa de louco, mas funciona.
-            count = TbFamiliaProduto.objects.filter(fam_pro_codigo=self.fam_pro_codigo).exclude(id=self.pk).count()
+            count = TbFamiliaProduto.objects.filter(fam_pro_codigo=self.fam_pro_codigo, empresa_id=empresa_id).exclude(id=self.pk).count()
 
         if count >= 1:
             raise ValidationError('Família de Produto ' + self.fam_pro_codigo + ' já cadastrada!')
