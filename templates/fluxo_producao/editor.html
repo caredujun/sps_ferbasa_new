@@ -70,35 +70,53 @@
         }
         .content {
             display: flex;
+            flex-direction: column; /* 🌟 CORRIGIDO: barra de equipamentos no topo, não mais à esquerda -- sobrava pouco espaço horizontal pro fluxo e escondia os equipamentos iniciais atrás da barra de rolagem */
             flex: 1;
             overflow: hidden;
         }
         .sidebar {
-            width: 250px;
+            width: 100%;
+            height: 130px; /* 🌟 CORRIGIDO: era largura (250px); agora é uma faixa horizontal no topo */
             background-color: #f1f1f1;
-            border-right: 1px solid #ddd;
+            border-right: none;
+            border-bottom: 1px solid #ddd;
             display: flex;
-            flex-direction: column;
+            flex-direction: row; /* cabeçalho da barra (filtro/recarregar) e a lista de equipamentos lado a lado */
             overflow: hidden;
         }
         .sidebar-header {
-            padding: 10px;
-            border-bottom: 1px solid #ddd;
+            flex: 0 0 220px;
+            border-bottom: none;
+            border-right: 1px solid #ddd;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            overflow: hidden;
         }
         .sidebar-header h3 {
-            margin: 0 0 10px 0;
-            font-size: 1.1em;
+            margin: 0 0 6px 0;
+            font-size: 1em;
         }
         .sidebar-content {
             flex: 1;
-            overflow-y: auto;
+            overflow-x: auto; /* 🌟 CORRIGIDO: rolagem agora é HORIZONTAL (a lista de equipamentos é uma fileira, não uma coluna) */
+            overflow-y: hidden;
             padding: 10px;
+            display: flex;
+            flex-direction: row;
+            gap: 8px;
+            align-items: flex-start;
         }
         .equipamento-item {
             display: flex;
+            flex-direction: column; /* 🌟 CORRIGIDO: miniatura em cima do texto, já que o item agora é estreito e alto, não largo */
             align-items: center;
+            text-align: center;
+            flex: 0 0 auto;
+            width: 150px;
             padding: 8px;
-            margin-bottom: 8px;
+            margin-bottom: 0;
             background-color: white;
             border: 1px solid #ccc;
             border-radius: 4px;
@@ -110,27 +128,45 @@
         .equipamento-thumb {
             width: 40px;
             height: 40px;
-            margin-right: 10px;
+            margin-right: 0;
+            margin-bottom: 6px;
             display: flex;
             align-items: center;
             justify-content: center;
             overflow: hidden;
         }
         .equipamento-thumb img {
-            max-width: 100%;
-            max-height: 100%;
-            object-fit: contain;
+            /* 🌟 CORRIGIDO: max-width/max-height com "contain" deixava
+            imagem com pouco conteúdo (muita margem em branco na fonte)
+            parecer menor que uma imagem "cheia" -- mesmo com a caixa do
+            mesmo tamanho. "cover" preenche a caixa inteira sempre
+            (corta o excesso em vez de encolher), garantindo o mesmo
+            tamanho visual pra qualquer equipamento. !important pra
+            vencer qualquer regra pro mesmo seletor que já exista no
+            editor.css externo (arquivo que não vejo daqui). */
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: cover !important;
+            max-width: none !important;
+            max-height: none !important;
         }
         .equipamento-info {
             flex: 1;
+            min-width: 0;
         }
         .equipamento-nome {
             font-weight: bold;
             font-size: 0.9em;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         .equipamento-codigo {
             font-size: 0.8em;
             color: #666;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         .editor-container {
             flex: 1;
@@ -168,13 +204,22 @@
             border-bottom-right-radius: 3px;
         }
         .drawflow-node .equipamento-img {
-            max-width: 180px;
-            max-height: 80px;
-            width: auto;
-            height: auto;
+            /* 🌟 CORRIGIDO: a caixa já era de tamanho fixo (180x80), mas
+            "object-fit: contain" ainda deixava imagem com pouco
+            conteúdo (muita margem em branco na fonte) parecer menor
+            que uma imagem "cheia" -- a caixa batia, o conteúdo visível
+            dentro dela não. "cover" preenche a caixa inteira sempre
+            (corta o excesso em vez de encolher), garantindo o mesmo
+            tamanho visual pra qualquer equipamento. !important pra
+            vencer qualquer regra pro mesmo seletor que já exista no
+            editor.css externo (arquivo que não vejo daqui). */
+            width: 180px !important;
+            height: 80px !important;
+            max-width: none !important;
+            max-height: none !important;
             display: block;
             margin: 0 auto 10px auto;
-            object-fit: contain; /* Garantir que a imagem caiba */
+            object-fit: cover !important;
         }
         .drawflow-node .equipamento-codigo {
             font-weight: bold;
@@ -473,6 +518,30 @@
 </head>
 <body>
     <div class="wrapper">
+        <!-- 🌟 NOVO: banner com o logo do Tema (SPS), nome da empresa,
+        cenário (número sequencial + nome) e logo da empresa -- mesmo
+        padrão já usado no topo do chat do Agente IA. Cor de fundo vem
+        do Tema ativo (admin_interface.Theme), igual ao cabeçalho do
+        Admin. Usa o cenário/empresa DO PRÓPRIO FLUXO sendo editado
+        (não o "ativo" do usuário logado no momento), já que um fluxo
+        pode pertencer a um cenário diferente do que está ativo pra
+        quem está editando. -->
+        {% if logo_tema_url or logo_empresa_url or nome_empresa or nome_cenario %}
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 15px; border-bottom: 1px solid #000; background-color: {{ cor_header_tema|default:'#0C4B33' }};">
+            <div style="flex: 0 0 auto;">
+                {% if logo_tema_url %}<img src="{{ logo_tema_url }}" alt="SPS" style="height: 40px; width: auto; object-fit: contain;">{% endif %}
+            </div>
+            <div style="flex: 1; text-align: center; color: #fff; font-weight: bold; font-size: 18px; padding: 0 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;">
+                {% if nome_empresa %}{{ nome_empresa }}{% endif %}
+                {% if nome_empresa and nome_cenario %} | {% endif %}
+                {% if nome_cenario %}Cenário {{ nome_cenario }}{% endif %}
+                {% if status_cenario %} | {{ status_cenario }}{% endif %}
+            </div>
+            <div style="flex: 0 0 auto;">
+                {% if logo_empresa_url %}<img src="{{ logo_empresa_url }}" alt="{{ nome_empresa }}" style="height: 40px; width: auto; object-fit: contain;">{% endif %}
+            </div>
+        </div>
+        {% endif %}
         <div class="header">
             <div class="logo">
                 <h1>Editor de Fluxo de Produção</h1>
@@ -668,6 +737,22 @@
             let nodeCustomDataMap = {}; // Mapa externo para dados personalizados // Flag para rastrear alterações
             let ultimoResultadoVerificacao = null; // Armazenar último resultado da verificação
 
+            // 🌟 NOVO: ligações que já existiam quando o fluxo foi carregado
+            // (chave "nodeIdOrigem-nodeIdDestino") -- só ligações NOVAS
+            // (feitas nesta sessão, que não estavam aqui) pedem o valor
+            // inicial do consumo padrão. valoresIniciaisNovasLigacoes vai
+            // junto no salvamento, chaveado por "equipamentoIdOrigem-equipamentoIdDestino"
+            // (não pelo id do nó, que é só local desta sessão do editor).
+            let ligacoesOriginais = new Set();
+            let valoresIniciaisNovasLigacoes = {};
+
+            function chaveEquipamentosDaLigacao(nodeDeId, nodeParaId) {
+                const nodeDe = editor.getNodeFromId(nodeDeId);
+                const nodePara = editor.getNodeFromId(nodeParaId);
+                if (!nodeDe || !nodePara || !nodeDe.data || !nodePara.data) return null;
+                return `${nodeDe.data.equipamento_id}-${nodePara.data.equipamento_id}`;
+            }
+
             // Carregar equipamentos
             setTimeout(function() {
                 try {
@@ -687,7 +772,26 @@
             // Event listeners para detectar alterações no Drawflow
             editor.on('nodeCreated', function(id) { marcarComoAlterado('nodeCreated'); });
             editor.on('nodeRemoved', function(id) { marcarComoAlterado('nodeRemoved'); });
-            editor.on('connectionCreated', function(connection) { marcarComoAlterado('connectionCreated'); });
+            editor.on('connectionCreated', function(info) {
+                marcarComoAlterado('connectionCreated');
+                // 🌟 NOVO: se esta ligação NÃO existia no carregamento (é
+                // nova nesta sessão), pergunta o valor inicial do consumo
+                // padrão -- é obrigatório pro cadastro no banco, e o
+                // editor visual não tinha como perguntar isso antes.
+                const parNodes = `${info.output_id}-${info.input_id}`;
+                if (ligacoesOriginais.has(parNodes)) return;
+                const chave = chaveEquipamentosDaLigacao(info.output_id, info.input_id);
+                if (!chave) return;
+                if (valoresIniciaisNovasLigacoes[chave] !== undefined) return; // já perguntado nesta sessão
+                const valor = window.prompt(
+                    'Ligação nova entre dois equipamentos.\n\n' +
+                    'Informe o valor inicial do consumo padrão: quanto o equipamento de ORIGEM ' +
+                    'envia para o de DESTINO produzir 1 unidade.'
+                );
+                if (valor !== null && valor.trim() !== '') {
+                    valoresIniciaisNovasLigacoes[chave] = valor.trim();
+                }
+            });
             editor.on('connectionRemoved', function(connection) { marcarComoAlterado('connectionRemoved'); });
             editor.on('nodeMoved', function(id) { marcarComoAlterado('nodeMoved'); });
 
@@ -1008,11 +1112,31 @@
                                 }
                             });
 
+                            // 🌟 NOVO: registra quais ligações já existiam no
+                            // carregamento -- só as adicionadas DEPOIS (nesta
+                            // sessão) pedem o valor inicial do consumo padrão.
+                            ligacoesOriginais = new Set();
+                            Object.keys(nodesImportados).forEach(nodeId => {
+                                Object.values(nodesImportados[nodeId].outputs || {}).forEach(output => {
+                                    (output.connections || []).forEach(conn => {
+                                        ligacoesOriginais.add(`${nodeId}-${conn.node}`);
+                                    });
+                                });
+                            });
+                            valoresIniciaisNovasLigacoes = {};
+
                             fluxoAlterado = false; // Reseta a flag após carregar
                             console.log("[Load Flow] Carregamento e restauração de dados concluídos.");
+                            // 🌟 NOVO: centraliza o fluxo (largura e altura) dentro
+                            // da área do editor assim que ele termina de montar --
+                            // setTimeout(0) dá tempo do Drawflow terminar de
+                            // desenhar os nós antes de medir as dimensões.
+                            setTimeout(centralizarFluxoNaTela, 0);
                         } else {
                             console.log("[Load Flow] Nenhum dado de fluxo para importar ou dados inválidos.");
                             editor.clear(); // Limpar editor se não houver dados válidos
+                            ligacoesOriginais = new Set();
+                            valoresIniciaisNovasLigacoes = {};
                             fluxoAlterado = false;
                         }
                     })
@@ -1040,7 +1164,10 @@
                     fluxo_id: fluxoId || null,
                     nome: nome,
                     descricao: descricao,
-                    dados_fluxo: dadosFluxo
+                    dados_fluxo: dadosFluxo,
+                    // 🌟 NOVO: valor inicial das ligações novas desta sessão
+                    // (chave "equipamentoIdOrigem-equipamentoIdDestino").
+                    valores_iniciais_ligacoes: valoresIniciaisNovasLigacoes
                 };
 
                 console.log("[Save Flow] Tentando salvar fluxo com dados:", JSON.stringify(dados));
@@ -1058,6 +1185,27 @@
                         alert(data.message);
                         fluxoAlterado = false; // Reseta a flag após salvar com sucesso
                         console.log("Fluxo salvo com sucesso - fluxoAlterado resetado para false");
+
+                        // 🌟 CORRIGIDO: antes recarregava o fluxo do servidor
+                        // depois de salvar, porque o servidor regravava a
+                        // posição em grade (coluna/linha), descartando o que
+                        // o usuário tinha acabado de arrastar. Agora o
+                        // servidor grava exatamente este dadosFluxo (com as
+                        // posições de tela como estão aqui) -- recarregar do
+                        // servidor mostraria a mesma coisa, então só
+                        // atualiza o controle local de ligações (as que
+                        // acabaram de ser salvas viram "originais": não
+                        // pedem valor inicial de novo se o usuário salvar
+                        // de novo sem mexer nelas).
+                        valoresIniciaisNovasLigacoes = {};
+                        ligacoesOriginais = new Set();
+                        Object.keys(dadosFluxo.drawflow.Home.data).forEach(nodeId => {
+                            Object.values(dadosFluxo.drawflow.Home.data[nodeId].outputs || {}).forEach(output => {
+                                (output.connections || []).forEach(conn => {
+                                    ligacoesOriginais.add(`${nodeId}-${conn.node}`);
+                                });
+                            });
+                        });
 
                         // Atualizar ID do fluxo se for um novo fluxo
                         if (!fluxoId) {
@@ -1540,23 +1688,16 @@
                     const containerWidth = editorContainer.clientWidth;
                     const containerHeight = editorContainer.clientHeight;
 
-                    // Calcular o centro do canvas visível (considerando o zoom)
-                    const canvasCenterX = nodeCenterX * editor.zoom;
-                    const canvasCenterY = nodeCenterY * editor.zoom;
-
-                    // Calcular a posição de scroll necessária para centralizar o nó
-                    const targetScrollLeft = canvasCenterX - (containerWidth / 2);
-                    const targetScrollTop = canvasCenterY - (containerHeight / 2);
-
-                    console.log(`[Focus] Calculando scroll: NodeCenterCanvas=(${canvasCenterX}, ${canvasCenterY}), Zoom=${editor.zoom}, Container=(${containerWidth}, ${containerHeight}), TargetScroll=(${targetScrollLeft}, ${targetScrollTop})`);
-
-                    // Aplicar o scroll ao container do editor
-                    editorContainer.scrollTo({
-                        left: targetScrollLeft,
-                        top: targetScrollTop,
-                        behavior: 'smooth'
-                    });
-                    console.log(`[Focus] Scroll aplicado para (${targetScrollLeft}, ${targetScrollTop})`);
+                    // 🌟 CORRIGIDO: usava editorContainer.scrollTo(), que não
+                    // faz nada -- o Drawflow não usa rolagem nativa, move a
+                    // tela via transform (canvas_x/canvas_y) num elemento
+                    // interno (editor.precanvas). Ver centralizarFluxoNaTela
+                    // pra mais detalhes.
+                    editor.canvas_x = containerWidth / 2 - nodeCenterX * editor.zoom;
+                    editor.canvas_y = containerHeight / 2 - nodeCenterY * editor.zoom;
+                    editor.precanvas.style.transform =
+                        'translate(' + editor.canvas_x + 'px, ' + editor.canvas_y + 'px) scale(' + editor.zoom + ')';
+                    console.log(`[Focus] Reposicionado pra centralizar o nó em (${nodeCenterX}, ${nodeCenterY})`);
 
                     // Destacar o nó
                     const nodeElement = document.querySelector(`.drawflow-node[data-node="${nodeId}"]`);
@@ -1611,6 +1752,72 @@
                     };
                     img.src = src;
                 });
+            }
+
+            // 🌟 NOVO: centraliza o fluxo inteiro (largura e altura) dentro
+            // da área visível do editor -- mesmo cálculo de scroll já usado
+            // em focarNoEquipamento, mas usando o CENTRO DE TODO O FLUXO
+            // (via calcularDimensoesFluxo) em vez do centro de um nó só.
+            // Não mexe no zoom -- só rola a tela; se o fluxo for maior que
+            // a área visível, ele fica centralizado mesmo exigindo rolagem
+            // pras bordas.
+            // 🌟 CORRIGIDO (raiz do problema): usava editorContainer.scrollTo(),
+            // que não faz NADA -- o Drawflow não usa rolagem nativa do
+            // navegador. Ele move a tela aplicando uma transformação CSS
+            // (translate(canvas_x, canvas_y) scale(zoom)) num elemento
+            // interno (editor.precanvas). Pra reposicionar de verdade,
+            // precisa mexer em editor.canvas_x/editor.canvas_y (as
+            // propriedades que a própria biblioteca usa) e reaplicar essa
+            // transformação manualmente -- confirmado direto no código-fonte
+            // da biblioteca (drawflow.min.js).
+            //
+            // Só centraliza de verdade quando o fluxo INTEIRO cabe na tela;
+            // quando não cabe (largura e/ou altura), mostra o COMEÇO do
+            // fluxo (canto superior esquerdo, com uma margem), preferindo
+            // ver o início a ver o meio -- era esse o problema original
+            // (equipamentos iniciais escondidos).
+            // 🌟 CORRIGIDO: antes, quando o fluxo era mais largo que a tela,
+            // só rolava pra mostrar o início (com zoom parado em 1) --
+            // funcionava, mas o fluxo continuava sem caber inteiro na
+            // largura visível. Agora, nesse caso, REDUZ O ZOOM (usando o
+            // mecanismo de zoom da própria biblioteca Drawflow -- mesma
+            // API de editor.canvas_x/canvas_y já usada aqui) até o fluxo
+            // inteiro caber na largura da tela, e centraliza com esse
+            // zoom -- ícone fica menor, mas dá pra ver o fluxo inteiro de
+            // uma vez, sem precisar rolar. Não quebra mais em várias
+            // "linhas de colunas" (removido a pedido).
+            function centralizarFluxoNaTela() {
+                const bounds = calcularDimensoesFluxo();
+                const editorContainer = document.getElementById("drawflow");
+                const containerWidth = editorContainer.clientWidth;
+                const containerHeight = editorContainer.clientHeight;
+                const margem = 40;
+
+                const larguraFluxoReal = bounds.maxX - bounds.minX;
+                const alturaFluxoReal = bounds.maxY - bounds.minY;
+
+                // Zoom necessário pra caber na largura E na altura --
+                // usa o menor dos dois, pra garantir que cabe nos dois
+                // sentidos. Nunca aumenta o zoom além de 1 (não estica
+                // um fluxo pequeno pra preencher a tela à toa).
+                const zoomParaCaberLargura = (containerWidth - margem * 2) / larguraFluxoReal;
+                const zoomParaCaberAltura = (containerHeight - margem * 2) / alturaFluxoReal;
+                let zoomCalculado = Math.min(1, zoomParaCaberLargura, zoomParaCaberAltura);
+                // Piso de segurança -- evita um zoom absurdamente pequeno
+                // (ícone ilegível) num fluxo com dezenas de colunas; nesse
+                // caso ainda vai precisar rolar horizontalmente, mas pelo
+                // menos os ícones continuam com um tamanho mínimo legível.
+                zoomCalculado = Math.max(zoomCalculado, 0.3);
+
+                editor.zoom = zoomCalculado;
+
+                const centroFluxoX = (bounds.minX + bounds.maxX) / 2;
+                const centroFluxoY = (bounds.minY + bounds.maxY) / 2;
+                editor.canvas_x = containerWidth / 2 - centroFluxoX * editor.zoom;
+                editor.canvas_y = containerHeight / 2 - centroFluxoY * editor.zoom;
+
+                editor.precanvas.style.transform =
+                    'translate(' + editor.canvas_x + 'px, ' + editor.canvas_y + 'px) scale(' + editor.zoom + ')';
             }
 
             // Função para calcular as dimensões do fluxo

@@ -43,6 +43,13 @@ ACOES = [
     # implementada ainda no Agente IA. Isso vem numa próxima etapa.
     ('Custo Ferbasa', 'atualizar_producao_ggf_mensal', 'Custo Ferbasa - Atualizar Produção e GGF Mensal'),
     ('Custo Ferbasa', 'atualizar_consumo_especifico_custo_variavel', 'Custo Ferbasa - Atualizar Consumo Específico e Custo Variável'),
+
+    # 🌟 NOVO: primeira ação da categoria "Fluxos de Produção" -- monta
+    # flu_pro_dados_fluxo (o editor visual) a partir da tabela filha
+    # (coluna/linha) de TODOS os fluxos do cenário ativo, em segundo
+    # plano. Mesma ação do botão "Criar Fluxo no Editor" do Admin, só
+    # que em lote e disparável pelo chat.
+    ('Fluxos de Produção', 'criar_no_editor', 'Fluxos de Produção - Criar Fluxo no Editor'),
 ]
 
 

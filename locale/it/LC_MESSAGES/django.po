@@ -2764,4 +2764,3 @@ msgstr "Pulisci chat"
 
 msgid "Limpa só a tela. As mensagens continuam salvas no histórico."
 msgstr "Pulisce solo lo schermo. I messaggi restano salvati nella cronologia."
-

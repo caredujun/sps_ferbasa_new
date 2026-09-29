@@ -19,6 +19,10 @@
         h2 { border-bottom: 2px solid #eee; padding-bottom: 10px; }
         #chat-box { border: 1px solid #e0e0e0; height: 480px; overflow-y: auto; padding: 15px; background: #fafafa; border-radius: 6px; margin-bottom: 15px; }
         .chat-box-p { margin: 12px 0; line-height: 1.6; font-size: 14px; word-break: break-word; text-align: left; }
+        /* 🌟 NOVO: cada interação (pergunta + respostas) num bloco; a cor alterna branco/cinza claro pra separar uma da outra */
+        .turno-chat { padding: 2px 12px; margin: 0 -4px 8px -4px; border-radius: 6px; }
+        .turno-branco { background: #ffffff; }
+        .turno-cinza { background: #eceff1; }
         /* 🌟 NOVO: barra de progresso pra etapas que aguardam o Celery --
            substitui o texto repetido de "ainda processando" por um
            indicador visual, atualizado no lugar em vez de empilhar
@@ -315,6 +319,16 @@
             </div>
             {% endif %}
 
+            {% if acoes_habilitadas.fp_criar_no_editor %}
+            <div class="grupo-acoes-dropdown">
+                <label for="dropdown-fluxos-producao">{% trans "Fluxos de Produção" %}</label>
+                <select id="dropdown-fluxos-producao" class="select-acao-comum" onchange="dispararAcaoDropdown(this)">
+                    <option value="">{% trans "Selecione uma ação..." %}</option>
+                    <option value="criar fluxo no editor para os fluxos do cenário ativo">{% trans "Criar Fluxo no Editor" %}</option>
+                </select>
+            </div>
+            {% endif %}
+
             <div class="grupo-acoes-dropdown">
                 <label for="dropdown-indicadores">{% trans "Indicadores" %}</label>
                 <select id="dropdown-indicadores" class="select-acao-comum" onchange="dispararAcaoDropdown(this)">
@@ -398,12 +412,33 @@
         // está digitado na tela agora. Criar um elemento novo e usar
         // appendChild evita esse problema por completo: só o conteúdo
         // NOVO é interpretado como HTML, o resto do chat nunca é tocado.
-        function adicionarMensagemAoChat(htmlConteudo) {
-            var chatBox = document.getElementById('chat-box');
+        // 🌟 NOVO: agrupa cada interação (a mensagem do usuário + tudo que vem
+        // depois dela até a próxima pergunta) num bloco, e alterna a cor
+        // de fundo entre branco e cinza claro: 1ª pergunta branco, 2ª
+        // cinza, 3ª branco... Mensagem do usuário abre um bloco novo
+        // (novoTurno = true); respostas, barra de progresso e "processando"
+        // entram no bloco corrente.
+        var contadorTurnos = 0;
+        var turnoAtual = null;
+
+        function iniciarNovoTurno() {
+            contadorTurnos++;
+            turnoAtual = document.createElement('div');
+            turnoAtual.className = 'turno-chat ' + (contadorTurnos % 2 === 1 ? 'turno-branco' : 'turno-cinza');
+            document.getElementById('chat-box').appendChild(turnoAtual);
+        }
+
+        function containerDasMensagens() {
+            return turnoAtual || document.getElementById('chat-box');
+        }
+
+        function adicionarMensagemAoChat(htmlConteudo, novoTurno) {
+            if (novoTurno) iniciarNovoTurno();
+            var destino = containerDasMensagens();
             var wrapper = document.createElement('div');
             wrapper.innerHTML = htmlConteudo;
             while (wrapper.firstChild) {
-                chatBox.appendChild(wrapper.firstChild);
+                destino.appendChild(wrapper.firstChild);
             }
         }
 
@@ -1048,7 +1083,7 @@
         }
 
         function garantirBarraProgresso() {
-            var chatBox = document.getElementById('chat-box');
+            var chatBox = containerDasMensagens();
             var barra = document.getElementById('barra-progresso-celery');
             if (!barra) {
                 definirAcoesComunsHabilitadas(false);
@@ -1385,7 +1420,7 @@
             var ph = document.getElementById('placeholder-text');
             if (ph) ph.remove();
 
-            adicionarMensagemAoChat('<div class="chat-box-p"><strong>' + ROTULO_VOCE_NOME + ':</strong> ' + escapeHtml(textoExibicaoUsuario) + '</div>');
+            adicionarMensagemAoChat('<div class="chat-box-p"><strong>' + ROTULO_VOCE_NOME + ':</strong> ' + escapeHtml(textoExibicaoUsuario) + '</div>', true);
             input.value = '';
             chatBox.scrollTop = chatBox.scrollHeight;
 
@@ -1397,7 +1432,7 @@
             loader.className = 'chat-box-p';
             loader.style.color = 'orange';
             loader.innerHTML = '<em>🤖 ' + MSG_PROCESSANDO + '</em>';
-            chatBox.appendChild(loader);
+            containerDasMensagens().appendChild(loader);
             chatBox.scrollTop = chatBox.scrollHeight;
 
             var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
@@ -1497,7 +1532,7 @@
 
             historico.forEach(function(item) {
                 if (item.comando_usuario) {
-                    adicionarMensagemAoChat('<div class="chat-box-p"><strong>' + ROTULO_VOCE_NOME + ':</strong> ' + escapeHtml(item.comando_usuario) + '</div>');
+                    adicionarMensagemAoChat('<div class="chat-box-p"><strong>' + ROTULO_VOCE_NOME + ':</strong> ' + escapeHtml(item.comando_usuario) + '</div>', true);
                 }
                 if (item.resposta_ia) {
                     var textoLimpoHTML = processarRespostaCompleta(item.resposta_ia);
@@ -1514,6 +1549,8 @@
             var chatBox = document.getElementById('chat-box');
             var modelo = document.getElementById('saudacao-modelo');
             chatBox.innerHTML = '';
+            turnoAtual = null;
+            contadorTurnos = 0;
             if (modelo) chatBox.appendChild(modelo.content.cloneNode(true));
             document.getElementById('input-box').focus();
         });

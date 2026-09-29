@@ -965,6 +965,24 @@ def update_fluxo_celery(id_fluxo):
     return
 
 
+# 🌟 NOVO: "Criar Fluxo no Editor" em lista, em segundo plano -- usado
+# pela ação em massa do Admin (TbFluxoProducaoAdmin) e pela Ação Comum
+# de chat "Fluxos de Produção - Criar Fluxo no Editor". Monta
+# flu_pro_dados_fluxo de cada fluxo a partir da respectiva
+# TbFluxoProducaoDaugther (coluna/linha), do zero -- ignora qualquer
+# posição arrastada manualmente antes (mesmo comportamento do botão
+# individual no Admin, que já avisa isso antes de confirmar).
+@shared_task
+def criar_fluxo_no_editor_lista_celery(lista_fluxo_ids):
+    from .sincronizacao_fluxo_visual import montar_dados_fluxo_a_partir_da_tabela
+    for fluxo_id in lista_fluxo_ids:
+        fluxo = TbFluxoProducao.objects.filter(id=fluxo_id).first()
+        if fluxo is None:
+            continue
+        dados = montar_dados_fluxo_a_partir_da_tabela(fluxo, preservar_posicoes_existentes=False)
+        TbFluxoProducao.objects.filter(id=fluxo_id).update(flu_pro_dados_fluxo=dados)
+
+
 @shared_task
 def exportar_excel_fluxo_producao_celery(lista_id, user_mail):
     nome_arquivo = 'Fluxo de Producao' + '.xlsx'

@@ -263,7 +263,7 @@ def trocar_idioma_view(request):
 # 🌟 NOVO (Ações Comuns por empresa): categoria -> prefixo usado nas
 # chaves do dict (ex: "ind_editar", "cam_grafico", "cen_excluir") -- pra
 # casar com os nomes já usados nos <option> do chat.html.
-_PREFIXO_CATEGORIA_ACAO = {'Indicadores': 'ind', 'Câmbio': 'cam', 'Cenário': 'cen', 'Custo Ferbasa': 'cf'}
+_PREFIXO_CATEGORIA_ACAO = {'Indicadores': 'ind', 'Câmbio': 'cam', 'Cenário': 'cen', 'Custo Ferbasa': 'cf', 'Fluxos de Produção': 'fp'}
 
 
 def _mapa_acoes_comuns_habilitadas(usuario):

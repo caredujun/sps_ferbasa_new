@@ -2764,4 +2764,3 @@ msgstr "Limpiar chat"
 
 msgid "Limpa só a tela. As mensagens continuam salvas no histórico."
 msgstr "Solo limpia la pantalla. Los mensajes siguen guardados en el historial."
-

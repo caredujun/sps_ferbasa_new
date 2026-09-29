@@ -2007,6 +2007,59 @@ def iniciar_exportar_dados_otimizacao_cenario_ativo(usuario):
     )
 
 
+# 🌟 NOVO: "Fluxos de Produção - Criar Fluxo no Editor" -- monta o
+# editor visual (flu_pro_dados_fluxo) de TODOS os fluxos de produção do
+# cenário ativo a partir da respectiva tabela filha (coluna/linha), em
+# segundo plano. Mesma ação do botão em massa no Admin, só que
+# disparada pelo chat e já escopada ao cenário ativo (não precisa
+# selecionar fluxo por fluxo).
+# ⚠️ Decisão assumida: como um cenário pode ter vários fluxos (um por
+# produto) e a Ação Comum, aqui, não pergunta QUAL fluxo, ela aplica a
+# TODOS os fluxos do cenário ativo de uma vez -- mesmo espírito das
+# outras Ações Comuns da categoria "Cenário" (Limpar/Otimizar/
+# Consolidar), que também operam sobre o cenário inteiro. Se o
+# comportamento esperado for outro (ex: perguntar qual fluxo), é aqui
+# que se ajusta.
+def iniciar_criar_fluxo_no_editor_cenario_ativo(usuario):
+    perfil = getattr(usuario, 'perfilusuario', None)
+    if perfil is None or perfil.cenario_ativo_id is None:
+        return "Você ainda não tem um cenário ativo escolhido. Acesse a tela de Cenários e ative um antes."
+
+    cenario = TbCenarios.objects_real.filter(id=perfil.cenario_ativo_id).first()
+    if cenario is None:
+        return "O cenário que estava ativo pra você não existe mais."
+
+    from fluxos.models import TbFluxoProducao
+    from fluxos.tasks import criar_fluxo_no_editor_lista_celery
+
+    lista_id = list(TbFluxoProducao.objects.filter(tbcenarios_id=cenario.id).values_list('id', flat=True))
+    if not lista_id:
+        return f"O cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** não tem nenhum fluxo de produção cadastrado."
+
+    # 🌟 NOVO: avisa de antemão quantos fluxos do cenário podem estar
+    # desatualizados (mesmo motivo do botão individual no Admin).
+    total_desatualizados = TbFluxoProducao.objects.filter(
+        tbcenarios_id=cenario.id, flu_pro_input_output_atualizado=False
+    ).count()
+
+    criar_fluxo_no_editor_lista_celery.delay(lista_id)
+
+    aviso_desatualizados = ""
+    if total_desatualizados:
+        aviso_desatualizados = (
+            f"\n\n⚠️ {total_desatualizados} desses fluxo(s) está(ão) com o Input/Output desatualizado -- "
+            "o desenho pode não refletir a última alteração na tabela de cadastro pra eles. "
+            "Rode \"Atualizar Fluxos de Produção\" antes, se quiser garantir que está atual."
+        )
+
+    return (
+        f"Montagem do fluxo no editor sendo feita em segundo plano pra {len(lista_id)} "
+        f"fluxo(s) do cenário **{cenario.numero_sequencial}/{cenario.cen_nome}**. "
+        "⚠️ Isso substitui qualquer arranjo manual que já estivesse no editor de cada fluxo."
+        + aviso_desatualizados
+    )
+
+
 def _etapa_exportar_otimizacao_aguardando(estado, texto):
     """
     🌟 NOVO: acompanha (via "Verificar") a task exportar_dados_otimizacao_celery

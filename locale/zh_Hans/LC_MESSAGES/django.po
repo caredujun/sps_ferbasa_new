@@ -2764,4 +2764,3 @@ msgstr "清空聊天"
 
 msgid "Limpa só a tela. As mensagens continuam salvas no histórico."
 msgstr "仅清空屏幕。消息仍保存在历史记录中。"
-

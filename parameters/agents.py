@@ -22,6 +22,7 @@ from .fluxo_criar_cenario import (
     iniciar_ciclo_completo, iniciar_fluxo_excluir_cenario, iniciar_exportar_excel_cenario_ativo,
     etapa_atual_do_usuario, ETAPAS_AGUARDANDO_CELERY,
     iniciar_exportar_dados_otimizacao_cenario_ativo,
+    iniciar_criar_fluxo_no_editor_cenario_ativo,
     _processar_planilha_indicador, _processar_planilha_cambio,
     _buscar_indicador, _lista_indicadores, _lista_periodos_indicador,
     _buscar_cambio, _lista_cambios, _lista_periodos_cambio,
@@ -233,6 +234,14 @@ def _detectar_intencao_exportar_dados_otimizacao(mensagem):
         and PADRAO_CENARIO.search(texto)
         and re.search(r'otimiza', texto, re.IGNORECASE)
     )
+
+
+# 🌟 NOVO: "criar fluxo no editor" -- aceita o texto exato do menu e
+# variações naturais ("montar o(s) fluxo(s) no editor", "criar fluxo
+# de produção no editor").
+def _detectar_intencao_criar_fluxo_no_editor(mensagem):
+    texto = mensagem or ""
+    return bool(re.search(r'(cri[ae]r?|mont[ae]r?).*fluxo.*editor', texto, re.IGNORECASE))
 
 
 # 🌟 NOVO: "atualizar produção e ggf mensal" (app custo_ferbasa) --
@@ -968,6 +977,17 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
         _salvar_historico(usuario, mensagem_usuario, resposta)
         return resposta, []
 
+    # 🌟 NOVO: usuário pedindo pra criar/montar o fluxo no editor visual
+    # a partir da tabela filha -- pra TODOS os fluxos de produção do
+    # cenário ativo, em segundo plano (mesma ação do botão em massa do
+    # Admin).
+    if _detectar_intencao_criar_fluxo_no_editor(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Fluxos de Produção', 'criar_no_editor'):
+        if esta_em_fluxo:
+            cancelar_fluxo_ativo(usuario)
+        resposta = iniciar_criar_fluxo_no_editor_cenario_ativo(usuario)
+        _salvar_historico(usuario, mensagem_usuario, resposta)
+        return resposta, []
+
     # 🌟 NOVO: usuário pedindo pra atualizar Produção Mensal / Distribuição
     # GGF Mensal (app custo_ferbasa) a partir de um arquivo enviado em
     # Relatórios -- primeiro pede o arquivo de produção, depois o de GGF,
@@ -1177,6 +1197,58 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
                 f"do idioma usado na pergunta ou em qualquer outra "
                 f"instrução acima."
             )
+
+        # 🌟 NOVO: o sistema/plataforma tem nome próprio -- SPS. Sempre
+        # que o agente precisar se referir a ele (em vez de dizer algo
+        # genérico como "o sistema" ou "a plataforma"), deve chamá-lo
+        # pelo nome. E quando o próprio usuário disser "SPS" na
+        # pergunta (ex: "dados de dólar do SPS"), o agente deve entender
+        # que a referência é o sistema, não confundir com outra coisa.
+        system_instruction += (
+            "\n\nIMPORTANTE: este sistema/plataforma se chama SPS, sigla de "
+            "\"Strategy Planning System\" -- esse é o único significado correto "
+            "da sigla, e é o que deve ser usado sempre que o nome por extenso for "
+            "pedido ou explicado. NÃO invente nem use qualquer outro significado "
+            "(como \"Sistema de Planejamento e Simulação\" ou variações). Sempre "
+            "que for se referir ao sistema numa resposta, use o nome \"SPS\" em "
+            "vez de termos genéricos como \"o sistema\" ou \"a plataforma\". Se o "
+            "usuário mencionar \"SPS\" na pergunta, entenda que ele está se "
+            "referindo a este sistema."
+        )
+
+        # 🌟 NOVO: metodologia SPS -- quando o usuário perguntar sobre o
+        # sistema/metodologia adotada, o agente deve explicar estas 3
+        # etapas (nessa ordem), com seus objetivos.
+        system_instruction += (
+            "\n\nQuando o usuário perguntar sobre o sistema, a metodologia, "
+            "ou como o SPS funciona, explique que a Metodologia SPS segue 3 "
+            "etapas, nesta ordem:\n\n"
+            "1) Cenário \"As Is\" Otimizado: considerando os investimentos já "
+            "aprovados, projetos e estratégias em curso, tendências de mercado, "
+            "ambiente macroeconômico e restrições de produção, estima quais "
+            "serão os resultados futuros da empresa. Podem ser construídos "
+            "diferentes cenários \"As Is\" otimizados, como Cenário Base, "
+            "Cenário \"Upside\" ou Cenário \"Downside\". O objetivo é criar um ou "
+            "mais cenários de referência para permitir comparações futuras, "
+            "além de servir de base para a Análise SWOT.\n\n"
+            "2) Análise SWOT: tomando por referência o cenário \"As Is\" "
+            "otimizado, propõe e desenvolve estratégias mais lucrativas "
+            "através da identificação da combinação das forças da empresa "
+            "com as oportunidades futuras. Considerando o perfil SWOT da "
+            "empresa (Strengths, Weaknesses, Opportunities, Threats), "
+            "constrói a \"Matriz Estratégica SWOT\", cruzando Forças e "
+            "Fraquezas com Oportunidades e Ameaças para gerar 4 grupos de "
+            "estratégias: S/O, W/O, S/T e W/T. Cada estratégia é depois "
+            "avaliada em termos de rentabilidade e aplicação.\n\n"
+            "3) Análise da Rentabilidade: a partir das estratégias definidas "
+            "na etapa anterior, avalia a rentabilidade e a criação de valor "
+            "para a empresa, comparando os novos resultados previstos com os "
+            "resultados do cenário \"As Is\" otimizado. O objetivo é obter os "
+            "novos valores de EBITDA, Fluxo de Caixa Descontado, Valor "
+            "Presente Líquido, Pay-back e TIR, e a Criação de Valor para "
+            "cada estratégia proposta. A partir dessa análise, definem-se as "
+            "estratégias a serem implantadas e priorizadas."
+        )
 
         # 🌟 NOVO: ensina o modelo a desenhar gráficos de verdade no chat,
         # quando isso ajudar mais que texto/tabela (evolução no tempo,

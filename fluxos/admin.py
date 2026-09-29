@@ -21,7 +21,8 @@ from .tasks import update_fluxo_celery, update_indicador, importar_excel_fluxo_p
     atualiza_input_output_celery, \
     exportar_excel_fluxo_producao_celery, importar_excel_xlsx_new_segundo_celery, atualizar_custos_celery, remover_fluxo
 from django.contrib.auth.models import User
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404, redirect
+from django.urls import path, reverse
 
 
 # **********************************************************************************************************
@@ -1166,7 +1167,33 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
     actions = ['delete_selected', 'exportar_excel', 'importar_excel', 'importar_excel_new',
                'importar_excel_new_segundo', 'importar_excel_xlsx_new', 'importar_excel_xlsx_new_segundo',
                'atualizar_fluxo_admin', 'atualizar_custo_admin', 'atualizar_fluxo_pdf', 'ativar_fluxo',
-               'desativar_fluxo', 'excluir_output_real_zerado', 'verificar_erro_fluxo']
+               'desativar_fluxo', 'excluir_output_real_zerado', 'verificar_erro_fluxo',
+               'criar_fluxo_no_editor_selecionados']
+
+    # 🌟 NOVO: mesma ação do botão individual "Criar Fluxo no Editor"
+    # (ver visualizar_fluxo), só que em lote e em segundo plano -- útil
+    # depois de importar vários fluxos por Excel de uma vez, sem
+    # precisar abrir cada um e clicar no botão individualmente.
+    def criar_fluxo_no_editor_selecionados(self, request, queryset):
+        from .tasks import criar_fluxo_no_editor_lista_celery
+        lista_id = list(queryset.values_list('id', flat=True))
+        # 🌟 NOVO: avisa de antemão quantos dos selecionados podem estar
+        # desatualizados (mesmo motivo do botão individual, ver lá).
+        total_desatualizados = queryset.filter(flu_pro_input_output_atualizado=False).count()
+        criar_fluxo_no_editor_lista_celery.delay(lista_id)
+        messages.success(
+            request,
+            f'Montagem do fluxo no editor sendo feita em segundo plano pra {len(lista_id)} fluxo(s) selecionado(s).'
+        )
+        if total_desatualizados:
+            messages.warning(
+                request,
+                f'{total_desatualizados} dos selecionados está(ão) com o Input/Output desatualizado -- '
+                'o desenho montado pode não refletir a última alteração na tabela de cadastro pra esses. '
+                'Rode "Atualizar Fluxos de Produção" neles antes, se quiser garantir que está atual.'
+            )
+
+    criar_fluxo_no_editor_selecionados.short_description = _('Criar Fluxo no Editor (a partir da tabela) dos Selecionados')
 
     def delete_selected(modeladmin, request, queryset):
         # Vamos ver se é superusuário.
@@ -1622,12 +1649,62 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
             obj.flu_pro_dados_fluxo = {}  # Inicializa com um dicionário vazio
         super().save_model(request, obj, form, change)
 
+    # 🌟 NOVO: URL própria pra regravar flu_pro_dados_fluxo a partir da
+    # tabela filha (TbFluxoProducaoDaugther), sob demanda. Só LÊ a
+    # tabela filha -- nunca escreve nela; quem faz isso automaticamente
+    # a cada alteração da filha é o sinal em sincronizacao_fluxo_visual.py,
+    # mas ele não dispara em bulk_create/bulk_update/queryset.update()
+    # (a importação de Excel usa alguns desses atalhos), então fluxos
+    # montados por esses caminhos podem ficar com o editor desatualizado
+    # até alguém clicar neste botão.
+    def get_urls(self):
+        urls_customizadas = [
+            path('<int:fluxo_id>/criar-no-editor/',
+                 self.admin_site.admin_view(self.criar_fluxo_no_editor),
+                 name='fluxos_tbfluxoproducao_criar_no_editor'),
+        ]
+        return urls_customizadas + super().get_urls()
+
+    def criar_fluxo_no_editor(self, request, fluxo_id):
+        from .sincronizacao_fluxo_visual import montar_dados_fluxo_a_partir_da_tabela, fluxo_io_desatualizado
+        fluxo = get_object_or_404(TbFluxoProducao, id=fluxo_id)
+        dados = montar_dados_fluxo_a_partir_da_tabela(fluxo, preservar_posicoes_existentes=False)
+        total_equipamentos = len(dados.get('drawflow', {}).get('Home', {}).get('data', {}))
+        TbFluxoProducao.objects.filter(id=fluxo_id).update(flu_pro_dados_fluxo=dados)
+        # 🌟 NOVO: o editor é montado a partir de TbFluxoProducaoInputOutput
+        # (a mesma tabela usada pelo PDF), que só reflete a última vez que
+        # "Atualizar Fluxos de Produção" rodou -- avisa se pode estar
+        # desatualizada em relação à tabela de cadastro.
+        if fluxo_io_desatualizado(fluxo):
+            messages.warning(
+                request,
+                'Este fluxo está com o Input/Output desatualizado -- o desenho montado pode não '
+                'refletir a última alteração na tabela de cadastro. Rode "Atualizar Fluxos de '
+                'Produção" antes, se quiser garantir que está atual.'
+            )
+        if total_equipamentos:
+            messages.success(
+                request,
+                f'Fluxo montado no editor a partir da tabela ({total_equipamentos} equipamento(s)). '
+                'Abra "Visualizar / Editar Fluxo" pra conferir.'
+            )
+        else:
+            messages.warning(
+                request,
+                'A tabela filha deste fluxo está vazia -- o editor foi limpo (nada pra montar).'
+            )
+        return redirect(reverse('admin:fluxos_tbfluxoproducao_change', args=[fluxo_id]))
+
     def visualizar_fluxo(self, obj):
         if obj.id:
             from django.utils.html import format_html
             return format_html(
-                _('<a href="/fluxo_producao/editor/{0}/" class="button" target="_blank">Visualizar / Editar Fluxo</a>'),
-                obj.id)
+                _('<a href="/fluxo_producao/editor/{0}/" class="button" target="_blank">Visualizar / Editar Fluxo</a>'
+                  '&nbsp;&nbsp;'
+                  '<a href="{1}" class="button" '
+                  'onclick="return confirm(\'Isso substitui o desenho atual do editor pelo que está cadastrado hoje na tabela filha (coluna/linha). Continuar?\');">'
+                  'Criar Fluxo no Editor (a partir da tabela)</a>'),
+                obj.id, reverse('admin:fluxos_tbfluxoproducao_criar_no_editor', args=[obj.id]))
         return "Salve o fluxo primeiro para visualizá-lo"
 
     visualizar_fluxo.short_description = _("Visualizar Fluxo")

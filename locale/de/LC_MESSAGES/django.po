@@ -2764,4 +2764,3 @@ msgstr "Chat leeren"
 
 msgid "Limpa só a tela. As mensagens continuam salvas no histórico."
 msgstr "Leert nur den Bildschirm. Die Nachrichten bleiben im Verlauf gespeichert."
-

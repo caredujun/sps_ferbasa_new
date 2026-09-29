@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/sps.iml" filepath="$PROJECT_DIR$/.idea/sps.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../sps/.idea/sps.iml" filepath="$PROJECT_DIR$/../sps/.idea/sps.iml" />
     </modules>
   </component>
 </project>
