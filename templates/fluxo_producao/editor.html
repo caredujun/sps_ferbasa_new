@@ -828,6 +828,16 @@
 
             // Novos event listeners para verificação e exportação
             document.getElementById('btn-verificar').addEventListener('click', verificarFluxo);
+
+            // 🌟 NOVO: recentraliza (e reajusta o zoom) se a janela do
+            // navegador for redimensionada -- sem isso, o zoom calculado
+            // no carregamento ficava "preso" ao tamanho de tela de
+            // quando a página abriu.
+            let _timeoutRedimensionar = null;
+            window.addEventListener('resize', function() {
+                clearTimeout(_timeoutRedimensionar);
+                _timeoutRedimensionar = setTimeout(centralizarFluxoNaTela, 200);
+            });
             document.getElementById('btn-exportar').addEventListener('click', abrirModalExportacao);
 
             // Event listeners para o painel de verificação
@@ -1127,11 +1137,15 @@
 
                             fluxoAlterado = false; // Reseta a flag após carregar
                             console.log("[Load Flow] Carregamento e restauração de dados concluídos.");
-                            // 🌟 NOVO: centraliza o fluxo (largura e altura) dentro
-                            // da área do editor assim que ele termina de montar --
-                            // setTimeout(0) dá tempo do Drawflow terminar de
-                            // desenhar os nós antes de medir as dimensões.
-                            setTimeout(centralizarFluxoNaTela, 0);
+                            // 🌟 CORRIGIDO: um único setTimeout(0) às vezes rodava
+                            // cedo demais, antes do navegador terminar de calcular o
+                            // tamanho real da área do editor (ex: se ela ainda está em
+                            // transição de layout) -- centralizarFluxoNaTela então
+                            // media um containerWidth/Height desatualizado (ou zero) e
+                            // o cálculo de zoom/posição saía errado. Roda de novo umas
+                            // poucas vezes, com atrasos crescentes, pra garantir que
+                            // pelo menos uma dessas chamadas pegue a medição certa.
+                            [0, 100, 400].forEach(atraso => setTimeout(centralizarFluxoNaTela, atraso));
                         } else {
                             console.log("[Load Flow] Nenhum dado de fluxo para importar ou dados inválidos.");
                             editor.clear(); // Limpar editor se não houver dados válidos

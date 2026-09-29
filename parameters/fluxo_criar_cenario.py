@@ -2036,27 +2036,12 @@ def iniciar_criar_fluxo_no_editor_cenario_ativo(usuario):
     if not lista_id:
         return f"O cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** não tem nenhum fluxo de produção cadastrado."
 
-    # 🌟 NOVO: avisa de antemão quantos fluxos do cenário podem estar
-    # desatualizados (mesmo motivo do botão individual no Admin).
-    total_desatualizados = TbFluxoProducao.objects.filter(
-        tbcenarios_id=cenario.id, flu_pro_input_output_atualizado=False
-    ).count()
-
     criar_fluxo_no_editor_lista_celery.delay(lista_id)
-
-    aviso_desatualizados = ""
-    if total_desatualizados:
-        aviso_desatualizados = (
-            f"\n\n⚠️ {total_desatualizados} desses fluxo(s) está(ão) com o Input/Output desatualizado -- "
-            "o desenho pode não refletir a última alteração na tabela de cadastro pra eles. "
-            "Rode \"Atualizar Fluxos de Produção\" antes, se quiser garantir que está atual."
-        )
 
     return (
         f"Montagem do fluxo no editor sendo feita em segundo plano pra {len(lista_id)} "
         f"fluxo(s) do cenário **{cenario.numero_sequencial}/{cenario.cen_nome}**. "
         "⚠️ Isso substitui qualquer arranjo manual que já estivesse no editor de cada fluxo."
-        + aviso_desatualizados
     )
 
 

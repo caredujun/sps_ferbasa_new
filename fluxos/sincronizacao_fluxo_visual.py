@@ -1,54 +1,46 @@
 """
-🌟 NOVO: ponte entre o fluxo já processado (TbFluxoProducaoInputOutput
--- coluna/linha POR EQUIPAMENTO, com "envia para" resolvido, a MESMA
-tabela que o PDF em tasks.py/update_fluxo_celery usa pra desenhar o
-fluxo) e o editor visual de arrastar-e-soltar (flu_pro_dados_fluxo,
-formato da biblioteca Drawflow).
+🌟 NOVO: ponte entre a tabela filha (TbFluxoProducaoDaugther +
+TbFluxoConsumoPadrao -- a tabela de CADASTRO do fluxo, com o "de/para"
+de cada consumo padrão) e o editor visual de arrastar-e-soltar
+(flu_pro_dados_fluxo, formato da biblioteca Drawflow).
 
-🌟 CORRIGIDO: a primeira versão calculava a posição de cada equipamento
-sozinha, a partir de TbFluxoProducaoDaugther (a tabela de cadastro, por
-CÉLULA/consumo padrão) -- e errava a ordem visual (um equipamento raiz,
-sem quem alimentar antes dele, ficava isolado longe do resto; colunas
-alinhadas incorretamente; cruzamento de ligações). A tabela
-TbFluxoProducaoInputOutput já resolve tudo isso -- é POPULADA pela
-procedure atualiza_input_output (chamada por "Atualizar Fluxos de
-Produção") a partir da tabela de cadastro, com coluna/linha por
-EQUIPAMENTO já calculados certos (o PDF já prova isso -- funciona hoje
-sem cruzar linha nem desalinhar coluna). Agora o editor só LÊ e confia
-nela, exatamente como o PDF -- nenhuma conta própria de layout.
-
-⚠️ Consequência importante: como essa tabela só é atualizada quando
-"Atualizar Fluxos de Produção" roda (não a cada alteração da tabela de
-cadastro), o editor pode mostrar uma foto desatualizada se a tabela de
-cadastro mudou depois da última vez que os fluxos foram atualizados
--- daí a checagem de fluxo.flu_pro_input_output_atualizado ao final
-deste arquivo, usada pra avisar o usuário nesse caso.
+🌟 CORRIGIDO (terceira volta): a coluna de cada equipamento é tomada
+DIRETO do valor gravado na célula onde ele é remetente (não é
+calculada por grafo) -- um equipamento sem quem alimente NÃO vai
+automaticamente pra coluna 1; ele fica onde o cadastro diz, porque é
+ali que ele entra no processo (ex: uma energia elétrica pode alimentar
+direto um equipamento lá na coluna 3). Só quem nunca aparece como
+remetente em nenhuma célula (um terminal puro, tipo a expedição final)
+tem a coluna calculada: maior coluna entre quem manda pra ele, + 1.
+Conferido manualmente contra um exemplo real de 14 células -- bateu
+exatamente, equipamento por equipamento -- ver
+montar_dados_fluxo_a_partir_da_tabela mais abaixo.
 
 Duas direções:
 
-  - montar_dados_fluxo_a_partir_da_tabela(fluxo): lê
-    TbFluxoProducaoInputOutput e devolve o dicionário no formato
+  - montar_dados_fluxo_a_partir_da_tabela(fluxo): lê a tabela filha,
+    monta a cadeia de ligações (quem manda pra quem) e calcula
+    coluna/linha de cada equipamento a partir dela -- raiz (sem quem
+    alimenta) sempre coluna 1; quem recebe de uma raiz, coluna 2; e
+    assim sucessivamente, sempre coluna(destino) = 1 +
+    maior_coluna_entre_os_remetentes. Devolve o dicionário no formato
     Drawflow. Chamada automaticamente por um sinal sempre que a tabela
-    de cadastro (TbFluxoProducaoDaugther) muda -- ver o receiver logo
-    abaixo -- pra flu_pro_dados_fluxo tentar ficar em dia; mas só
-    reflete de verdade a mudança depois que "Atualizar Fluxos de
-    Produção" rodar (ver aviso acima).
+    filha muda (edição no Admin, importação de Excel, etc.) -- ver o
+    receiver logo abaixo -- pra flu_pro_dados_fluxo estar sempre em dia.
 
   - salvar_fluxo_a_partir_do_json(fluxo, dados_fluxo, ...): lê o grafo
     desenhado no editor, verifica consistência no SERVIDOR (não confia
-    só na checagem do navegador), calcula coluna/linha (a posição
-    exata arrastada no canvas NÃO é preservada pra ESSES campos -- vira
-    posição de grade sequencial, sem cruzamento) e regrava a tabela de
-    cadastro (TbFluxoProducaoDaugther) -- o "Atualizar Fluxos de
-    Produção" continua sendo o responsável por regravar
-    TbFluxoProducaoInputOutput a partir daí.
+    só na checagem do navegador), calcula coluna/linha do mesmo jeito
+    (a posição exata arrastada no canvas NÃO é preservada pra esses
+    campos -- vira posição de grade sequencial, sem cruzamento) e
+    regrava a tabela filha.
 """
 from django.db import transaction
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 
 from equipamentos.models import TbEquipamentos, TbEquipamentosCadastro
-from .models import TbFluxoProducao, TbFluxoProducaoDaugther, TbFluxoConsumoPadrao, TbFluxoProducaoInputOutput
+from .models import TbFluxoProducao, TbFluxoProducaoDaugther, TbFluxoConsumoPadrao
 
 
 # Espaçamento usado pra converter coluna/linha em pos_x/pos_y no canvas.
@@ -56,6 +48,14 @@ ESPACO_COLUNA = 260
 ESPACO_LINHA = 190
 MARGEM_X = 50
 MARGEM_Y = 50
+# 🌟 NOVO: altura do ícone e espaço entre equipamentos na mesma coluna
+# são dinâmicos (ver montar_dados_fluxo_a_partir_da_tabela) -- essas
+# constantes controlam esse cálculo.
+ALTURA_MAXIMA_COLUNA = 900     # altura-alvo (px) pra coluna mais cheia do fluxo
+ALTURA_ICONE_PADRAO = 80       # tamanho "normal" do ícone -- usado quando cabe folgado
+ALTURA_ICONE_MINIMA = 30       # nunca menor que isso -- ícone fica ilegível abaixo disso
+MARGEM_ENTRE_ICONES = 20       # respiro mínimo GARANTIDO entre um ícone e o próximo
+FATOR_CARD_SOBRE_IMAGEM = ESPACO_LINHA / ALTURA_ICONE_PADRAO  # cartão completo (título+margens+descrição) é maior que só a imagem
 # 🌟 CORRIGIDO: chegou a existir aqui uma quebra automática de linha
 # quando o fluxo tinha muitas colunas (pra caber na largura da tela) --
 # removida a pedido: o fluxo agora sempre fica numa faixa horizontal só,
@@ -69,92 +69,234 @@ def _nome_equipamento(equipamento):
     return f"{codigo}/{equipamento.equ_ordem_codigo}"
 
 
-def _montar_html_no(equipamento, codigo_nome, descricao):
+def _montar_html_no(equipamento, codigo_nome, descricao, altura_icone=80, altura_card_maxima=None):
     # 🌟 Mesmo template usado por adicionarNoEquipamento() no
     # editor.html -- mantém a aparência idêntica entre um nó desenhado
     # manualmente e um recriado aqui a partir da tabela.
+    #
+    # 🌟 NOVO: altura_icone é dinâmica (calculada por
+    # montar_dados_fluxo_a_partir_da_tabela, uma só pra todo o fluxo --
+    # ver ali) -- vai como estilo INLINE no <img>, que tem prioridade
+    # sobre a regra fixa (180x80) do CSS da página, garantindo que a
+    # coluna mais cheia sempre caiba na altura sem sobrepor ícones.
+    #
+    # 🌟 CORRIGIDO: o cálculo do espaçamento entre equipamentos levava
+    # em conta só a altura da IMAGEM -- mas o cartão inteiro (cabeçalho
+    # + imagem + texto de descrição) fica mais alto que isso quando a
+    # descrição é longa o bastante pra quebrar em 2+ linhas, podendo
+    # invadir o espaço do próximo equipamento abaixo. Agora o CARTÃO
+    # INTEIRO tem altura MÁXIMA travada (via estilo inline no próprio
+    # container), com overflow: hidden -- garante que ele nunca
+    # ultrapassa o espaço reservado, custe o que custar ao texto (se a
+    # descrição for longa, ela é cortada, mas nunca sobrepõe o vizinho).
     imagem_src = f"/fluxo_producao/equipamento_imagem/{equipamento.id}/"
     placeholder = '/static/fluxo_producao/img/equipamento-placeholder.png'
+    estilo_altura_maxima = f' max-height: {altura_card_maxima}px;' if altura_card_maxima else ''
     return (
-        '<div class="equipamento-node" style="width: 200px; overflow: hidden;">'
+        f'<div class="equipamento-node" style="width: 200px; overflow: hidden;{estilo_altura_maxima}">'
         '<div class="equipamento-header" style="background-color: #3498db; color: white; padding: 8px;">'
         f'<div class="equipamento-titulo">{codigo_nome}</div></div>'
-        '<div class="equipamento-body" style="padding: 10px; background-color: white; display: flex; flex-direction: column; align-items: center;">'
-        '<div style="width: 100%; height: 80px; display: flex; align-items: center; justify-content: center; overflow: hidden; margin-bottom: 10px;">'
-        f'<img src="{imagem_src}" alt="{codigo_nome}" class="equipamento-img" onerror="this.onerror=null; this.src=\'{placeholder}\';"></div>'
-        '<div class="equipamento-detalhes" style="width: 100%;">'
-        f'<div class="equipamento-descricao" style="font-size: 0.9em; color: #666;">{descricao or ""}</div>'
+        '<div class="equipamento-body" style="padding: 10px; background-color: white; display: flex; flex-direction: column; align-items: center; overflow: hidden;">'
+        f'<div style="width: 100%; height: {altura_icone}px; display: flex; align-items: center; justify-content: center; overflow: hidden; margin-bottom: 10px;">'
+        f'<img src="{imagem_src}" alt="{codigo_nome}" class="equipamento-img" '
+        f'style="width: 180px !important; height: {altura_icone}px !important; object-fit: cover;" '
+        f'onerror="this.onerror=null; this.src=\'{placeholder}\';"></div>'
+        '<div class="equipamento-detalhes" style="width: 100%; overflow: hidden;">'
+        f'<div class="equipamento-descricao" style="font-size: 0.9em; color: #666; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">{descricao or ""}</div>'
         '</div></div></div>'
     )
 
 
+
 def montar_dados_fluxo_a_partir_da_tabela(fluxo, preservar_posicoes_existentes=True):
     """
-    Lê TbFluxoProducaoInputOutput (a MESMA tabela que o PDF usa -- ver
-    update_fluxo_celery em tasks.py) e devolve o dicionário no formato
-    Drawflow. Não salva nada -- quem chama decide o que fazer com o
-    resultado.
+    Lê TbFluxoProducaoDaugther (+ TbFluxoConsumoPadrao) deste fluxo e
+    devolve o dicionário no formato Drawflow. Não salva nada -- quem
+    chama decide o que fazer com o resultado.
 
     preservar_posicoes_existentes=True (padrão): reaproveita o
-    pos_x/pos_y que cada equipamento já tinha no flu_pro_dados_fluxo
-    ATUAL do fluxo (arrastado manualmente no editor em algum momento) --
-    só equipamento NOVO (que apareceu agora e ainda não tinha posição
-    salva) ganha posição calculada em grade. Isso evita que uma
-    sincronização automática (o sinal, mais abaixo) jogue fora o
-    arranjo manual do usuário. Passe False só quando o pedido for de
-    verdade "recomeçar do zero, ignorando o que estava desenhado" -- é
-    o que o botão "Criar Fluxo no Editor" do Admin faz, de propósito,
-    com aviso prévio ao usuário.
+    pos_x/pos_y que cada OCORRÊNCIA (ver abaixo) já tinha no
+    flu_pro_dados_fluxo ATUAL do fluxo (arrastado manualmente no editor
+    em algum momento) -- só ocorrência NOVA (que apareceu agora e ainda
+    não tinha posição salva) ganha posição calculada em grade. Passe
+    False só quando o pedido for de verdade "recomeçar do zero,
+    ignorando o que estava desenhado" -- é o que o botão "Criar Fluxo
+    no Editor" do Admin faz, de propósito, com aviso prévio ao usuário.
+
+    🌟 CORRIGIDO (quarta volta): o MESMO equipamento pode aparecer mais
+    de uma vez no fluxo, em colunas diferentes -- cada vez que ele é
+    remetente numa célula com uma coluna gravada DIFERENTE das outras
+    vezes vira uma OCORRÊNCIA própria (um nó visual à parte), em vez de
+    ser fundido num nó só. Duas células que têm o MESMO equipamento
+    como remetente e a MESMA coluna continuam sendo uma ocorrência só
+    (um nó, com várias ligações de saída). O destino de cada ligação
+    também é identificado por (equipamento, coluna do remetente + 1) --
+    então um equipamento que recebe de remetentes em colunas diferentes
+    também aparece como ocorrências separadas.
     """
-    posicoes_ja_salvas = {}
+    posicoes_ja_salvas = {}   # (equipamento_id, coluna_gravada_da_ocorrencia) -> (pos_x, pos_y)
     if preservar_posicoes_existentes:
         dados_existentes = (fluxo.flu_pro_dados_fluxo or {}).get('drawflow', {}).get('Home', {}).get('data', {}) or {}
         for node in dados_existentes.values():
-            equip_id = (node.get('data') or {}).get('equipamento_id')
-            if equip_id is not None and 'pos_x' in node and 'pos_y' in node:
-                posicoes_ja_salvas[int(equip_id)] = (node['pos_x'], node['pos_y'])
+            dados_no = node.get('data') or {}
+            equip_id = dados_no.get('equipamento_id')
+            coluna_ocorrencia = dados_no.get('coluna_ocorrencia')
+            if equip_id is not None and coluna_ocorrencia is not None and 'pos_x' in node and 'pos_y' in node:
+                posicoes_ja_salvas[(int(equip_id), int(coluna_ocorrencia))] = (node['pos_x'], node['pos_y'])
 
-    # 🌟 CORRIGIDO: fonte de verdade agora é TbFluxoProducaoInputOutput,
-    # não mais TbFluxoProducaoDaugther. flag=1 é o mesmo filtro usado
-    # pelo PDF (registros mantidos mesmo se o fluxo original for
-    # apagado, ver comentário de update_fluxo_celery). coluna/linha e
-    # "envia_para" vêm PRONTOS -- nenhuma conta de layout própria.
-    registros = (TbFluxoProducaoInputOutput.objects
-                 .filter(mae_id=fluxo.id, flag=1)
-                 .select_related('flu_pro_inp_out_equipamento', 'flu_pro_inp_out_envia_para'))
+    # 🌟 CORRIGIDO (terceira volta): a coluna de cada OCORRÊNCIA é
+    # tomada DIRETO do valor gravado na célula onde ELE é remetente --
+    # sem calcular nada por grafo. Um equipamento "raiz" (sem quem
+    # alimente) NÃO vai automaticamente pra coluna 1 -- ele fica na
+    # coluna que o cadastro diz, porque é ali que ele entra no processo
+    # de verdade (ex: uma energia elétrica pode alimentar direto um
+    # equipamento lá na coluna 3, sem passar por nada antes). Só quem
+    # NUNCA aparece como remetente em NENHUMA célula (um terminal puro,
+    # tipo a expedição final do fluxo) tem a coluna calculada: coluna do
+    # remetente + 1. Conferido manualmente contra um exemplo real de 14
+    # células -- bateu exatamente, equipamento por equipamento.
+    celulas = (TbFluxoProducaoDaugther.objects
+               .filter(mae_id=fluxo.id)
+               .select_related('flu_pro_dau_consumo_padrao',
+                                'flu_pro_dau_consumo_padrao__flu_con_pad_from_equipamento',
+                                'flu_pro_dau_consumo_padrao__flu_con_pad_to_equipamento'))
 
-    equipamentos_por_id = {}
-    coluna_linha_gravada = {}   # equipamento_id -> (coluna, linha) exatamente como gravado
-    ligacoes = []              # (from_equipamento_id, to_equipamento_id)
+    equipamento_obj_por_id = {}     # equip_id -> objeto TbEquipamentos (só pra montar nome/imagem)
+    ligacoes_ocorrencias = []       # ((equip_id_de, coluna_de), (equip_id_para, coluna_para))
+    linha_gravada_por_ocorrencia = {}   # (equip_id, coluna) -> flu_pro_dau_linha, quando essa ocorrência é remetente
 
-    for r in registros:
-        equip = r.flu_pro_inp_out_equipamento
-        equipamentos_por_id[equip.id] = equip
-        coluna_linha_gravada[equip.id] = (r.flu_pro_inp_out_coluna, r.flu_pro_inp_out_linha)
-        if r.flu_pro_inp_out_envia_para_id:
-            ligacoes.append((equip.id, r.flu_pro_inp_out_envia_para_id))
+    for celula in celulas:
+        consumo = celula.flu_pro_dau_consumo_padrao
+        de = consumo.flu_con_pad_from_equipamento
+        para = consumo.flu_con_pad_to_equipamento
+        equipamento_obj_por_id[de.id] = de
+        equipamento_obj_por_id[para.id] = para
 
-    # 🌟 CORRIGIDO: usava o NÚMERO de coluna/linha gravado direto como
-    # multiplicador de posição -- se esses números têm buracos (ex: 1, 2,
-    # 5, 7, sem 3/4/6, o que acontece de verdade nessa tabela), o
-    # espaçamento na tela saía desigual (uns equipamentos quase colados,
-    # outros com um vão enorme no meio). Agora usa a ORDEM (rank) entre
-    # os valores distintos de coluna, e a ordem (rank) da linha DENTRO de
-    # cada coluna -- sempre 1, 2, 3... sequencial na tela, sem buraco,
-    # não importa qual seja o número real gravado. A ordem relativa
-    # (quem vem antes de quem) é preservada -- só o espaçamento é que
-    # deixa de copiar os buracos do número gravado.
-    colunas_distintas = sorted({c for c, _ in coluna_linha_gravada.values()})
+        coluna_de = celula.flu_pro_dau_coluna
+        coluna_para = coluna_de + 1  # regra fixa: destino sempre 1 coluna à frente do remetente
+
+        ocorrencia_de = (de.id, coluna_de)
+        ocorrencia_para = (para.id, coluna_para)
+        ligacoes_ocorrencias.append((ocorrencia_de, ocorrencia_para))
+        linha_gravada_por_ocorrencia[ocorrencia_de] = celula.flu_pro_dau_linha
+
+    # Todas as ocorrências que aparecem em algum lado de alguma ligação.
+    ocorrencias = set()
+    for de_oc, para_oc in ligacoes_ocorrencias:
+        ocorrencias.add(de_oc)
+        ocorrencias.add(para_oc)
+
+    # Linha de quem só aparece como destino (nunca remetente NESSA
+    # coluna específica): média da linha de quem manda pra essa
+    # ocorrência -- só como pista de altura, nunca decide a coluna.
+    predecessores_por_ocorrencia = {}
+    for de_oc, para_oc in ligacoes_ocorrencias:
+        predecessores_por_ocorrencia.setdefault(para_oc, []).append(de_oc)
+
+    def linha_da_ocorrencia(oc, visitando=frozenset()):
+        if oc in linha_gravada_por_ocorrencia:
+            return linha_gravada_por_ocorrencia[oc]
+        if oc in visitando:
+            return 1  # segurança -- não deveria ocorrer num fluxo válido (sem ciclo)
+        preds = predecessores_por_ocorrencia.get(oc, [])
+        if not preds:
+            return 1
+        valores = [linha_da_ocorrencia(p, visitando | {oc}) for p in preds]
+        return sum(valores) / len(valores)
+
+    linha_final = {oc: linha_da_ocorrencia(oc) for oc in ocorrencias}
+
+    # Normaliza coluna por ORDEM (rank), não pelo valor absoluto
+    # gravado -- evita espaçamento desigual na tela se os números
+    # tiverem buracos (ex: colunas 1, 2, 5, sem 3/4 -- a ordem relativa
+    # se preserva, só o espaçamento vira uniforme).
+    colunas_distintas = sorted({coluna for _, coluna in ocorrencias})
     rank_da_coluna = {c: i + 1 for i, c in enumerate(colunas_distintas)}
 
-    equipamentos_por_coluna = {}
-    for equip_id, (coluna, linha) in coluna_linha_gravada.items():
-        equipamentos_por_coluna.setdefault(coluna, []).append((linha, equip_id))
+    ocorrencias_por_coluna_rank = {}
+    for oc in ocorrencias:
+        ocorrencias_por_coluna_rank.setdefault(rank_da_coluna[oc[1]], []).append(oc)
 
-    posicao_equipamento = {}   # equipamento_id -> (coluna_rank, linha_rank)
-    for coluna, itens in equipamentos_por_coluna.items():
-        for linha_rank, (_linha_gravada, equip_id) in enumerate(sorted(itens), start=1):
-            posicao_equipamento[equip_id] = (rank_da_coluna[coluna], linha_rank)
+    # 🌟 NOVO: reduz cruzamento de ligações entre colunas vizinhas --
+    # método do baricentro (o mesmo usado por ferramentas como o
+    # Graphviz): a ordem vertical de cada coluna começa pela pista de
+    # linha_final (acima), e depois é refinada em várias passadas,
+    # reordenando cada coluna pela posição MÉDIA de quem se liga a ela
+    # na coluna anterior (ida, esquerda pra direita) e na seguinte
+    # (volta, direita pra esquerda), até estabilizar. Não garante zero
+    # cruzamento sempre (o problema geral de minimizar cruzamentos é
+    # NP-difícil), mas reduz bastante na prática -- confirmado com um
+    # caso de teste com cruzamento óbvio (duas ligações em "X" entre
+    # duas colunas), que passa a ficar sem cruzamento nenhum.
+    for ocs in ocorrencias_por_coluna_rank.values():
+        ocs.sort(key=lambda o: (linha_final[o], o[0]))
+
+    posicao_vertical = {}
+    for ocs in ocorrencias_por_coluna_rank.values():
+        for i, oc in enumerate(ocs):
+            posicao_vertical[oc] = i
+
+    sucessores_por_ocorrencia = {}
+    for de_oc, para_oc in ligacoes_ocorrencias:
+        sucessores_por_ocorrencia.setdefault(de_oc, []).append(para_oc)
+
+    def _reordenar_coluna(col_rank, vizinhos_de):
+        ocs = ocorrencias_por_coluna_rank[col_rank]
+
+        def _baricentro(oc):
+            vizinhos = vizinhos_de.get(oc, [])
+            if not vizinhos:
+                return posicao_vertical[oc]  # sem vizinho na coluna adjacente -- mantém onde está
+            return sum(posicao_vertical[v] for v in vizinhos) / len(vizinhos)
+
+        ocs.sort(key=lambda o: (_baricentro(o), o[0]))
+        for i, oc in enumerate(ocs):
+            posicao_vertical[oc] = i
+
+    colunas_rank_ordenadas = sorted(ocorrencias_por_coluna_rank)
+    for _ in range(8):  # 8 passadas costuma ser mais que suficiente pra estabilizar
+        for col_rank in colunas_rank_ordenadas[1:]:
+            _reordenar_coluna(col_rank, predecessores_por_ocorrencia)
+        for col_rank in reversed(colunas_rank_ordenadas[:-1]):
+            _reordenar_coluna(col_rank, sucessores_por_ocorrencia)
+
+    posicao_ocorrencia = {}   # ocorrencia (equip_id, coluna) -> (coluna_rank, linha_rank)
+    for col_rank, ocs in ocorrencias_por_coluna_rank.items():
+        for linha_rank, oc in enumerate(ocs, start=1):
+            posicao_ocorrencia[oc] = (col_rank, linha_rank)
+
+    # 🌟 NOVO: altura do ícone e espaço entre um equipamento e outro na
+    # mesma coluna são dinâmicos -- calculados a partir de quantos
+    # equipamentos tem na coluna MAIS CHEIA do fluxo (só uma vez, vale
+    # pro fluxo inteiro -- ícones sempre do mesmo tamanho entre si).
+    # ALTURA_MAXIMA_COLUNA é a altura-alvo (em pixels) que a coluna mais
+    # cheia deve ocupar; quanto mais equipamentos nela, menor cada
+    # ícone fica -- nunca menor que ALTURA_ICONE_MINIMA (fica ilegível
+    # abaixo disso -- nesse caso ainda sobra pro ZOOM automático do
+    # navegador cuidar do resto, ver centralizarFluxoNaTela em
+    # editor.html). MARGEM_ENTRE_ICONES é o respiro mínimo GARANTIDO
+    # entre um ícone e o próximo, mesmo no limite.
+    maior_qtde_na_coluna = max((len(ocs) for ocs in ocorrencias_por_coluna_rank.values()), default=1)
+    if maior_qtde_na_coluna > 1:
+        espaco_linha_ideal = ALTURA_MAXIMA_COLUNA / maior_qtde_na_coluna
+        altura_icone = max(ALTURA_ICONE_MINIMA, min(ALTURA_ICONE_PADRAO, espaco_linha_ideal / FATOR_CARD_SOBRE_IMAGEM))
+    else:
+        altura_icone = ALTURA_ICONE_PADRAO
+    espaco_linha = max(altura_icone * FATOR_CARD_SOBRE_IMAGEM, altura_icone + MARGEM_ENTRE_ICONES)
+
+    # 🌟 NOVO: cada coluna é centralizada verticalmente (mesma ideia já
+    # usada no PDF -- ver update_fluxo_celery em tasks.py, que centraliza
+    # cada coluna na altura da página) -- uma coluna com só 1 equipamento
+    # fica no meio da tela, não colada no topo; uma coluna com muitos
+    # ocupa mais espaço, mas ainda centralizada em torno da mesma linha
+    # de referência que as outras.
+    altura_maxima_entre_colunas = max(
+        (len(ocs) * espaco_linha for ocs in ocorrencias_por_coluna_rank.values()), default=espaco_linha
+    )
+    offset_y_por_coluna = {
+        col_rank: (altura_maxima_entre_colunas - len(ocs) * espaco_linha) / 2
+        for col_rank, ocs in ocorrencias_por_coluna_rank.items()
+    }
 
     # 🌟 CORRIGIDO: removida a quebra em blocos de colunas -- o fluxo
     # inteiro fica numa faixa horizontal só, por mais colunas que tenha.
@@ -164,27 +306,35 @@ def montar_dados_fluxo_a_partir_da_tabela(fluxo, preservar_posicoes_existentes=T
     # editor.html, que usa o mecanismo de zoom da própria biblioteca
     # Drawflow.
 
-    # Monta os nós -- 1 nó por equipamento, id do nó = id do equipamento
-    # (string, como o Drawflow espera pra chaves de node).
+    # Monta os nós -- 1 nó por OCORRÊNCIA (equipamento + coluna
+    # original), não mais 1 nó por equipamento -- id do nó combina os
+    # dois, pra permitir o mesmo equipamento aparecer mais de uma vez,
+    # em colunas diferentes.
     nodes = {}
-    for equip_id, equipamento in equipamentos_por_id.items():
-        if equip_id in posicoes_ja_salvas:
-            pos_x, pos_y = posicoes_ja_salvas[equip_id]
+    for oc in ocorrencias:
+        equip_id, coluna_original = oc
+        equipamento = equipamento_obj_por_id[equip_id]
+        chave_no = f"{equip_id}_{coluna_original}"
+
+        if oc in posicoes_ja_salvas:
+            pos_x, pos_y = posicoes_ja_salvas[oc]
         else:
-            coluna, linha = posicao_equipamento.get(equip_id, (1, 1))
-            pos_x = MARGEM_X + (coluna - 1) * ESPACO_COLUNA
-            pos_y = MARGEM_Y + (linha - 1) * ESPACO_LINHA
+            coluna_rank, linha_rank = posicao_ocorrencia[oc]
+            pos_x = MARGEM_X + (coluna_rank - 1) * ESPACO_COLUNA
+            pos_y = MARGEM_Y + offset_y_por_coluna[coluna_rank] + (linha_rank - 1) * espaco_linha
+
         codigo_nome = _nome_equipamento(equipamento)
-        nodes[str(equip_id)] = {
-            'id': equip_id,
+        nodes[chave_no] = {
+            'id': chave_no,
             'name': codigo_nome,
             'data': {
                 'equipamento_id': equip_id,
+                'coluna_ocorrencia': coluna_original,
                 'codigo': codigo_nome,
                 'imagem_src': f"/fluxo_producao/equipamento_imagem/{equip_id}/",
             },
             'class': 'equipamento',
-            'html': _montar_html_no(equipamento, codigo_nome, equipamento.equ_ordem_descricao),
+            'html': _montar_html_no(equipamento, codigo_nome, equipamento.equ_ordem_descricao, altura_icone, altura_card_maxima=espaco_linha - MARGEM_ENTRE_ICONES),
             'typenode': False,
             'inputs': {'input_1': {'connections': []}},
             'outputs': {'output_1': {'connections': []}},
@@ -192,13 +342,15 @@ def montar_dados_fluxo_a_partir_da_tabela(fluxo, preservar_posicoes_existentes=T
             'pos_y': pos_y,
         }
 
-    for de_id, para_id in ligacoes:
-        no_de = nodes.get(str(de_id))
-        no_para = nodes.get(str(para_id))
+    for de_oc, para_oc in ligacoes_ocorrencias:
+        chave_de = f"{de_oc[0]}_{de_oc[1]}"
+        chave_para = f"{para_oc[0]}_{para_oc[1]}"
+        no_de = nodes.get(chave_de)
+        no_para = nodes.get(chave_para)
         if no_de is None or no_para is None:
             continue
-        no_de['outputs']['output_1']['connections'].append({'node': str(para_id), 'output': 'input_1'})
-        no_para['inputs']['input_1']['connections'].append({'node': str(de_id), 'input': 'output_1'})
+        no_de['outputs']['output_1']['connections'].append({'node': chave_para, 'output': 'input_1'})
+        no_para['inputs']['input_1']['connections'].append({'node': chave_de, 'input': 'output_1'})
 
     return {'drawflow': {'Home': {'data': nodes}}}
 
@@ -450,16 +602,3 @@ def salvar_fluxo_a_partir_do_json(fluxo, dados_fluxo, valores_iniciais_ligacoes=
     TbFluxoProducao.objects.filter(id=fluxo.id).update(flu_pro_dados_fluxo=dados_fluxo)
 
     return True, None
-
-
-def fluxo_io_desatualizado(fluxo):
-    """
-    🌟 NOVO: True se TbFluxoProducaoInputOutput (a fonte usada por
-    montar_dados_fluxo_a_partir_da_tabela) pode estar desatualizada em
-    relação à tabela de cadastro -- ou seja, se a última vez que
-    "Atualizar Fluxos de Produção" rodou é anterior à última mudança na
-    tabela de cadastro. Usado só pra AVISAR o usuário antes de montar o
-    editor (ou o PDF -- o mesmo aviso vale pros dois), nunca pra
-    bloquear a ação.
-    """
-    return not bool(fluxo.flu_pro_input_output_atualizado)

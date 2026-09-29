@@ -1177,21 +1177,11 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
     def criar_fluxo_no_editor_selecionados(self, request, queryset):
         from .tasks import criar_fluxo_no_editor_lista_celery
         lista_id = list(queryset.values_list('id', flat=True))
-        # 🌟 NOVO: avisa de antemão quantos dos selecionados podem estar
-        # desatualizados (mesmo motivo do botão individual, ver lá).
-        total_desatualizados = queryset.filter(flu_pro_input_output_atualizado=False).count()
         criar_fluxo_no_editor_lista_celery.delay(lista_id)
         messages.success(
             request,
             f'Montagem do fluxo no editor sendo feita em segundo plano pra {len(lista_id)} fluxo(s) selecionado(s).'
         )
-        if total_desatualizados:
-            messages.warning(
-                request,
-                f'{total_desatualizados} dos selecionados está(ão) com o Input/Output desatualizado -- '
-                'o desenho montado pode não refletir a última alteração na tabela de cadastro pra esses. '
-                'Rode "Atualizar Fluxos de Produção" neles antes, se quiser garantir que está atual.'
-            )
 
     criar_fluxo_no_editor_selecionados.short_description = _('Criar Fluxo no Editor (a partir da tabela) dos Selecionados')
 
@@ -1666,22 +1656,11 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
         return urls_customizadas + super().get_urls()
 
     def criar_fluxo_no_editor(self, request, fluxo_id):
-        from .sincronizacao_fluxo_visual import montar_dados_fluxo_a_partir_da_tabela, fluxo_io_desatualizado
+        from .sincronizacao_fluxo_visual import montar_dados_fluxo_a_partir_da_tabela
         fluxo = get_object_or_404(TbFluxoProducao, id=fluxo_id)
         dados = montar_dados_fluxo_a_partir_da_tabela(fluxo, preservar_posicoes_existentes=False)
         total_equipamentos = len(dados.get('drawflow', {}).get('Home', {}).get('data', {}))
         TbFluxoProducao.objects.filter(id=fluxo_id).update(flu_pro_dados_fluxo=dados)
-        # 🌟 NOVO: o editor é montado a partir de TbFluxoProducaoInputOutput
-        # (a mesma tabela usada pelo PDF), que só reflete a última vez que
-        # "Atualizar Fluxos de Produção" rodou -- avisa se pode estar
-        # desatualizada em relação à tabela de cadastro.
-        if fluxo_io_desatualizado(fluxo):
-            messages.warning(
-                request,
-                'Este fluxo está com o Input/Output desatualizado -- o desenho montado pode não '
-                'refletir a última alteração na tabela de cadastro. Rode "Atualizar Fluxos de '
-                'Produção" antes, se quiser garantir que está atual.'
-            )
         if total_equipamentos:
             messages.success(
                 request,
