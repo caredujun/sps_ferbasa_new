@@ -54,8 +54,16 @@ MARGEM_Y = 50
 ALTURA_MAXIMA_COLUNA = 900     # altura-alvo (px) pra coluna mais cheia do fluxo
 ALTURA_ICONE_PADRAO = 80       # tamanho "normal" do ícone -- usado quando cabe folgado
 ALTURA_ICONE_MINIMA = 30       # nunca menor que isso -- ícone fica ilegível abaixo disso
-MARGEM_ENTRE_ICONES = 20       # respiro mínimo GARANTIDO entre um ícone e o próximo
-FATOR_CARD_SOBRE_IMAGEM = ESPACO_LINHA / ALTURA_ICONE_PADRAO  # cartão completo (título+margens+descrição) é maior que só a imagem
+MARGEM_ENTRE_ICONES = 50       # 🌟 CORRIGIDO: era 20 -- com o fluxo reduzido pelo zoom automático da tela (pra caber tudo), 20px lógicos viravam poucos pixels REAIS na tela, quase invisíveis. 50px garante uma folga visível mesmo reduzido.
+# 🌟 CORRIGIDO: substitui um fator proporcional (ícone × X) no cálculo
+# de altura_card_maxima -- medido a partir do CSS de cada parte do card
+# (fluxos/templates/fluxo_producao/editor.html): cabeçalho (padding
+# 8px topo+baixo + texto do título, ~36px) + preenchimento do corpo
+# (padding 10px topo+baixo, 20px) + margem abaixo do ícone (10px) +
+# descrição de até 2 linhas (~38px, fonte 0.85em) -- não encolhe junto
+# com o ícone, então entra como valor FIXO, somado ao ícone (que esse
+# sim encolhe).
+ALTURA_FIXA_NAO_ICONE = 110
 # 🌟 CORRIGIDO: chegou a existir aqui uma quebra automática de linha
 # quando o fluxo tinha muitas colunas (pra caber na largura da tela) --
 # removida a pedido: o fluxo agora sempre fica numa faixa horizontal só,
@@ -96,7 +104,9 @@ def _montar_html_no(equipamento, codigo_nome, descricao, altura_icone=80, altura
         f'<div class="equipamento-node" style="width: 200px; overflow: hidden;{estilo_altura_maxima}">'
         '<div class="equipamento-header" style="background-color: #3498db; color: white; padding: 8px;">'
         f'<div class="equipamento-titulo">{codigo_nome}</div></div>'
-        '<div class="equipamento-body" style="padding: 10px; background-color: white; display: flex; flex-direction: column; align-items: center; overflow: hidden;">'
+        '<div class="equipamento-body" style="padding: 10px; background-color: white; display: flex; flex-direction: column; align-items: center; overflow: hidden; position: relative;">'
+        '<button type="button" class="selo-link-equipamento" title="Ampliar equipamento" '
+        'aria-label="Ampliar equipamento">🔍</button>'
         f'<div style="width: 100%; height: {altura_icone}px; display: flex; align-items: center; justify-content: center; overflow: hidden; margin-bottom: 10px;">'
         f'<img src="{imagem_src}" alt="{codigo_nome}" class="equipamento-img" '
         f'style="width: 180px !important; height: {altura_icone}px !important; object-fit: cover;" '
@@ -265,24 +275,32 @@ def montar_dados_fluxo_a_partir_da_tabela(fluxo, preservar_posicoes_existentes=T
         for linha_rank, oc in enumerate(ocs, start=1):
             posicao_ocorrencia[oc] = (col_rank, linha_rank)
 
-    # 🌟 NOVO: altura do ícone e espaço entre um equipamento e outro na
-    # mesma coluna são dinâmicos -- calculados a partir de quantos
-    # equipamentos tem na coluna MAIS CHEIA do fluxo (só uma vez, vale
-    # pro fluxo inteiro -- ícones sempre do mesmo tamanho entre si).
-    # ALTURA_MAXIMA_COLUNA é a altura-alvo (em pixels) que a coluna mais
-    # cheia deve ocupar; quanto mais equipamentos nela, menor cada
-    # ícone fica -- nunca menor que ALTURA_ICONE_MINIMA (fica ilegível
-    # abaixo disso -- nesse caso ainda sobra pro ZOOM automático do
-    # navegador cuidar do resto, ver centralizarFluxoNaTela em
-    # editor.html). MARGEM_ENTRE_ICONES é o respiro mínimo GARANTIDO
-    # entre um ícone e o próximo, mesmo no limite.
+    # 🌟 CORRIGIDO (segunda vez): a fórmula anterior (ícone * FATOR)
+    # tratava o card como se ele encolhesse PROPORCIONALMENTE ao ícone
+    # -- mas cabeçalho, preenchimentos e texto da descrição têm tamanho
+    # FIXO (não encolhem junto). Num ícone pequeno (coluna cheia), esse
+    # conteúdo fixo sozinho já estourava o espaço calculado -- cortava
+    # nas colunas mais cheias, mesmo com o ícone pequeno. Agora é
+    # ALTURA_FIXA_NAO_ICONE (cabeçalho + preenchimentos + margem +
+    # descrição de até 2 linhas -- medido a partir do CSS de cada parte
+    # do card) + o ícone (esse sim, encolhe) -- garante espaço
+    # suficiente pro conteúdo fixo em QUALQUER tamanho de ícone.
     maior_qtde_na_coluna = max((len(ocs) for ocs in ocorrencias_por_coluna_rank.values()), default=1)
     if maior_qtde_na_coluna > 1:
-        espaco_linha_ideal = ALTURA_MAXIMA_COLUNA / maior_qtde_na_coluna
-        altura_icone = max(ALTURA_ICONE_MINIMA, min(ALTURA_ICONE_PADRAO, espaco_linha_ideal / FATOR_CARD_SOBRE_IMAGEM))
+        espaco_disponivel_por_item = ALTURA_MAXIMA_COLUNA / maior_qtde_na_coluna
+        altura_icone = max(
+            ALTURA_ICONE_MINIMA,
+            min(ALTURA_ICONE_PADRAO, espaco_disponivel_por_item - MARGEM_ENTRE_ICONES - ALTURA_FIXA_NAO_ICONE)
+        )
     else:
         altura_icone = ALTURA_ICONE_PADRAO
-    espaco_linha = max(altura_icone * FATOR_CARD_SOBRE_IMAGEM, altura_icone + MARGEM_ENTRE_ICONES)
+    # 🌟 CORRIGIDO: altura_icone saía com casas decimais (ex: 54.1px) --
+    # imagem redimensionada pra um tamanho fracionário fica borrada em
+    # alguns navegadores (não alinha nos pixels da tela). Arredonda pra
+    # número inteiro.
+    altura_icone = round(altura_icone)
+    altura_card_maxima = ALTURA_FIXA_NAO_ICONE + altura_icone  # espaço que o CARD precisa, sem cortar nada
+    espaco_linha = altura_card_maxima + MARGEM_ENTRE_ICONES       # + respiro POR FORA, garantido sempre
 
     # 🌟 NOVO: cada coluna é centralizada verticalmente (mesma ideia já
     # usada no PDF -- ver update_fluxo_celery em tasks.py, que centraliza
@@ -334,7 +352,7 @@ def montar_dados_fluxo_a_partir_da_tabela(fluxo, preservar_posicoes_existentes=T
                 'imagem_src': f"/fluxo_producao/equipamento_imagem/{equip_id}/",
             },
             'class': 'equipamento',
-            'html': _montar_html_no(equipamento, codigo_nome, equipamento.equ_ordem_descricao, altura_icone, altura_card_maxima=espaco_linha - MARGEM_ENTRE_ICONES),
+            'html': _montar_html_no(equipamento, codigo_nome, equipamento.equ_ordem_descricao, altura_icone, altura_card_maxima=altura_card_maxima),
             'typenode': False,
             'inputs': {'input_1': {'connections': []}},
             'outputs': {'output_1': {'connections': []}},
@@ -444,6 +462,11 @@ def verificar_consistencia_grafo(nodes):
 
 def calcular_colunas_linhas(nodes):
     """
+    ⚠️ SEM USO no momento -- salvar_fluxo_a_partir_do_json parou de
+    chamar esta função (não regrava mais coluna/linha na tabela filha a
+    partir do editor, a pedido). Deixada aqui, intacta, caso volte a
+    ser necessária depois -- mas nada no arquivo chama ela agora.
+
     Calcula (coluna, linha) de cada nó a partir só das ligações do
     grafo -- usado quando o fluxo vem do editor (a posição livre no
     canvas não é preservada; vira posição de grade, igual ao resto do
@@ -494,19 +517,29 @@ def calcular_colunas_linhas(nodes):
 @transaction.atomic
 def salvar_fluxo_a_partir_do_json(fluxo, dados_fluxo, valores_iniciais_ligacoes=None):
     """
-    Recebe o JSON exportado pelo editor (Drawflow) e regrava
-    TbFluxoProducaoDaugther inteira a partir dele. Devolve
-    (True, None) se salvou, ou (False, lista_de_problemas) se recusou
-    -- nesse caso, NADA é alterado no banco.
+    Recebe o JSON exportado pelo editor (Drawflow) e grava SÓ a imagem
+    (flu_pro_dados_fluxo) -- nunca mexe em TbFluxoProducaoDaugther nem
+    em TbFluxoConsumoPadrao. Devolve (True, None) se salvou, ou
+    (False, lista_de_problemas) se recusou -- nesse caso, nada é
+    alterado no banco.
 
-    valores_iniciais_ligacoes: dict opcional {"<from_equip_id>-<to_equip_id>":
-    valor} -- usado quando uma ligação NOVA (sem TbFluxoConsumoPadrao
-    já cadastrado nesse cenário) precisa desse valor pra ser criada.
-    Ligação nova sem esse valor é rejeitada (não dá pra criar um
-    TbFluxoConsumoPadrao sem valor_inicial, que é campo obrigatório).
+    🌟 CORRIGIDO: até aqui, salvar o fluxo no editor também REGRAVAVA A
+    TABELA FILHA inteira (apagando e recriando TbFluxoProducaoDaugther
+    a partir do desenho, criando TbFluxoConsumoPadrao novos quando
+    necessário) -- um efeito colateral grave: qualquer ajuste puramente
+    visual no editor (só reposicionar um equipamento, por exemplo)
+    alterava o fluxo de produção DE VERDADE. A pedido, isso foi
+    removido por completo -- salvar no editor agora é só uma FOTO
+    (posição de cada equipamento na tela); a tabela filha é o dado de
+    produção de verdade e só muda por onde sempre mudou (Admin,
+    importação de Excel) -- nunca pelo editor visual.
+
+    valores_iniciais_ligacoes: mantido no parâmetro só por
+    compatibilidade com quem já chama esta função (views_fluxos.py) --
+    não é mais usado pra nada aqui, já que nenhum TbFluxoConsumoPadrao é
+    criado a partir do editor.
     """
     nodes = (dados_fluxo or {}).get('drawflow', {}).get('Home', {}).get('data', {}) or {}
-    valores_iniciais_ligacoes = valores_iniciais_ligacoes or {}
 
     if not nodes:
         return False, ["O fluxo está vazio -- arraste ao menos um equipamento antes de salvar."]
@@ -515,90 +548,31 @@ def salvar_fluxo_a_partir_do_json(fluxo, dados_fluxo, valores_iniciais_ligacoes=
     if problemas:
         return False, problemas
 
-    posicoes = calcular_colunas_linhas(nodes)  # {node_id: (coluna, linha)}
-
-    equipamento_do_node = {}
+    equipamentos_ids = set()
     for node_id, node in nodes.items():
-        equip_id = node.get('data', {}).get('equipamento_id')
-        if equip_id is None:
+        equipamento_id = node.get('data', {}).get('equipamento_id')
+        if equipamento_id is None:
             return False, [f"O equipamento do nó \"{node.get('name')}\" não tem equipamento_id -- foi criado de forma inválida."]
-        equipamento_do_node[node_id] = int(equip_id)
+        try:
+            equipamentos_ids.add(int(equipamento_id))
+        except (TypeError, ValueError):
+            return False, [f"O equipamento do nó \"{node.get('name')}\" tem equipamento_id inválido."]
 
-    # ligações: (node_de, node_para, equip_de, equip_para)
-    ligacoes = []
-    for node_id, node in nodes.items():
-        for saida in node.get('outputs', {}).values():
-            for conexao in saida.get('connections', []):
-                destino_node_id = conexao.get('node')
-                if destino_node_id not in nodes:
-                    continue
-                ligacoes.append((
-                    node_id, destino_node_id,
-                    equipamento_do_node[node_id], equipamento_do_node[destino_node_id],
-                ))
+    # Defesa em profundidade: mesmo que alguém manipule o JSON enviado
+    # diretamente à API, nunca aceita um equipamento de outro cenário.
+    equipamentos_validos = set(
+        TbEquipamentos.objects.filter(
+            id__in=equipamentos_ids,
+            tbcenarios_id=fluxo.tbcenarios_id,
+        ).values_list('id', flat=True)
+    )
+    equipamentos_fora_do_cenario = equipamentos_ids - equipamentos_validos
+    if equipamentos_fora_do_cenario:
+        ids_invalidos = ', '.join(str(i) for i in sorted(equipamentos_fora_do_cenario))
+        return False, [
+            f"O fluxo contém equipamento(s) que não pertencem a este cenário: {ids_invalidos}."
+        ]
 
-    if not ligacoes:
-        return False, ["O fluxo precisa de pelo menos uma ligação entre dois equipamentos."]
-
-    cenario_id = fluxo.tbcenarios_id
-
-    consumo_padrao_por_ligacao = {}
-    faltando_valor_inicial = []
-    for node_de, node_para, equip_de, equip_para in ligacoes:
-        existente = TbFluxoConsumoPadrao.objects.filter(
-            flu_con_pad_from_equipamento_id=equip_de,
-            flu_con_pad_to_equipamento_id=equip_para,
-            tbcenarios_id=cenario_id,
-        ).first()
-        if existente:
-            consumo_padrao_por_ligacao[(node_de, node_para)] = existente
-            continue
-        chave = f"{equip_de}-{equip_para}"
-        valor_inicial = valores_iniciais_ligacoes.get(chave)
-        if valor_inicial in (None, ''):
-            de_nome = _nome_equipamento(TbEquipamentos.objects.get(id=equip_de))
-            para_nome = _nome_equipamento(TbEquipamentos.objects.get(id=equip_para))
-            faltando_valor_inicial.append(
-                f"Ligação nova {de_nome} \u2192 {para_nome}: falta informar o valor inicial do consumo padrão."
-            )
-            continue
-        descricao = (
-            f"{_nome_equipamento(TbEquipamentos.objects.get(id=equip_de))} --> "
-            f"{_nome_equipamento(TbEquipamentos.objects.get(id=equip_para))}"
-        )[:100]  # flu_con_pad_descricao tem max_length=100
-        consumo_padrao_por_ligacao[(node_de, node_para)] = TbFluxoConsumoPadrao.objects.create(
-            flu_con_pad_from_equipamento_id=equip_de,
-            flu_con_pad_to_equipamento_id=equip_para,
-            tbcenarios_id=cenario_id,
-            valor_inicial=valor_inicial,
-            flu_con_pad_descricao=descricao,
-        )
-
-    if faltando_valor_inicial:
-        return False, faltando_valor_inicial
-
-    # Tudo ok -- regrava a tabela filha inteira desse fluxo a partir do grafo.
-    TbFluxoProducaoDaugther.objects.filter(mae_id=fluxo.id).delete()
-    novas_celulas = []
-    for node_de, node_para, equip_de, equip_para in ligacoes:
-        coluna, linha = posicoes[node_para]  # PREMISSA 1: posição = a do destino
-        novas_celulas.append(TbFluxoProducaoDaugther(
-            flu_pro_dau_coluna=coluna,
-            flu_pro_dau_linha=linha,
-            flu_pro_dau_consumo_padrao=consumo_padrao_por_ligacao[(node_de, node_para)],
-            mae_id=fluxo.id,
-            tbcenarios_id=cenario_id,
-        ))
-    TbFluxoProducaoDaugther.objects.bulk_create(novas_celulas)
-
-    # 🌟 CORRIGIDO: aqui salvava flu_pro_dados_fluxo REGENERADO a partir
-    # da tabela (em grade, por coluna/linha) -- isso jogava fora a
-    # posição exata que o usuário acabou de arrastar no editor, mesmo
-    # tendo acabado de salvar. Agora grava exatamente o dados_fluxo que
-    # veio do navegador (com as posições dele) -- a única coisa que
-    # muda na tabela é a TbFluxoProducaoDaugther (coluna/linha), que já
-    # foi regravada acima; a posição na TELA é sempre a que o usuário
-    # deixou.
     TbFluxoProducao.objects.filter(id=fluxo.id).update(flu_pro_dados_fluxo=dados_fluxo)
 
     return True, None

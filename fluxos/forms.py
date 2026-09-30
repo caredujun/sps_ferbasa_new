@@ -88,8 +88,7 @@ class TbFluxoProducaoFormAdmin(forms.ModelForm):
                 if qtde == 1:
                     # Vamos pegar o cenário ativo e colocar o filtro nos foreignkeys do model
                     ativo = TbCenarios.objects.get(cen_ativo=True).id
-                    self.fields['flu_pro_copiar_de'].queryset = TbFluxoProducao.objects.filter(tbcenarios_id=ativo)
-
+                    self.fields['flu_pro_copiar_de'].queryset = TbFluxoProducao.objects.filter(tbcenarios_id=ativo).order_by('id')
         try:
             # Alterando a altura do campo Observação
             self.fields['flu_pro_observacao'].widget.attrs['style'] = 'height: 30px'

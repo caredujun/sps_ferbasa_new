@@ -1,9 +1,14 @@
 from django.db import connection
 from django.shortcuts import render, get_object_or_404, redirect
-from django.http import JsonResponse, HttpResponse
-from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse, HttpResponse, Http404
+from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.decorators.http import require_GET, require_POST, require_http_methods
 import json
-from equipamentos.models import TbEquipamentosCadastro, TbEquipamentos
+import re
+from urllib.parse import urlparse
+from equipamentos.models import TbEquipamentos
 from parameters.models import TbCenarios
 from .models import TbFluxoProducao
 # 🌟 NOVO: só o IMPORT já basta pra registrar o sinal que mantém
@@ -17,13 +22,56 @@ from . import sincronizacao_fluxo_visual  # noqa: F401
 import datetime
 
 
+def _empresa_efetiva_id_ou_403(usuario):
+    """Retorna a empresa efetiva do usuário ou bloqueia a requisição."""
+    perfil = getattr(usuario, 'perfilusuario', None)
+    empresa_id = perfil.empresa_efetiva_id() if perfil else None
+    if empresa_id is None:
+        raise PermissionDenied("Selecione uma empresa antes de acessar o editor de fluxo.")
+    return empresa_id
+
+
+def _fluxo_acessivel_ou_404(usuario, fluxo_id):
+    """Busca um fluxo somente dentro da empresa efetiva do usuário."""
+    empresa_id = _empresa_efetiva_id_ou_403(usuario)
+    return get_object_or_404(
+        TbFluxoProducao.objects.select_related('tbcenarios', 'tbcenarios__empresa'),
+        id=fluxo_id,
+        tbcenarios__empresa_id=empresa_id,
+    )
+
+
+def _normalizar_fluxo_id(valor):
+    """Aceita um PK comum ou formatado pela localização pt-BR (ex.: 1.234)."""
+    texto = str(valor or '').strip()
+    if texto.isdigit():
+        return int(texto)
+    if re.fullmatch(r'\d{1,3}(?:\.\d{3})+', texto):
+        return int(texto.replace('.', ''))
+    return None
+
+
+def _fluxo_id_da_requisicao(request):
+    """Obtém o fluxo pelo parâmetro ou, para HTML antigo em cache, pelo Referer."""
+    fluxo_id = _normalizar_fluxo_id(request.GET.get('fluxo_id'))
+    if fluxo_id is not None:
+        return fluxo_id
+
+    caminho_origem = urlparse(request.META.get('HTTP_REFERER', '')).path
+    correspondencia = re.search(r'/fluxo_producao/editor/(\d+)/?$', caminho_origem)
+    return int(correspondencia.group(1)) if correspondencia else None
+
+
+@login_required
+@ensure_csrf_cookie
 def editor_view(request, fluxo_id=None):
     """
     View para o editor de fluxo de produção.
     """
+    _empresa_efetiva_id_ou_403(request.user)
     context = {}
     if fluxo_id:
-        fluxo = get_object_or_404(TbFluxoProducao, id=fluxo_id)
+        fluxo = _fluxo_acessivel_ou_404(request.user, fluxo_id)
         context['fluxo'] = fluxo
         context['fluxo_id'] = fluxo_id
 
@@ -59,13 +107,30 @@ def editor_view(request, fluxo_id=None):
 
     return render(request, 'fluxo_producao/editor.html', context)
 
+@login_required
+@require_GET
 def api_equipamentos(request):
     """
     API para obter a lista de equipamentos disponíveis a partir da tabela TbEquipamentosCadastro
     """
     try:
-        cen_ativo = TbCenarios.objects.get(cen_ativo=True).id
-        equipamentos = TbEquipamentos.objects.filter(tbcenarios_id = cen_ativo)
+        empresa_id = _empresa_efetiva_id_ou_403(request.user)
+        fluxo_id = _fluxo_id_da_requisicao(request)
+
+        if fluxo_id is not None:
+            fluxo = _fluxo_acessivel_ou_404(request.user, fluxo_id)
+            cenario_id = fluxo.tbcenarios_id
+        else:
+            perfil = getattr(request.user, 'perfilusuario', None)
+            cenario_id = perfil.cenario_ativo_id if perfil else None
+            if cenario_id is None:
+                return JsonResponse({'error': 'Nenhum cenário ativo foi selecionado.'}, status=400)
+            if not TbCenarios.objects_real.filter(id=cenario_id, empresa_id=empresa_id).exists():
+                raise PermissionDenied("O cenário ativo não pertence à empresa selecionada.")
+
+        equipamentos = TbEquipamentos.objects.filter(
+            tbcenarios_id=cenario_id,
+        ).select_related('equ_codigo')
         #print(f"API equipamentos: Encontrados {equipamentos.count()} equipamentos ativos")
 
         data = []
@@ -81,10 +146,10 @@ def api_equipamentos(request):
             if retorno_ativa > 0:
                 item = {
                     'id':              equip.id,
-                    'nome':            TbEquipamentosCadastro.objects.get(id=equip.equ_codigo_id).equ_cad_codigo + '/' + str(equip.equ_ordem_codigo),
-                    'codigo':          TbEquipamentosCadastro.objects.get(id=equip.equ_codigo_id).equ_cad_codigo + '/' + str(equip.equ_ordem_codigo),
+                    'nome':            equip.equ_codigo.equ_cad_codigo + '/' + str(equip.equ_ordem_codigo),
+                    'codigo':          equip.equ_codigo.equ_cad_codigo + '/' + str(equip.equ_ordem_codigo),
                     'descricao':       equip.equ_ordem_descricao or '',
-                    'codigo_cadastro': TbEquipamentosCadastro.objects.get(id=equip.equ_codigo_id).equ_cad_codigo ,
+                    'codigo_cadastro': equip.equ_codigo.equ_cad_codigo,
 
                     #'categoria': '',
                     #'imagem': TbEquipamentosCadastro.objects.get(id=equip.equ_codigo_id).equ_cad_imagem.url if TbEquipamentosCadastro.objects.get(id=equip.equ_codigo_id).equ_cad_imagem else ''
@@ -94,30 +159,40 @@ def api_equipamentos(request):
         #print(f"API equipamentos: Retornando {len(data)} itens")
         #print(f"Passei")
         return JsonResponse({'equipamentos': data})
+    except (PermissionDenied, Http404):
+        raise
     except Exception as e:
         print(f"ERRO na API equipamentos: {str(e)}")
         return JsonResponse({'error': str(e)}, status=500)
 
+@login_required
+@require_GET
 def equipamento_imagem_view(request, equipamento_id):
-    #Temos que pegar o id do equipamento na tabela TbEquipamentosCadastro
-    equipamento_id = TbEquipamentos.objects.get(id=equipamento_id).equ_codigo_id
-
     """
-    View para servir a imagem do equipamento diretamente.
+    Serve a imagem somente quando o equipamento pertence à empresa efetiva
+    do usuário autenticado.
     """
-    equipamento = get_object_or_404(TbEquipamentosCadastro, id=equipamento_id)
-    if equipamento.equ_cad_imagem:
-        return redirect(equipamento.equ_cad_imagem.url)
+    empresa_id = _empresa_efetiva_id_ou_403(request.user)
+    equipamento = get_object_or_404(
+        TbEquipamentos.objects.select_related('equ_codigo'),
+        id=equipamento_id,
+        tbcenarios__empresa_id=empresa_id,
+    )
+    cadastro = equipamento.equ_codigo
+    if cadastro.equ_cad_imagem:
+        return redirect(cadastro.equ_cad_imagem.url)
     else:
         return redirect('/static/fluxo_producao/img/equipamento-placeholder.png')
 
 
+@login_required
+@require_GET
 def api_fluxo(request, fluxo_id):
 
     """
     API para obter detalhes de um fluxo específico.
     """
-    fluxo = get_object_or_404(TbFluxoProducao, id=fluxo_id)
+    fluxo = _fluxo_acessivel_ou_404(request.user, fluxo_id)
 
     # 🌟 CORRIGIDO: usava TbCenarios.objects.get(cen_ativo=True) -- o
     # cenário ATIVO do usuário logado, que não é necessariamente o
@@ -147,7 +222,28 @@ def api_fluxo(request, fluxo_id):
 
     return JsonResponse(data)
 
-@csrf_exempt
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def api_fluxo_inspecao(request, fluxo_id):
+    """Inspeciona o grafo salvo ou a versão ainda aberta no navegador, sem gravar."""
+    fluxo = _fluxo_acessivel_ou_404(request.user, fluxo_id)
+    dados_fluxo = None
+    if request.method == 'POST':
+        try:
+            payload = json.loads(request.body or b'{}')
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'JSON inválido.'}, status=400)
+        dados_fluxo = payload.get('dados_fluxo')
+        if not isinstance(dados_fluxo, dict):
+            return JsonResponse({'error': 'O campo dados_fluxo deve ser um objeto JSON.'}, status=400)
+
+    from .assistente_editor import inspecionar_fluxo
+    return JsonResponse(inspecionar_fluxo(fluxo, dados_fluxo=dados_fluxo))
+
+
+@login_required
+@require_POST
 def api_fluxo_salvar(request):
     """
     API para salvar um fluxo de produção.
@@ -161,17 +257,10 @@ def api_fluxo_salvar(request):
        fluxo que já existe (criado pelo Admin, que trata o produto
        corretamente).
     2. Salvava o JSON do editor "cru", sem verificar consistência no
-       servidor nem atualizar a tabela TbFluxoProducaoDaugther --
-       exatamente o "as duas tabelas não conversam" que motivou essa
-       mudança. Agora chama salvar_fluxo_a_partir_do_json, que verifica
-       (equipamento isolado, ciclo), calcula coluna/linha e regrava a
-       tabela filha -- e só then o flu_pro_dados_fluxo é atualizado
-       (dentro dessa própria função, a partir da tabela que acabou de
-       gravar -- não do JSON bruto que veio do navegador).
+       servidor. Agora chama salvar_fluxo_a_partir_do_json, que verifica
+       equipamento isolado, ciclo e se todos os equipamentos pertencem
+       ao cenário do fluxo antes de atualizar flu_pro_dados_fluxo.
     """
-    if request.method != 'POST':
-        return JsonResponse({'status': 'error', 'message': 'Método não permitido'}, status=405)
-
     try:
         data = json.loads(request.body)
         fluxo_id_bruto = data.get('fluxo_id')
@@ -182,11 +271,16 @@ def api_fluxo_salvar(request):
                            'produção pelo Admin primeiro (lá o produto é escolhido corretamente), '
                            'depois abra "Visualizar / Editar Fluxo" para montá-lo aqui.',
             }, status=400)
-        fluxo_id = int(str(fluxo_id_bruto).replace('.', ''))
+        fluxo_id = _normalizar_fluxo_id(fluxo_id_bruto)
+        if fluxo_id is None:
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Identificador de fluxo inválido.',
+            }, status=400)
         dados_fluxo = data.get('dados_fluxo', {})
         valores_iniciais_ligacoes = data.get('valores_iniciais_ligacoes', {})
 
-        fluxo = get_object_or_404(TbFluxoProducao, id=fluxo_id)
+        fluxo = _fluxo_acessivel_ou_404(request.user, fluxo_id)
 
         from .sincronizacao_fluxo_visual import salvar_fluxo_a_partir_do_json
         ok, problemas = salvar_fluxo_a_partir_do_json(fluxo, dados_fluxo, valores_iniciais_ligacoes)
@@ -203,6 +297,10 @@ def api_fluxo_salvar(request):
             'fluxo_id': fluxo.id,
         })
 
+    except (PermissionDenied, Http404):
+        raise
+    except json.JSONDecodeError:
+        return JsonResponse({'status': 'error', 'message': 'JSON inválido.'}, status=400)
     except Exception as e:
         print(f"Erro ao salvar fluxo: {str(e)}")
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)

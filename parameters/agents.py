@@ -1791,7 +1791,153 @@ def _tool_executar_editar_cambio(dados):
     return f"✅ Câmbio **{dados['cambio_nome']}**, período **{dados['periodo']}**, atualizado para **{dados['valor_novo']}**."
 
 
+def _tool_listar_fluxos_editor(usuario):
+    """Lista os fluxos do cenário ativo com links diretos para o editor."""
+    from fluxos.assistente_editor import (
+        ErroContextoEditor, listar_fluxos_do_cenario_ativo,
+        rotulo_fluxo, url_editor_fluxo,
+    )
+    try:
+        cenario, fluxos = listar_fluxos_do_cenario_ativo(usuario)
+    except ErroContextoEditor as erro:
+        return True, str(erro), None
+
+    numero = cenario.numero_sequencial if cenario.numero_sequencial is not None else cenario.id
+    if not fluxos:
+        return True, f"O cenário **{numero}/{cenario.cen_nome}** não possui fluxos de produção.", None
+
+    linhas = [f"Fluxos do cenário **{numero}/{cenario.cen_nome}**:"]
+    for fluxo in fluxos[:50]:
+        linhas.append(f"- [{rotulo_fluxo(fluxo)}]({url_editor_fluxo(fluxo)})")
+    if len(fluxos) > 50:
+        linhas.append(f"- … e mais {len(fluxos) - 50} fluxo(s).")
+    return True, '\n'.join(linhas), None
+
+
+def _tool_abrir_fluxo_editor(usuario, fluxo=None):
+    """Resolve um fluxo do cenário ativo e devolve seu link direto."""
+    from fluxos.assistente_editor import (
+        ErroContextoEditor, resolver_fluxo_do_cenario_ativo,
+        rotulo_fluxo, url_editor_fluxo,
+    )
+    try:
+        fluxo_obj = resolver_fluxo_do_cenario_ativo(usuario, fluxo)
+    except ErroContextoEditor as erro:
+        return True, str(erro), None
+    return True, f"[Abrir {rotulo_fluxo(fluxo_obj)} no editor visual]({url_editor_fluxo(fluxo_obj)})", None
+
+
+def _tool_inspecionar_fluxo_editor(usuario, fluxo=None):
+    """Lê o grafo salvo e devolve estrutura, equipamentos e consistência."""
+    from fluxos.assistente_editor import (
+        ErroContextoEditor, formatar_inspecao_para_agente,
+        inspecionar_fluxo, resolver_fluxo_do_cenario_ativo,
+    )
+    try:
+        fluxo_obj = resolver_fluxo_do_cenario_ativo(usuario, fluxo)
+        resultado = inspecionar_fluxo(fluxo_obj)
+    except ErroContextoEditor as erro:
+        return True, str(erro), None
+    return True, formatar_inspecao_para_agente(resultado, incluir_equipamentos=True), None
+
+
+def _tool_verificar_fluxo_editor(usuario, fluxo=None):
+    """Executa as verificações do grafo salvo e resume apenas o diagnóstico."""
+    from fluxos.assistente_editor import (
+        ErroContextoEditor, inspecionar_fluxo,
+        resolver_fluxo_do_cenario_ativo, rotulo_fluxo, url_editor_fluxo,
+    )
+    try:
+        fluxo_obj = resolver_fluxo_do_cenario_ativo(usuario, fluxo)
+        resultado = inspecionar_fluxo(fluxo_obj)
+    except ErroContextoEditor as erro:
+        return True, str(erro), None
+
+    if resultado['problemas']:
+        diagnostico = '\n'.join(f"- {problema}" for problema in resultado['problemas'])
+        mensagem = f"Encontrei problema(s) em **{rotulo_fluxo(fluxo_obj)}**:\n{diagnostico}"
+    else:
+        mensagem = f"✅ **{rotulo_fluxo(fluxo_obj)}** passou nas verificações de consistência disponíveis."
+    mensagem += f"\n\n[Abrir no editor visual]({url_editor_fluxo(fluxo_obj)})"
+    return True, mensagem, None
+
+
 FERRAMENTAS = {
+    'listar_fluxos_editor': {
+        'schema': {
+            "type": "function",
+            "function": {
+                "name": "listar_fluxos_editor",
+                "description": (
+                    "Lista os fluxos de produção do cenário ativo do usuário e fornece links "
+                    "diretos para abri-los no editor visual."
+                ),
+                "parameters": {"type": "object", "properties": {}},
+            },
+        },
+        'preparar': lambda usuario, **kw: _tool_listar_fluxos_editor(usuario),
+        'requer_confirmacao': False,
+    },
+    'abrir_fluxo_editor': {
+        'schema': {
+            "type": "function",
+            "function": {
+                "name": "abrir_fluxo_editor",
+                "description": (
+                    "Fornece o link para abrir no editor visual um fluxo de produção do "
+                    "cenário ativo. Use quando o usuário pedir para abrir, acessar ou visualizar um fluxo."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "fluxo": {"type": "string", "description": "Número, nome ou descrição do fluxo. Pode ser omitido se houver apenas um."},
+                    },
+                },
+            },
+        },
+        'preparar': lambda usuario, **kw: _tool_abrir_fluxo_editor(usuario, **kw),
+        'requer_confirmacao': False,
+    },
+    'inspecionar_fluxo_editor': {
+        'schema': {
+            "type": "function",
+            "function": {
+                "name": "inspecionar_fluxo_editor",
+                "description": (
+                    "Inspeciona o fluxo visual salvo e informa nós, ligações, equipamentos, "
+                    "entradas, saídas e problemas. Use quando o usuário pedir para analisar ou explicar um fluxo."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "fluxo": {"type": "string", "description": "Número, nome ou descrição do fluxo. Pode ser omitido se houver apenas um."},
+                    },
+                },
+            },
+        },
+        'preparar': lambda usuario, **kw: _tool_inspecionar_fluxo_editor(usuario, **kw),
+        'requer_confirmacao': False,
+    },
+    'verificar_fluxo_editor': {
+        'schema': {
+            "type": "function",
+            "function": {
+                "name": "verificar_fluxo_editor",
+                "description": (
+                    "Verifica a consistência do fluxo visual salvo, procurando ciclos, nós "
+                    "isolados, equipamentos inválidos e ligações quebradas."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "fluxo": {"type": "string", "description": "Número, nome ou descrição do fluxo. Pode ser omitido se houver apenas um."},
+                    },
+                },
+            },
+        },
+        'preparar': lambda usuario, **kw: _tool_verificar_fluxo_editor(usuario, **kw),
+        'requer_confirmacao': False,
+    },
     'consultar_valor_indicador': {
         'schema': {
             "type": "function",

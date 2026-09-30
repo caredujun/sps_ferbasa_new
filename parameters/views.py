@@ -509,6 +509,11 @@ def chat_view(request):
     if empresa_id is not None:
         arquivo_atualizacao = ArquivoAtualizacaoAgente.objects.filter(empresa_id=empresa_id).order_by('-id').first()
 
+    # O editor visual pode abrir o chat com uma pergunta já preparada.
+    # Ela é apenas preenchida no campo; o usuário continua decidindo se envia.
+    mensagem_inicial = request.GET.get('mensagem', '').strip()[:500]
+    modo_embutido = request.GET.get('embedded') == '1'
+
     return render(request, "chat.html", {
         "relatorios": relatorios,
         "arquivo_atualizacao": arquivo_atualizacao,
@@ -523,6 +528,8 @@ def chat_view(request):
         "acoes_habilitadas": _mapa_acoes_comuns_habilitadas(request.user),
         "historico_json": json.dumps(historico_recente),
         "forcar_restaurar_historico": forcar_restaurar_historico,
+        "mensagem_inicial": mensagem_inicial,
+        "modo_embutido": modo_embutido,
     })
 
 

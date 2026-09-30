@@ -1049,17 +1049,36 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
         }),
     )
 
-    '''
-    def get_fields(self, request, obj=None):
-        if obj:  # Significa que está editando
-            self.fields = (
-            ('id', 'flu_pro_descricao', 'flu_pro_ativo', 'flu_pro_input_output_atualizado'), ('flu_pro_produto', 'flu_pro_custo_variavel_medio'), 'flu_pro_pdf_file', 'flu_pro_observacao','flu_pro_erro', 'visualizar_fluxo')
-        else:
-            self.fields = (
-            ('flu_pro_descricao', 'flu_pro_ativo'), 'flu_pro_produto', 'flu_pro_observacao', 'flu_pro_erro',
-            'flu_pro_copiar_de')
-        return self.fields
-    '''
+    # 🌟 CORRIGIDO: esse método estava comentado (virou texto morto) numa
+    # edição anterior, quando passei a classe a usar "fieldsets" fixo --
+    # isso tirou o campo flu_pro_copiar_de da tela de INCLUSÃO de um novo
+    # fluxo, sem eu perceber. Restaurado como get_fieldsets (a versão
+    # certa pra quem usa "fieldsets", não "fields"): na inclusão (obj
+    # ainda não existe), mostra um conjunto simples de campos, com
+    # flu_pro_copiar_de; na edição, mantém o "fieldsets" de sempre
+    # (com Visualização, Metadados etc, que dependem do fluxo já existir).
+    def get_fieldsets(self, request, obj=None):
+        if obj is None:  # Inclusão de um novo fluxo
+            return (
+                (None, {
+                    'fields': (
+                        ('flu_pro_descricao', 'flu_pro_ativo'),
+                        'flu_pro_produto',
+                        'flu_pro_observacao',
+                        'flu_pro_erro',
+                        'flu_pro_copiar_de',
+                    )
+                }),
+            )
+        return self.fieldsets
+
+    # 🌟 NOVO: ordena o dropdown de flu_pro_copiar_de (qual fluxo copiar
+    # ao incluir um novo) pelo id -- independente da ordenação padrão
+    # do modelo TbFluxoProducao.
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == 'flu_pro_copiar_de':
+            kwargs['queryset'] = TbFluxoProducao.objects.order_by('id')
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
     list_display = ['id', 'flu_pro_produto', 'flu_pro_descricao', 'flu_pro_ativo', 'flu_pro_input_output_atualizado',
                     'flu_pro_erro', 'flu_pro_custo_variavel_medio', 'flu_pro_pdf_file', 'visualizar_fluxo']

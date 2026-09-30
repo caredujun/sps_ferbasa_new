@@ -12,6 +12,7 @@ urlpatterns = [
 
     # APIs para fluxos
     path('api/fluxo/<int:fluxo_id>/', views.api_fluxo, name='api_fluxo'),
+    path('api/fluxo/<int:fluxo_id>/inspecao/', views.api_fluxo_inspecao, name='api_fluxo_inspecao'),
     path('api/fluxo/salvar/', views.api_fluxo_salvar, name='api_fluxo_salvar'),
 
 ]

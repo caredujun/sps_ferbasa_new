@@ -108,6 +108,7 @@ ETAPAS_AGUARDANDO_CELERY = {
     'ce_processando_indicador_fluxo',
     'ce_processando_indicador_equipamentos',
     'ce_processando_custo_item_preco',
+    'criar_fluxo_editor_aguardando',
 }
 
 # 🌟 NOVO: se um fluxo ficar parado por mais que isso, sem nenhuma
@@ -139,6 +140,7 @@ ETAPAS_SEM_EXPIRACAO = {
     'cf_aguardando_conta_cc_tipo', 'cf_processando_conta_cc_tipo',
     'cf_processando_genealogia',
     'ce_processando_consumo_especifico', 'ce_processando_custo_variavel',
+    'criar_fluxo_editor_aguardando',
     'ce_processando_indicador_fluxo', 'ce_processando_indicador_equipamentos', 'ce_processando_custo_item_preco',
 }
 
@@ -2036,11 +2038,26 @@ def iniciar_criar_fluxo_no_editor_cenario_ativo(usuario):
     if not lista_id:
         return f"O cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** não tem nenhum fluxo de produção cadastrado."
 
-    criar_fluxo_no_editor_lista_celery.delay(lista_id)
+    resultado_async = criar_fluxo_no_editor_lista_celery.delay(lista_id)
+
+    # Registra a tarefa no estado do usuário para que views.py/front-end
+    # possam sondar automaticamente enquanto o Celery trabalha.
+    estado = _get_estado(usuario)
+    estado.fluxo_ativo = FLUXO_PROCESSAR
+    estado.etapa_atual = 'criar_fluxo_editor_aguardando'
+    estado.dados_coletados = {
+        'cenario_id': cenario.id,
+        'cenario_nome': cenario.cen_nome,
+        'quantidade_fluxos': len(lista_id),
+        'task_ids': [resultado_async.id],
+        'disparado_em': timezone.now().isoformat(),
+    }
+    estado.save()
 
     return (
         f"Montagem do fluxo no editor sendo feita em segundo plano pra {len(lista_id)} "
         f"fluxo(s) do cenário **{cenario.numero_sequencial}/{cenario.cen_nome}**. "
+        "Acompanhe a barra de evolução enquanto o Celery processa. "
         "⚠️ Isso substitui qualquer arranjo manual que já estivesse no editor de cada fluxo."
     )
 
@@ -5170,6 +5187,48 @@ def _etapa_proc_aguardando_consolidacao(estado, texto):
     return f"O status do cenário **{numero_exibido}/{cenario_nome}** mudou pra algo inesperado (flag={cenario.flag}) -- melhor conferir manualmente no Admin."
 
 
+def _etapa_criar_fluxo_editor_aguardando(estado, texto):
+    """Acompanha a task que monta os fluxos no editor visual."""
+    dados = estado.dados_coletados or {}
+    cenario_id = dados.get('cenario_id')
+    cenario_nome = dados.get('cenario_nome', '')
+    numero_exibido = _numero_sequencial_por_id(cenario_id)
+    task_ids = dados.get('task_ids') or []
+    task_id = task_ids[0] if task_ids else None
+
+    if not task_id:
+        _encerrar_fluxo(estado)
+        return "Não encontrei a tarefa de criação dos fluxos. Cancelei o acompanhamento."
+
+    try:
+        from celery.result import AsyncResult
+        resultado = AsyncResult(task_id)
+        estado_task = resultado.state
+    except Exception as erro:
+        return f"Ainda criando os fluxos do cenário **{numero_exibido}/{cenario_nome}**."
+
+    if estado_task in ('PENDING', 'STARTED', 'RETRY', 'RECEIVED'):
+        return f"Ainda criando os fluxos do cenário **{numero_exibido}/{cenario_nome}**."
+
+    if estado_task == 'SUCCESS':
+        quantidade = dados.get('quantidade_fluxos', 'os')
+        _encerrar_fluxo(estado)
+        return (
+            f"✅ Criação concluída: {quantidade} fluxo(s) do cenário "
+            f"**{numero_exibido}/{cenario_nome}** foram montados no editor."
+        )
+
+    if estado_task in ('FAILURE', 'REVOKED'):
+        detalhe = str(getattr(resultado, 'result', '') or 'erro não informado')
+        _encerrar_fluxo(estado)
+        return (
+            f"Não consegui montar os fluxos do cenário **{numero_exibido}/{cenario_nome}** "
+            f"(status Celery: {estado_task}). Detalhe: {detalhe}"
+        )
+
+    return f"Ainda criando os fluxos do cenário **{numero_exibido}/{cenario_nome}**."
+
+
 def _processar_fluxo_processar(estado, texto):
     handler = _HANDLERS_PROCESSAR.get(estado.etapa_atual)
     if handler is None:
@@ -5194,6 +5253,7 @@ _HANDLERS_PROCESSAR = {
     'exportar_otimizacao_confirmar_email': _etapa_exportar_otimizacao_confirmar_email,
     'exportar_otimizacao_aguardando': _etapa_exportar_otimizacao_aguardando,
     'exportar_otimizacao_aguardando_email': _etapa_exportar_otimizacao_aguardando_email,
+    'criar_fluxo_editor_aguardando': _etapa_criar_fluxo_editor_aguardando,
 }
 
 

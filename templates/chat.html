@@ -137,9 +137,26 @@
             font-family: inherit;
             cursor: pointer;
         }
+
+        /* Modo usado pelo iframe do editor visual: mantém o agente completo,
+           mas remove painéis laterais e cabeçalhos que não cabem no espaço. */
+        body.modo-embutido { padding: 0; height: 100vh; overflow: hidden; background: #fff; }
+        body.modo-embutido .app-container { width: 100%; max-width: none; height: 100vh; margin: 0; gap: 0; }
+        body.modo-embutido .app-container > .sidebar { display: none; }
+        body.modo-embutido .chat-main-column { height: 100vh; }
+        body.modo-embutido .chat-context-header { display: none !important; }
+        body.modo-embutido .chat-container { height: 100vh; box-sizing: border-box; border-radius: 0; box-shadow: none; padding: 10px; display: flex; flex-direction: column; }
+        body.modo-embutido .chat-toolbar { padding: 7px !important; margin-bottom: 8px !important; }
+        body.modo-embutido .chat-toolbar > :not(h2) { display: none !important; }
+        body.modo-embutido .chat-toolbar h2 { font-size: 16px !important; }
+        body.modo-embutido #chat-box { flex: 1; height: auto; min-height: 0; padding: 10px; margin-bottom: 8px; }
+        body.modo-embutido .input-area { gap: 5px; }
+        body.modo-embutido #input-box { min-width: 0; padding: 9px; font-size: 13px; }
+        body.modo-embutido #btn-microfone { padding: 8px 10px; }
+        body.modo-embutido #btn-enviar { padding: 8px 10px; }
     </style>
 </head>
-<body>
+<body class="{% if modo_embutido %}modo-embutido{% endif %}">
 
     <div class="app-container">
         <!-- PAINEL LATERAL -->
@@ -207,7 +224,7 @@
         de empilhada acima dele. Esse wrapper ocupa o mesmo espaço que
         .chat-container ocupava sozinho (flex: 1), e empilha a faixa +
         o chat-container um em cima do outro dentro dele. -->
-        <div style="flex: 1; display: flex; flex-direction: column; min-width: 0;">
+        <div class="chat-main-column" style="flex: 1; display: flex; flex-direction: column; min-width: 0;">
 
         <!-- 🌟 CORRIGIDO: faixa com fundo na cor do cabeçalho do Tema em
         uso (mesma cor do cabeçalho do Admin) e borda, pra destacar os
@@ -220,7 +237,7 @@
         resposta do chat já atualiza sozinha via AJAX (ver
         atualizarBarraContexto), então continua sem precisar de F5. -->
         {% if logo_tema_url or logo_empresa_url or nome_empresa or nome_cenario %}
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 8px 15px; border: 1px solid #000; border-radius: 6px; background-color: {{ cor_header_tema|default:'#0C4B33' }};">
+        <div class="chat-context-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 8px 15px; border: 1px solid #000; border-radius: 6px; background-color: {{ cor_header_tema|default:'#0C4B33' }};">
             <div style="flex: 0 0 auto;">
                 {% if logo_tema_url %}<img src="{{ logo_tema_url }}" alt="SPS" style="height: 45px; width: auto; object-fit: contain;">{% endif %}
             </div>
@@ -239,7 +256,7 @@
         <!-- CONTAINER PRINCIPAL DO CHAT -->
         <div class="chat-container">
             <!-- PAINEL DE CONTROLE DE LIMPEZA INTEGRADO NO TOPO -->
-            <div style="display: flex; gap: 10px; align-items: center; background: #fff; padding: 10px; border-radius: 6px; border: 1px solid #eee; margin-bottom: 15px; flex-wrap: wrap;">
+            <div class="chat-toolbar" style="display: flex; gap: 10px; align-items: center; background: #fff; padding: 10px; border-radius: 6px; border: 1px solid #eee; margin-bottom: 15px; flex-wrap: wrap;">
                 <h2 style="margin: 0; padding: 0; border: none; flex: 1; font-size: 20px;">🤖 {% trans "Agente IA do SPS" %}</h2>
 
                 <!-- 🌟 NOVO: limpa SÓ a tela do chat -- as mensagens já foram gravadas no histórico (HistoricoAgente) no momento do envio, nada é apagado do banco. -->
@@ -271,7 +288,7 @@
             <form id="chat-form">
                 {% csrf_token %}
                 <div class="input-area">
-                    <input type="text" id="input-box" name="mensagem" placeholder="{% trans 'Digite sua pergunta ou mensagem...' %}" required>
+                    <input type="text" id="input-box" name="mensagem" value="{{ mensagem_inicial|default:'' }}" placeholder="{% trans 'Digite sua pergunta ou mensagem...' %}" required>
                     <button type="button" id="btn-microfone" title="{% trans 'Falar em vez de digitar' %}">🎤</button>
                     <button type="submit" id="btn-enviar">{% trans "Enviar" %}</button>
                 </div>
