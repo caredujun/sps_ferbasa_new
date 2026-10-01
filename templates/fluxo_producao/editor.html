@@ -1451,7 +1451,23 @@
                 const zoomVertical = Math.max(0.3, Math.min(1, (alturaTela - margemTela * 2) / alturaFluxo));
                 const larguraLogica = Math.max(1200, (larguraTela - margemTela * 2) / zoomVertical);
                 const larguraNo = 200;
-                const passo = colunas.length > 1 ? (larguraLogica - larguraNo) / (colunas.length - 1) : 0;
+                // 🌟 CORRIGIDO: o passo (distância entre colunas) era só
+                // "largura disponível ÷ número de colunas" -- com muitas
+                // colunas (fluxos longos, tipo uma cadeia de produção
+                // inteira em linha), esse valor ficava MENOR que a
+                // largura do próprio cartão (200px), fazendo um cartão
+                // ficar em cima do outro (escondendo a linha de conexão
+                // entre eles). O zoom automático que roda logo depois
+                // (centralizarFluxoNaTela) reduz TUDO proporcionalmente,
+                // então ele encolhe o problema junto, sem resolver --
+                // precisa garantir a distância mínima ANTES do zoom.
+                // MARGEM_MINIMA_ENTRE_COLUNAS (60px) é a mesma proporção
+                // usada na montagem automática do servidor (colunas a
+                // 260px de distância, cartão de 200px de largura).
+                const MARGEM_MINIMA_ENTRE_COLUNAS = 60;
+                const passoMinimo = larguraNo + MARGEM_MINIMA_ENTRE_COLUNAS;
+                const passoCalculado = colunas.length > 1 ? (larguraLogica - larguraNo) / (colunas.length - 1) : 0;
+                const passo = Math.max(passoCalculado, passoMinimo);
                 colunas.forEach((coluna, indice) => {
                     const novoX = indice * passo;
                     coluna.ids.forEach(id => {

@@ -108,7 +108,14 @@ ETAPAS_AGUARDANDO_CELERY = {
     'ce_processando_indicador_fluxo',
     'ce_processando_indicador_equipamentos',
     'ce_processando_custo_item_preco',
-    'criar_fluxo_editor_aguardando',
+    # 🌟 NOVO: "Criar/Atualizar Fluxo no Editor" (categoria Fluxos de
+    # Produção) -- até aqui, disparava a task e esquecia (sem barra de
+    # progresso, sem "Verificar", sem aviso de conclusão) -- diferente
+    # de toda ação semelhante no resto do chat. Agora segue o mesmo
+    # padrão: barra de progresso, sondagem automática, e "Cancelar" só
+    # encerra o acompanhamento (a montagem em si continua em segundo
+    # plano).
+    'fp_criar_no_editor_aguardando',
 }
 
 # 🌟 NOVO: se um fluxo ficar parado por mais que isso, sem nenhuma
@@ -140,7 +147,6 @@ ETAPAS_SEM_EXPIRACAO = {
     'cf_aguardando_conta_cc_tipo', 'cf_processando_conta_cc_tipo',
     'cf_processando_genealogia',
     'ce_processando_consumo_especifico', 'ce_processando_custo_variavel',
-    'criar_fluxo_editor_aguardando',
     'ce_processando_indicador_fluxo', 'ce_processando_indicador_equipamentos', 'ce_processando_custo_item_preco',
 }
 
@@ -427,6 +433,15 @@ def _processar_mensagem_fluxo_com_lock(estado, mensagem):
                 "Ok, cancelei a sequência -- o Custo Variável Adicionado não vai disparar "
                 "automaticamente. O cálculo do Consumo Específico já disparado no banco continua "
                 "rodando normalmente até terminar por conta própria."
+            )
+        # 🌟 NOVO: mesmo raciocínio -- cancelar o acompanhamento de
+        # "Criar/Atualizar Fluxo no Editor" não cancela a montagem em si
+        # (já disparada em segundo plano via Celery, fluxo por fluxo).
+        if estado.fluxo_ativo == FLUXO_PROCESSAR and estado.etapa_atual == 'fp_criar_no_editor_aguardando':
+            _encerrar_fluxo(estado)
+            return (
+                "Ok, parei de acompanhar por aqui -- mas a montagem do fluxo no editor continua "
+                "rodando em segundo plano normalmente (isso não cancela ela)."
             )
         _encerrar_fluxo(estado)
         return "Ok, cancelei. Nada foi alterado."
@@ -2009,7 +2024,7 @@ def iniciar_exportar_dados_otimizacao_cenario_ativo(usuario):
     )
 
 
-# 🌟 NOVO: "Fluxos de Produção - Criar Fluxo no Editor" -- monta o
+# 🌟 NOVO: "Fluxos de Produção - Criar/Atualizar Fluxo no Editor" -- monta o
 # editor visual (flu_pro_dados_fluxo) de TODOS os fluxos de produção do
 # cenário ativo a partir da respectiva tabela filha (coluna/linha), em
 # segundo plano. Mesma ação do botão em massa no Admin, só que
@@ -2023,6 +2038,18 @@ def iniciar_exportar_dados_otimizacao_cenario_ativo(usuario):
 # comportamento esperado for outro (ex: perguntar qual fluxo), é aqui
 # que se ajusta.
 def iniciar_criar_fluxo_no_editor_cenario_ativo(usuario):
+    """
+    🌟 CORRIGIDO: até aqui, disparava a task e devolvia a resposta na
+    hora, sem nenhum acompanhamento -- diferente de toda ação parecida
+    no resto do chat (limpar, otimizar, consolidar, exportar
+    otimização, etc.), que mostra barra de progresso e permite
+    "Cancelar" (o acompanhamento; a task em si nunca é interrompida).
+    Agora segue o mesmo padrão: registra a etapa
+    'fp_criar_no_editor_aguardando' (ver ETAPAS_AGUARDANDO_CELERY) e o
+    front-end passa a sondar sozinho até a task escrever o resultado de
+    volta em EstadoConversaAgente (ver criar_fluxo_no_editor_lista_celery
+    em fluxos/tasks.py).
+    """
     perfil = getattr(usuario, 'perfilusuario', None)
     if perfil is None or perfil.cenario_ativo_id is None:
         return "Você ainda não tem um cenário ativo escolhido. Acesse a tela de Cenários e ative um antes."
@@ -2034,32 +2061,64 @@ def iniciar_criar_fluxo_no_editor_cenario_ativo(usuario):
     from fluxos.models import TbFluxoProducao
     from fluxos.tasks import criar_fluxo_no_editor_lista_celery
 
-    lista_id = list(TbFluxoProducao.objects.filter(tbcenarios_id=cenario.id).values_list('id', flat=True))
+    lista_id = list(TbFluxoProducao.objects.filter(tbcenarios_id=cenario.id, flu_pro_auto_editor_aut=True).values_list('id', flat=True))
     if not lista_id:
-        return f"O cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** não tem nenhum fluxo de produção cadastrado."
+        return f"O cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** não tem nenhum fluxo de produção com atualização automática habilitada."
 
-    resultado_async = criar_fluxo_no_editor_lista_celery.delay(lista_id)
-
-    # Registra a tarefa no estado do usuário para que views.py/front-end
-    # possam sondar automaticamente enquanto o Celery trabalha.
     estado = _get_estado(usuario)
-    estado.fluxo_ativo = FLUXO_PROCESSAR
-    estado.etapa_atual = 'criar_fluxo_editor_aguardando'
+    estado.fluxo_ativo = FLUXO_PROCESSAR  # reaproveita o mesmo "namespace" de fluxo simples
+    estado.etapa_atual = 'fp_criar_no_editor_aguardando'
     estado.dados_coletados = {
         'cenario_id': cenario.id,
         'cenario_nome': cenario.cen_nome,
-        'quantidade_fluxos': len(lista_id),
-        'task_ids': [resultado_async.id],
-        'disparado_em': timezone.now().isoformat(),
+        'total_fluxos': len(lista_id),
+        'status': 'processando',
     }
     estado.save()
 
+    criar_fluxo_no_editor_lista_celery.delay(lista_id, usuario.id)
+
     return (
-        f"Montagem do fluxo no editor sendo feita em segundo plano pra {len(lista_id)} "
+        f"Criação/atualização do fluxo no editor sendo feita em segundo plano pra {len(lista_id)} "
         f"fluxo(s) do cenário **{cenario.numero_sequencial}/{cenario.cen_nome}**. "
-        "Acompanhe a barra de evolução enquanto o Celery processa. "
-        "⚠️ Isso substitui qualquer arranjo manual que já estivesse no editor de cada fluxo."
+        "⚠️ Isso substitui qualquer arranjo manual que já estivesse no editor de cada fluxo se o campo "
+        "\"Permite Atualização Automática\" no registro do fluxo estiver MARCADO."
     )
+
+
+def _etapa_fp_criar_no_editor_aguardando(estado, texto):
+    """
+    🌟 NOVO: acompanha (via "Verificar", sondado automaticamente pelo
+    JS -- ver ETAPAS_AGUARDANDO_CELERY) a task
+    criar_fluxo_no_editor_lista_celery, disparada por
+    iniciar_criar_fluxo_no_editor_cenario_ativo.
+    """
+    dados = estado.dados_coletados or {}
+    cenario_nome = dados.get('cenario_nome', '')
+    numero_exibido = _numero_sequencial_por_id(dados.get('cenario_id'))
+    total_fluxos = dados.get('total_fluxos', 0)
+    status = dados.get('status')
+
+    if status == 'processando':
+        return f"Ainda montando/atualizando o fluxo no editor pros {total_fluxos} fluxo(s) do cenário **{numero_exibido}/{cenario_nome}**."
+
+    _encerrar_fluxo(estado)
+
+    if status == 'erro':
+        return f"Não consegui montar o fluxo no editor: {dados.get('mensagem', 'erro desconhecido')}."
+
+    if status != 'concluido':
+        return "Não consegui identificar o status da montagem. Cancelei o acompanhamento -- pode pedir de novo se quiser."
+
+    total_processados = dados.get('total_processados', total_fluxos)
+    erros = dados.get('erros', [])
+    resposta = (
+        f"Fluxo montado/atualizado no editor pra {total_processados} de {total_fluxos} fluxo(s) do cenário "
+        f"**{numero_exibido}/{cenario_nome}**. ✅"
+    )
+    if erros:
+        resposta += "\n\n⚠️ Alguns fluxos tiveram problema: " + "; ".join(erros)
+    return resposta
 
 
 def _etapa_exportar_otimizacao_aguardando(estado, texto):
@@ -5187,48 +5246,6 @@ def _etapa_proc_aguardando_consolidacao(estado, texto):
     return f"O status do cenário **{numero_exibido}/{cenario_nome}** mudou pra algo inesperado (flag={cenario.flag}) -- melhor conferir manualmente no Admin."
 
 
-def _etapa_criar_fluxo_editor_aguardando(estado, texto):
-    """Acompanha a task que monta os fluxos no editor visual."""
-    dados = estado.dados_coletados or {}
-    cenario_id = dados.get('cenario_id')
-    cenario_nome = dados.get('cenario_nome', '')
-    numero_exibido = _numero_sequencial_por_id(cenario_id)
-    task_ids = dados.get('task_ids') or []
-    task_id = task_ids[0] if task_ids else None
-
-    if not task_id:
-        _encerrar_fluxo(estado)
-        return "Não encontrei a tarefa de criação dos fluxos. Cancelei o acompanhamento."
-
-    try:
-        from celery.result import AsyncResult
-        resultado = AsyncResult(task_id)
-        estado_task = resultado.state
-    except Exception as erro:
-        return f"Ainda criando os fluxos do cenário **{numero_exibido}/{cenario_nome}**."
-
-    if estado_task in ('PENDING', 'STARTED', 'RETRY', 'RECEIVED'):
-        return f"Ainda criando os fluxos do cenário **{numero_exibido}/{cenario_nome}**."
-
-    if estado_task == 'SUCCESS':
-        quantidade = dados.get('quantidade_fluxos', 'os')
-        _encerrar_fluxo(estado)
-        return (
-            f"✅ Criação concluída: {quantidade} fluxo(s) do cenário "
-            f"**{numero_exibido}/{cenario_nome}** foram montados no editor."
-        )
-
-    if estado_task in ('FAILURE', 'REVOKED'):
-        detalhe = str(getattr(resultado, 'result', '') or 'erro não informado')
-        _encerrar_fluxo(estado)
-        return (
-            f"Não consegui montar os fluxos do cenário **{numero_exibido}/{cenario_nome}** "
-            f"(status Celery: {estado_task}). Detalhe: {detalhe}"
-        )
-
-    return f"Ainda criando os fluxos do cenário **{numero_exibido}/{cenario_nome}**."
-
-
 def _processar_fluxo_processar(estado, texto):
     handler = _HANDLERS_PROCESSAR.get(estado.etapa_atual)
     if handler is None:
@@ -5253,7 +5270,7 @@ _HANDLERS_PROCESSAR = {
     'exportar_otimizacao_confirmar_email': _etapa_exportar_otimizacao_confirmar_email,
     'exportar_otimizacao_aguardando': _etapa_exportar_otimizacao_aguardando,
     'exportar_otimizacao_aguardando_email': _etapa_exportar_otimizacao_aguardando_email,
-    'criar_fluxo_editor_aguardando': _etapa_criar_fluxo_editor_aguardando,
+    'fp_criar_no_editor_aguardando': _etapa_fp_criar_no_editor_aguardando,
 }
 
 

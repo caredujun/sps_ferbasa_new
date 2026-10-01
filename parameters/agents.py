@@ -236,12 +236,12 @@ def _detectar_intencao_exportar_dados_otimizacao(mensagem):
     )
 
 
-# 🌟 NOVO: "criar fluxo no editor" -- aceita o texto exato do menu e
+# 🌟 NOVO: "criar/atualizar fluxo no editor" -- aceita o texto exato do menu e
 # variações naturais ("montar o(s) fluxo(s) no editor", "criar fluxo
 # de produção no editor").
 def _detectar_intencao_criar_fluxo_no_editor(mensagem):
     texto = mensagem or ""
-    return bool(re.search(r'(cri[ae]r?|mont[ae]r?).*fluxo.*editor', texto, re.IGNORECASE))
+    return bool(re.search(r'(cri[ae]r?|mont[ae]r?|atualiz[ae]r?).*fluxo.*editor', texto, re.IGNORECASE))
 
 
 # 🌟 NOVO: "atualizar produção e ggf mensal" (app custo_ferbasa) --
@@ -977,7 +977,7 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
         _salvar_historico(usuario, mensagem_usuario, resposta)
         return resposta, []
 
-    # 🌟 NOVO: usuário pedindo pra criar/montar o fluxo no editor visual
+    # 🌟 NOVO: usuário pedindo pra criar/atualizar o fluxo no editor visual
     # a partir da tabela filha -- pra TODOS os fluxos de produção do
     # cenário ativo, em segundo plano (mesma ação do botão em massa do
     # Admin).

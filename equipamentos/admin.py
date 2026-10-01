@@ -1,5 +1,4 @@
 import boto3
-from django.utils.translation import gettext_lazy as _
 import xlwt
 from boto3 import Session
 from django.contrib import admin, messages
@@ -16,6 +15,8 @@ from django.contrib.auth.models import User
 from .tasks import update_indicador
 from django_object_actions import DjangoObjectActions
 from django.utils.html import format_html
+from django.db.models import Q, Count
+from fluxos.models import TbFluxoProducaoDaugther
 
 # Para mostrar as ordens de produção cadastradas para o equipamento
 class TbEquipamentosCadastroOrdemDaugtherAdmin(admin.TabularInline):
@@ -122,13 +123,13 @@ class TbEquipamentosCadastroAdmin(admin.ModelAdmin):
     # (acontece durante makemigrations de uma migration ainda não aplicada).
     try:
         if TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Anual':
-            periodos_running.short_description = _('Anos Running')
+            periodos_running.short_description = 'Anos Running'
         elif TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Trimestral':
-            periodos_running.short_description = _('Trimestres Running')
+            periodos_running.short_description = 'Trimestres Running'
         else:
-            periodos_running.short_description = _('Meses Running')
+            periodos_running.short_description = 'Meses Running'
     except Exception:
-        periodos_running.short_description = _('Período Running')
+        periodos_running.short_description = 'Período Running'
 
     formfield_overrides = {
         # models.CharField: {'widget': TextInput(attrs={'size': '15'})},
@@ -221,6 +222,45 @@ class TbEquipamentosDaugtherAdmin(admin.TabularInline):
         return issuperuser
     '''
 
+class FiltroQtdeFluxosUsando(admin.SimpleListFilter):
+    """
+    🌟 NOVO: filtro lateral do Admin -- "igual a zero" (nenhum fluxo de
+    produção usa esse equipamento/ordem) ou "maior que zero" (pelo menos
+    um usa). Como a contagem não é um campo de verdade no banco (é
+    calculada na hora), não dá pra usar um list_filter comum -- esse
+    filtro monta a lista de ids de equipamento COM pelo menos um fluxo
+    (duas consultas simples, pelo lado "from" e pelo lado "to" de
+    TbFluxoConsumoPadrao) e filtra/exclui por ela.
+    """
+    title = 'Qtde Fluxos Usando'
+    parameter_name = 'qtde_fluxos_usando'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('0', 'Igual a zero'),
+            ('>0', 'Maior que zero'),
+        )
+
+    def _ids_equipamentos_com_fluxo(self):
+        ids_from = TbFluxoProducaoDaugther.objects.values_list(
+            'flu_pro_dau_consumo_padrao__flu_con_pad_from_equipamento_id', flat=True
+        )
+        ids_to = TbFluxoProducaoDaugther.objects.values_list(
+            'flu_pro_dau_consumo_padrao__flu_con_pad_to_equipamento_id', flat=True
+        )
+        return set(ids_from) | set(ids_to)
+
+    def queryset(self, request, queryset):
+        if self.value() is None:
+            return queryset
+        ids_com_fluxo = self._ids_equipamentos_com_fluxo()
+        if self.value() == '0':
+            return queryset.exclude(id__in=ids_com_fluxo)
+        if self.value() == '>0':
+            return queryset.filter(id__in=ids_com_fluxo)
+        return queryset
+
+
 class TbEquipamentosAdmin(DjangoObjectActions, admin.ModelAdmin):
     fields = []
 
@@ -229,28 +269,51 @@ class TbEquipamentosAdmin(DjangoObjectActions, admin.ModelAdmin):
 
         if not obj:  # editing an existing object. Se estiver adicionando no indicador, irá aparecer o campo para informar o valor inicial
             # Esta adicionando. Vamos mostrar os campos de valores iniciais
-            self.fields = [('equ_codigo', 'equipamento_imagem_tag_small', 'gargalo', 'expedicao'), ('equ_ordem_codigo', 'equ_ordem_descricao', 'total_itens'), ('equ_tipo_producao', 'equ_wip'), 'equ_observacao', 'equ_fonte', 'valor_inicial_3', 'valor_inicial_1', 'valor_inicial_2']
+            self.fields = [('equ_codigo', 'equipamento_imagem_tag_small', 'gargalo', 'expedicao'), ('equ_ordem_codigo', 'equ_ordem_descricao', 'total_itens'), ('equ_tipo_producao', 'equ_wip'), 'equ_observacao', 'equ_fonte', 'valor_inicial_3', 'valor_inicial_1', 'valor_inicial_2', 'equ_produtos']
         else:
             # Vamos ver se é expedição. Se sim, tira o campo equ_fields
             expedicao = TbEquipamentosCadastro.objects.get(id=obj.equ_codigo_id).equ_cad_expedicao
             if expedicao:
                 self.fields = [('equ_codigo', 'equipamento_imagem_tag_small', 'gargalo', 'expedicao'),
-                               ('equ_ordem_codigo', 'equ_ordem_descricao', 'periodos_ativa', 'total_itens'), 'equ_tipo_producao',
-                               'equ_observacao', 'equ_fonte']
+                               ('equ_ordem_codigo', 'equ_ordem_descricao', 'periodos_ativa', 'total_itens', 'qtde_fluxos_usando'), 'equ_tipo_producao',
+                               'equ_observacao', 'equ_fonte', 'equ_produtos']
             else:
                 self.fields = [('equ_codigo', 'equipamento_imagem_tag_small', 'gargalo', 'expedicao'),
-                               ('equ_ordem_codigo', 'equ_ordem_descricao', 'periodos_ativa', 'total_itens'),
-                               ('equ_tipo_producao', 'equ_wip'), 'equ_observacao', 'equ_fonte']
+                               ('equ_ordem_codigo', 'equ_ordem_descricao', 'periodos_ativa', 'total_itens', 'qtde_fluxos_usando'),
+                               ('equ_tipo_producao', 'equ_wip'), 'equ_observacao', 'equ_fonte', 'equ_produtos']
 
         return self.fields
 
-    list_display = ['id', 'equ_codigo', 'equ_ordem_codigo', 'equipamento_imagem_tag_small', 'equ_ordem_descricao', 'periodos_ativa',
-                    'equ_tipo_producao', 'media_paradas_np', 'media_prod', 'media_custo_var_adi', 'total_itens']
+    # 🌟 NOVO: total de fluxos de produção (TbFluxoProducao, distintos)
+    # que usam esse equipamento/ordem como origem OU destino de algum
+    # consumo padrão. Calculado na hora (não é um campo do banco) --
+    # usado tanto na lista quanto na tela de detalhe (ver get_fields e
+    # readonly_fields).
+    def qtde_fluxos_usando(self, obj):
+        return (
+            TbFluxoProducaoDaugther.objects
+            .filter(
+                Q(flu_pro_dau_consumo_padrao__flu_con_pad_from_equipamento_id=obj.id)
+                | Q(flu_pro_dau_consumo_padrao__flu_con_pad_to_equipamento_id=obj.id)
+            )
+            .values('mae_id')
+            .distinct()
+            .count()
+        )
+    qtde_fluxos_usando.short_description = 'Qtde Fluxos Usando'
 
-    readonly_fields = ('equipamento_imagem_tag_small', 'total_itens', 'gargalo', 'expedicao', 'media_paradas_np', 'media_prod', 'media_custo_var_adi', 'periodos_ativa')
+    # 🌟 NOVO: widget de duas colunas (disponíveis / escolhidos) pro campo
+    # M2M equ_produtos -- é essa a "aba Escolhidos" pra marcar os
+    # produtos participantes desse equipamento/ordem.
+    filter_horizontal = ('equ_produtos',)
+
+    list_display = ['id', 'equ_codigo', 'equ_ordem_codigo', 'equipamento_imagem_tag_small', 'equ_ordem_descricao', 'periodos_ativa',
+                    'equ_tipo_producao', 'media_paradas_np', 'media_prod', 'media_custo_var_adi', 'total_itens', 'qtde_fluxos_usando']
+
+    readonly_fields = ('equipamento_imagem_tag_small', 'total_itens', 'gargalo', 'expedicao', 'media_paradas_np', 'media_prod', 'media_custo_var_adi', 'periodos_ativa', 'qtde_fluxos_usando')
     list_display_links = ['id', 'equ_codigo']
 
-    list_filter = (('equ_codigo', admin.RelatedOnlyFieldListFilter),('equ_tipo_producao', admin.RelatedOnlyFieldListFilter),)
+    list_filter = (('equ_codigo', admin.RelatedOnlyFieldListFilter),('equ_tipo_producao', admin.RelatedOnlyFieldListFilter), FiltroQtdeFluxosUsando,)
     list_per_page = 10
     search_fields = ['equ_codigo__equ_cad_codigo', ]
 
@@ -286,13 +349,13 @@ class TbEquipamentosAdmin(DjangoObjectActions, admin.ModelAdmin):
     # (acontece durante makemigrations de uma migration ainda não aplicada).
     try:
         if TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Anual':
-            periodos_ativa.short_description = _('Anos Ativa')
+            periodos_ativa.short_description = 'Anos Ativa'
         elif TbCenarios.objects.get(cen_ativo=True).cen_tipo == 'Trimestral':
-            periodos_ativa.short_description = _('Trimestres Ativa')
+            periodos_ativa.short_description = 'Trimestres Ativa'
         else:
-            periodos_ativa.short_description = _('Meses Ativa')
+            periodos_ativa.short_description = 'Meses Ativa'
     except Exception:
-        periodos_ativa.short_description = _('Período Ativa')
+        periodos_ativa.short_description = 'Período Ativa'
 
     # Vamos criar um campo para mostrar a média das paradas não programadas previstas
     def media_paradas_np(self, obj):
@@ -304,7 +367,7 @@ class TbEquipamentosAdmin(DjangoObjectActions, admin.ModelAdmin):
         cursor.close()
         return locale.format_string('%.2f', retorno, True)
 
-    media_paradas_np.short_description = _('Paradas NP (%)')
+    media_paradas_np.short_description = 'Paradas NP (%)'
 
     # Vamos criar um campo para mostrar a média das produtividades previstas
     def media_prod(self, obj):
@@ -316,7 +379,7 @@ class TbEquipamentosAdmin(DjangoObjectActions, admin.ModelAdmin):
         cursor.close()
         return locale.format_string('%.2f', retorno, True)
 
-    media_prod.short_description = _('Produtividade')
+    media_prod.short_description = 'Produtividade'
 
     # Vamos criar um campo para mostrar a média do custo variável adicionado
     def media_custo_var_adi(self, obj):
@@ -343,7 +406,7 @@ class TbEquipamentosAdmin(DjangoObjectActions, admin.ModelAdmin):
 
         return retorno
 
-    media_custo_var_adi.short_description = _('Custo Var. Adic.')
+    media_custo_var_adi.short_description = 'Custo Var. Adic.'
 
     # Removendo opção de importar se o usuário não tiver permissão para editar a tabela
     def get_actions(self, request):
@@ -462,7 +525,7 @@ class TbEquipamentosAdmin(DjangoObjectActions, admin.ModelAdmin):
                                     break
                         if not ok_cenario:
                             messages.error(request,
-                                           _('Cenário informado na planilha (aba mãe ou filhas) não é o ativo. Favor verificar!'))
+                                           'Cenário informado na planilha (aba mãe ou filhas) não é o ativo. Favor verificar!')
                         else:
                             #  Tudo ok até aqui. Vamos verificar se no arquivo tem as mães selecionadas. E se tiver, vamos ver se tem as filhas no total do período do cenário.
                             #  Vamos pegar o id das mães selecionadas.
@@ -570,7 +633,7 @@ class TbEquipamentosAdmin(DjangoObjectActions, admin.ModelAdmin):
                                                         tab_obj.save()
 
                             if tudo_ok:
-                                messages.success(request, _('Tabela Equipamentos foi atualizada com sucesso!'))
+                                messages.success(request, 'Tabela Equipamentos foi atualizada com sucesso!')
 
                                 # Vamos deletar o arquivo no AWS S3. Isso é para evitar reutilização do mesmo
                                 try:
@@ -586,18 +649,18 @@ class TbEquipamentosAdmin(DjangoObjectActions, admin.ModelAdmin):
 
                     else:
                         messages.error(request,
-                                       _('Total de lançamentos na aba mãe e/ou filhas não está correto. Favor verificar!'))
+                                       'Total de lançamentos na aba mãe e/ou filhas não está correto. Favor verificar!')
 
                 else:
-                    messages.error(request, _('Cabeçalho da aba filha não está correto. Favor verificar!'))
+                    messages.error(request, 'Cabeçalho da aba filha não está correto. Favor verificar!')
 
             else:
-                messages.error(request, _('Cabeçalho da aba mãe não está correto. Favor verificar!'))
+                messages.error(request, 'Cabeçalho da aba mãe não está correto. Favor verificar!')
         except:
             messages.error(request,
                            'Não foi encontrado o arquivo ' + object_key + ' no AWS S3 Bucket spsferbasa. Favor verificar!')
 
-    importar_excel.short_description = _('Importar Excel')
+    importar_excel.short_description = 'Importar Excel'
 
     def exportar_excel(self, request, queryset):
 
@@ -714,11 +777,11 @@ class TbEquipamentosAdmin(DjangoObjectActions, admin.ModelAdmin):
                 ws.write(row_num, col_num, row[col_num], font_style)
 
         wb.save(response)
-        messages.success(request, _('Arquivo gerado com sucesso.'))
+        messages.success(request, 'Arquivo gerado com sucesso.')
 
         return response
 
-    exportar_excel.short_description = _('Exportar Excel')
+    exportar_excel.short_description = 'Exportar Excel'
 
     form = TbEquipamentosFormAdmin
 
@@ -807,9 +870,9 @@ class TbEquipamentosConsumoEspecificoAdmin(DjangoObjectActions, admin.ModelAdmin
             if TbEquipamentosConsumoEspecifico.objects.get(id=consumo[0]).equ_con_consumo_especifico: # Se foi indicado consumo específico calculado no módulo CF
                update_indicador(consumo[0])
 
-        messages.success(request, _('Update do indicador dos consumos especvíficos realizado com sucesso!'))
+        messages.success(request, 'Update do indicador dos consumos especvíficos realizado com sucesso!')
 
-    update_indicador_geral.short_description = _("Update Indicador Consumos Específicos Selecionados")
+    update_indicador_geral.short_description = "Update Indicador Consumos Específicos Selecionados"
 
     # Removendo opção de importar se o usuário não tiver permissão para editar a tabela
     def get_actions(self, request):
@@ -877,12 +940,11 @@ class TbEquipamentosConsumoEspecificoAdmin(DjangoObjectActions, admin.ModelAdmin
             for i in range(total_linhas_mae):  # A coluna do cenário é a de ordem 8
                 if i > 0:  # Porque a linha 0 é o cabeçalho
                     if sheet.cell_value(i, 8) != cen_ativo:
-                        print("Passei 1")
                         ok_cenario = False
                         break
 
             if not ok_cenario:
-                messages.error(request, _('Cenário informado na planilha não é o ativo. Favor verificar!'))
+                messages.error(request, 'Cenário informado na planilha não é o ativo. Favor verificar!')
             else:
                 # Tudo ok até aqui.
                 # Vamos ver se a informação é nova.
@@ -894,7 +956,6 @@ class TbEquipamentosConsumoEspecificoAdmin(DjangoObjectActions, admin.ModelAdmin
                                 equ_con_esp_equipamento_id=sheet.cell_value(i, 1),
                                 equ_con_esp_custoitempreco_id=sheet.cell_value(i, 3),
                                 tbcenarios_id=cen_ativo).count() > 0:
-                            print("Passei 2")
                             existe = True
                             break
                 if not existe:
@@ -903,8 +964,7 @@ class TbEquipamentosConsumoEspecificoAdmin(DjangoObjectActions, admin.ModelAdmin
                     existe = True
                     for i in range(total_linhas_mae):
                         if i > 0:  # Porque a linha 0 é o cabeçalho
-                            if TbEquipamentos.objects.filter(id=int(sheet.cell_value(i, 1))).count() == 0:
-                                print("Passei 3")
+                            if TbEquipamentos.objects.filter(id=sheet.cell_value(i, 1)).count() == 0:
                                 existe = False
                                 break
                     if existe:
@@ -913,8 +973,7 @@ class TbEquipamentosConsumoEspecificoAdmin(DjangoObjectActions, admin.ModelAdmin
                         existe = True
                         for i in range(total_linhas_mae):
                             if i > 0:  # Porque a linha 0 é o cabeçalho
-                                if TbCustoItemPreco.objects.filter(id=int(sheet.cell_value(i, 3))).count() == 0:
-                                    print("Passei 4")
+                                if TbCustoItemPreco.objects.filter(id=sheet.cell_value(i, 3)).count() == 0:
                                     existe = False
                                     break
                         if existe:
@@ -929,7 +988,6 @@ class TbEquipamentosConsumoEspecificoAdmin(DjangoObjectActions, admin.ModelAdmin
                                     id_unidade_item_custo_preco = TbCustoItemPreco.objects.get(
                                         id=sheet.cell_value(i, 3)).cus_ite_pre_unidade_producao_id
                                     if id_unidade_equipamento_ordem != id_unidade_item_custo_preco:
-                                        print("Passei 5")
                                         existe = False
                                         break
                             if existe:
@@ -961,7 +1019,7 @@ class TbEquipamentosConsumoEspecificoAdmin(DjangoObjectActions, admin.ModelAdmin
                                         cursor.close()
 
                                 messages.success(request,
-                                                 _('Novos equipamentos/ordem e item de custo/preço foram adicionados com sucesso.'))
+                                                 'Novos equipamentos/ordem e item de custo/preço foram adicionados com sucesso.')
 
                             else:
                                 messages.error(request, 'UNIDADE DE PRODUÇÃO do equipamento/ordem(' + str(
@@ -976,8 +1034,8 @@ class TbEquipamentosConsumoEspecificoAdmin(DjangoObjectActions, admin.ModelAdmin
                                 sheet.cell_value(i, 2)) + ' cadastrado. Favor verificar!')
 
                     else:
-                        messages.error(request, ' 1 - Não existe o equipamento/ordem id = ' + str(
-                            int(sheet.cell_value(i, 1))) + ' cadastrado. Favor verificar!')
+                        messages.error(request, 'Não existe o equipamento/ordem id = ' + str(
+                            sheet.cell_value(i, 1)) + ' cadastrado. Favor verificar!')
 
                 else:
                     messages.error(request, 'Já existe o equipamento/order id = ' + str(
@@ -985,9 +1043,9 @@ class TbEquipamentosConsumoEspecificoAdmin(DjangoObjectActions, admin.ModelAdmin
                         int(sheet.cell_value(i, 2))) + ' já cadastrados para esse cenário. Favor verificar!')
 
         else:
-            messages.error(request, _('Cabeçalho do arquivo Excel não está correto. Favor verificar!'))
+            messages.error(request, 'Cabeçalho do arquivo Excel não está correto. Favor verificar!')
 
-    importar_excel_new.short_description = _('Importar Excel (Novos)')
+    importar_excel_new.short_description = 'Importar Excel (Novos)'
 
     # Para permitir rodar importar_excel_new sem selecionar nenhum registro
     def changelist_view(self, request, extra_context=None):
@@ -1087,7 +1145,7 @@ class TbEquipamentosConsumoEspecificoAdmin(DjangoObjectActions, admin.ModelAdmin
                                 break
                     if not ok_cenario:
                         messages.error(request,
-                                       _('Cenário informado na planilha (aba mãe ou filhas) não é o ativo. Favor verificar!'))
+                                       'Cenário informado na planilha (aba mãe ou filhas) não é o ativo. Favor verificar!')
                     else:
                         #  Tudo ok até aqui. Vamos verificar se no arquivo tem as mães selecionadas. E se tiver, vamos ver se tem as filhas no total do período do cenário.
                         #  Vamos pegar o id das mães selecionadas.
@@ -1181,22 +1239,22 @@ class TbEquipamentosConsumoEspecificoAdmin(DjangoObjectActions, admin.ModelAdmin
 
                         if tudo_ok:
                             messages.success(request,
-                                             _('Tabela Equipamentos/Consumos Específicos foi atualizada com sucesso!'))
+                                             'Tabela Equipamentos/Consumos Específicos foi atualizada com sucesso!')
 
                 else:
                     messages.error(request,
-                                   _('Total de lançamentos na aba mãe e/ou filhas não está correto. Favor verificar!'))
+                                   'Total de lançamentos na aba mãe e/ou filhas não está correto. Favor verificar!')
 
             else:
-                messages.error(request, _('Cabeçalho da aba filha não está correto. Favor verificar!'))
+                messages.error(request, 'Cabeçalho da aba filha não está correto. Favor verificar!')
 
         else:
-            messages.error(request, _('Cabeçalho da aba mãe não está correto. Favor verificar!'))
+            messages.error(request, 'Cabeçalho da aba mãe não está correto. Favor verificar!')
 
     # except:
     #    messages.error(request, 'Não foi encontrado o arquivo ' + object_key + ' no diretório c:\sps\excel. Favor verificar!')
 
-    importar_excel.short_description = _('Importar Excel')
+    importar_excel.short_description = 'Importar Excel'
 
     def exportar_excel(self, request, queryset):
 
@@ -1292,18 +1350,18 @@ class TbEquipamentosConsumoEspecificoAdmin(DjangoObjectActions, admin.ModelAdmin
                 ws.write(row_num, col_num, row[col_num], font_style)
 
         wb.save(response)
-        messages.success(request, _('Arquivo gerado com sucesso.'))
+        messages.success(request, 'Arquivo gerado com sucesso.')
 
         return response
 
-    exportar_excel.short_description = _('Exportar Excel')
+    exportar_excel.short_description = 'Exportar Excel'
 
     # Action
     def update_indicador_consumo_especifico(self, request, obj):
         update_indicador(obj.id)
-        messages.success(request, _('Update do indicador de consumo específico realizado com sucesso!'))
+        messages.success(request, 'Update do indicador de consumo específico realizado com sucesso!')
 
-    update_indicador_consumo_especifico.label = _("Update Indicador")  # optional
+    update_indicador_consumo_especifico.label = "Update Indicador"  # optional
 
     change_actions = ('update_indicador_consumo_especifico',)
 
@@ -1318,9 +1376,9 @@ class TbEquipamentosConsumoEspecificoAdmin(DjangoObjectActions, admin.ModelAdmin
     # Action
     def update_indicador_consumo_especifico(self, request, obj):
         update_indicador(obj.id)
-        messages.success(request, _('Update do indicador de consumo específico realizado com sucesso!'))
+        messages.success(request, 'Update do indicador de consumo específico realizado com sucesso!')
 
-    update_indicador_consumo_especifico.label = _("Update Indicador")  # optional
+    update_indicador_consumo_especifico.label = "Update Indicador"  # optional
 
     change_actions = ('update_indicador_consumo_especifico',)
 

@@ -1,5 +1,4 @@
 import os
-from django.utils.translation import gettext_lazy as _
 import boto3
 import \
     xlwt  # xlwt para exportar para Excel formato .xls / xlrd para importar do Excel formato .xls. De acordo com internet é questão de segurança.
@@ -49,14 +48,14 @@ class TbProdutoFluxoProducaoDaugtherAdmin(admin.TabularInline):
 
 
 class TbProdutosAdmin(admin.ModelAdmin):
-    fields = (('id', 'pro_codigo', 'pro_descricao', 'pro_ativo'), ('total_mercados', 'total_fluxos_ativos', 'total_fluxos'),
-              ('pro_unidade_producao', 'pro_familia'), ('pro_imagem', 'pro_imagem_tag'), 'pro_observacao')
+    fields = (('id', 'pro_codigo', 'pro_descricao', 'pro_ativo'), ('total_mercados', 'total_fluxos_ativos', 'total_fluxos', 'total_equipamentos_usados'),
+              ('pro_unidade_producao', 'pro_familia'), ('pro_imagem', 'pro_imagem_tag'), 'pro_observacao', 'equipamentos_usados_tag')
     list_display = ['id', 'pro_codigo', 'pro_descricao', 'pro_ativo', 'pro_unidade_producao', 'pro_imagem',
-                    'pro_imagem_tag', 'total_mercados', 'total_fluxos_ativos', 'total_fluxos']
+                    'pro_imagem_tag', 'total_mercados', 'total_fluxos_ativos', 'total_fluxos', 'total_equipamentos_usados']
     list_editable = ['pro_ativo']
     list_filter = ('pro_codigo','pro_ativo')
     list_display_links = ['id', 'pro_codigo']
-    readonly_fields = ['id', 'pro_imagem_tag', 'total_mercados', 'total_fluxos_ativos', 'total_fluxos']
+    readonly_fields = ['id', 'pro_imagem_tag', 'total_mercados', 'total_fluxos_ativos', 'total_fluxos', 'total_equipamentos_usados', 'equipamentos_usados_tag']
     search_fields = ['pro_codigo', ]
 
     model = TbProdutos
@@ -140,11 +139,11 @@ class TbProdutosAdmin(admin.ModelAdmin):
         # ws.write(row_num, 0, 'Ativo = 0 -> Não Ativo')
 
         wb.save(response)
-        messages.success(request, _('Arquivo gerado com sucesso.'))
+        messages.success(request, 'Arquivo gerado com sucesso.')
 
         return response
 
-    exportar_excel.short_description = _('Exportar (Excel) Produtos Selecionados')
+    exportar_excel.short_description = 'Exportar (Excel) Produtos Selecionados'
 
     def importar_excel(self, request, queryset):
         try:
@@ -287,19 +286,19 @@ class TbProdutosAdmin(admin.ModelAdmin):
                                         tab_obj.pro_observacao = sheet.cell_value(i, 7)
                                         tab_obj.save()
 
-                    messages.success(request, _('Tabela Produtos atualizada com sucesso!'))
+                    messages.success(request, 'Tabela Produtos atualizada com sucesso!')
                     # Deletando arquivo no AWS S3
                     s3_client = boto3.client('s3', aws_access_key_id=aws_id, aws_secret_access_key=aws_secret)
                     s3_client.delete_object(Bucket=bucket_name, Key=object_key)
 
             else:
-                messages.error(request, _('Cabeçalho da aba produtos (primeira aba) não está correto. Favor verificar!'))
+                messages.error(request, 'Cabeçalho da aba produtos (primeira aba) não está correto. Favor verificar!')
 
         except:
             messages.error(request,
-                           _("Não foi encontrado o arquivo 'produtos.xls' no diretório no AWS S3. Favor verificar!"))
+                           "Não foi encontrado o arquivo 'produtos.xls' no diretório no AWS S3. Favor verificar!")
 
-    importar_excel.short_description = _('Importar (Excel) Produtos Selecionados')
+    importar_excel.short_description = 'Importar (Excel) Produtos Selecionados'
 
     def ativar_produto(self, request, queryset):
 
@@ -310,7 +309,7 @@ class TbProdutosAdmin(admin.ModelAdmin):
             tab_obj.pro_ativo = 1
             tab_obj.save()
 
-    ativar_produto.short_description = _('Ativar Produtos Selecionados')
+    ativar_produto.short_description = 'Ativar Produtos Selecionados'
 
     def desativar_produto(self, request, queryset):
 
@@ -321,7 +320,7 @@ class TbProdutosAdmin(admin.ModelAdmin):
             tab_obj.pro_ativo = 0
             tab_obj.save()
 
-    desativar_produto.short_description = _('Desativar Produtos Selecionados')
+    desativar_produto.short_description = 'Desativar Produtos Selecionados'
 
     # Mostra somente os registros do cenário ativo
     def get_queryset(self, request):
@@ -394,7 +393,7 @@ class TbProdutoMercadoPrecoAdmin(admin.ModelAdmin):
             tab_obj.pro_mer_pre_validado = 1
             tab_obj.save()
 
-    validar_produto_mercado_preco.short_description = _('Validar Prod/Mercado/Preços Selecionados')
+    validar_produto_mercado_preco.short_description = 'Validar Prod/Mercado/Preços Selecionados'
 
     def desvalidar_produto_mercado_preco(self, request, queryset):
 
@@ -405,7 +404,7 @@ class TbProdutoMercadoPrecoAdmin(admin.ModelAdmin):
             tab_obj.pro_mer_pre_validado = 0
             tab_obj.save()
 
-    desvalidar_produto_mercado_preco.short_description = _('Desvalidar Prod/Mercado/Preços Selecionados')
+    desvalidar_produto_mercado_preco.short_description = 'Desvalidar Prod/Mercado/Preços Selecionados'
 
     # Removendo opção de importar se o usuário não tiver permissão para editar a tabela
     def get_actions(self, request):
@@ -720,11 +719,11 @@ class TbProdutoMercadoPrecoAdmin(admin.ModelAdmin):
                     ws.write(row_num, col_num, row[7], font_style)
 
         wb.save(response)
-        messages.success(request, _('Arquivo gerado com sucesso.'))
+        messages.success(request, 'Arquivo gerado com sucesso.')
 
         return response
 
-    exportar_excel.short_description = _('Exportar Excel')
+    exportar_excel.short_description = 'Exportar Excel'
 
     def importar_excel(self, request, queryset):
         #try:
@@ -861,7 +860,7 @@ class TbProdutoMercadoPrecoAdmin(admin.ModelAdmin):
                                 break
                     if not ok_cenario:
                         messages.error(request,
-                                       _('Cenário informado na planilha (aba mãe ou filhas) não é o ativo. Favor verificar!'))
+                                       'Cenário informado na planilha (aba mãe ou filhas) não é o ativo. Favor verificar!')
                     else:
                         #  Tudo ok até aqui. Vamos verificar se no arquivo tem as mães selecionadas. E se tiver, vamos ver se tem as filhas no total do período do cenário.
                         #  Vamos pegar o id das mães selecionadas.
@@ -994,24 +993,24 @@ class TbProdutoMercadoPrecoAdmin(admin.ModelAdmin):
                                                     tab_obj.save()
 
                         if tudo_ok:
-                            messages.success(request, _('Tabela Produtos/Volume/Preços por Mercado foi atualizada com sucesso!'))
+                            messages.success(request, 'Tabela Produtos/Volume/Preços por Mercado foi atualizada com sucesso!')
                             # Deletando arquivo no AWS S3
                             s3_client = boto3.client('s3', aws_access_key_id=aws_id, aws_secret_access_key=aws_secret)
                             s3_client.delete_object(Bucket=bucket_name, Key=object_key)
 
                 else:
-                    messages.error(request, _('Total de lançamentos na aba mãe e/ou filhas não está correto. Favor verificar!'))
+                    messages.error(request, 'Total de lançamentos na aba mãe e/ou filhas não está correto. Favor verificar!')
 
             else:
-                messages.error(request, _('Cabeçalho da aba filha não está correto. Favor verificar!'))
+                messages.error(request, 'Cabeçalho da aba filha não está correto. Favor verificar!')
 
         else:
-            messages.error(request, _('Cabeçalho da aba mãe não está correto. Favor verificar!'))
+            messages.error(request, 'Cabeçalho da aba mãe não está correto. Favor verificar!')
 
         #except:
         #    messages.error(request, 'Não foi encontrado o arquivo ' + object_key + ' no AWS Amazon ou erro na rotina. Favor verificar!')
 
-    importar_excel.short_description = _('Importar Excel')
+    importar_excel.short_description = 'Importar Excel'
 
     """
     # Removendo icons de edição, adicção e exclusão nos campos de foreignkey do form

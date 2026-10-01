@@ -1041,7 +1041,7 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
                        'flu_pro_erro')
         }),
         ('Visualização', {
-            'fields': ('visualizar_fluxo',),
+            'fields': ('visualizar_fluxo', 'flu_pro_auto_editor_aut'),
         }),
         ('Metadados', {
             'fields': ('flu_pro_dados_fluxo', 'flu_pro_data_criacao', 'flu_pro_data_modificacao'),
@@ -1066,6 +1066,7 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
                         'flu_pro_produto',
                         'flu_pro_observacao',
                         'flu_pro_erro',
+                        'flu_pro_auto_editor_aut',
                         'flu_pro_copiar_de',
                     )
                 }),
@@ -1081,7 +1082,7 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
     list_display = ['id', 'flu_pro_produto', 'flu_pro_descricao', 'flu_pro_ativo', 'flu_pro_input_output_atualizado',
-                    'flu_pro_erro', 'flu_pro_custo_variavel_medio', 'flu_pro_pdf_file', 'visualizar_fluxo']
+                    'flu_pro_erro', 'flu_pro_auto_editor_aut', 'flu_pro_custo_variavel_medio', 'flu_pro_pdf_file', 'visualizar_fluxo']
     list_editable = ['flu_pro_ativo', ]
 
     list_display_links = ['id', 'flu_pro_produto', 'flu_pro_descricao']
@@ -1163,7 +1164,7 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
                 return queryset
 
     list_filter = (('flu_pro_produto', admin.RelatedOnlyFieldListFilter), 'flu_pro_ativo',
-                   'flu_pro_input_output_atualizado', output_real_zerado, custo_variavel_zerado, 'flu_pro_erro')
+                   'flu_pro_input_output_atualizado', 'flu_pro_auto_editor_aut', output_real_zerado, custo_variavel_zerado, 'flu_pro_erro')
     search_fields = ['flu_pro_produto__pro_codigo', 'flu_pro_descricao', ]
     list_per_page = 15
 
@@ -1195,14 +1196,17 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
     # precisar abrir cada um e clicar no botão individualmente.
     def criar_fluxo_no_editor_selecionados(self, request, queryset):
         from .tasks import criar_fluxo_no_editor_lista_celery
-        lista_id = list(queryset.values_list('id', flat=True))
-        criar_fluxo_no_editor_lista_celery.delay(lista_id)
-        messages.success(
-            request,
-            f'Montagem do fluxo no editor sendo feita em segundo plano pra {len(lista_id)} fluxo(s) selecionado(s).'
-        )
+        queryset_auto = queryset.filter(flu_pro_auto_editor_aut=True)
+        lista_id = list(queryset_auto.values_list('id', flat=True))
+        ignorados = queryset.exclude(flu_pro_auto_editor_aut=True).count()
+        if lista_id:
+            criar_fluxo_no_editor_lista_celery.delay(lista_id)
+        mensagem = f'Montagem/atualização automática do fluxo no editor iniciada para {len(lista_id)} fluxo(s).'
+        if ignorados:
+            mensagem += f' {ignorados} fluxo(s) não foram processados porque Permite Atualização Automática está desmarcado.'
+        (messages.success if lista_id else messages.warning)(request, mensagem)
 
-    criar_fluxo_no_editor_selecionados.short_description = _('Criar Fluxo no Editor (a partir da tabela) dos Selecionados')
+    criar_fluxo_no_editor_selecionados.short_description = _('Criar/Atualizar Fluxo no Editor (somente automáticos)')
 
     def delete_selected(modeladmin, request, queryset):
         # Vamos ver se é superusuário.
@@ -1677,9 +1681,13 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
     def criar_fluxo_no_editor(self, request, fluxo_id):
         from .sincronizacao_fluxo_visual import montar_dados_fluxo_a_partir_da_tabela
         fluxo = get_object_or_404(TbFluxoProducao, id=fluxo_id)
+        if not fluxo.flu_pro_auto_editor_aut:
+            messages.warning(request, 'Este fluxo não permite atualização automática no editor. Marque Permite Atualização Automática para continuar.')
+            return redirect(reverse('admin:fluxos_tbfluxoproducao_change', args=[fluxo_id]))
         dados = montar_dados_fluxo_a_partir_da_tabela(fluxo, preservar_posicoes_existentes=False)
         total_equipamentos = len(dados.get('drawflow', {}).get('Home', {}).get('data', {}))
-        TbFluxoProducao.objects.filter(id=fluxo_id).update(flu_pro_dados_fluxo=dados)
+        fluxo.flu_pro_dados_fluxo = dados
+        fluxo.save(update_fields=['flu_pro_dados_fluxo', 'flu_pro_data_modificacao'])
         if total_equipamentos:
             messages.success(
                 request,
@@ -1701,7 +1709,7 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
                   '&nbsp;&nbsp;'
                   '<a href="{1}" class="button" '
                   'onclick="return confirm(\'Isso substitui o desenho atual do editor pelo que está cadastrado hoje na tabela filha (coluna/linha). Continuar?\');">'
-                  'Criar Fluxo no Editor (a partir da tabela)</a>'),
+                  'Criar/Atualizar Fluxo no Editor (a partir da tabela)</a>'),
                 obj.id, reverse('admin:fluxos_tbfluxoproducao_criar_no_editor', args=[obj.id]))
         return "Salve o fluxo primeiro para visualizá-lo"
 

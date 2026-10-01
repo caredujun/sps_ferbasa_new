@@ -7,7 +7,6 @@ from django.core.exceptions import ValidationError
 from tabelas.models import TbFamiliaProduto, TbMercado, TbEquacaoAjustePreco, TbEmpresa, TbCambio, atualiza_cenario, \
     TbUnidadeProducao, TbIndicadores
 from parameters.models import TbCenarios
-from parameters.contexto_usuario import limit_choices_to_empresa_ativa
 import fluxos
 
 # Para permitir mostrar valores numéricos no padrão Brasil
@@ -88,15 +87,15 @@ class TbProdutos(models.Model):  # NÃO TEM CAMPO DO CENÁRIO. SERÁ USADO POR T
         kwh = ('kwh', 'kwh')
         Mwh = ('Mwh', 'Mwh')
 
-    pro_codigo = models.CharField(max_length=25, verbose_name=_('Código'))
-    pro_descricao = models.CharField(max_length=51, verbose_name=_('Descrição'))
-    pro_ativo = models.BooleanField(blank=False, null=False, default=True, verbose_name=_('Ativo'))
+    pro_codigo = models.CharField(max_length=25, verbose_name='Código')
+    pro_descricao = models.CharField(max_length=51, verbose_name='Descrição')
+    pro_ativo = models.BooleanField(blank=False, null=False, default=True, verbose_name='Ativo')
     pro_unidade_producao = models.CharField(max_length=3, choices=UnidadeProducaoChoices.choices,
-                                            verbose_name=_('Unidade'))
-    pro_familia = models.ForeignKey(TbFamiliaProduto, on_delete=models.CASCADE, verbose_name=_('Família'), limit_choices_to=limit_choices_to_empresa_ativa)
-    pro_imagem = models.ImageField(upload_to='produtos', null=True, blank=True, verbose_name=_('Imagem'))
-    pro_observacao = models.TextField(verbose_name=_('Observação'), blank=True, null=True)
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
+                                            verbose_name='Unidade')
+    pro_familia = models.ForeignKey(TbFamiliaProduto, on_delete=models.CASCADE, verbose_name='Família')
+    pro_imagem = models.ImageField(upload_to='produtos', null=True, blank=True, verbose_name='Imagem')
+    pro_observacao = models.TextField(verbose_name='Observação', blank=True, null=True)
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
     id_origem = models.IntegerField(blank=True, null=True)  # Origem no caso de duplicação de tabela
 
     def __str__(self):
@@ -108,28 +107,175 @@ class TbProdutos(models.Model):  # NÃO TEM CAMPO DO CENÁRIO. SERÁ USADO POR T
         else:
             return 'Sem imagem!'
 
-    pro_imagem_tag.short_description = _('')
+    pro_imagem_tag.short_description = ''
 
     # Vamos criar um campo para mostrar o total de mercados cadastrados para o produto
     def total_mercados(self):
         retorno = TbProdutoMercadoPreco.objects.filter(pro_mer_pre_produto_id=self.id).count()
         return retorno
 
-    total_mercados.short_description = _('Mercados')
+    total_mercados.short_description = 'Mercados'
 
     # Vamos criar um campo para mostrar o total de fluxos de produção cadastrados para o produto
     def total_fluxos(self):
         retorno = fluxos.models.TbFluxoProducao.objects.filter(flu_pro_produto_id=self.id).count()
         return retorno
 
-    total_fluxos.short_description = _('Fluxos Total')
+    total_fluxos.short_description = 'Fluxos Total'
 
     # Vamos criar um campo para mostrar o total de fluxos de produção ativos cadastrados para o produto
     def total_fluxos_ativos(self):
         retorno = fluxos.models.TbFluxoProducao.objects.filter(flu_pro_produto_id=self.id, flu_pro_ativo=True).count()
         return retorno
 
-    total_fluxos_ativos.short_description = _('Fluxos Ativos')
+    total_fluxos_ativos.short_description = 'Fluxos Ativos'
+
+    # 🌟 NOVO: total de equipamentos/ordem DISTINTOS usados em algum dos
+    # fluxos de produção cadastrados pra esse produto (considerando
+    # TODOS os fluxos do produto, não só os ativos).
+    def total_equipamentos_usados(self):
+        return len(self._ids_equipamentos_usados())
+
+    total_equipamentos_usados.short_description = 'Qtde Equipamentos Usados'
+
+    def _ids_equipamentos_usados(self):
+        fluxos_ids = fluxos.models.TbFluxoProducao.objects.filter(
+            flu_pro_produto_id=self.id
+        ).values_list('id', flat=True)
+
+        daugthers = fluxos.models.TbFluxoProducaoDaugther.objects.filter(
+            mae_id__in=fluxos_ids
+        )
+        ids_from = daugthers.values_list('flu_pro_dau_consumo_padrao__flu_con_pad_from_equipamento_id', flat=True)
+        ids_to = daugthers.values_list('flu_pro_dau_consumo_padrao__flu_con_pad_to_equipamento_id', flat=True)
+        return (set(ids_from) | set(ids_to)) - {None}
+
+    # 🌟 CORRIGIDO: em vez de reinventar CSS a cada ajuste (causando os
+    # problemas de corte/altura inconsistente), esse painel agora porta
+    # EXATAMENTE a mesma lógica já validada no editor de fluxo
+    # (editor.html): cartão de ALTURA FIXA com overflow:hidden (o
+    # cartão todo tem tamanho conhecido -- não é a imagem que se vira
+    # sozinha), miniatura fixa 40x40 com object-fit:cover (mesmos
+    # valores de .equipamento-thumb), descrição truncada em até 2
+    # linhas com reticências (-webkit-line-clamp, mesmo de
+    # .equipamento-codigo na barra de equipamentos), e a mesma lupa 🔍
+    # que abre uma prévia ampliada (imagem grande + código + descrição
+    # COMPLETA, sem corte nenhum) -- só que aqui embutida inline, já que
+    # a tela do Admin não carrega o CSS/JS do editor.html.
+    def equipamentos_usados_tag(self):
+        import equipamentos
+        ids = self._ids_equipamentos_usados()
+        if not ids:
+            return mark_safe('<span style="color: #888;">Nenhum equipamento encontrado nos fluxos cadastrados.</span>')
+
+        equipamentos_qs = (
+            equipamentos.models.TbEquipamentos.objects
+            .filter(id__in=ids)
+            .select_related('equ_codigo')
+            .order_by('equ_codigo__equ_cad_codigo', 'equ_ordem_codigo')
+        )
+
+        def escapar(texto):
+            return (
+                str(texto or '')
+                .replace('&', '&amp;').replace('<', '&lt;')
+                .replace('>', '&gt;').replace('"', '&quot;')
+            )
+
+        cartoes = ''
+        for equip in equipamentos_qs:
+            imagem_url = f'/fluxo_producao/equipamento_imagem/{equip.id}/'
+            codigo = f'{equip.equ_codigo.equ_cad_codigo}/{equip.equ_ordem_codigo}'
+            descricao = equip.equ_ordem_descricao or ''
+            # 🌟 CORRIGIDO: a classe no <style> não estava sendo
+            # suficiente pra travar a caixa da miniatura em 40x40 (o
+            # tema do Admin provavelmente tem uma regra de maior
+            # especificidade/!important competindo) -- sobrava espaço
+            # vazio embaixo da imagem pequena, e a lupa (posicionada
+            # relativa a essa caixa) saía do lugar junto. Reforcei com
+            # estilo INLINE direto nas tags (prioridade mais alta que
+            # qualquer seletor de classe externo), em cima da classe
+            # que já existia -- as duas convivem, o inline só garante a
+            # vitória se a classe perder.
+            cartoes += (
+                '<div class="ppeu-item" style="position:relative !important; display:inline-flex !important; '
+                'flex-direction:column !important; justify-content:center !important; align-items:center !important;">'
+                f'<span class="ppeu-lupa" title="Ver detalhes" style="position:absolute !important; '
+                'top:2px !important; right:2px !important; width:16px !important; height:16px !important; '
+                'display:flex !important; align-items:center !important; justify-content:center !important; '
+                'background:rgba(0,0,0,0.6) !important; color:#fff !important; border-radius:50% !important; '
+                'font-size:9px !important; cursor:pointer !important; z-index:2 !important;" '
+                f'data-imagem="{escapar(imagem_url)}" data-codigo="{escapar(codigo)}" data-descricao="{escapar(descricao)}" '
+                'onclick="window.ppeuAbrirDetalhe(this.dataset.imagem, this.dataset.codigo, this.dataset.descricao)">🔍</span>'
+                '<div class="ppeu-thumb" style="position:relative !important; width:40px !important; '
+                'height:40px !important; margin:0 auto 6px auto !important; display:flex !important; '
+                'align-items:center !important; justify-content:center !important; overflow:hidden !important;">'
+                f'<img src="{imagem_url}" alt="{escapar(codigo)}" '
+                'style="width:40px !important; height:40px !important; object-fit:cover !important; '
+                'max-width:none !important; max-height:none !important; display:block !important;" '
+                'onerror="this.onerror=null; this.src=\'/static/fluxo_producao/img/equipamento-placeholder.png\';">'
+                '</div>'
+                f'<div class="ppeu-codigo">{escapar(codigo)}</div>'
+                f'<div class="ppeu-descricao">{escapar(descricao)}</div>'
+                '</div>'
+            )
+
+        # Estilo e comportamento embutidos (self-contained): a tela do
+        # Admin não carrega editor.css/editor.html, então tudo precisa
+        # vir junto aqui. window.ppeuAbrirDetalhe só é definida uma vez
+        # (a condição evita redefinir se esse método rodar mais de uma
+        # vez na mesma página).
+        html = (
+                '<style>'
+                '.ppeu-painel { display:block !important; max-width:900px; box-sizing:border-box; '
+                'overflow-x:auto; overflow-y:hidden; padding:10px; border:1px solid #ddd; '
+                'border-radius:4px; background:#f7f7f7; white-space:nowrap; }'
+                '.ppeu-item { display:inline-flex; flex-direction:column; justify-content:center; '
+                'align-items:center; width:150px; height:140px; box-sizing:border-box; '
+                'overflow:hidden; vertical-align:top; padding:8px; margin-right:8px; text-align:center; '
+                'background:#fff; border:1px solid #ccc; border-radius:4px; white-space:normal; position:relative; }'
+                '.ppeu-thumb { position:relative; width:40px; height:40px; margin:0 auto 6px auto; '
+                'display:flex; align-items:center; justify-content:center; overflow:hidden; }'
+                '.ppeu-thumb img { width:100% !important; height:100% !important; object-fit:cover !important; '
+                'max-width:none !important; max-height:none !important; }'
+                # 🌟 CORRIGIDO: a lupa ficava DENTRO da caixa de 40x40 da
+                # miniatura, cobrindo parte da própria imagem (numa caixa tão
+                # pequena, qualquer selo "no canto dela" necessariamente
+                # toca a foto). Movida pra fora -- agora é relativa ao
+                # CARTÃO inteiro (.ppeu-item, com mais espaço de sobra),
+                # ficando no canto dele, sem tocar a imagem.
+                '.ppeu-lupa { position:absolute; top:2px; right:2px; width:16px; height:16px; '
+                'display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.6); '
+                'color:#fff; border-radius:50%; font-size:9px; cursor:pointer; z-index:2; }'
+                '.ppeu-codigo { width:100%; font-weight:bold; font-size:0.8em; }'
+                '.ppeu-descricao { width:100%; font-size:0.75em; color:#666; text-align:center; '
+                'display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }'
+                '</style>'
+                '<div class="ppeu-painel">' + cartoes + '</div>'
+                                                        '<div id="ppeu-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); '
+                                                        'z-index:5000; align-items:center; justify-content:center;" onclick="if(event.target===this)this.style.display=\'none\';">'
+                                                        '<div style="background:#fff; border-radius:8px; max-width:90vw; max-height:90vh; overflow:auto; '
+                                                        'padding:24px; display:flex; flex-direction:column; align-items:center; position:relative;">'
+                                                        '<button type="button" onclick="document.getElementById(\'ppeu-modal\').style.display=\'none\';" '
+                                                        'style="position:absolute; top:8px; right:8px; background:none; border:none; font-size:22px; '
+                                                        'cursor:pointer; color:#666;">&times;</button>'
+                                                        '<img id="ppeu-modal-imagem" src="" alt="" style="max-width:400px; max-height:300px; '
+                                                        'object-fit:contain; margin-bottom:14px;">'
+                                                        '<div id="ppeu-modal-codigo" style="font-weight:bold; font-size:1.2em; margin-bottom:8px;"></div>'
+                                                        '<div id="ppeu-modal-descricao" style="font-size:1em; color:#444; text-align:center; max-width:460px;"></div>'
+                                                        '</div></div>'
+                                                        '<script>'
+                                                        'if (!window.ppeuAbrirDetalhe) { window.ppeuAbrirDetalhe = function(imagem, codigo, descricao) {'
+                                                        'document.getElementById("ppeu-modal-imagem").src = imagem;'
+                                                        'document.getElementById("ppeu-modal-codigo").textContent = codigo;'
+                                                        'document.getElementById("ppeu-modal-descricao").textContent = descricao;'
+                                                        'document.getElementById("ppeu-modal").style.display = "flex";'
+                                                        '}; }'
+                                                        '</script>'
+        )
+        return mark_safe(html)
+
+    equipamentos_usados_tag.short_description = 'Equipamentos Usados nos Fluxos'
 
     def clean(self):
         # Vamos pegar o cenário ativo
@@ -169,40 +315,37 @@ class TbProdutoMercadoPreco(models.Model):
         USD = ('USD', 'DÓLAR')
         EUR = ('EUR', 'EURO')
 
-    pro_mer_pre_produto = models.ForeignKey(TbProdutos, on_delete=models.CASCADE, verbose_name=_('Produto'))
-    pro_mer_pre_mercado = models.ForeignKey(TbMercado, on_delete=models.CASCADE, verbose_name=_('Mercado'), limit_choices_to=limit_choices_to_empresa_ativa)
-    pro_mer_pre_codigo_interno = models.CharField(max_length=8, blank=True, null=True, verbose_name=_('Cód. Interno'))
-    pro_mer_pre_descricao_interna = models.CharField(max_length=51, blank=True, null=True,
-                                                     verbose_name=_('Desc. Interna'))
-    pro_mer_pre_estoque = models.IntegerField(verbose_name=_('Estoque (dias venda)'))
-    pro_mer_pre_validado = models.BooleanField(default=0, verbose_name=_('Validado'))
-    pro_mer_pre_ativo = models.BooleanField(blank=False, null=False, default=True, verbose_name=_('Ativo'))
+    pro_mer_pre_produto = models.ForeignKey(TbProdutos, on_delete=models.CASCADE, verbose_name='Produto')
+    pro_mer_pre_mercado = models.ForeignKey(TbMercado, on_delete=models.CASCADE, verbose_name='Mercado')
+    pro_mer_pre_codigo_interno = models.CharField(max_length=8, blank=True, null=True, verbose_name='Cód. Interno')
+    pro_mer_pre_descricao_interna = models.CharField(max_length=51, blank=True, null=True, verbose_name='Desc. Interna')
+    pro_mer_pre_estoque = models.IntegerField(verbose_name='Estoque (dias venda)')
+    pro_mer_pre_validado = models.BooleanField(default=0, verbose_name='Validado')
+    pro_mer_pre_ativo = models.BooleanField(blank=False, null=False, default=True, verbose_name='Ativo')
     pro_mer_pre_indicador = models.ForeignKey(TbIndicadores, null=True, blank=True, on_delete=models.PROTECT,
-                                              verbose_name=_('Indicador Preço'), related_name='pro_mer_pre_indicador')
+                                              verbose_name='Indicador Preço', related_name='pro_mer_pre_indicador')
     pro_mer_pre_indicador_vol_min = models.ForeignKey(TbIndicadores, null=True, blank=True, on_delete=models.PROTECT,
-                                                      verbose_name=_('Indicador Volume: Mín.'),
+                                                      verbose_name='Indicador Volume: Mín.',
                                                       related_name='pro_mer_pre_indicador_vol_min')
     pro_mer_pre_indicador_vol_max = models.ForeignKey(TbIndicadores, null=True, blank=True, on_delete=models.PROTECT,
-                                                      verbose_name=_('Máx.'),
-                                                      related_name='pro_mer_pre_indicador_vol_max')
+                                                      verbose_name='Máx.', related_name='pro_mer_pre_indicador_vol_max')
     pro_mer_pre_moeda = models.CharField(max_length=3, choices=ProMerPre.choices, null=False, blank=False,
-                                         default='BRL', verbose_name=_('Moeda'))
+                                         default='BRL', verbose_name='Moeda')
     pro_mer_pre_outbound = models.BooleanField(blank=False, null=False, default=True,
-                                               verbose_name=_('Considerar Outbound (se existir...)'))
+                                               verbose_name='Considerar Outbound (se existir...)')
     pro_mer_pre_equacao = models.ForeignKey(TbEquacaoAjustePreco, null=True, blank=True, on_delete=models.CASCADE,
-                                            verbose_name=_('Equação de Preço'), limit_choices_to=limit_choices_to_empresa_ativa)
-    pro_mer_pre_observacao = models.TextField(verbose_name=_('Observação'), blank=True, null=True)
-    pro_mer_pre_fonte = models.FileField(upload_to='fontes', null=True, blank=True, verbose_name=_('Fonte'))
-    valor_inicial_1 = models.DecimalField(max_digits=18, decimal_places=2, verbose_name=_('Volume Mín. Inicial'))
-    valor_inicial_2 = models.DecimalField(max_digits=18, decimal_places=2, verbose_name=_('Volume Máx. Inicial'))
-    valor_inicial_3 = models.DecimalField(max_digits=18, decimal_places=2, verbose_name=_('Preço Inicial'))
-    valor_inicial_4 = models.IntegerField(verbose_name=_('Pagamento (dias)'))
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
+                                            verbose_name='Equação de Preço')
+    pro_mer_pre_observacao = models.TextField(verbose_name='Observação', blank=True, null=True)
+    pro_mer_pre_fonte = models.FileField(upload_to='fontes', null=True, blank=True, verbose_name='Fonte')
+    valor_inicial_1 = models.DecimalField(max_digits=18, decimal_places=2, verbose_name='Volume Mín. Inicial')
+    valor_inicial_2 = models.DecimalField(max_digits=18, decimal_places=2, verbose_name='Volume Máx. Inicial')
+    valor_inicial_3 = models.DecimalField(max_digits=18, decimal_places=2, verbose_name='Preço Inicial')
+    valor_inicial_4 = models.IntegerField(verbose_name='Pagamento (dias)')
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
     id_origem = models.IntegerField(blank=True, null=True)  # Origem no caso de duplicação de tabela
 
     def __str__(self):
-        return _('Produto/Mercado: %(produto)s/%(mercado)s') % {'produto': self.pro_mer_pre_produto,
-                                                                'mercado': self.pro_mer_pre_mercado}
+        return 'Produto/Mercado: ' + str(self.pro_mer_pre_produto) + '/' + str(self.pro_mer_pre_mercado)
 
     # Campo para mostrar a imagem do produto
     def produto_imagem_tag_small(self):
@@ -212,7 +355,7 @@ class TbProdutoMercadoPreco(models.Model):
         else:
             return 'Sem imagem!'
 
-    produto_imagem_tag_small.short_description = _('Imagem')
+    produto_imagem_tag_small.short_description = 'Imagem'
     produto_imagem_tag_small.allow_tags = True
 
     def clean(self):
@@ -253,7 +396,7 @@ class TbProdutoMercadoPreco(models.Model):
         else:
             return True
 
-    tem_outbound.short_description = _('Existe Outbound')
+    tem_outbound.short_description = 'Existe Outbound'
     # Para mostrar um icon e não True/False
     tem_outbound.boolean = True
 
@@ -312,13 +455,13 @@ class TbProdutoMercadoPreco(models.Model):
 # post_save.connect(verifica_filha_4, sender=TbProdutoMercadoPreco)
 
 class TbProdutoMercadoPrecoDaugther(models.Model):
-    dau_order = models.IntegerField(verbose_name=_('Ano/Mês'))
-    dau_valor_1 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name=_('Volume Mínimo'))
-    dau_valor_2 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name=_('Volume Máximo'))
-    dau_valor_3 = models.DecimalField(max_digits=18, decimal_places=2, verbose_name=_('Preço'))
-    dau_valor_4 = models.IntegerField(verbose_name=_('Pagamento (dias)'))
-    mae = models.ForeignKey(TbProdutoMercadoPreco, on_delete=models.CASCADE, verbose_name=_('Produto Mercado Preço'))
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
+    dau_order = models.IntegerField(verbose_name='Ano/Mês')
+    dau_valor_1 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name='Volume Mínimo')
+    dau_valor_2 = models.DecimalField(max_digits=18, decimal_places=0, verbose_name='Volume Máximo')
+    dau_valor_3 = models.DecimalField(max_digits=18, decimal_places=2, verbose_name='Preço')
+    dau_valor_4 = models.IntegerField(verbose_name='Pagamento (dias)')
+    mae = models.ForeignKey(TbProdutoMercadoPreco, on_delete=models.CASCADE, verbose_name='Produto Mercado Preço')
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
 
     def __str__(self):
         return ''
@@ -474,22 +617,21 @@ class TbMercadoOutbound(models.Model):
         USD = ('USD', 'DÓLAR')
         EUR = ('EUR', 'EURO')
 
-    mer_out_mercado = models.ForeignKey(TbMercado, on_delete=models.CASCADE, verbose_name=_('Mercado'), limit_choices_to=limit_choices_to_empresa_ativa)
-    mer_out_unidade = models.ForeignKey(TbUnidadeProducao, on_delete=models.CASCADE,
-                                        verbose_name=_('Planta de Produção'), limit_choices_to=limit_choices_to_empresa_ativa)
-    mer_out_produto = models.ForeignKey(TbProdutos, on_delete=models.CASCADE, verbose_name=_('Produto'))
+    mer_out_mercado = models.ForeignKey(TbMercado, on_delete=models.CASCADE, verbose_name='Mercado')
+    mer_out_unidade = models.ForeignKey(TbUnidadeProducao, on_delete=models.CASCADE, verbose_name='Planta de Produção')
+    mer_out_produto = models.ForeignKey(TbProdutos, on_delete=models.CASCADE, verbose_name='Produto')
     mer_out_indicador = models.ForeignKey(TbIndicadores, null=True, blank=True, on_delete=models.PROTECT,
-                                          verbose_name=_('Indicador'))
+                                          verbose_name='Indicador')
     mer_out_moeda = models.CharField(max_length=3, choices=MerOutChoices.choices, null=False, blank=False,
-                                     default='BRL', verbose_name=_('Moeda'))
-    mer_out_observacao = models.TextField(max_length=80, verbose_name=_('Observação'), blank=True, null=True)
-    valor_inicial = models.DecimalField(max_digits=18, decimal_places=2, verbose_name=_('Valor Inicial'))
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
+                                     default='BRL', verbose_name='Moeda')
+    mer_out_observacao = models.TextField(max_length=80, verbose_name='Observação', blank=True, null=True)
+    valor_inicial = models.DecimalField(max_digits=18, decimal_places=2, verbose_name='Valor Inicial')
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
     id_origem = models.IntegerField(blank=True, null=True)  # Origem no caso de duplicação de tabela
 
     def __str__(self):
-        return _('Mercado: %(mercado)s/Unidade de Produção: %(unidade)s/Produto: %(produto)s') % {
-            'mercado': self.mer_out_mercado, 'unidade': self.mer_out_unidade, 'produto': self.mer_out_produto}
+        return 'Mercado: ' + str(self.mer_out_mercado) + '/' + 'Unidade de Produção: ' + str(
+            self.mer_out_unidade) + '/' + 'Produto: ' + str(self.mer_out_produto)
 
     def clean(self):
         # Vamos pegar o cenário ativo
@@ -559,10 +701,10 @@ post_save.connect(verifica_filha, sender=TbMercadoOutbound)
 
 
 class TbMercadoOutboundDaugther(models.Model):
-    dau_order = models.IntegerField(verbose_name=_('Ano/Mês'))
-    dau_valor = models.DecimalField(max_digits=18, decimal_places=2, verbose_name=_('Valor'))
-    mae = models.ForeignKey(TbMercadoOutbound, on_delete=models.CASCADE, verbose_name=_('Mercado Outbound'))
-    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name=_('Cenário'))
+    dau_order = models.IntegerField(verbose_name='Ano/Mês')
+    dau_valor = models.DecimalField(max_digits=18, decimal_places=2, verbose_name='Valor')
+    mae = models.ForeignKey(TbMercadoOutbound, on_delete=models.CASCADE, verbose_name='Mercado Outbound')
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
 
     def __str__(self):
         return ''
@@ -635,8 +777,3 @@ class TbMercadoOutboundDaugther(models.Model):
         verbose_name = _('Valores Previstos')
         verbose_name_plural = _('Valores Previstos')
         ordering = ['dau_order']
-
-
-
-
-

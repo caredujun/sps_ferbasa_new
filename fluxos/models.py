@@ -304,6 +304,7 @@ class TbFluxoProducao(models.Model):
     flu_pro_erro = models.CharField(max_length=3, default='SIM', verbose_name=_('Tem Erro'))
     flu_pro_pdf_file = models.FileField(upload_to='pdf_file', null=True, blank=True, verbose_name=_('Fluxo (PDF)'))
     flu_pro_dados_fluxo = models.JSONField(default=dict, null=True, blank=True, verbose_name=_('Dados Fluxo'))
+    flu_pro_auto_editor_aut = models.BooleanField(default=True, verbose_name=_('Permite Atualização Automática'), help_text=_('Permite que processos automáticos/Celery atualizem o fluxo salvo no editor.'))
     flu_pro_data_criacao = models.DateTimeField(auto_now_add=True, null=True, blank=True,
                                                 verbose_name=_('Data Criação'))
     flu_pro_data_modificacao = models.DateTimeField(auto_now=True, null=True, blank=True,

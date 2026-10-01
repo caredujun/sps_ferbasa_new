@@ -171,3 +171,25 @@ def limit_choices_to_empresa_ativa():
     perfil = getattr(usuario, 'perfilusuario', None) if usuario is not None else None
     empresa_id = perfil.empresa_efetiva_id() if perfil is not None else None
     return {'empresa_id': empresa_id}
+
+
+def limit_choices_to_cenario_ativo():
+    """
+    🌟 NOVO: mesma ideia de limit_choices_to_empresa_ativa, mas pra
+    tabelas cadastradas por CENÁRIO (com tbcenarios_id -- ex: TbProdutos,
+    TbEquipamentos). Filtra o dropdown/widget M2M do Admin pra mostrar só
+    os registros do cenário ATIVO do usuário logado -- sem isso, um
+    campo M2M (ex: TbEquipamentos.equ_produtos) mostraria produtos de
+    QUALQUER cenário cadastrado no sistema, não só do que o usuário está
+    editando no momento.
+
+    Mesmas ressalvas de limit_choices_to_empresa_ativa: precisa ser uma
+    FUNÇÃO (não um dict fixo), e sem usuário no contexto (Celery, shell,
+    comando de management) devolve um filtro vazio (id=None) -- mais
+    seguro errar pro lado do "vazio" do que vazar registros de outro
+    cenário.
+    """
+    usuario = get_usuario_atual()
+    perfil = getattr(usuario, 'perfilusuario', None) if usuario is not None else None
+    cenario_id = perfil.cenario_ativo_id if perfil is not None else None
+    return {'tbcenarios_id': cenario_id}

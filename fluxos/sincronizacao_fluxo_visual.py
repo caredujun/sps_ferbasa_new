@@ -38,6 +38,7 @@ Duas direções:
 from django.db import transaction
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
+from django.utils import timezone
 
 from equipamentos.models import TbEquipamentos, TbEquipamentosCadastro
 from .models import TbFluxoProducao, TbFluxoProducaoDaugther, TbFluxoConsumoPadrao
@@ -399,7 +400,10 @@ def _sincronizar_dados_fluxo_apos_alteracao_celula(sender, instance, **kwargs):
     # update() em vez de save() no objeto -- mais barato, e não dispara
     # nenhum sinal de TbFluxoProducao (não existe nenhum registrado
     # hoje, mas evita loop se um dia existir).
-    TbFluxoProducao.objects.filter(id=fluxo_id).update(flu_pro_dados_fluxo=dados)
+    TbFluxoProducao.objects.filter(id=fluxo_id).update(
+        flu_pro_dados_fluxo=dados,
+        flu_pro_data_modificacao=timezone.now(),
+    )
 
 
 # ---------------------------------------------------------------------
@@ -573,6 +577,9 @@ def salvar_fluxo_a_partir_do_json(fluxo, dados_fluxo, valores_iniciais_ligacoes=
             f"O fluxo contém equipamento(s) que não pertencem a este cenário: {ids_invalidos}."
         ]
 
-    TbFluxoProducao.objects.filter(id=fluxo.id).update(flu_pro_dados_fluxo=dados_fluxo)
+    TbFluxoProducao.objects.filter(id=fluxo.id).update(
+        flu_pro_dados_fluxo=dados_fluxo,
+        flu_pro_data_modificacao=timezone.now(),
+    )
 
     return True, None

@@ -3,6 +3,7 @@ import os
 from boto3 import Session
 from django.contrib import messages
 from django.utils.html import format_html
+from django.utils import timezone
 from xlrd import open_workbook_xls
 from celery import shared_task
 from equipamentos.models import TbEquipamentosCadastro, TbEquipamentos
@@ -965,22 +966,87 @@ def update_fluxo_celery(id_fluxo):
     return
 
 
-# 🌟 NOVO: "Criar Fluxo no Editor" em lista, em segundo plano -- usado
+# 🌟 NOVO: "Criar/Atualizar Fluxo no Editor" em lista, em segundo plano -- usado
 # pela ação em massa do Admin (TbFluxoProducaoAdmin) e pela Ação Comum
-# de chat "Fluxos de Produção - Criar Fluxo no Editor". Monta
+# de chat "Fluxos de Produção - Criar/Atualizar Fluxo no Editor". Monta
 # flu_pro_dados_fluxo de cada fluxo a partir da respectiva
 # TbFluxoProducaoDaugther (coluna/linha), do zero -- ignora qualquer
 # posição arrastada manualmente antes (mesmo comportamento do botão
 # individual no Admin, que já avisa isso antes de confirmar).
 @shared_task
-def criar_fluxo_no_editor_lista_celery(lista_fluxo_ids):
+def criar_fluxo_no_editor_lista_celery(lista_fluxo_ids, usuario_id=None):
+    """
+    🌟 CORRIGIDO: até aqui, rodava e nunca avisava ninguém quando
+    terminava -- a ação de chat "Criar/Atualizar Fluxo no Editor"
+    (categoria Fluxos de Produção) ficava sem barra de progresso,
+    diferente de toda ação semelhante no chat (limpar, otimizar,
+    exportar otimização etc.). Agora, quando chamada com usuario_id
+    (só o chat passa; a ação em massa do Admin continua chamando sem
+    esse argumento, e nesse caso nada muda), escreve o resultado de
+    volta em EstadoConversaAgente ao terminar -- é isso que o
+    "Verificar" (sondado automaticamente pelo front-end) lê pra saber
+    se ainda está processando, e o que mostrar quando terminar. Ver
+    iniciar_criar_fluxo_no_editor_cenario_ativo e
+    _etapa_fp_criar_no_editor_aguardando em parameters/fluxo_criar_cenario.py.
+    """
     from .sincronizacao_fluxo_visual import montar_dados_fluxo_a_partir_da_tabela
+
+    total_processados = 0
+    erros = []
+    cenario_id_processado = None
+
     for fluxo_id in lista_fluxo_ids:
-        fluxo = TbFluxoProducao.objects.filter(id=fluxo_id).first()
+        # Proteção central: qualquer chamada ao Celery, inclusive chamadas
+        # antigas ou disparadas por outra ação do sistema, só pode montar e
+        # gravar o editor quando o fluxo permite atualização automática.
+        fluxo = TbFluxoProducao.objects.filter(
+            id=fluxo_id,
+            flu_pro_auto_editor_aut=True,
+        ).first()
         if fluxo is None:
             continue
-        dados = montar_dados_fluxo_a_partir_da_tabela(fluxo, preservar_posicoes_existentes=False)
-        TbFluxoProducao.objects.filter(id=fluxo_id).update(flu_pro_dados_fluxo=dados)
+
+        cenario_id_processado = fluxo.tbcenarios_id
+
+        try:
+            dados = montar_dados_fluxo_a_partir_da_tabela(
+                fluxo,
+                preservar_posicoes_existentes=False,
+            )
+
+            # Repete o filtro no UPDATE para evitar uma condição de corrida caso
+            # alguém desmarque a permissão enquanto a montagem está acontecendo.
+            TbFluxoProducao.objects.filter(
+                id=fluxo_id,
+                flu_pro_auto_editor_aut=True,
+            ).update(
+                flu_pro_dados_fluxo=dados,
+                flu_pro_data_modificacao=timezone.now(),
+            )
+            total_processados += 1
+        except Exception as erro_montagem:
+            erros.append(f"Fluxo {fluxo_id}: {erro_montagem}")
+
+    if usuario_id is None:
+        return
+
+    from parameters.models import EstadoConversaAgente
+
+    estado = EstadoConversaAgente.objects.filter(usuario_id=usuario_id).first()
+    # Mesma checagem da referência (exportar_dados_otimizacao_celery, em
+    # parameters/tasks.py) -- se o usuário trocou de cenário ou começou
+    # outra coisa enquanto isso rodava, não sobrescreve o estado de uma
+    # sessão mais nova.
+    if estado is None or estado.dados_coletados.get('cenario_id') != cenario_id_processado:
+        return
+
+    estado.dados_coletados = {
+        **estado.dados_coletados,
+        'status': 'concluido',
+        'total_processados': total_processados,
+        'erros': erros,
+    }
+    estado.save()
 
 
 @shared_task

@@ -341,7 +341,7 @@
                 <label for="dropdown-fluxos-producao">{% trans "Fluxos de Produção" %}</label>
                 <select id="dropdown-fluxos-producao" class="select-acao-comum" onchange="dispararAcaoDropdown(this)">
                     <option value="">{% trans "Selecione uma ação..." %}</option>
-                    <option value="criar fluxo no editor para os fluxos do cenário ativo">{% trans "Criar Fluxo no Editor" %}</option>
+                    <option value="criar fluxo no editor para os fluxos do cenário ativo">{% trans "Criar/Atualizar Fluxos no Editor" %}</option>
                 </select>
             </div>
             {% endif %}
@@ -1476,13 +1476,19 @@
 
                 renderizarRespostaAgente(data);
 
-                // 🌟 NOVO: se essa resposta já entrou numa etapa de espera
-                // do Celery, começa a sondar sozinho a partir de agora --
-                // a mensagem inicial (que acabou de aparecer acima) fica
-                // como está; as próximas atualizações de progresso usam a
-                // barra em vez de empilhar mensagem nova.
+                // 🌟 CORRIGIDO: antes só agendava o timer de 5s aqui, sem
+                // mostrar a barra na hora -- ela só nascia dentro de
+                // sondarAutomaticamente, na PRIMEIRA sondagem (5s depois).
+                // Pra ações rápidas o bastante pra terminar antes desses
+                // 5s (ex: montar poucos fluxos no editor), a tarefa já
+                // estava concluída na primeira sondagem, e a barra nunca
+                // chegava a aparecer -- pulava direto da mensagem inicial
+                // pro resultado final. Mostrando a barra JÁ AQUI (com o
+                // texto da própria resposta inicial), ela aparece sempre,
+                // não importa quão rápida a tarefa seja.
                 if (data.aguardando_poll) {
                     ultimaEtapaSondagem = data.etapa_atual;
+                    atualizarBarraProgresso(data.resposta || data.resposta_ia || '', data.opcoes);
                     temporizadorSondagem = setTimeout(sondarAutomaticamente, 5000);
                 }
             })
