@@ -2912,8 +2912,9 @@ class TbTipoProducaoDaugtherAdmin(admin.TabularInline):
 
 
 class TbTipoProducaoAdmin(_EmpresaFiltradaAdminMixin, admin.ModelAdmin):
-    fields = (('tip_nome', 'ordem_usando'), ('tip_imagem', 'tip_imagem_tag'), 'tip_observacao')
-    list_display = ['tip_nome', 'empresa', 'ordem_usando', 'tip_imagem', 'tip_imagem_tag', 'tip_observacao']
+    fields = (('tip_nome', 'tip_criterio_para_quebra_fluxo', 'ordem_usando'), ('tip_imagem', 'tip_imagem_tag'), 'tip_observacao')
+    list_display = ['tip_nome', 'tip_criterio_para_quebra_fluxo', 'empresa', 'ordem_usando', 'tip_imagem', 'tip_imagem_tag', 'tip_observacao']
+    list_editable = ['tip_criterio_para_quebra_fluxo']
     search_fields = ['tip_nome', ]
     readonly_fields = ['tip_imagem_tag', 'ordem_usando']
 

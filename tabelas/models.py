@@ -1573,6 +1573,7 @@ class TbCustoItemPrecoDaugther(models.Model):
 
 class TbTipoProducao(models.Model): # Independe do cenário. Não é necessário duplicar ao copiar cenário.
     tip_nome = models.CharField(max_length=50, null=False, blank=False, verbose_name=_('Nome'))
+    tip_criterio_para_quebra_fluxo = models.CharField(max_length=50, null=False, blank=False, verbose_name=_('Critério Quebra Fluxo'))
     tip_imagem = models.ImageField(upload_to='tabelas', null=True, blank=True, verbose_name=_('Imagem'))
     tip_observacao = models.TextField(verbose_name=_('Observação'), blank=True, null=True)
     # 🌟 NOVO (multi-empresa, Parte 3): tabela independente de cenário.

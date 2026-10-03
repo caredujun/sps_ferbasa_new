@@ -118,6 +118,38 @@
             position: relative; /* base pro selo de link, posicionado no canto */
         }
         .equipamento-thumb img { width: 100% !important; height: 100% !important; object-fit: cover !important; max-width: none !important; max-height: none !important; }
+        /* 🌟 NOVO: selo com a quantidade de vezes que esse equipamento/
+        ordem já aparece no fluxo sendo editado -- canto superior
+        ESQUERDO do cartão (a lupa já ocupa o direito -- ver
+        .equipamento-item > .selo-link-equipamento). Mesmo padrão: filho
+        direto de .equipamento-item, não da miniatura -- assim não cobre
+        a imagem. Só fica visível quando a contagem é maior que zero
+        (ver JS: atualizarContagemEquipamentosNaBarra). */
+        .equipamento-item > .equipamento-contagem {
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            width: 20px;
+            height: 20px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(220, 53, 69, 0.95); /* mesmo vermelho usado em alertas/erros no editor */
+            color: #fff;
+            border-radius: 50%;
+            font-size: 11px;
+            font-weight: bold;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+            z-index: 5;
+            cursor: pointer; /* 🌟 CORRIGIDO: era pointer-events:none (não clicável) -- agora clicar localiza o equipamento no fluxo */
+        }
+        .equipamento-item > .equipamento-contagem:hover { background: rgba(33, 150, 243, 0.95); }
+        /* Fundo levemente avermelhado no cartão inteiro quando o
+        equipamento já está em uso no fluxo -- aviso visual rápido, sem
+        precisar olhar o número do selo. */
+        .equipamento-item.ja-no-fluxo {
+            background-color: #fdeaea;
+        }
         /* 🌟 CORRIGIDO: agora é um selo de LUPA (não mais link externo) --
         clicar abre uma prévia ampliada por cima do editor (imagem grande +
         código + descrição completa, sem cortar nada), em vez de navegar
@@ -195,8 +227,8 @@
         #drawflow { width: 100%; height: 100%; background-color: #fff; background-image: linear-gradient(to right, #eee 1px, transparent 1px), linear-gradient(to bottom, #eee 1px, transparent 1px); background-size: 20px 20px; }
         .drawflow-node { padding: 0 !important; border: none !important; }
         .drawflow-node .drawflow_content_node { padding: 0 !important; margin: 0 !important; border: 0 !important; }
-        .drawflow-node.grupo-selecionado { outline: 4px solid #ff0000 !important; outline-offset: 3px; box-shadow: 0 0 0 4px rgba(255, 0, 0, 0.55), 0 0 14px rgba(255, 0, 0, 0.85) !important; z-index: 20; }
-        .drawflow-node.grupo-selecionado .equipamento-node { border-color: #ff0000 !important; }
+        .drawflow-node.grupo-selecionado { outline: 4px solid #ff8c00 !important; outline-offset: 3px; box-shadow: 0 0 0 4px rgba(255, 140, 0, 0.55), 0 0 14px rgba(255, 140, 0, 0.85) !important; z-index: 20; }
+        .drawflow-node.grupo-selecionado .equipamento-node { border-color: #ff8c00 !important; }
         .drawflow-node .equipamento-node { border-radius: 5px; border: 2px solid #3498db; box-shadow: 0 2px 5px rgba(0,0,0,0.1); background-color: white; }
         .drawflow-node .equipamento-header { background-color: #3498db; color: white; padding: 8px; border-top-left-radius: 3px; border-top-right-radius: 3px; }
         .drawflow-node .equipamento-titulo { font-weight: bold; text-align: center; }
@@ -282,6 +314,22 @@
         .node-cycle { box-shadow: 0 0 10px 2px rgba(255, 69, 0, 0.7) !important; }
         .node-incompatible { box-shadow: 0 0 10px 2px rgba(128, 0, 128, 0.7) !important; }
         .node-highlight { box-shadow: 0 0 0 4px rgba(52, 152, 219, 0.7) !important; transition: box-shadow 0.3s ease-in-out; }
+        /* 🌟 NOVO: contorno vermelho persistente ao redor do(s) nó(s)
+        localizado(s) pelo clique no selo de contagem da barra de
+        equipamentos -- diferente de .node-highlight (pisca e some
+        sozinho em 3s), esse FICA até o usuário clicar em outro lugar do
+        fluxo ou em outra quantidade na barra (ver
+        localizarEquipamentoNoFluxo / limparDestaquesDeLocalizacao).
+        outline (não border) pra não deslocar o layout do nó. */
+        .equipamento-localizado {
+            outline: 4px solid #ff0000 !important;
+            outline-offset: 3px;
+            box-shadow: 0 0 0 4px rgba(255, 0, 0, 0.6), 0 0 18px rgba(255, 0, 0, 0.95) !important;
+            z-index: 50 !important;
+        }
+        .equipamento-localizado .equipamento-node {
+            border-color: #ff0000 !important;
+        }
         .connection-warning { stroke: #ffa500 !important; stroke-width: 3px !important; }
         .drawflow .connection .main-path { stroke-width: 2px; stroke: #6c757d; marker-end: url(#arrowhead); }
         .drawflow .connection .main-path.selected { stroke: #4ea9ff; marker-end: url(#arrowhead-selected); }
@@ -602,9 +650,13 @@
 
             editor.on('nodeCreated', function(id) {
                 requestAnimationFrame(garantirSeloDetalhesNosNos);
+                atualizarContagemEquipamentosNaBarra();
                 marcarComoAlterado('nodeCreated');
             });
-            editor.on('nodeRemoved', function(id) { marcarComoAlterado('nodeRemoved'); });
+            editor.on('nodeRemoved', function(id) {
+                atualizarContagemEquipamentosNaBarra();
+                marcarComoAlterado('nodeRemoved');
+            });
             editor.on('connectionCreated', function(info) {
                 marcarComoAlterado('connectionCreated');
                 const parNodes = `${info.output_id}-${info.input_id}`;
@@ -926,6 +978,35 @@
                 });
             }
 
+            // 🌟 NOVO: conta, pra cada equipamento/ordem, quantas vezes ele
+            // já aparece como nó no fluxo sendo editado agora -- e aplica
+            // isso na barra de equipamentos (selo com o número, canto
+            // superior esquerdo de cada cartão + fundo levemente
+            // avermelhado quando a contagem é maior que zero). Precisa
+            // rodar de novo sempre que um nó é criado/removido, ou quando
+            // um fluxo inteiro é carregado/importado.
+            function atualizarContagemEquipamentosNaBarra() {
+                const nodes = editor.drawflow.drawflow[editor.module]?.data || {};
+                const contagemPorEquipamento = {};
+                Object.values(nodes).forEach(node => {
+                    const equipId = node?.data?.equipamento_id;
+                    if (equipId === undefined || equipId === null) return;
+                    const chave = String(equipId);
+                    contagemPorEquipamento[chave] = (contagemPorEquipamento[chave] || 0) + 1;
+                });
+
+                document.querySelectorAll('#equipamentos-lista .equipamento-item').forEach(item => {
+                    const equipId = item.getAttribute('data-equipamento-id');
+                    const qtde = contagemPorEquipamento[equipId] || 0;
+                    const selo = item.querySelector('.equipamento-contagem');
+                    if (selo) {
+                        selo.textContent = qtde;
+                        selo.style.display = qtde > 0 ? 'flex' : 'none';
+                    }
+                    item.classList.toggle('ja-no-fluxo', qtde > 0);
+                });
+            }
+
             function renderizarEquipamentos(listaEquipamentos) {
                 const container = document.getElementById('equipamentos-lista');
                 container.innerHTML = '';
@@ -936,11 +1017,22 @@
                     equipDiv.setAttribute('draggable', 'true');
                     const imagemSrc = `/fluxo_producao/equipamento_imagem/${equip.id}/`;
                     const imagemHtml = `<img src="${imagemSrc}" alt="${equip.nome}" onerror="this.onerror=null; this.src='/static/fluxo_producao/img/equipamento-placeholder.png';">`;
-                    equipDiv.innerHTML = `<div class="equipamento-thumb">${imagemHtml}</div>${seloLinkEquipamentoHtml()}<div class="equipamento-info"><div class="equipamento-nome">${equip.nome}</div><div class="equipamento-codigo">${equip.descricao}</div></div>`;
+                    equipDiv.innerHTML = `<div class="equipamento-thumb">${imagemHtml}</div>${seloLinkEquipamentoHtml()}<span class="equipamento-contagem" title="Localizar no fluxo"></span><div class="equipamento-info"><div class="equipamento-nome">${equip.nome}</div><div class="equipamento-codigo">${equip.descricao}</div></div>`;
+                    const contador = equipDiv.querySelector('.equipamento-contagem');
+                    contador.addEventListener('mousedown', function(event) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                    });
+                    contador.addEventListener('click', function(event) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        localizarEquipamentoNoFluxo(equip.id);
+                    });
                     equipDiv.addEventListener('dragstart', function(event) { event.dataTransfer.setData('equipamento_id', equip.id); });
                     container.appendChild(equipDiv);
                 });
                 configurarDragAndDrop();
+                atualizarContagemEquipamentosNaBarra();
             }
 
             function obterPosicaoNoCanvas(event) {
@@ -1011,6 +1103,25 @@
                 if (drawflowElement.dataset.dragdropConfigurado === 'true') return;
                 drawflowElement.dataset.dragdropConfigurado = 'true';
 
+                // 🌟 CORRIGIDO: usava o evento "click" no próprio
+                // #drawflow, em fase de propagação normal (bubble) -- o
+                // Drawflow tem lógica própria de pan/arraste no canvas
+                // que pode interceptar o clique antes dele "subir" até
+                // aqui, fazendo esse listener nunca disparar pra cliques
+                // no fundo vazio ou em cima de um nó. Trocado pra
+                // "mousedown" (dispara assim que o botão é pressionado,
+                // antes de qualquer lógica de arraste decidir o que
+                // fazer) em fase de CAPTURA no document inteiro (roda
+                // ANTES de qualquer handler do próprio Drawflow, não
+                // depois) -- bem mais confiável. Ignora cliques que
+                // começaram no selo de contagem (esse já cuida de si
+                // mesmo) ou fora da área do editor.
+                document.addEventListener('mousedown', function(event) {
+                    if (!drawflowElement.contains(event.target)) return;
+                    if (event.target.closest('.equipamento-contagem')) return;
+                    limparDestaquesDeLocalizacao();
+                }, true);
+
                 drawflowElement.addEventListener('dragover', function(event) {
                     event.preventDefault();
                     event.dataTransfer.dropEffect = 'copy';
@@ -1043,7 +1154,20 @@
                         selecionarNo(id, true);
                         return;
                     }
-                    if (!nosSelecionados.has(String(id))) selecionarNo(id, false);
+                    // 🌟 NOVO: clicar no mesmo equipamento que já está
+                    // selecionado (sozinho, sem mais ninguém junto)
+                    // DESMARCA ele -- antes, clicar de novo no mesmo não
+                    // fazia nada (ficava preso selecionado pra sempre, só
+                    // mudava clicando em outro). Continua igual pra
+                    // seleção múltipla (2+ nós): clicar num deles sem
+                    // Ctrl/Shift ainda troca pra seleção de um só, como já
+                    // era.
+                    if (nosSelecionados.has(String(id)) && nosSelecionados.size === 1) {
+                        nosSelecionados.clear();
+                        atualizarVisualSelecao();
+                    } else if (!nosSelecionados.has(String(id))) {
+                        selecionarNo(id, false);
+                    }
                     iniciarArrastoGrupo(event, node);
                 }, true);
             }
@@ -1132,6 +1256,7 @@
                             valoresIniciaisNovasLigacoes = {};
                             fluxoAlterado = false;
                         }
+                        atualizarContagemEquipamentosNaBarra();
                     })
                     .catch(error => console.error('Erro ao carregar fluxo:', error));
             }
@@ -1376,6 +1501,73 @@
                 editor.canvas_y = Number.isFinite(Number(viewport.canvas_y)) ? Number(viewport.canvas_y) : 0;
                 _aplicarTransformDoCanvas();
             }
+
+            // 🌟 CORRIGIDO: antes centralizava/dava zoom pra enquadrar
+            // todas as ocorrências -- com um equipamento só, "pulava" o
+            // fluxo inteiro pra cima dele; com muitas ocorrências
+            // espalhadas num fluxo grande, o zoom ficava bagunçado.
+            // Agora NÃO mexe na posição/zoom da tela -- só desenha um
+            // contorno vermelho ao redor de cada ocorrência, onde quer
+            // que esteja na tela, e PERSISTE até o usuário clicar em
+            // outro lugar do fluxo (limparDestaquesDeLocalizacao) ou em
+            // outra quantidade na barra (que já limpa e desenha de novo
+            // aqui embaixo).
+            // 🌟 NOVO: lembra qual equipamento está destacado agora, pra
+            // permitir "desligar" clicando de novo nele (ver
+            // localizarEquipamentoNoFluxo). Sem isso, só dava pra TROCAR
+            // de equipamento destacado -- nunca remover o destaque de
+            // vez, já que o clique no fundo do canvas nem sempre limpa
+            // sozinho (o Drawflow pode engolir esse clique como parte da
+            // lógica dele de arrastar a tela).
+            let equipamentoLocalizadoAtual = null;
+
+            function localizarEquipamentoNoFluxo(equipamentoId) {
+                const jaEstavaDestacado = String(equipamentoLocalizadoAtual) === String(equipamentoId);
+                limparDestaquesDeLocalizacao();
+
+                if (jaEstavaDestacado) {
+                    equipamentoLocalizadoAtual = null;
+                    return;
+                }
+
+                const nodes = editor.drawflow.drawflow[editor.module]?.data || {};
+                const nodeIds = Object.keys(nodes).filter(
+                    nodeId => String(nodes[nodeId]?.data?.equipamento_id) === String(equipamentoId)
+                );
+                if (nodeIds.length === 0) { equipamentoLocalizadoAtual = null; return; }
+                equipamentoLocalizadoAtual = equipamentoId;
+                nodeIds.forEach(nodeId => {
+                    // 🌟 CORRIGIDO: usava querySelector('.drawflow-node[data-node="..."]'),
+                    // que não achava nada (não funcionava). getElementById
+                    // com o prefixo "node-" é o padrão confirmadamente
+                    // usado em todo o resto deste arquivo pra achar o
+                    // elemento de um nó na tela (ex: alinharNoAoPontoDoDrop,
+                    // moverGrupo).
+                    const nodeElement = document.getElementById(`node-${nodeId}`);
+                    if (nodeElement) {
+                        nodeElement.classList.add('equipamento-localizado');
+                        const cartao = nodeElement.querySelector('.equipamento-node');
+                        if (cartao) cartao.classList.add('equipamento-localizado');
+                    }
+                });
+            }
+
+            // Remove os contornos vermelhos ativos -- chamado ao clicar
+            // em qualquer lugar do fluxo (ver listener em #drawflow mais
+            // abaixo) ou no início de uma nova localização.
+            function limparDestaquesDeLocalizacao() {
+                document.querySelectorAll('.equipamento-localizado').forEach(
+                    el => el.classList.remove('equipamento-localizado')
+                );
+                equipamentoLocalizadoAtual = null;
+            }
+            // 🌟 CORRIGIDO: o clique no selo de contagem (onclick="...localizarEquipamentoNoFluxo(...)"
+            // embutido no HTML) não achava a função -- atributos onclick
+            // inline procuram o nome no escopo GLOBAL (window), e essa
+            // função estava declarada só dentro do fechamento (closure)
+            // do DOMContentLoaded, inacessível de fora. Expor
+            // explicitamente em window resolve.
+            window.localizarEquipamentoNoFluxo = localizarEquipamentoNoFluxo;
 
             function focarNoEquipamento(nodeId) {
                 try {

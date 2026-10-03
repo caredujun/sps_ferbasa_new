@@ -121,6 +121,7 @@ def api_equipamentos(request):
             fluxo = _fluxo_acessivel_ou_404(request.user, fluxo_id)
             cenario_id = fluxo.tbcenarios_id
         else:
+            fluxo = None
             perfil = getattr(request.user, 'perfilusuario', None)
             cenario_id = perfil.cenario_ativo_id if perfil else None
             if cenario_id is None:
@@ -131,6 +132,19 @@ def api_equipamentos(request):
         equipamentos = TbEquipamentos.objects.filter(
             tbcenarios_id=cenario_id,
         ).select_related('equ_codigo')
+
+        # 🌟 NOVO: na barra de equipamentos do editor, só faz sentido
+        # mostrar os equipamentos/ordem que de fato participam do
+        # produto deste fluxo -- TbEquipamentos.equ_produtos é quem
+        # marca essa relação (ver equipamentos/models.py). Só filtra
+        # quando sabemos QUAL fluxo está sendo editado e ele tem um
+        # produto definido; sem isso (sem fluxo_id na requisição, ou
+        # fluxo sem produto cadastrado) mantém a lista cheia do
+        # cenário, como antes -- mais seguro mostrar de mais do que
+        # esconder tudo sem explicação.
+        if fluxo is not None and fluxo.flu_pro_produto_id is not None:
+            equipamentos = equipamentos.filter(equ_produtos=fluxo.flu_pro_produto_id)
+
         #print(f"API equipamentos: Encontrados {equipamentos.count()} equipamentos ativos")
 
         data = []

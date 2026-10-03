@@ -102,7 +102,7 @@ class TbFluxoConsumoPadraoAdmin(DjangoObjectActions, admin.ModelAdmin):
 
         def lookups(self, request, model_admin):
             # Vamos montar a tuple na mão
-            tuple = [(1, 'Sim'), (0, 'Não')]
+            tuple = [(1, 'Sim'), (0, 'Não'), (2, 'Não Tem Fluxo')]
             return tuple
 
         def queryset(self, request, queryset):
