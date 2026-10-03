@@ -36,8 +36,10 @@ from collections import defaultdict
 from itertools import product
 from typing import Dict, List, Tuple
 
+from django.db import transaction
+
 from equipamentos.models import TbEquipamentos
-from fluxos.models import TbFluxoConsumoPadrao
+from fluxos.models import TbFluxoConsumoPadrao, TbFluxoProducao, TbFluxoProducaoDaugther
 from produtos.models import TbProdutos
 
 
@@ -304,3 +306,41 @@ def _maior_profundidade(terminal_id: int, entradas_por_destino, memo=None) -> in
     )
     memo[terminal_id] = profundidade
     return profundidade
+
+
+@transaction.atomic
+def gravar_um_fluxo(
+    produto_id: int,
+    cenario_id: int,
+    plano: Tuple[Tuple[int, str, int], ...],
+    *,
+    descricao: str = "",
+) -> int:
+    """
+    Grava UM fluxo (a partir de um plano já escolhido) em TbFluxoProducao +
+    TbFluxoProducaoDaugther. NÃO apaga nem substitui fluxos existentes --
+    só cria um novo. Retorna o id da mãe criada (mae_id), pra você achar
+    fácil no Admin/editor.
+
+    A descrição recebe o prefixo "[TESTE-GERADOR]" automaticamente, pra
+    ficar fácil de achar (e apagar depois) os fluxos de teste.
+    """
+    linhas = gerar_linhas_do_plano(plano)
+
+    mae = TbFluxoProducao.objects.create(
+        flu_pro_descricao=(f"[TESTE-GERADOR] {descricao}".strip())[:150],
+        flu_pro_produto_id=produto_id,
+        flu_pro_ativo=True,
+        tbcenarios_id=cenario_id,
+    )
+    TbFluxoProducaoDaugther.objects.bulk_create([
+        TbFluxoProducaoDaugther(
+            mae_id=mae.id,
+            tbcenarios_id=cenario_id,
+            flu_pro_dau_coluna=linha["flu_pro_dau_coluna"],
+            flu_pro_dau_linha=linha["flu_pro_dau_linha"],
+            flu_pro_dau_consumo_padrao_id=linha["flu_pro_dau_consumo_padrao_id"],
+        )
+        for linha in linhas
+    ])
+    return mae.id
