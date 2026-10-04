@@ -73,6 +73,17 @@
         .form-periodo-inline input[type="month"] { width: 140px; padding: 5px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; }
         .form-periodo-inline .botao-opcao { margin-left: 4px; }
 
+        /* Grade de botões de produto (2 colunas), usada pelo wizard
+           "Criar Fluxos de Produção dos Produtos" -- cada botão já mostra
+           código + quantidade de fluxos existentes. */
+        .grade-produtos {
+            margin-top: 8px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+        .grade-produtos .botao-opcao { width: 100%; text-align: left; border-radius: 6px; }
+
         /* Painel lateral direito: Ações Comuns no SPS */
         .grupo-acoes-dropdown { margin-bottom: 16px; }
         .grupo-acoes-dropdown label {
@@ -336,12 +347,13 @@
             </div>
             {% endif %}
 
-            {% if acoes_habilitadas.fp_criar_no_editor %}
+            {% if acoes_habilitadas.fp_criar_no_editor or acoes_habilitadas.fp_criar_fluxos_produto %}
             <div class="grupo-acoes-dropdown">
                 <label for="dropdown-fluxos-producao">{% trans "Fluxos de Produção" %}</label>
                 <select id="dropdown-fluxos-producao" class="select-acao-comum" onchange="dispararAcaoDropdown(this)">
                     <option value="">{% trans "Selecione uma ação..." %}</option>
-                    <option value="criar fluxo no editor para os fluxos do cenário ativo">{% trans "Criar/Atualizar Fluxos no Editor" %}</option>
+                    {% if acoes_habilitadas.fp_criar_no_editor %}<option value="criar fluxo no editor para os fluxos do cenário ativo">{% trans "Atualizar Visão do Fluxo de Produção" %}</option>{% endif %}
+                    {% if acoes_habilitadas.fp_criar_fluxos_produto %}<option value="criar fluxos de produção dos produtos do cenário ativo">{% trans "Atualizar Fluxos de Produção por Produto" %}</option>{% endif %}
                 </select>
             </div>
             {% endif %}
@@ -1278,8 +1290,24 @@
                     '</div>';
             }
 
+            // 🌟 NOVO: grade de botões (2 colunas) pra escolher um produto,
+            // quando o back-end manda o campo lista_produtos -- cada botão
+            // já mostra "CÓDIGO (qtde)" direto, sem limite de quantidade
+            // (diferente do mecanismo genérico de opções, que corta em 12)
+            // e sem duplicar a lista como texto solto.
+            var listaProdutosHtml = '';
+            if (data.lista_produtos && data.lista_produtos.length > 0) {
+                listaProdutosHtml = '<div class="grade-produtos">';
+                data.lista_produtos.forEach(function(produto) {
+                    var codigoEscapadoJs = escapeHtml(produto.codigo).replace(/'/g, "\\'");
+                    var textoBotao = escapeHtml(produto.codigo) + ' (' + produto.qtde + ')';
+                    listaProdutosHtml += '<button type="button" class="botao-opcao" onclick="escolherOpcao(\'' + codigoEscapadoJs + '\')">' + textoBotao + '</button>';
+                });
+                listaProdutosHtml += '</div>';
+            }
+
             var textoLimpoHTML = processarRespostaCompleta(data.resposta || data.resposta_ia);
-            adicionarMensagemAoChat('<div class="chat-box-p" style="color: #2b2b2b;"><strong style="color: #0056b3;">' + ROTULO_AGENTE + ':</strong><div style="margin-top: 5px;">' + textoLimpoHTML + '</div>' + fontesHtml + opcoesHtml + formPeriodoHtml + '</div>');
+            adicionarMensagemAoChat('<div class="chat-box-p" style="color: #2b2b2b;"><strong style="color: #0056b3;">' + ROTULO_AGENTE + ':</strong><div style="margin-top: 5px;">' + textoLimpoHTML + '</div>' + fontesHtml + opcoesHtml + formPeriodoHtml + listaProdutosHtml + '</div>');
             desenharGraficosPendentes();
             chatBox.scrollTop = chatBox.scrollHeight;
         }

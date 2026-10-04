@@ -1049,6 +1049,47 @@ def criar_fluxo_no_editor_lista_celery(lista_fluxo_ids, usuario_id=None):
     estado.save()
 
 
+# 🌟 NOVO: "Fluxos de Produção - Criar Fluxos de Produção dos Produtos" --
+# calcula e SINCRONIZA (só a diferença -- remove o que está sobrando/
+# errado, cria o que está faltando, nunca mexe no que já está certo) os
+# fluxos de produção de UM produto, em segundo plano. Mesmo padrão de
+# criar_fluxo_no_editor_lista_celery: escreve o resultado de volta em
+# EstadoConversaAgente, sondado pelo front-end via "Verificar" automático.
+@shared_task
+def gerar_fluxos_produto_celery(produto_id, usuario_id):
+    from .gerar_fluxos_por_produto import (
+        comparar_fluxos_existentes, sincronizar_fluxos_produto, GeracaoFluxoError,
+    )
+    from parameters.models import EstadoConversaAgente
+
+    try:
+        comparacao = comparar_fluxos_existentes(produto_id)
+        resultado_sync = sincronizar_fluxos_produto(
+            produto_id, comparacao['cenario_id'],
+            comparacao['mae_ids_a_remover'], comparacao['planos_a_criar'],
+            cp_para_to=comparacao['cp_para_to'],
+        )
+        resultado = {
+            'status': 'concluido',
+            'total_removidos': resultado_sync['removidos'],
+            'total_criados': resultado_sync['criados'],
+        }
+    except GeracaoFluxoError as erro:
+        resultado = {'status': 'erro', 'mensagem': str(erro)}
+    except Exception as erro:
+        resultado = {'status': 'erro', 'mensagem': f'Erro inesperado: {erro}'}
+
+    estado = EstadoConversaAgente.objects.filter(usuario_id=usuario_id).first()
+    # Mesma checagem da referência (criar_fluxo_no_editor_lista_celery) --
+    # se o usuário começou outra coisa enquanto isso rodava, não
+    # sobrescreve o estado de uma sessão mais nova.
+    if estado is None or estado.dados_coletados.get('produto_id') != produto_id:
+        return
+
+    estado.dados_coletados = {**estado.dados_coletados, **resultado}
+    estado.save()
+
+
 @shared_task
 def exportar_excel_fluxo_producao_celery(lista_id, user_mail):
     nome_arquivo = 'Fluxo de Producao' + '.xlsx'

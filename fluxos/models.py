@@ -394,9 +394,15 @@ class TbFluxoProducao(models.Model):
 
         # Vamos ver se está adicionando ou modificando
         state = 'Editando'
-        if self.pk is None:  # Nesse caso não existe a chave primária. Estamos adicionando. Vamos pegar o id do cenário para lançar no campo tbcenarios.
-            pre_save.connect(atualiza_cenario, sender=TbFluxoProducao)
+        if self.pk is None:  # Nesse caso não existe a chave primária. Estamos adicionando.
             state = 'Adicionando'
+            # 🌟 CORRIGIDO: só conecta o sinal pra descobrir o cenário
+            # sozinho se tbcenarios_id AINDA NÃO foi informado -- quando já
+            # vem explícito (como na geração automática de fluxos), não
+            # precisa (e não pode, fora do contexto de uma requisição web
+            # com usuário logado, já que cen_ativo não existe mais).
+            if self.tbcenarios_id is None:
+                pre_save.connect(atualiza_cenario, sender=TbFluxoProducao)
 
         # Convertendo para maiúsculo
         self.flu_pro_descricao = self.flu_pro_descricao.upper()
@@ -513,6 +519,18 @@ class TbFluxoProducaoDaugther(models.Model):
 def ajusta_input_output4(sender, instance, **kwargs):
     from fluxos.tasks import ajusta_sequencia_fluxo_celery
     ajusta_sequencia_fluxo_celery.delay(instance.mae_id)
+
+
+# 🌟 NOVO: roda a verificação de erro (public.verifica_fluxo) sozinha toda
+# vez que uma filha é criada, editada ou apagada -- sem isso, flu_pro_erro
+# só muda quando alguém roda a ação "Verificar Erro" manualmente no Admin.
+@receiver([post_save, post_delete], sender=TbFluxoProducaoDaugther)
+def verifica_fluxo_automatico(sender, instance, **kwargs):
+    if instance.mae_id is None:
+        return
+    cursor = connection.cursor()
+    cursor.execute("call public.verifica_fluxo(%s)", [instance.mae_id])
+    cursor.close()
 
 
 class TbFluxoProducaoDaugther01(models.Model):

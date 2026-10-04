@@ -416,6 +416,8 @@
         </div>
         <div class="painel-footer" style="gap: 8px; align-items: center;">
             <button id="btn-atualizar-assistente-fluxo" type="button" class="btn-verificar" style="padding: 8px 12px; border: 0; border-radius: 4px; cursor: pointer;">Atualizar análise</button>
+            <button id="btn-distribuicao-custo-variavel" type="button" class="btn-verificar" style="padding: 8px 12px; border: 0; border-radius: 4px; cursor: pointer;">Distribuição de Custo Variável</button>
+            <button id="btn-custo-por-equipamento" type="button" class="btn-verificar" style="padding: 8px 12px; border: 0; border-radius: 4px; cursor: pointer;">Custo Por Equipamento</button>
             <button id="btn-mostrar-chat-assistente" type="button" class="btn-assistente" style="padding: 8px 12px; border: 0; border-radius: 4px; cursor: pointer;">Conversar com o Agente IA</button>
         </div>
     </aside>
@@ -479,6 +481,53 @@
             <div class="modal-footer">
                 <button id="btn-previsualizar" style="background-color: #6c757d; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Atualizar Pré-visualização</button>
                 <button id="btn-exportar-final" style="background-color: #3498db; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Exportar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🌟 NOVO: gráfico de barras com a distribuição do custo variável
+    médio de todos os fluxos de produção do mesmo produto/cenário do
+    fluxo aberto -- aberto pelo botão "Distribuição de Custo Variável" na
+    aba "Análise do fluxo" do Assistente IA. -->
+    <div id="modal-distribuicao-custo" class="modal">
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header">
+                <h2>Distribuição de Custo Variável do Produto</h2>
+                <div style="display: flex; align-items: center; gap: 14px;">
+                    <button id="btn-exportar-distribuicao-custo" type="button" style="background-color: #3498db; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px;">Exportar Gráfico</button>
+                    <span id="btn-fechar-distribuicao-custo" class="close">&times;</span>
+                </div>
+            </div>
+            <!-- 🌟 NOVO: descrição do fluxo, abaixo do título -->
+            <p id="distribuicao-custo-descricao-fluxo" style="margin: 0; padding: 8px 20px 0 20px; text-align: left; font-size: 13px; color: #555; word-wrap: break-word; overflow-wrap: break-word;"></p>
+            <div class="modal-body" style="padding: 20px;">
+                <div id="distribuicao-custo-conteudo">
+                    <div class="carregando">Carregando…</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🌟 NOVO: gráfico de barras horizontais com a contribuição de
+    custo variável de cada equipamento/ordem DO FLUXO ABERTO (não do
+    produto inteiro) -- aberto pelo botão "Custo Por Equipamento" na aba
+    "Análise do fluxo" do Assistente IA. A ordem segue a posição em que
+    cada equipamento aparece no fluxo (coluna), não o valor. -->
+    <div id="modal-custo-por-equipamento" class="modal">
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header">
+                <h2>Custo Por Equipamento</h2>
+                <div style="display: flex; align-items: center; gap: 14px;">
+                    <button id="btn-exportar-custo-por-equipamento" type="button" style="background-color: #3498db; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px;">Exportar Gráfico</button>
+                    <span id="btn-fechar-custo-por-equipamento" class="close">&times;</span>
+                </div>
+            </div>
+            <!-- 🌟 NOVO: descrição do fluxo, abaixo do título -->
+            <p id="custo-por-equipamento-descricao-fluxo" style="margin: 0; padding: 8px 20px 0 20px; text-align: left; font-size: 13px; color: #555; word-wrap: break-word; overflow-wrap: break-word;"></p>
+            <div class="modal-body" style="padding: 20px;">
+                <div id="custo-por-equipamento-conteudo">
+                    <div class="carregando">Carregando…</div>
+                </div>
             </div>
         </div>
     </div>
@@ -759,6 +808,24 @@
                 document.getElementById('modal-exportacao').style.display = 'none';
             });
 
+            // 🌟 NOVO: distribuição de custo variável do produto
+            document.getElementById('btn-distribuicao-custo-variavel').addEventListener('click', abrirDistribuicaoCustoVariavel);
+            document.getElementById('btn-fechar-distribuicao-custo').addEventListener('click', function() {
+                document.getElementById('modal-distribuicao-custo').style.display = 'none';
+            });
+
+            // 🌟 NOVO: custo por equipamento (do fluxo aberto)
+            document.getElementById('btn-custo-por-equipamento').addEventListener('click', abrirCustoPorEquipamento);
+            document.getElementById('btn-fechar-custo-por-equipamento').addEventListener('click', function() {
+                document.getElementById('modal-custo-por-equipamento').style.display = 'none';
+            });
+            document.getElementById('btn-exportar-custo-por-equipamento').addEventListener('click', function() {
+                exportarGraficoComoImagem('custo-por-equipamento-conteudo', 'btn-exportar-custo-por-equipamento', 'custo_por_equipamento');
+            });
+            document.getElementById('btn-exportar-distribuicao-custo').addEventListener('click', function() {
+                exportarGraficoComoImagem('distribuicao-custo-conteudo', 'btn-exportar-distribuicao-custo', 'distribuicao_custo_variavel');
+            });
+
             const tabItems = document.querySelectorAll('#modal-exportacao .tab-item');
             const tabPanes = document.querySelectorAll('#modal-exportacao .tab-pane');
             tabItems.forEach(tab => {
@@ -776,6 +843,10 @@
             window.addEventListener('click', function(event) {
                 const modal = document.getElementById('modal-exportacao');
                 if (event.target === modal) { modal.style.display = 'none'; }
+                const modalCusto = document.getElementById('modal-distribuicao-custo');
+                if (event.target === modalCusto) { modalCusto.style.display = 'none'; }
+                const modalCustoEquip = document.getElementById('modal-custo-por-equipamento');
+                if (event.target === modalCustoEquip) { modalCustoEquip.style.display = 'none'; }
             });
 
             function fecharPainelAssistenteFluxo() {
@@ -935,6 +1006,360 @@
                     status.className = 'assistente-status invalido';
                     status.textContent = 'Não foi possível analisar o fluxo: ' + error.message;
                 }
+            }
+
+            // 🌟 NOVO: distribuição de custo variável do produto (todos os
+            // fluxos de produção do MESMO produto/cenário do fluxo aberto).
+            async function abrirDistribuicaoCustoVariavel() {
+                if (!fluxoId) return;
+                const modal = document.getElementById('modal-distribuicao-custo');
+                const conteudo = document.getElementById('distribuicao-custo-conteudo');
+                conteudo.innerHTML = '<div class="carregando">Carregando…</div>';
+                document.getElementById('distribuicao-custo-descricao-fluxo').textContent = document.getElementById('fluxo-descricao').value || '';
+                modal.style.display = 'block';
+
+                try {
+                    const response = await fetch(`/fluxo_producao/api/fluxo/${encodeURIComponent(fluxoId)}/custo_variavel_distribuicao/`, {
+                        credentials: 'same-origin'
+                    });
+                    const data = await response.json();
+                    if (!response.ok) throw new Error(data.error || `Erro HTTP ${response.status}`);
+
+                    if (!data.atualizado) {
+                        conteudo.innerHTML = '';
+                        const aviso = document.createElement('div');
+                        aviso.className = 'assistente-status invalido';
+                        aviso.textContent = data.mensagem;
+                        conteudo.appendChild(aviso);
+                        return;
+                    }
+
+                    renderizarDistribuicaoCustoVariavel(conteudo, data.valores, data.total_fluxos, data.fluxo_atual_id);
+                } catch (error) {
+                    conteudo.innerHTML = '';
+                    const erro = document.createElement('div');
+                    erro.className = 'assistente-status invalido';
+                    erro.textContent = 'Não foi possível carregar a distribuição: ' + error.message;
+                    conteudo.appendChild(erro);
+                }
+            }
+
+            function renderizarDistribuicaoCustoVariavel(container, fluxos, totalFluxos, fluxoAtualId) {
+                container.innerHTML = '';
+
+                if (!fluxos || fluxos.length === 0) {
+                    const vazio = document.createElement('div');
+                    vazio.className = 'assistente-status carregando';
+                    vazio.textContent = 'Nenhum fluxo com custo variável calculado ainda.';
+                    container.appendChild(vazio);
+                    return;
+                }
+
+                const valores = fluxos.map(f => f.custo_variavel_medio);
+                const minimo = Math.min(...valores);
+                const maximo = Math.max(...valores);
+                const numBuckets = Math.min(10, Math.max(1, new Set(valores).size));
+                const amplitude = (maximo - minimo) || 1;
+                const larguraBucket = amplitude / numBuckets;
+
+                const indiceDoBucket = (v) => {
+                    let indice = larguraBucket > 0 ? Math.floor((v - minimo) / larguraBucket) : 0;
+                    if (indice >= numBuckets) indice = numBuckets - 1;
+                    if (indice < 0) indice = 0;
+                    return indice;
+                };
+
+                // 🌟 NOVO: agrupa os FLUXOS (não só a contagem) por faixa --
+                // é o que permite mostrar a descrição deles ao clicar.
+                const fluxosPorBucket = Array.from({ length: numBuckets }, () => []);
+                fluxos.forEach(f => { fluxosPorBucket[indiceDoBucket(f.custo_variavel_medio)].push(f); });
+
+                // 🌟 NOVO: acha a faixa do fluxo que está aberto no editor
+                // agora -- compara como string pra não ter problema de tipo
+                // (fluxoId do editor é string; fluxo_id da API é número).
+                let bucketAtual = -1;
+                const fluxoAtual = fluxos.find(f => String(f.fluxo_id) === String(fluxoAtualId));
+                if (fluxoAtual) bucketAtual = indiceDoBucket(fluxoAtual.custo_variavel_medio);
+
+                const maiorContagem = Math.max(...fluxosPorBucket.map(lista => lista.length));
+
+                const formatar = (v) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+                const resumo = document.createElement('p');
+                resumo.className = 'assistente-intro';
+                resumo.textContent = `${totalFluxos} fluxo(s) de produção -- custo variável médio entre R$ ${formatar(minimo)} e R$ ${formatar(maximo)}.` +
+                    (bucketAtual >= 0 ? ' A barra verde é a faixa do fluxo que você está analisando. Clique numa barra pra ver os fluxos dela.' : ' Clique numa barra pra ver os fluxos dela.');
+                container.appendChild(resumo);
+
+                const grafico = document.createElement('div');
+                grafico.style.cssText = 'display: flex; align-items: flex-end; gap: 4px; height: 240px; border-bottom: 1px solid #ccc; border-left: 1px solid #ccc; padding: 10px 10px 0 10px;';
+
+                for (let i = 0; i < numBuckets; i++) {
+                    const inicioBucket = minimo + i * larguraBucket;
+                    const fimBucket = minimo + (i + 1) * larguraBucket;
+                    const contagem = fluxosPorBucket[i].length;
+                    const alturaPct = maiorContagem > 0 ? (contagem / maiorContagem) * 100 : 0;
+                    const ehBucketAtual = i === bucketAtual;
+
+                    const coluna = document.createElement('div');
+                    coluna.style.cssText = 'flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%;';
+
+                    const rotuloContagem = document.createElement('div');
+                    rotuloContagem.textContent = contagem > 0 ? String(contagem) : '';
+                    rotuloContagem.style.cssText = 'font-size: 12px; color: #333; margin-bottom: 2px;';
+
+                    // 🌟 NOVO: verde na faixa do fluxo em análise, azul nas demais.
+                    const corBarra = ehBucketAtual ? '#2ecc71' : '#3498db';
+                    const barra = document.createElement('div');
+                    barra.style.cssText = 'width: 100%; background-color: ' + corBarra + '; border-radius: 3px 3px 0 0; height: ' + alturaPct + '%; min-height: ' + (contagem > 0 ? '2px' : '0') + ';' + (contagem > 0 ? ' cursor: pointer;' : '');
+                    barra.title = contagem + ' fluxo(s) entre R$ ' + formatar(inicioBucket) + ' e R$ ' + formatar(fimBucket) + (ehBucketAtual ? ' (inclui o fluxo em análise)' : '');
+
+                    // 🌟 NOVO: clique mostra a descrição dos primeiros 10
+                    // fluxos dessa faixa, abaixo do gráfico.
+                    if (contagem > 0) {
+                        barra.addEventListener('click', function() {
+                            mostrarDetalheBucketCustoVariavel(fluxosPorBucket[i], inicioBucket, fimBucket);
+                        });
+                    }
+
+                    coluna.append(rotuloContagem, barra);
+                    grafico.appendChild(coluna);
+                }
+                container.appendChild(grafico);
+
+                // Eixo X: início de cada faixa, uma coluna por barra.
+                const eixoX = document.createElement('div');
+                eixoX.style.cssText = 'display: flex; gap: 4px; padding: 4px 10px 0 10px;';
+                for (let i = 0; i < numBuckets; i++) {
+                    const inicioBucket = minimo + i * larguraBucket;
+                    const rotulo = document.createElement('div');
+                    rotulo.style.cssText = 'flex: 1; font-size: 10px; color: #666; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
+                    rotulo.textContent = inicioBucket.toLocaleString('pt-BR', { maximumFractionDigits: 0 });
+                    eixoX.appendChild(rotulo);
+                }
+                container.appendChild(eixoX);
+
+                // 🌟 NOVO: área onde aparecem as descrições ao clicar numa barra.
+                const detalhe = document.createElement('div');
+                detalhe.id = 'distribuicao-custo-detalhe';
+                detalhe.style.cssText = 'margin-top: 16px;';
+                container.appendChild(detalhe);
+            }
+
+            // 🌟 NOVO: mostra a descrição dos primeiros 10 fluxos da faixa clicada.
+            function mostrarDetalheBucketCustoVariavel(fluxosDoBucket, inicioBucket, fimBucket) {
+                const detalhe = document.getElementById('distribuicao-custo-detalhe');
+                if (!detalhe) return;
+                detalhe.innerHTML = '';
+
+                const formatar = (v) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+                // 🌟 NOVO: ordena por custo variável DECRESCENTE antes de
+                // pegar os 10 primeiros (não mexe no array original, que
+                // ainda é usado se o usuário clicar noutra barra depois).
+                const ordenados = [...fluxosDoBucket].sort((a, b) => b.custo_variavel_medio - a.custo_variavel_medio);
+
+                const titulo = document.createElement('h4');
+                titulo.style.cssText = 'margin: 0 0 8px 0; font-size: 13px; color: #333;';
+                const qtdMostrada = Math.min(10, ordenados.length);
+                titulo.textContent = `Faixa R$ ${formatar(inicioBucket)} a R$ ${formatar(fimBucket)} -- ${ordenados.length} fluxo(s), mostrando os ${qtdMostrada} de maior custo variável:`;
+                detalhe.appendChild(titulo);
+
+                const lista = document.createElement('ul');
+                lista.className = 'assistente-lista';
+                ordenados.slice(0, 10).forEach(f => {
+                    const li = document.createElement('li');
+                    li.textContent = (f.descricao || `Fluxo ${f.fluxo_id}`) + ' -- R$ ' + formatar(f.custo_variavel_medio);
+                    lista.appendChild(li);
+                });
+                detalhe.appendChild(lista);
+            }
+
+            // 🌟 NOVO: exporta o gráfico de distribuição de custo variável
+            // (o conteúdo inteiro do modal -- resumo, barras, eixo e o
+            // detalhe da faixa clicada, se houver) como PNG, usando
+            // html2canvas (já carregado pra exportação do fluxo).
+            // 🌟 NOVO: generalizada (recebe id do conteúdo, do botão e um
+            // prefixo pro nome do arquivo) pra servir qualquer um dos
+            // modais de gráfico, sem duplicar a função pra cada um.
+            async function exportarGraficoComoImagem(idConteudo, idBotao, prefixoArquivo) {
+                const conteudo = document.getElementById(idConteudo);
+                if (!conteudo || !conteudo.children.length) return;
+                const botao = document.getElementById(idBotao);
+                const textoOriginal = botao.textContent;
+                botao.textContent = 'Gerando…';
+                botao.disabled = true;
+                try {
+                    const canvas = await html2canvas(conteudo, { backgroundColor: '#ffffff', scale: 2 });
+                    const link = document.createElement('a');
+                    link.href = canvas.toDataURL('image/png');
+                    link.download = `${prefixoArquivo}_fluxo_${fluxoId}_${new Date().toISOString().slice(0, 10)}.png`;
+                    link.click();
+                } catch (error) {
+                    console.error('[Exportar gráfico] Erro:', error);
+                    alert('Erro ao gerar a imagem do gráfico. Verifique o console.');
+                } finally {
+                    botao.textContent = textoOriginal;
+                    botao.disabled = false;
+                }
+            }
+
+            // 🌟 NOVO: custo por equipamento DO FLUXO ABERTO -- gráfico de
+            // barras horizontais, código do equipamento no eixo vertical
+            // (ordenada), na ordem em que cada um aparece no fluxo.
+            async function abrirCustoPorEquipamento() {
+                if (!fluxoId) return;
+                const modal = document.getElementById('modal-custo-por-equipamento');
+                const conteudo = document.getElementById('custo-por-equipamento-conteudo');
+                conteudo.innerHTML = '<div class="carregando">Carregando…</div>';
+                document.getElementById('custo-por-equipamento-descricao-fluxo').textContent = document.getElementById('fluxo-descricao').value || '';
+                modal.style.display = 'block';
+
+                try {
+                    const response = await fetch(`/fluxo_producao/api/fluxo/${encodeURIComponent(fluxoId)}/custo_por_equipamento/`, {
+                        credentials: 'same-origin'
+                    });
+                    const data = await response.json();
+                    if (!response.ok) throw new Error(data.error || `Erro HTTP ${response.status}`);
+                    renderizarCustoPorEquipamento(conteudo, data.equipamentos);
+                } catch (error) {
+                    conteudo.innerHTML = '';
+                    const erro = document.createElement('div');
+                    erro.className = 'assistente-status invalido';
+                    erro.textContent = 'Não foi possível carregar o custo por equipamento: ' + error.message;
+                    conteudo.appendChild(erro);
+                }
+            }
+
+            function renderizarCustoPorEquipamento(container, equipamentos) {
+                container.innerHTML = '';
+
+                if (!equipamentos || equipamentos.length === 0) {
+                    const vazio = document.createElement('div');
+                    vazio.className = 'assistente-status carregando';
+                    vazio.textContent = 'Nenhuma contribuição de custo calculada pra esse fluxo.';
+                    container.appendChild(vazio);
+                    return;
+                }
+
+                const total = equipamentos.reduce((soma, e) => soma + e.contribuicao_media, 0);
+                const formatar = (v) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+                // 🌟 CORRIGIDO: a escala do gráfico não pode ser só "0 até
+                // o total final" -- se um valor negativo grande aparecer
+                // DEPOIS de vários positivos (ex: uma bonificação), o
+                // acumulado sobe bem mais alto que o total final antes de
+                // cair de volta. Preciso achar o PICO mais alto (e o vale
+                // mais baixo, se houver) que o acumulado atinge em
+                // QUALQUER ponto da cascata, e usar essa faixa inteira
+                // como escala -- senão a barra que faz a correção acaba
+                // posicionada fora da área visível (0%-100%).
+                let acumuladoTeste = 0;
+                const pontosAcumulados = [0];
+                equipamentos.forEach(e => {
+                    acumuladoTeste += e.contribuicao_media;
+                    pontosAcumulados.push(acumuladoTeste);
+                });
+                const minEscala = Math.min(0, ...pontosAcumulados);
+                const maxEscala = Math.max(0, ...pontosAcumulados);
+                const faixaEscala = (maxEscala - minEscala) || 1;
+                const paraPct = (v) => ((v - minEscala) / faixaEscala) * 100;
+
+                const resumo = document.createElement('p');
+                resumo.className = 'assistente-intro';
+                resumo.textContent = `${equipamentos.length} equipamento(s) na cadeia, em cascata até o custo total. Clique no código pra ver a descrição.`;
+                container.appendChild(resumo);
+
+                const grafico = document.createElement('div');
+                grafico.style.cssText = 'display: flex; flex-direction: column; gap: 10px;';
+
+                let acumulado = 0;
+                equipamentos.forEach(equip => {
+                    const valorContribuicao = equip.contribuicao_media;
+                    const inicioAntes = acumulado;
+                    acumulado += valorContribuicao;
+
+                    // Posição real (em %) dos dois extremos dessa barra,
+                    // na escala completa -- a barra vai do menor pro
+                    // maior dos dois, não importa se o valor é positivo
+                    // (avança) ou negativo (recua).
+                    const pctAntes = paraPct(inicioAntes);
+                    const pctDepois = paraPct(acumulado);
+                    const inicioPct = Math.min(pctAntes, pctDepois);
+                    const larguraPct = Math.abs(pctDepois - pctAntes);
+                    const corBarra = valorContribuicao < 0 ? '#e74c3c' : '#3498db';
+
+                    const linha = document.createElement('div');
+                    linha.style.cssText = 'display: flex; flex-direction: column; gap: 2px;';
+
+                    const linhaBarra = document.createElement('div');
+                    linhaBarra.style.cssText = 'display: flex; align-items: center; gap: 8px;';
+
+                    // 🌟 NOVO: código clicável -- mostra/esconde a
+                    // descrição do equipamento logo abaixo da barra.
+                    const rotulo = document.createElement('button');
+                    rotulo.type = 'button';
+                    rotulo.textContent = equip.codigo;
+                    rotulo.style.cssText = 'width: 130px; flex-shrink: 0; font-size: 12px; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: none; border: none; color: #3498db; text-decoration: underline; cursor: pointer; padding: 0;';
+
+                    const trilha = document.createElement('div');
+                    trilha.style.cssText = 'flex: 1; background-color: #f5f5f5; border-radius: 3px; height: 20px; position: relative;';
+
+                    // 🌟 NOVO: barra deslocada (posição = acumulado antes
+                    // dela) -- é isso que faz o efeito de cascata.
+                    const barra = document.createElement('div');
+                    barra.style.cssText = 'position: absolute; top: 0; bottom: 0; left: ' + inicioPct + '%; width: ' + larguraPct + '%; background-color: ' + corBarra + '; border-radius: 3px;';
+                    barra.title = equip.codigo + (equip.descricao ? ' -- ' + equip.descricao : '') + ' -- R$ ' + formatar(valorContribuicao);
+
+                    trilha.appendChild(barra);
+
+                    const valor = document.createElement('div');
+                    valor.textContent = 'R$ ' + formatar(equip.contribuicao_media);
+                    valor.style.cssText = 'width: 110px; flex-shrink: 0; font-size: 12px; color: #333;';
+
+                    linhaBarra.append(rotulo, trilha, valor);
+
+                    const descricao = document.createElement('div');
+                    descricao.textContent = equip.descricao || '(sem descrição)';
+                    descricao.style.cssText = 'margin-left: 138px; font-size: 11px; color: #666; display: none;';
+                    rotulo.addEventListener('click', function() {
+                        descricao.style.display = descricao.style.display === 'none' ? 'block' : 'none';
+                    });
+
+                    linha.append(linhaBarra, descricao);
+                    grafico.appendChild(linha);
+                });
+
+                container.appendChild(grafico);
+
+                // 🌟 NOVO: linha de TOTAL -- barra cheia (0 a 100%), em
+                // destaque, separada por uma borda.
+                const linhaTotal = document.createElement('div');
+                linhaTotal.style.cssText = 'display: flex; align-items: center; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 2px solid #333;';
+
+                const rotuloTotal = document.createElement('div');
+                rotuloTotal.textContent = 'TOTAL';
+                rotuloTotal.style.cssText = 'width: 130px; flex-shrink: 0; font-size: 12px; font-weight: bold; text-align: right;';
+
+                const trilhaTotal = document.createElement('div');
+                trilhaTotal.style.cssText = 'flex: 1; background-color: #f5f5f5; border-radius: 3px; height: 22px;';
+
+                // 🌟 CORRIGIDO: usa a mesma escala (paraPct) das barras
+                // individuais -- não é mais sempre "0% a 100%", porque a
+                // escala agora cobre o pico do acumulado, não só o total.
+                const totalInicioPct = Math.min(paraPct(0), paraPct(total));
+                const totalLarguraPct = Math.abs(paraPct(total) - paraPct(0));
+                const barraTotal = document.createElement('div');
+                barraTotal.style.cssText = 'position: absolute; top: 0; bottom: 0; left: ' + totalInicioPct + '%; width: ' + totalLarguraPct + '%; background-color: #2ecc71; border-radius: 3px;';
+                trilhaTotal.style.position = 'relative';
+                trilhaTotal.appendChild(barraTotal);
+
+                const valorTotal = document.createElement('div');
+                valorTotal.textContent = 'R$ ' + formatar(total);
+                valorTotal.style.cssText = 'width: 110px; flex-shrink: 0; font-size: 12px; font-weight: bold; color: #333;';
+
+                linhaTotal.append(rotuloTotal, trilhaTotal, valorTotal);
+                container.appendChild(linhaTotal);
             }
 
             function carregarEquipamentos() {

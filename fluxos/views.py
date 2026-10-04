@@ -257,6 +257,110 @@ def api_fluxo_inspecao(request, fluxo_id):
 
 
 @login_required
+@require_GET
+def api_fluxo_custo_variavel_distribuicao(request, fluxo_id):
+    """
+    🌟 NOVO: distribuição do custo variável médio (flu_pro_custo_variavel_medio)
+    de TODOS os fluxos de produção do MESMO produto/cenário do fluxo aberto
+    -- usado pelo botão da aba "Análise do fluxo" do Assistente IA, no
+    editor, que mostra um gráfico de barras com essa distribuição.
+
+    Se algum fluxo desse produto/cenário estiver com
+    flu_pro_input_output_atualizado=False, não calcula nada e devolve um
+    aviso -- o I/O precisa estar atualizado em TODOS pra o custo fazer
+    sentido comparado lado a lado.
+    """
+    fluxo = _fluxo_acessivel_ou_404(request.user, fluxo_id)
+
+    if fluxo.flu_pro_produto_id is None:
+        return JsonResponse({'error': 'Este fluxo não tem produto definido.'}, status=400)
+
+    fluxos_do_produto = TbFluxoProducao.objects.filter(
+        flu_pro_produto_id=fluxo.flu_pro_produto_id,
+        tbcenarios_id=fluxo.tbcenarios_id,
+    )
+
+    if fluxos_do_produto.filter(flu_pro_input_output_atualizado=False).exists():
+        return JsonResponse({
+            'atualizado': False,
+            'mensagem': 'Temos fluxo de produção para esse produto desatualizado em I/O. '
+                        'Favor atualizar e repetir o procedimento.',
+        })
+
+    # 🌟 NOVO: manda fluxo_id e descrição de cada um, não só o valor solto
+    # -- usado no front pra destacar a barra do fluxo em análise (verde) e
+    # pra mostrar a descrição dos fluxos ao clicar numa barra.
+    valores = list(
+        fluxos_do_produto.exclude(flu_pro_custo_variavel_medio__isnull=True)
+        .values_list('id', 'flu_pro_descricao', 'flu_pro_custo_variavel_medio')
+    )
+
+    return JsonResponse({
+        'atualizado': True,
+        'total_fluxos': fluxos_do_produto.count(),
+        'fluxo_atual_id': fluxo.id,
+        'valores': [
+            {'fluxo_id': fid, 'descricao': descricao or '', 'custo_variavel_medio': float(valor)}
+            for fid, descricao, valor in valores
+        ],
+    })
+
+
+@login_required
+@require_GET
+def api_fluxo_custo_por_equipamento(request, fluxo_id):
+    """
+    🌟 NOVO: contribuição de custo variável de cada equipamento
+    (CONSOLIDADO -- soma as ordens diferentes de um mesmo equipamento,
+    se houver mais de uma no fluxo) DENTRO do fluxo aberto (diferente da
+    distribuição, que olha todos os fluxos do produto) -- usada pelo
+    botão "Custo Por Equipamento" na aba "Análise do fluxo".
+
+    Roda a procedure calcula_contribuicao_custo_fluxo_producao (grava o
+    resultado numa tabela temporária, isolada por sessão), soma o nível
+    1 dela (por equipamento/ordem) a nível de equ_cad_codigo -- usando a
+    descrição DO EQUIPAMENTO (equ_cad_descricao), não da ordem --
+    ordenado pela COLUNA em que o equipamento aparece primeiro no fluxo
+    (qualquer uma das ordens dele), ou seja, na ordem em que as
+    ocorrências aparecem na cadeia, não por valor.
+    """
+    fluxo = _fluxo_acessivel_ou_404(request.user, fluxo_id)
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "call public.calcula_contribuicao_custo_fluxo_producao(%s, %s)",
+            [fluxo.tbcenarios_id, fluxo.id],
+        )
+        cursor.execute("""
+            SELECT
+                cad.equ_cad_codigo AS codigo,
+                cad.equ_cad_descricao AS descricao,
+                SUM(t.contribuicao_media) AS contribuicao_media,
+                MIN(flu.flu_pro_inp_out_coluna) AS primeira_coluna
+            FROM tmp_contribuicao_custo_fluxo t
+            JOIN equipamentos_tbequipamentos eq ON eq.id = t.equipamento_id
+            JOIN equipamentos_tbequipamentoscadastro cad ON cad.id = eq.equ_codigo_id
+            JOIN fluxos_tbfluxoproducaoinputoutput flu
+                ON flu.flu_pro_inp_out_equipamento_id = t.equipamento_id AND flu.mae_id = %s
+            GROUP BY cad.equ_cad_codigo, cad.equ_cad_descricao
+            ORDER BY primeira_coluna ASC
+        """, [fluxo.id])
+        colunas = [c[0] for c in cursor.description]
+        linhas = [dict(zip(colunas, row)) for row in cursor.fetchall()]
+
+    equipamentos_lista = [
+        {
+            'codigo': l['codigo'],
+            'descricao': l['descricao'] or '',
+            'contribuicao_media': float(l['contribuicao_media']),
+        }
+        for l in linhas
+    ]
+
+    return JsonResponse({'equipamentos': equipamentos_lista})
+
+
+@login_required
 @require_POST
 def api_fluxo_salvar(request):
     """

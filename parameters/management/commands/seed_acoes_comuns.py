@@ -26,7 +26,8 @@ ACOES = [
     ('Cenário', 'exportar_dados_otimizacao', 'Cenário - Exportar Dados de Otimização do Cenário Ativo'),
     ('Custo Ferbasa', 'atualizar_producao_ggf_mensal', 'Custo Ferbasa - Atualizar Produção e GGF Mensal'),
     ('Custo Ferbasa', 'atualizar_consumo_especifico_custo_variavel', 'Custo Ferbasa - Atualizar Consumo Específico e Custo Variável'),
-    ('Fluxos de Produção', 'criar_no_editor', 'Fluxos de Produção - Criar/Atualizar Fluxos no Editor'),
+    ('Fluxos de Produção', 'criar_no_editor', 'Fluxos de Produção - Atualizar Visão do Fluxo de Produção'),
+    ('Fluxos de Produção', 'criar_fluxos_produto', 'Fluxos de Produção - Atualizar Fluxos de Produção por Produto'),
 ]
 
 

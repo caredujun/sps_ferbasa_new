@@ -7,6 +7,7 @@ from django.core.exceptions import ValidationError
 from tabelas.models import TbFamiliaProduto, TbMercado, TbEquacaoAjustePreco, TbEmpresa, TbCambio, atualiza_cenario, \
     TbUnidadeProducao, TbIndicadores
 from parameters.models import TbCenarios
+from parameters.contexto_usuario import limit_choices_to_empresa_ativa
 import fluxos
 
 # Para permitir mostrar valores numéricos no padrão Brasil
@@ -92,7 +93,7 @@ class TbProdutos(models.Model):  # NÃO TEM CAMPO DO CENÁRIO. SERÁ USADO POR T
     pro_ativo = models.BooleanField(blank=False, null=False, default=True, verbose_name='Ativo')
     pro_unidade_producao = models.CharField(max_length=3, choices=UnidadeProducaoChoices.choices,
                                             verbose_name='Unidade')
-    pro_familia = models.ForeignKey(TbFamiliaProduto, on_delete=models.CASCADE, verbose_name='Família')
+    pro_familia = models.ForeignKey(TbFamiliaProduto, on_delete=models.CASCADE, verbose_name='Família', limit_choices_to=limit_choices_to_empresa_ativa)
     pro_imagem = models.ImageField(upload_to='produtos', null=True, blank=True, verbose_name='Imagem')
     pro_observacao = models.TextField(verbose_name='Observação', blank=True, null=True)
     tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')

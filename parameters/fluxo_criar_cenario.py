@@ -116,6 +116,10 @@ ETAPAS_AGUARDANDO_CELERY = {
     # encerra o acompanhamento (a montagem em si continua em segundo
     # plano).
     'fp_criar_no_editor_aguardando',
+    # 🌟 NOVO: "Fluxos de Produção - Criar Fluxos de Produção dos
+    # Produtos" -- enquanto gerar_fluxos_produto_celery roda em segundo
+    # plano, mesmo padrão de sondagem automática + barra de progresso.
+    'fp_criar_fluxos_produto_aguardando',
 }
 
 # 🌟 NOVO: se um fluxo ficar parado por mais que isso, sem nenhuma
@@ -2119,6 +2123,165 @@ def _etapa_fp_criar_no_editor_aguardando(estado, texto):
     if erros:
         resposta += "\n\n⚠️ Alguns fluxos tiveram problema: " + "; ".join(erros)
     return resposta
+
+
+# =======================================================================
+# 🌟 NOVO: "Fluxos de Produção - Criar Fluxos de Produção dos Produtos" --
+# lista os produtos do cenário ativo (com a qtde atual de fluxos entre
+# parênteses), deixa o usuário escolher um, calcula os fluxos novos e
+# compara com os existentes. Se já existir algo e for diferente, pergunta
+# se quer substituir; se for igual, avisa que não vale a pena; se não
+# existir nada ainda, avisa que essa parte ainda não foi desenvolvida.
+# =======================================================================
+
+def iniciar_fluxo_criar_fluxos_produto(usuario):
+    perfil = getattr(usuario, 'perfilusuario', None)
+    if perfil is None or perfil.cenario_ativo_id is None:
+        return "Você ainda não tem um cenário ativo escolhido. Acesse a tela de Cenários e ative um antes."
+
+    cenario = TbCenarios.objects_real.filter(id=perfil.cenario_ativo_id).first()
+    if cenario is None:
+        return "O cenário que estava ativo pra você não existe mais."
+
+    from produtos.models import TbProdutos
+    from fluxos.models import TbFluxoProducao
+    from django.db.models import Count
+
+    produtos = list(TbProdutos.objects.filter(tbcenarios_id=cenario.id).order_by('pro_codigo'))
+    if not produtos:
+        return f"Não encontrei nenhum produto cadastrado no cenário **{cenario.numero_sequencial}/{cenario.cen_nome}**."
+
+    contagem_qs = (
+        TbFluxoProducao.objects.filter(tbcenarios_id=cenario.id, flu_pro_produto_id__in=[p.id for p in produtos])
+        .values('flu_pro_produto_id')
+        .annotate(qtd=Count('id'))
+    )
+    contagem = {item['flu_pro_produto_id']: item['qtd'] for item in contagem_qs}
+
+    # 🌟 NOVO: em vez de listar em texto (que tem limite de 12 botões no
+    # mecanismo genérico, e duplica o texto junto com os botões), embute
+    # um marcador -- igual ao [FORM_PERIODO:...] -- que o front-end usa
+    # pra desenhar a grade de botões direto, sem limite e sem repetir o
+    # texto. "=" separa código de quantidade, "|" separa os produtos --
+    # nenhum dos dois aparece em código de produto.
+    itens_marcador = "|".join(f"{p.pro_codigo}={contagem.get(p.id, 0)}" for p in produtos)
+
+    estado = _get_estado(usuario)
+    estado.fluxo_ativo = FLUXO_PROCESSAR
+    estado.etapa_atual = 'fp_criar_fluxos_produto_escolher'
+    estado.dados_coletados = {'cenario_id': cenario.id, 'cenario_nome': cenario.cen_nome}
+    estado.save()
+
+    return (
+        "Pra qual produto você quer gerar os fluxos de produção? O número ao lado do código é a "
+        "quantidade de fluxos que já existem hoje pra esse produto.\n\n"
+        f"[LISTA_PRODUTOS:{itens_marcador}]"
+    )
+
+
+def _etapa_fp_criar_fluxos_produto_escolher(estado, texto):
+    dados = estado.dados_coletados or {}
+    cenario_id = dados.get('cenario_id')
+
+    from produtos.models import TbProdutos
+    produto = TbProdutos.objects.filter(tbcenarios_id=cenario_id, pro_codigo__iexact=texto.strip()).first()
+    if produto is None:
+        return (
+            "Não encontrei esse produto no cenário ativo. Digita o código exatamente como apareceu na "
+            "lista, ou \"Cancelar\" pra desistir."
+        )
+
+    from fluxos.gerar_fluxos_por_produto import comparar_fluxos_existentes, GeracaoFluxoError
+
+    try:
+        comparacao = comparar_fluxos_existentes(produto.id)
+    except GeracaoFluxoError as erro:
+        _encerrar_fluxo(estado)
+        return f"Não consegui calcular os fluxos do produto **{produto.pro_codigo}**: {erro}"
+
+    if comparacao['qtd_existente'] == 0:
+        _encerrar_fluxo(estado)
+        return (
+            f"O produto **{produto.pro_codigo}** ainda não tem nenhum fluxo de produção cadastrado. "
+            "Gerar do zero (sem nada existente pra comparar) é uma etapa que ainda vamos desenvolver "
+            "depois -- por enquanto, não fiz nada."
+        )
+
+    if not comparacao['mudou']:
+        _encerrar_fluxo(estado)
+        return (
+            f"O produto **{produto.pro_codigo}** já tem **{comparacao['qtd_existente']}** fluxo(s), e são "
+            "exatamente os mesmos que eu geraria agora -- não vale a pena mexer em nada. Não fiz nada."
+        )
+
+    # 🌟 NOVO: em vez de "apagar tudo e gravar tudo", agora só mexe na
+    # DIFERENÇA -- o que está sobrando/errado é removido, o que está
+    # faltando é criado, o resto (já certo) fica intocado.
+    qtd_remover = len(comparacao['mae_ids_a_remover'])
+    qtd_criar = len(comparacao['planos_a_criar'])
+
+    estado.etapa_atual = 'fp_criar_fluxos_produto_confirmar'
+    estado.dados_coletados = {**dados, 'produto_id': produto.id, 'produto_codigo': produto.pro_codigo}
+    estado.save()
+
+    return (
+        f"O produto **{produto.pro_codigo}** já tem **{comparacao['qtd_existente']}** fluxo(s) cadastrado(s), "
+        f"dos quais **{comparacao['qtd_iguais']}** já batem certinho com o que eu calcularia agora.\n\n"
+        f"Pra deixar tudo certo, eu precisaria **remover {qtd_remover}** fluxo(s) que estão errados/sobrando "
+        f"e **criar {qtd_criar}** que estão faltando -- o resto não seria tocado.\n\n"
+        "Quer que eu faça isso? (Sim / Não)"
+    )
+
+
+def _etapa_fp_criar_fluxos_produto_confirmar(estado, texto):
+    dados = estado.dados_coletados or {}
+    produto_id = dados.get('produto_id')
+    produto_codigo = dados.get('produto_codigo', '')
+
+    resposta = texto.strip().lower()
+    if resposta not in ('sim', 'não', 'nao'):
+        return "Não entendi -- responde \"Sim\" pra substituir ou \"Não\" pra deixar como está."
+
+    if resposta != 'sim':
+        _encerrar_fluxo(estado)
+        return "Ok, não mexi em nada -- o banco continua como estava."
+
+    from fluxos.tasks import gerar_fluxos_produto_celery
+
+    estado.etapa_atual = 'fp_criar_fluxos_produto_aguardando'
+    estado.dados_coletados = {**dados, 'status': 'processando'}
+    estado.save()
+
+    gerar_fluxos_produto_celery.delay(produto_id, estado.usuario_id)
+
+    return (
+        f"Sincronizando os fluxos do produto **{produto_codigo}** em segundo plano -- só mexendo no que "
+        "está errado/faltando, o resto fica como está."
+    )
+
+
+def _etapa_fp_criar_fluxos_produto_aguardando(estado, texto):
+    dados = estado.dados_coletados or {}
+    produto_codigo = dados.get('produto_codigo', '')
+    status = dados.get('status')
+
+    if status == 'processando':
+        return f"Ainda sincronizando os fluxos do produto **{produto_codigo}**."
+
+    _encerrar_fluxo(estado)
+
+    if status == 'erro':
+        return f"Não consegui sincronizar os fluxos do produto **{produto_codigo}**: {dados.get('mensagem', 'erro desconhecido')}."
+
+    if status != 'concluido':
+        return "Não consegui identificar o status da sincronização. Cancelei o acompanhamento -- pode pedir de novo se quiser."
+
+    total_removidos = dados.get('total_removidos', 0)
+    total_criados = dados.get('total_criados', 0)
+    return (
+        f"✅ Pronto -- produto **{produto_codigo}**: **{total_removidos}** fluxo(s) removido(s) e "
+        f"**{total_criados}** criado(s). O resto não foi tocado."
+    )
 
 
 def _etapa_exportar_otimizacao_aguardando(estado, texto):
@@ -5271,6 +5434,9 @@ _HANDLERS_PROCESSAR = {
     'exportar_otimizacao_aguardando': _etapa_exportar_otimizacao_aguardando,
     'exportar_otimizacao_aguardando_email': _etapa_exportar_otimizacao_aguardando_email,
     'fp_criar_no_editor_aguardando': _etapa_fp_criar_no_editor_aguardando,
+    'fp_criar_fluxos_produto_escolher': _etapa_fp_criar_fluxos_produto_escolher,
+    'fp_criar_fluxos_produto_confirmar': _etapa_fp_criar_fluxos_produto_confirmar,
+    'fp_criar_fluxos_produto_aguardando': _etapa_fp_criar_fluxos_produto_aguardando,
 }
 
 

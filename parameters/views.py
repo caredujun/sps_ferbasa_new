@@ -68,6 +68,36 @@ _PALAVRAS_CHAVE_BOTAO = {
 _PADRAO_FORM_PERIODO = re.compile(r'\n*\[FORM_PERIODO:(\d{4}/\d{2}):(\d{4}/\d{2})\]')
 
 
+_PADRAO_LISTA_PRODUTOS = re.compile(r'\n*\[LISTA_PRODUTOS:([^\]]*)\]')
+
+
+def _extrair_lista_produtos(texto):
+    """
+    🌟 NOVO: mesmo princípio do _extrair_form_periodo logo abaixo --
+    detecta o marcador [LISTA_PRODUTOS:codigo=qtde|codigo=qtde|...] que
+    o wizard "Fluxos de Produção - Criar Fluxos de Produção dos
+    Produtos" embute na mensagem, e devolve (texto_sem_marcador, lista),
+    onde lista é [{'codigo':..., 'qtde': int}, ...]. Usado pra desenhar
+    os produtos como grade de botões no chat, SEM o limite de 12 do
+    mecanismo genérico de opções (_extrair_opcoes_clicaveis) e sem
+    duplicar a lista como texto solto.
+    """
+    m = _PADRAO_LISTA_PRODUTOS.search(texto)
+    if not m:
+        return texto, None
+    itens = []
+    for parte in m.group(1).split('|'):
+        if '=' not in parte:
+            continue
+        codigo, _, qtde = parte.rpartition('=')
+        try:
+            qtde = int(qtde)
+        except ValueError:
+            continue
+        itens.append({'codigo': codigo, 'qtde': qtde})
+    return _PADRAO_LISTA_PRODUTOS.sub('', texto), itens
+
+
 def _extrair_form_periodo(texto):
     """
     🌟 NOVO: detecta o marcador [FORM_PERIODO:min:max] que o fluxo de
@@ -126,7 +156,13 @@ def _extrair_opcoes_clicaveis(texto):
 
     m_lista = re.search(
         r'(?:Indicadores cadastrados|Taxas de câmbio cadastradas|Períodos e valores atuais|'
-        r'Alguns cenários recentes|Alguns grupos existentes|Moedas disponíveis):\n'
+        r'Alguns cenários recentes|Alguns grupos existentes|Moedas disponíveis|'
+        # 🌟 NOVO: "Fluxos de Produção - Criar Fluxos de Produção dos
+        # Produtos" -- lista de produtos do cenário ativo, cada um com
+        # "(qtde atual de fluxos)" no final -- removido pelo mesmo
+        # mecanismo de parênteses abaixo, sobrando só o código do
+        # produto como valor do botão.
+        r'Produtos do cenário ativo):\n'
         r'((?:-\s.+\n?)+)',
         texto
     )
@@ -334,6 +370,11 @@ def chat_view(request):
         resposta_original, form_periodo = _extrair_form_periodo(resposta_original)
         resposta, _ignorar_form = _extrair_form_periodo(resposta)
 
+        # 🌟 NOVO: mesmo princípio, pro marcador [LISTA_PRODUTOS:...] do
+        # wizard "Criar Fluxos de Produção dos Produtos".
+        resposta_original, lista_produtos = _extrair_lista_produtos(resposta_original)
+        resposta, _ignorar_lista = _extrair_lista_produtos(resposta)
+
         # 🌟 CORRIGIDO: extrai as opções clicáveis do texto ORIGINAL (em
         # português), não do texto já traduzido -- a extração procura
         # frases exatas em português ("Indicadores cadastrados:", "(sim /
@@ -422,6 +463,7 @@ def chat_view(request):
             "aguardando_poll": aguardando_poll,
             "etapa_atual": etapa_atual,
             "form_periodo": form_periodo,
+            "lista_produtos": lista_produtos,
             "nome_empresa": nome_empresa_atual,
             "nome_cenario": nome_cenario_atual,
             "status_cenario": status_cenario_atual,

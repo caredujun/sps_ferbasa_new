@@ -23,6 +23,7 @@ from .fluxo_criar_cenario import (
     etapa_atual_do_usuario, ETAPAS_AGUARDANDO_CELERY,
     iniciar_exportar_dados_otimizacao_cenario_ativo,
     iniciar_criar_fluxo_no_editor_cenario_ativo,
+    iniciar_fluxo_criar_fluxos_produto,
     _processar_planilha_indicador, _processar_planilha_cambio,
     _buscar_indicador, _lista_indicadores, _lista_periodos_indicador,
     _buscar_cambio, _lista_cambios, _lista_periodos_cambio,
@@ -242,6 +243,17 @@ def _detectar_intencao_exportar_dados_otimizacao(mensagem):
 def _detectar_intencao_criar_fluxo_no_editor(mensagem):
     texto = mensagem or ""
     return bool(re.search(r'(cri[ae]r?|mont[ae]r?|atualiz[ae]r?).*fluxo.*editor', texto, re.IGNORECASE))
+
+
+# 🌟 NOVO: "Fluxos de Produção - Criar Fluxos de Produção dos Produtos" --
+# diferente da ação acima (que monta o EDITOR VISUAL a partir de fluxos
+# já cadastrados), essa gera os PRÓPRIOS fluxos (TbFluxoProducao +
+# TbFluxoProducaoDaugther) a partir da cadeia de consumo padrão de um
+# produto. Testado pra não colidir com o regex acima (nenhum dos dois
+# textos de botão bate no regex do outro).
+def _detectar_intencao_criar_fluxos_produto(mensagem):
+    texto = mensagem or ""
+    return bool(re.search(r'(cri[ae]r?|ger[ae]r?).*fluxo.*produ[cç][aã]o', texto, re.IGNORECASE))
 
 
 # 🌟 NOVO: "atualizar produção e ggf mensal" (app custo_ferbasa) --
@@ -985,6 +997,17 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
         if esta_em_fluxo:
             cancelar_fluxo_ativo(usuario)
         resposta = iniciar_criar_fluxo_no_editor_cenario_ativo(usuario)
+        _salvar_historico(usuario, mensagem_usuario, resposta)
+        return resposta, []
+
+    # 🌟 NOVO: usuário pedindo pra criar os fluxos de produção dos produtos
+    # do cenário ativo (a partir da cadeia de consumo padrão, não do
+    # editor visual) -- lista os produtos, deixa escolher, compara com o
+    # que já existe.
+    if _detectar_intencao_criar_fluxos_produto(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Fluxos de Produção', 'criar_fluxos_produto'):
+        if esta_em_fluxo:
+            cancelar_fluxo_ativo(usuario)
+        resposta = iniciar_fluxo_criar_fluxos_produto(usuario)
         _salvar_historico(usuario, mensagem_usuario, resposta)
         return resposta, []
 
