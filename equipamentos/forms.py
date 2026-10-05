@@ -1,6 +1,8 @@
 from django import forms
+from django.utils.text import format_lazy
 from django.utils.translation import gettext_lazy as _
 from .models import *
+from parameters.widget_escolhidos_sem_fluxo import WidgetEscolhidosSemFluxo
 
 class TbEquipamentosCadastroOrdemDaugtherFormAdmin(forms.ModelForm):
     pass
@@ -94,6 +96,44 @@ class TbEquipamentosFormAdmin(forms.ModelForm):
                     self.fields['equ_codigo'].queryset = TbEquipamentosCadastro.objects.filter(tbcenarios_id=ativo)
                 except:
                     pass
+
+        # Fora dos try/except acima de propósito: eles engolem qualquer erro em
+        # silêncio, e isto precisa aparecer se algo estiver errado.
+        self._configurar_produtos_escolhidos()
+
+    def _configurar_produtos_escolhidos(self):
+        """
+        🌟 NOVO: passa ao seletor de "Produtos Que Usam" (equ_produtos) os produtos que
+        NÃO aparecem em nenhum fluxo que use este equipamento/ordem, pra os escolhidos
+        entre eles ficarem em vermelho (ver parameters/widget_escolhidos_sem_fluxo.py).
+        O widget em si é trocado em TbEquipamentosAdmin.formfield_for_manytomany --
+        o Admin sobrescreve o widget dos campos de filter_horizontal, então não dá
+        pra defini-lo aqui.
+        """
+        campo = self.fields.get('equ_produtos')
+        if campo is None or self.instance.pk is None:
+            return
+        # No Admin o widget vem embrulhado (ícones de adicionar/alterar): desembrulha.
+        widget = getattr(campo.widget, 'widget', campo.widget)
+        if not isinstance(widget, WidgetEscolhidosSemFluxo):
+            return
+        usados_nos_fluxos = self.instance._ids_produtos_usados()
+        todos_do_cenario = set(campo.queryset.values_list('pk', flat=True))
+        widget.ids_sem_fluxo = todos_do_cenario - usados_nos_fluxos
+        widget.dica_vermelho = 'produto escolhido, mas nenhum fluxo dele usa este equipamento/ordem'
+
+        # Legenda embaixo do campo -- a mesma que o produto já mostra no campo dele. Fica FIXA
+        # (não depende de haver item vermelho), igual ao produto. É SOMADA ao texto que o Admin
+        # já coloca em todo campo de seleção múltipla ("Hold down Control..."), em vez de
+        # substituí-lo. Só entra aqui, depois de confirmar que o seletor com vermelho está
+        # ativo (senão a legenda descreveria algo que não acontece), e só em equipamento já
+        # gravado (no "adicionar" não existe o painel "Produtos Usados nos Fluxos" que ela cita).
+        legenda = _(
+            'Em vermelho: produto escolhido, mas nenhum fluxo dele usa este equipamento/ordem. '
+            'Compare com o painel "Produtos Usados nos Fluxos" abaixo.'
+        )
+        campo.help_text = format_lazy('{} {}', legenda, campo.help_text) if campo.help_text else legenda
+
 
 class TbEquipamentosConsumoEspecificoDaugtherItensFormAdmin(forms.ModelForm):
     pass

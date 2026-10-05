@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 from django.shortcuts import render, redirect
@@ -96,6 +97,40 @@ def _extrair_lista_produtos(texto):
             continue
         itens.append({'codigo': codigo, 'qtde': qtde})
     return _PADRAO_LISTA_PRODUTOS.sub('', texto), itens
+
+
+# 🌟 NOVO: marcador [LISTA_EQUIPAMENTOS] do fluxo "Equipamentos - Criar Novo
+# Equipamento". Diferente do [LISTA_PRODUTOS:...], NÃO carrega dados: só avisa
+# "desenhe a grade de cartões de equipamento". Os dados (imagem, código,
+# descrição, qtde de ordens) saem do banco aqui no chat_view, na hora da
+# resposta -- assim o histórico do chat guarda só o marcador, não dezenas de KB.
+_PADRAO_LISTA_EQUIPAMENTOS = re.compile(r'\n*\[LISTA_EQUIPAMENTOS\]')
+
+
+# 🌟 NOVO: marcadores dos formulários do "Criar Novo Equipamento" (clone): [FORM_EQUIPAMENTO:<json em base64>] traz
+# o código/descrição do novo equipamento e [FORM_ORDENS:<json em base64>] traz as ordens e a lista de Tipos de Produção.
+# O fluxo (fluxo_criar_cenario.py) já monta o conteúdo; aqui só se decodifica e se manda pro front-end desenhar.
+_PADRAO_FORM_EQUIPAMENTO = re.compile(r'\n*\[FORM_EQUIPAMENTO:([A-Za-z0-9_=-]*)\]')
+_PADRAO_FORM_ORDENS = re.compile(r'\n*\[FORM_ORDENS:([A-Za-z0-9_=-]*)\]')
+
+
+def _extrair_form_base64(padrao, texto):
+    """Devolve (texto_sem_marcador, dict|None). Marcador ilegível some do texto e vira None (nunca quebra a resposta)."""
+    m = padrao.search(texto or '')
+    if not m:
+        return texto, None
+    try:
+        dados = json.loads(base64.urlsafe_b64decode(m.group(1).encode('ascii')).decode('utf-8'))
+    except (ValueError, TypeError):
+        dados = None
+    return padrao.sub('', texto), (dados if isinstance(dados, dict) else None)
+
+
+def _extrair_lista_equipamentos(texto):
+    """Devolve (texto_sem_marcador, achou_o_marcador)."""
+    if not _PADRAO_LISTA_EQUIPAMENTOS.search(texto or ''):
+        return texto, False
+    return _PADRAO_LISTA_EQUIPAMENTOS.sub('', texto), True
 
 
 def _extrair_form_periodo(texto):
@@ -299,7 +334,7 @@ def trocar_idioma_view(request):
 # 🌟 NOVO (Ações Comuns por empresa): categoria -> prefixo usado nas
 # chaves do dict (ex: "ind_editar", "cam_grafico", "cen_excluir") -- pra
 # casar com os nomes já usados nos <option> do chat.html.
-_PREFIXO_CATEGORIA_ACAO = {'Indicadores': 'ind', 'Câmbio': 'cam', 'Cenário': 'cen', 'Custo Ferbasa': 'cf', 'Fluxos de Produção': 'fp'}
+_PREFIXO_CATEGORIA_ACAO = {'Indicadores': 'ind', 'Câmbio': 'cam', 'Cenário': 'cen', 'Custo Ferbasa': 'cf', 'Fluxos de Produção': 'fp', 'Equipamentos': 'equ'}
 
 
 def _mapa_acoes_comuns_habilitadas(usuario):
@@ -338,9 +373,122 @@ def _mapa_acoes_comuns_habilitadas(usuario):
     return mapa
 
 
+# ---------------------------------------------------------------------
+# 🌟 NOVO: "Equipamentos - Criar Novo Equipamento" -- dados dos cartões de
+# equipamento (escolha do clone) e da janela com as ordens de produção.
+# Tudo restrito ao cenário ATIVO do usuário, como o resto do chat.
+# ---------------------------------------------------------------------
+def _cenario_ativo_id_do_usuario(usuario):
+    perfil = PerfilUsuario.objects.filter(usuario_id=usuario.id).first()
+    return perfil.cenario_ativo_id if perfil else None
+
+
+def _dados_cartoes_equipamentos(usuario):
+    """[{id, codigo, descricao, imagem, qtde_ordens}] -- um por TbEquipamentosCadastro do cenário ativo.
+    qtde_ordens = quantas ordens de produção (TbEquipamentos) esse equipamento tem no cenário."""
+    cenario_id = _cenario_ativo_id_do_usuario(usuario)
+    if cenario_id is None:
+        return []
+    from django.db.models import Count
+    from equipamentos.models import TbEquipamentosCadastro, TbEquipamentos
+    contagem = {
+        item['equ_codigo_id']: item['qtd']
+        for item in TbEquipamentos.objects.filter(tbcenarios_id=cenario_id)
+        .values('equ_codigo_id').annotate(qtd=Count('id')).order_by()
+    }
+    cartoes = []
+    for cad in TbEquipamentosCadastro.objects.filter(tbcenarios_id=cenario_id).order_by('equ_cad_codigo'):
+        try:
+            imagem = cad.equ_cad_imagem.url if cad.equ_cad_imagem else None
+        except Exception:
+            imagem = None   # arquivo/armazenamento indisponível: o cartão mostra "Sem imagem"
+        cartoes.append({
+            'id': cad.id, 'codigo': cad.equ_cad_codigo, 'descricao': cad.equ_cad_descricao,
+            'imagem': imagem, 'qtde_ordens': contagem.get(cad.id, 0),
+        })
+    return cartoes
+
+
+def _fluxos_usando_por_equipamento(ids):
+    """{equipamento_id: qtde de fluxos DISTINTOS que o usam como origem ou destino} -- a mesma regra do
+    qtde_fluxos_usando do Admin de Equipamentos, mas pra vários de uma vez (2 consultas no total)."""
+    from collections import defaultdict
+    from django.db.models import Q
+    from fluxos.models import TbFluxoConsumoPadrao, TbFluxoProducaoDaugther
+    ids = set(ids)
+    if not ids:
+        return {}
+    consumos = list(TbFluxoConsumoPadrao.objects.filter(
+        Q(flu_con_pad_from_equipamento_id__in=ids) | Q(flu_con_pad_to_equipamento_id__in=ids)
+    ).values_list('id', 'flu_con_pad_from_equipamento_id', 'flu_con_pad_to_equipamento_id'))
+    if not consumos:
+        return {}
+    fluxos_por_consumo = defaultdict(set)
+    pares = (
+        TbFluxoProducaoDaugther.objects
+        .filter(flu_pro_dau_consumo_padrao_id__in=[c[0] for c in consumos])
+        .values_list('flu_pro_dau_consumo_padrao_id', 'mae_id').order_by().distinct()
+    )
+    for consumo_id, mae_id in pares:
+        fluxos_por_consumo[consumo_id].add(mae_id)
+    fluxos_por_equip = defaultdict(set)
+    for consumo_id, origem, destino in consumos:
+        for equip_id in (origem, destino):
+            if equip_id in ids:
+                fluxos_por_equip[equip_id] |= fluxos_por_consumo.get(consumo_id, set())
+    return {equip_id: len(fluxos) for equip_id, fluxos in fluxos_por_equip.items()}
+
+
+def _dados_ordens_equipamento(usuario, cadastro_id):
+    """Detalhes das ordens de produção de um equipamento do cenário ativo. None se o equipamento
+    não existir NESSE cenário (nunca devolve dados de outro cenário/empresa)."""
+    cenario_id = _cenario_ativo_id_do_usuario(usuario)
+    if cenario_id is None:
+        return None
+    from equipamentos.models import TbEquipamentosCadastro, TbEquipamentos
+    cad = TbEquipamentosCadastro.objects.filter(id=cadastro_id, tbcenarios_id=cenario_id).first()
+    if cad is None:
+        return None
+    ordens = list(
+        TbEquipamentos.objects.filter(equ_codigo_id=cad.id, tbcenarios_id=cenario_id)
+        .select_related('equ_tipo_producao', 'equ_e_clone_de__equ_codigo').order_by('equ_ordem_codigo')
+    )
+    fluxos = _fluxos_usando_por_equipamento([o.id for o in ordens])
+    return {
+        'codigo': cad.equ_cad_codigo,
+        'descricao': cad.equ_cad_descricao,
+        'ordens': [{
+            'ordem': o.equ_ordem_codigo,
+            'descricao': o.equ_ordem_descricao,
+            'tipo_producao': str(o.equ_tipo_producao) if o.equ_tipo_producao_id else '',
+            'wip': o.equ_wip,
+            'clone_de': (f'{o.equ_e_clone_de.equ_codigo.equ_cad_codigo}/{o.equ_e_clone_de.equ_ordem_codigo}'
+                         if o.equ_e_clone_de_id else ''),
+            'qtde_fluxos': fluxos.get(o.id, 0),
+        } for o in ordens],
+    }
+
+
+def _resposta_detalhes_ordens_equipamento(request):
+    try:
+        cadastro_id = int(request.POST.get("detalhes_ordens_equipamento"))
+    except (TypeError, ValueError):
+        return JsonResponse({"ok": False, "erro": "Equipamento inválido."}, status=400)
+    dados = _dados_ordens_equipamento(request.user, cadastro_id)
+    if dados is None:
+        return JsonResponse({"ok": False, "erro": "Equipamento não encontrado no cenário ativo."}, status=404)
+    return JsonResponse({"ok": True, **dados})
+
+
 @exige_acesso_ao_agente_ia
 def chat_view(request):
     if request.method == "POST":
+        # 🌟 NOVO: a janela com as ordens de produção de um equipamento (clique no círculo do cartão)
+        # reaproveita esta mesma rota, em vez de criar uma rota nova. Responde só com os dados e NÃO
+        # passa pelo agente (não é mensagem do usuário, não entra no histórico).
+        if request.POST.get("detalhes_ordens_equipamento"):
+            return _resposta_detalhes_ordens_equipamento(request)
+
         mensagem = request.POST.get("mensagem", "").strip()
         # Captura a lista de IDs dos PDFs enviados pelo front-end
         pdf_ids = request.POST.getlist("pdfs_selecionados")
@@ -374,6 +522,22 @@ def chat_view(request):
         # wizard "Criar Fluxos de Produção dos Produtos".
         resposta_original, lista_produtos = _extrair_lista_produtos(resposta_original)
         resposta, _ignorar_lista = _extrair_lista_produtos(resposta)
+
+        # 🌟 NOVO: marcador [LISTA_EQUIPAMENTOS] do "Criar Novo Equipamento" -- remove do texto e,
+        # se estava lá, busca os cartões no banco (cenário ativo) pra o front-end desenhar a grade.
+        resposta_original, tem_lista_equip_original = _extrair_lista_equipamentos(resposta_original)
+        resposta, tem_lista_equip_traduzida = _extrair_lista_equipamentos(resposta)
+
+        # 🌟 NOVO: formulários do clone de equipamento (código/descrição e ordens). Os dados vêm do texto ORIGINAL;
+        # do texto traduzido o marcador só é removido.
+        resposta_original, form_equipamento = _extrair_form_base64(_PADRAO_FORM_EQUIPAMENTO, resposta_original)
+        resposta, _ignorar_form_equip = _extrair_form_base64(_PADRAO_FORM_EQUIPAMENTO, resposta)
+        resposta_original, form_ordens = _extrair_form_base64(_PADRAO_FORM_ORDENS, resposta_original)
+        resposta, _ignorar_form_ordens = _extrair_form_base64(_PADRAO_FORM_ORDENS, resposta)
+        lista_equipamentos = (
+            _dados_cartoes_equipamentos(request.user)
+            if (tem_lista_equip_original or tem_lista_equip_traduzida) else None
+        )
 
         # 🌟 CORRIGIDO: extrai as opções clicáveis do texto ORIGINAL (em
         # português), não do texto já traduzido -- a extração procura
@@ -464,6 +628,9 @@ def chat_view(request):
             "etapa_atual": etapa_atual,
             "form_periodo": form_periodo,
             "lista_produtos": lista_produtos,
+            "lista_equipamentos": lista_equipamentos,
+            "form_equipamento": form_equipamento,
+            "form_ordens": form_ordens,
             "nome_empresa": nome_empresa_atual,
             "nome_cenario": nome_cenario_atual,
             "status_cenario": status_cenario_atual,

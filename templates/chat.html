@@ -84,6 +84,73 @@
         }
         .grade-produtos .botao-opcao { width: 100%; text-align: left; border-radius: 6px; }
 
+        /* 🌟 NOVO: grade (2 colunas) de cartões de equipamento -- "Equipamentos - Criar Novo
+           Equipamento", escolha do equipamento a clonar. Cada cartão: imagem, código logo abaixo e
+           descrição na última linha; o círculo no canto superior direito mostra a qtde de ordens de
+           produção e abre a janela com os detalhes delas. */
+        .grade-equipamentos { margin-top: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .cartao-equipamento {
+            position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px;
+            padding: 8px; background: #eef5f8; color: #417690; border: 1px solid #417690;
+            border-radius: 8px; cursor: pointer; text-align: center; min-width: 0;
+        }
+        .cartao-equipamento:hover, .cartao-equipamento:focus { background: #e1edf3; box-shadow: 0 1px 4px rgba(0,0,0,0.25); outline: none; }
+        .cartao-equipamento.cartao-desativado { opacity: 0.5; cursor: default; pointer-events: none; }
+        .cartao-equipamento .cartao-imagem {
+            width: 100%; height: 84px; display: flex; align-items: center; justify-content: center;
+            background: #fff; border-radius: 6px; overflow: hidden;
+        }
+        .cartao-equipamento .cartao-imagem img { max-width: 100%; max-height: 84px; object-fit: contain; }
+        .cartao-equipamento .cartao-sem-imagem { font-size: 11px; color: #888; }
+        .cartao-equipamento .cartao-codigo { font-weight: bold; font-size: 13px; max-width: 100%; word-break: break-word; }
+        .cartao-equipamento .cartao-descricao {
+            font-size: 11px; color: #555; line-height: 1.25; max-width: 100%; word-break: break-word;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+        }
+        .cartao-equipamento .cartao-ordens {
+            position: absolute; top: 5px; right: 5px; z-index: 1;
+            min-width: 24px; height: 24px; padding: 0 6px; box-sizing: border-box; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            background: #417690; color: #fff; font-size: 11px; font-weight: bold; cursor: pointer;
+        }
+        .cartao-equipamento .cartao-ordens:hover, .cartao-equipamento .cartao-ordens:focus { background: #205067; outline: none; }
+
+        /* 🌟 NOVO: janela com as ordens de produção de um equipamento (clique no círculo do cartão) */
+        .modal-ordens-fundo { display: none; position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 5000; background: rgba(0,0,0,0.55); align-items: center; justify-content: center; }
+        .modal-ordens-fundo.aberto { display: flex; }
+        .modal-ordens-caixa { background: #fff; border-radius: 8px; width: 780px; max-width: 94vw; max-height: 86vh; display: flex; flex-direction: column; box-shadow: 0 8px 28px rgba(0,0,0,0.35); }
+        .modal-ordens-topo { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 14px 18px; border-bottom: 1px solid #e3e3e3; }
+        .modal-ordens-titulo { font-size: 18px; font-weight: bold; color: #417690; }
+        .modal-ordens-subtitulo { font-size: 13px; color: #555; margin-top: 2px; }
+        .modal-ordens-fechar { background: none; border: none; font-size: 26px; line-height: 1; color: #666; cursor: pointer; }
+        .modal-ordens-fechar:hover { color: #000; }
+        .modal-ordens-corpo { padding: 14px 18px 18px 18px; overflow: auto; }
+        .modal-ordens-mensagem { font-size: 13px; color: #666; }
+        .modal-ordens-tabela { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .modal-ordens-tabela th { text-align: left; background: #417690; color: #fff; padding: 6px 8px; white-space: nowrap; }
+        .modal-ordens-tabela td { padding: 6px 8px; border-bottom: 1px solid #e8e8e8; color: #333; }
+        .modal-ordens-tabela td.numero { text-align: right; }
+        .modal-ordens-tabela tbody tr:nth-child(even) { background: #f5f9fb; }
+
+        /* 🌟 NOVO: formulários do "Criar Novo Equipamento" (clone): código/descrição e uma linha por ordem nova. */
+        .form-equip-inline, .form-ordens-inline { margin-top: 8px; padding: 10px; background: #f5f9fb; border: 1px solid #d5e5ec; border-radius: 8px; }
+        .form-equip-inline .campo-equip { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 12px; color: #417690; font-weight: bold; }
+        .form-equip-inline .campo-equip span { width: 70px; flex: none; }
+        .form-equip-inline input, .form-ordens-inline input[type="text"], .form-ordens-inline select {
+            flex: 1; min-width: 0; padding: 6px 8px; border: 1px solid #b7c9d3; border-radius: 4px; font-size: 13px; box-sizing: border-box;
+        }
+        .form-ordens-inline .linha-ordem { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+        .form-ordens-inline .fo-rotulo { width: 62px; flex: none; font-size: 12px; font-weight: bold; color: #417690; }
+        .form-ordens-inline .fo-descricao { flex: 2; }
+        .form-ordens-inline .fo-tipo { flex: 1.2; }
+        .form-ordens-inline .fo-mais {
+            flex: none; width: 26px; height: 26px; padding: 0; border-radius: 50%; border: 1px solid #417690;
+            background: #eef5f8; color: #417690; font-size: 16px; font-weight: bold; line-height: 1; cursor: pointer;
+        }
+        .form-ordens-inline .fo-mais:hover { background: #417690; color: #fff; }
+        .form-equip-inline .fe-aviso, .form-ordens-inline .fe-aviso { min-height: 16px; margin-bottom: 4px; font-size: 12px; color: #b00020; }
+        .form-equip-inline input:disabled, .form-ordens-inline input:disabled, .form-ordens-inline select:disabled, .form-ordens-inline .fo-mais:disabled { opacity: 0.6; cursor: default; }
+
         /* Painel lateral direito: Ações Comuns no SPS */
         .grupo-acoes-dropdown { margin-bottom: 16px; }
         .grupo-acoes-dropdown label {
@@ -381,6 +448,45 @@
                     {% if acoes_habilitadas.cam_grafico %}<option value="plotar gráfico de uma taxa de câmbio">{% trans "Plotar Gráfico" %}</option>{% endif %}
                 </select>
             </div>
+
+            {% if acoes_habilitadas.equ_criar %}
+            <div class="grupo-acoes-dropdown">
+                <label for="dropdown-equipamentos">{% trans "Equipamentos" %}</label>
+                <select id="dropdown-equipamentos" class="select-acao-comum" onchange="dispararAcaoDropdown(this)">
+                    <option value="">{% trans "Selecione uma ação..." %}</option>
+                    {% if acoes_habilitadas.equ_criar %}<option value="criar um novo equipamento">{% trans "Criar novo equipamento" %}</option>{% endif %}
+                </select>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    <!-- 🌟 NOVO: janela com as ordens de produção de um equipamento (aberta pelo círculo do cartão) -->
+    <div id="modal-ordens-equipamento" class="modal-ordens-fundo" role="dialog" aria-modal="true" aria-labelledby="modal-ordens-titulo"
+         onclick="if (event.target === this) fecharOrdensEquipamento();">
+        <div class="modal-ordens-caixa">
+            <div class="modal-ordens-topo">
+                <div>
+                    <div id="modal-ordens-titulo" class="modal-ordens-titulo"></div>
+                    <div id="modal-ordens-subtitulo" class="modal-ordens-subtitulo"></div>
+                </div>
+                <button type="button" class="modal-ordens-fechar" onclick="fecharOrdensEquipamento()" aria-label="{% trans 'Fechar' %}">&times;</button>
+            </div>
+            <div class="modal-ordens-corpo">
+                <div id="modal-ordens-mensagem" class="modal-ordens-mensagem"></div>
+                <table id="modal-ordens-tabela" class="modal-ordens-tabela" style="display: none;">
+                    <thead>
+                        <tr>
+                            <th>{% trans "Ordem" %}</th>
+                            <th>{% trans "Descrição" %}</th>
+                            <th>{% trans "Tipo de produção" %}</th>
+                            <th>{% trans "WIP (dias)" %}</th>
+                            <th>{% trans "É clone de" %}</th>
+                            <th>{% trans "Fluxos usando" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody id="modal-ordens-corpo-tabela"></tbody>
+                </table>
+            </div>
         </div>
     </div>
     <script>
@@ -400,6 +506,17 @@
         {% trans "Agente IA" as ROTULO_AGENTE %}
         {% trans "Baixar Imagem" as MSG_BAIXAR_IMAGEM %}
         {% trans "Agente processando resposta..." as MSG_PROCESSANDO %}
+        {% trans "Sem imagem" as ROTULO_SEM_IMAGEM %}
+        {% trans "Ver as ordens de produção" as ROTULO_VER_ORDENS %}
+        {% trans "Carregando..." as ROTULO_CARREGANDO %}
+        {% trans "Esse equipamento ainda não tem ordens de produção neste cenário." as ROTULO_SEM_ORDENS %}
+        {% trans "Código" as ROTULO_CODIGO %}
+        {% trans "Descrição" as ROTULO_DESCRICAO %}
+        {% trans "Confirmar" as ROTULO_CONFIRMAR %}
+        {% trans "Ordem" as ROTULO_ORDEM %}
+        {% trans "Cadastrar um novo Tipo de Produção" as ROTULO_NOVO_TIPO %}
+        {% trans "Ordens informadas" as ROTULO_ORDENS_INFORMADAS %}
+        {% trans "Preenche todos os campos antes de confirmar." as ROTULO_PREENCHA %}
         var MSG_CONFIRMA_PERIODO = "{{ MSG_CONFIRMA_PERIODO|escapejs }}";
         var MSG_CONFIRMA_TUDO = "{{ MSG_CONFIRMA_TUDO|escapejs }}";
         var MSG_SELECIONE_DATAS = "{{ MSG_SELECIONE_DATAS|escapejs }}";
@@ -415,10 +532,218 @@
         var ROTULO_AGENTE = "{{ ROTULO_AGENTE|escapejs }}";
         var MSG_BAIXAR_IMAGEM = "{{ MSG_BAIXAR_IMAGEM|escapejs }}";
         var MSG_PROCESSANDO = "{{ MSG_PROCESSANDO|escapejs }}";
+        var ROTULO_SEM_IMAGEM = "{{ ROTULO_SEM_IMAGEM|escapejs }}";
+        var ROTULO_VER_ORDENS = "{{ ROTULO_VER_ORDENS|escapejs }}";
+        var ROTULO_CARREGANDO = "{{ ROTULO_CARREGANDO|escapejs }}";
+        var ROTULO_SEM_ORDENS = "{{ ROTULO_SEM_ORDENS|escapejs }}";
+        var ROTULO_CODIGO = "{{ ROTULO_CODIGO|escapejs }}";
+        var ROTULO_DESCRICAO = "{{ ROTULO_DESCRICAO|escapejs }}";
+        var ROTULO_CONFIRMAR = "{{ ROTULO_CONFIRMAR|escapejs }}";
+        var ROTULO_ORDEM = "{{ ROTULO_ORDEM|escapejs }}";
+        var ROTULO_NOVO_TIPO = "{{ ROTULO_NOVO_TIPO|escapejs }}";
+        var ROTULO_ORDENS_INFORMADAS = "{{ ROTULO_ORDENS_INFORMADAS|escapejs }}";
+        var ROTULO_PREENCHA = "{{ ROTULO_PREENCHA|escapejs }}";
 
         function escapeHtml(str) {
             return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         }
+
+        // 🌟 NOVO: escape pra usar dentro de um ATRIBUTO HTML entre aspas. O escapeHtml acima NÃO
+        // escapa aspas, então não serve pra isso (um código/descrição com aspas quebraria o atributo).
+        function escapeAttr(str) {
+            return escapeHtml(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        // 🌟 NOVO: grade (2 colunas) de cartões de equipamento -- imagem, código logo abaixo e descrição
+        // na última linha; o círculo no canto superior direito mostra a qtde de ordens de produção.
+        // Clique no cartão escolhe o equipamento; clique no círculo abre a janela com as ordens.
+        function montarGradeEquipamentos(lista) {
+            var html = '<div class="grade-equipamentos">';
+            lista.forEach(function(eq) {
+                // só aceita URL relativa (/media/...) ou http(s) -- nada de javascript: ou data:
+                var imagemOk = eq.imagem && /^(\/|https?:\/\/)/.test(eq.imagem);
+                var imagemHtml = imagemOk
+                    ? '<img src="' + escapeAttr(eq.imagem) + '" alt="' + escapeAttr(eq.codigo) + '" onerror="falhaImagemEquipamento(this)">'
+                    : '<span class="cartao-sem-imagem">' + escapeHtml(ROTULO_SEM_IMAGEM) + '</span>';
+                html += '<div class="cartao-equipamento" role="button" tabindex="0" data-codigo="' + escapeAttr(eq.codigo) + '" ' +
+                            'onclick="selecionarCartaoEquipamento(this)" onkeydown="teclaCartaoEquipamento(event, this)">' +
+                        '<span class="cartao-ordens" role="button" tabindex="0" data-id="' + Number(eq.id) + '" ' +
+                            'title="' + escapeAttr(ROTULO_VER_ORDENS) + '" aria-label="' + escapeAttr(ROTULO_VER_ORDENS) + '" ' +
+                            'onclick="abrirOrdensEquipamento(event, this)" onkeydown="teclaOrdensEquipamento(event, this)">' +
+                            Number(eq.qtde_ordens) + '</span>' +
+                        '<div class="cartao-imagem">' + imagemHtml + '</div>' +
+                        '<div class="cartao-codigo">' + escapeHtml(eq.codigo) + '</div>' +
+                        '<div class="cartao-descricao" title="' + escapeAttr(eq.descricao) + '">' + escapeHtml(eq.descricao) + '</div>' +
+                    '</div>';
+            });
+            return html + '</div>';
+        }
+
+        function falhaImagemEquipamento(img) {
+            var aviso = document.createElement('span');
+            aviso.className = 'cartao-sem-imagem';
+            aviso.textContent = ROTULO_SEM_IMAGEM;
+            img.replaceWith(aviso);
+        }
+
+        function selecionarCartaoEquipamento(cartao) {
+            if (cartao.classList.contains('cartao-desativado')) return;
+            document.querySelectorAll('.cartao-equipamento').forEach(function(c) { c.classList.add('cartao-desativado'); });
+            escolherOpcao(cartao.dataset.codigo);
+        }
+
+        function teclaCartaoEquipamento(ev, cartao) {
+            if (ev.target !== cartao) return;   // Enter/Espaço no círculo não escolhe o cartão
+            if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); selecionarCartaoEquipamento(cartao); }
+        }
+
+        function teclaOrdensEquipamento(ev, circulo) {
+            if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); abrirOrdensEquipamento(ev, circulo); }
+        }
+
+        var _consultaOrdensAtual = 0;   // ignora respostas atrasadas se o usuário abrir outro equipamento logo em seguida
+
+        function abrirOrdensEquipamento(ev, circulo) {
+            ev.stopPropagation();   // clicar no círculo NÃO escolhe o cartão
+            var cartao = circulo.closest('.cartao-equipamento');
+            var fundo = document.getElementById('modal-ordens-equipamento');
+            var mensagem = document.getElementById('modal-ordens-mensagem');
+            var tabela = document.getElementById('modal-ordens-tabela');
+            document.getElementById('modal-ordens-titulo').textContent = cartao ? cartao.dataset.codigo : '';
+            document.getElementById('modal-ordens-subtitulo').textContent = '';
+            tabela.style.display = 'none';
+            mensagem.textContent = ROTULO_CARREGANDO;
+            fundo.classList.add('aberto');
+
+            var minhaConsulta = ++_consultaOrdensAtual;
+            var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            var formData = new FormData();
+            formData.append('detalhes_ordens_equipamento', circulo.dataset.id);
+            fetch('/chat/', { method: 'POST', headers: { 'X-CSRFToken': csrfToken }, body: formData })
+            .then(function(res) { return res.json(); })
+            .then(function(dados) {
+                if (minhaConsulta !== _consultaOrdensAtual) return;
+                if (!dados || !dados.ok) { mensagem.textContent = (dados && dados.erro) || MSG_ERRO_SERVIDOR; return; }
+                document.getElementById('modal-ordens-titulo').textContent = dados.codigo;
+                document.getElementById('modal-ordens-subtitulo').textContent = dados.descricao || '';
+                var corpo = document.getElementById('modal-ordens-corpo-tabela');
+                corpo.innerHTML = '';
+                if (!dados.ordens || dados.ordens.length === 0) { mensagem.textContent = ROTULO_SEM_ORDENS; return; }
+                dados.ordens.forEach(function(o) {
+                    var tr = document.createElement('tr');
+                    [o.ordem, o.descricao, o.tipo_producao, o.wip, o.clone_de, o.qtde_fluxos].forEach(function(valor, i) {
+                        var td = document.createElement('td');
+                        td.textContent = (valor === null || valor === undefined) ? '' : valor;   // textContent: nada vira HTML
+                        if (i === 0 || i === 3 || i === 5) td.className = 'numero';
+                        tr.appendChild(td);
+                    });
+                    corpo.appendChild(tr);
+                });
+                mensagem.textContent = '';
+                tabela.style.display = '';
+            })
+            .catch(function() { if (minhaConsulta === _consultaOrdensAtual) mensagem.textContent = MSG_ERRO_SERVIDOR; });
+        }
+
+        function fecharOrdensEquipamento() {
+            document.getElementById('modal-ordens-equipamento').classList.remove('aberto');
+        }
+
+        document.addEventListener('keydown', function(ev) {
+            if (ev.key === 'Escape') fecharOrdensEquipamento();
+        });
+
+        // 🌟 NOVO: formulários do "Criar Novo Equipamento" (clone). Os dois mandam um JSON como mensagem (o servidor
+        // lê e valida), mas o balão "Você:" mostra um texto legível (mesmo mecanismo dos menus: rotuloExibicaoOverride).
+        var _contadorFormsEquip = 0;
+
+        function montarFormEquipamento(form) {
+            var id = 'fe' + (++_contadorFormsEquip);
+            var enter = ' onkeydown="if (event.key === \'Enter\') { event.preventDefault(); confirmarFormEquipamento(\'' + id + '\'); }"';
+            return '<div class="form-equip-inline" id="' + id + '">' +
+                '<label class="campo-equip"><span>' + escapeHtml(ROTULO_CODIGO) + '</span>' +
+                    '<input type="text" class="fe-codigo" maxlength="' + Number(form.max_codigo || 20) + '" value="' + escapeAttr(form.codigo) + '"' + enter + '></label>' +
+                '<label class="campo-equip"><span>' + escapeHtml(ROTULO_DESCRICAO) + '</span>' +
+                    '<input type="text" class="fe-descricao" maxlength="' + Number(form.max_descricao || 50) + '" value="' + escapeAttr(form.descricao) + '"' + enter + '></label>' +
+                '<div class="fe-aviso"></div>' +
+                '<button type="button" class="botao-opcao" onclick="confirmarFormEquipamento(\'' + id + '\')">' + escapeHtml(ROTULO_CONFIRMAR) + '</button>' +
+                '</div>';
+        }
+
+        function travarForm(f) {
+            f.querySelectorAll('input, select, button').forEach(function(el) { el.disabled = true; });
+        }
+
+        function confirmarFormEquipamento(id) {
+            var f = document.getElementById(id);
+            if (!f || f.querySelector('.fe-codigo').disabled) return;
+            var codigo = f.querySelector('.fe-codigo').value.trim();
+            var descricao = f.querySelector('.fe-descricao').value.trim();
+            if (!codigo || !descricao) { f.querySelector('.fe-aviso').textContent = ROTULO_PREENCHA; return; }
+            travarForm(f);
+            rotuloExibicaoOverride = codigo + ' - ' + descricao;
+            escolherOpcao(JSON.stringify({ codigo: codigo, descricao: descricao }));
+        }
+
+        function montarFormOrdens(form) {
+            var id = 'fo' + (++_contadorFormsEquip);
+            var mais = form.url_novo_tipo
+                ? '<button type="button" class="fo-mais" title="' + escapeAttr(ROTULO_NOVO_TIPO) + '" aria-label="' + escapeAttr(ROTULO_NOVO_TIPO) + '" onclick="abrirNovoTipoProducao(this)">+</button>'
+                : '';
+            var html = '<div class="form-ordens-inline" id="' + id + '" data-url-novo-tipo="' + escapeAttr(form.url_novo_tipo || '') + '">';
+            (form.ordens || []).forEach(function(o) {
+                var opcoes = '<option value="">---</option>';
+                (form.tipos || []).forEach(function(t) {
+                    opcoes += '<option value="' + Number(t.id) + '"' + (Number(t.id) === Number(o.tipo_id) ? ' selected' : '') + '>' + escapeHtml(t.nome) + '</option>';
+                });
+                html += '<div class="linha-ordem" data-ordem="' + Number(o.ordem) + '">' +
+                    '<span class="fo-rotulo">' + escapeHtml(ROTULO_ORDEM) + ' ' + Number(o.ordem) + '</span>' +
+                    '<input type="text" class="fo-descricao" maxlength="' + Number(form.max_descricao || 60) + '" value="' + escapeAttr(o.descricao) + '">' +
+                    '<select class="fo-tipo">' + opcoes + '</select>' + mais +
+                    '</div>';
+            });
+            return html + '<div class="fe-aviso"></div>' +
+                '<button type="button" class="botao-opcao" onclick="confirmarFormOrdens(\'' + id + '\')">' + escapeHtml(ROTULO_CONFIRMAR) + '</button></div>';
+        }
+
+        function confirmarFormOrdens(id) {
+            var f = document.getElementById(id);
+            if (!f || f.querySelector('.fo-descricao').disabled) return;
+            var ordens = [], completo = true;
+            f.querySelectorAll('.linha-ordem').forEach(function(linha) {
+                var descricao = linha.querySelector('.fo-descricao').value.trim();
+                var tipo = linha.querySelector('.fo-tipo').value;
+                if (!descricao || !tipo) completo = false;
+                ordens.push({ ordem: Number(linha.dataset.ordem), descricao: descricao, tipo_id: tipo ? Number(tipo) : null });
+            });
+            if (!completo) { f.querySelector('.fe-aviso').textContent = ROTULO_PREENCHA; return; }
+            travarForm(f);
+            rotuloExibicaoOverride = ROTULO_ORDENS_INFORMADAS + ' (' + ordens.length + ')';
+            escolherOpcao(JSON.stringify({ ordens: ordens }));
+        }
+
+        // O "+" abre o MESMO popup do Admin usado ao cadastrar um Tipo de Produção na tela de Ordens. Ao salvar, o Admin
+        // chama window.opener.dismissAddRelatedObjectPopup(janela, id, texto) -- definida aqui, igual à do Admin: coloca o
+        // tipo novo em todos os dropdowns e já seleciona no da linha onde o "+" foi clicado.
+        var _selectDoNovoTipo = null;
+
+        function abrirNovoTipoProducao(botao) {
+            var url = botao.closest('.form-ordens-inline').dataset.urlNovoTipo;
+            if (!url) return;
+            _selectDoNovoTipo = botao.parentNode.querySelector('.fo-tipo');
+            window.open(url + (url.indexOf('?') === -1 ? '?' : '&') + '_popup=1', 'novo_tipo_producao',
+                        'height=700,width=900,resizable=yes,scrollbars=yes');
+        }
+
+        window.dismissAddRelatedObjectPopup = function(janela, novoId, novoTexto) {
+            document.querySelectorAll('select.fo-tipo').forEach(function(sel) {
+                var existe = Array.prototype.some.call(sel.options, function(o) { return String(o.value) === String(novoId); });
+                if (!existe) sel.add(new Option(novoTexto, novoId));
+            });
+            if (_selectDoNovoTipo) _selectDoNovoTipo.value = String(novoId);
+            _selectDoNovoTipo = null;
+            if (janela && !janela.closed) janela.close();
+        };
 
         // 🌟 NOVO: chamada pelo onclick dos botões de opção clicável --
         // preenche o campo de mensagem com a opção escolhida e envia,
@@ -1306,8 +1631,19 @@
                 listaProdutosHtml += '</div>';
             }
 
+            // 🌟 NOVO: grade de cartões de equipamento ("Criar Novo Equipamento" -> clonar) quando o
+            // back-end manda o campo lista_equipamentos.
+            var listaEquipamentosHtml = '';
+            if (data.lista_equipamentos && data.lista_equipamentos.length > 0) {
+                listaEquipamentosHtml = montarGradeEquipamentos(data.lista_equipamentos);
+            }
+
+            // 🌟 NOVO: formulários do clone de equipamento (código/descrição e ordens), quando o back-end manda.
+            var formEquipamentoHtml = data.form_equipamento ? montarFormEquipamento(data.form_equipamento) : '';
+            var formOrdensHtml = data.form_ordens ? montarFormOrdens(data.form_ordens) : '';
+
             var textoLimpoHTML = processarRespostaCompleta(data.resposta || data.resposta_ia);
-            adicionarMensagemAoChat('<div class="chat-box-p" style="color: #2b2b2b;"><strong style="color: #0056b3;">' + ROTULO_AGENTE + ':</strong><div style="margin-top: 5px;">' + textoLimpoHTML + '</div>' + fontesHtml + opcoesHtml + formPeriodoHtml + listaProdutosHtml + '</div>');
+            adicionarMensagemAoChat('<div class="chat-box-p" style="color: #2b2b2b;"><strong style="color: #0056b3;">' + ROTULO_AGENTE + ':</strong><div style="margin-top: 5px;">' + textoLimpoHTML + '</div>' + fontesHtml + opcoesHtml + formPeriodoHtml + listaProdutosHtml + listaEquipamentosHtml + formEquipamentoHtml + formOrdensHtml + '</div>');
             desenharGraficosPendentes();
             chatBox.scrollTop = chatBox.scrollHeight;
         }
@@ -1586,7 +1922,7 @@
                     adicionarMensagemAoChat('<div class="chat-box-p"><strong>' + ROTULO_VOCE_NOME + ':</strong> ' + escapeHtml(item.comando_usuario) + '</div>', true);
                 }
                 if (item.resposta_ia) {
-                    var textoLimpoHTML = processarRespostaCompleta(item.resposta_ia);
+                    var textoLimpoHTML = processarRespostaCompleta(String(item.resposta_ia).replace(/\n*\[LISTA_EQUIPAMENTOS\]/g, '').replace(/\n*\[FORM_(EQUIPAMENTO|ORDENS):[^\]]*\]/g, ''));
                     adicionarMensagemAoChat('<div class="chat-box-p" style="color: #2b2b2b;"><strong style="color: #0056b3;">' + ROTULO_AGENTE + ':</strong><div style="margin-top: 5px;">' + textoLimpoHTML + '</div></div>');
                 }
             });

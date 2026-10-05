@@ -49,13 +49,15 @@ class TbProdutoFluxoProducaoDaugtherAdmin(admin.TabularInline):
 
 class TbProdutosAdmin(admin.ModelAdmin):
     fields = (('id', 'pro_codigo', 'pro_descricao', 'pro_ativo'), ('total_mercados', 'total_fluxos_ativos', 'total_fluxos', 'total_equipamentos_usados'),
-              ('pro_unidade_producao', 'pro_familia'), ('pro_imagem', 'pro_imagem_tag'), 'pro_observacao', 'equipamentos_usados_tag')
+              ('pro_unidade_producao', 'pro_familia'), ('pro_imagem', 'pro_imagem_tag'), 'pro_observacao',
+              'equipamentos_producao', 'escolhidos_igual_fluxos', 'equipamentos_usados_tag')
     list_display = ['id', 'pro_codigo', 'pro_descricao', 'pro_ativo', 'pro_unidade_producao', 'pro_imagem',
-                    'pro_imagem_tag', 'total_mercados', 'total_fluxos_ativos', 'total_fluxos', 'total_equipamentos_usados']
+                    'pro_imagem_tag', 'escolhidos_igual_fluxos', 'total_mercados', 'total_fluxos_ativos', 'total_fluxos',
+                    'total_equipamentos_usados']
     list_editable = ['pro_ativo']
     list_filter = ('pro_codigo','pro_ativo')
     list_display_links = ['id', 'pro_codigo']
-    readonly_fields = ['id', 'pro_imagem_tag', 'total_mercados', 'total_fluxos_ativos', 'total_fluxos', 'total_equipamentos_usados', 'equipamentos_usados_tag']
+    readonly_fields = ['id', 'pro_imagem_tag', 'total_mercados', 'total_fluxos_ativos', 'total_fluxos', 'total_equipamentos_usados', 'escolhidos_igual_fluxos', 'equipamentos_usados_tag']
     search_fields = ['pro_codigo', ]
 
     model = TbProdutos

@@ -120,6 +120,8 @@ ETAPAS_AGUARDANDO_CELERY = {
     # Produtos" -- enquanto gerar_fluxos_produto_celery roda em segundo
     # plano, mesmo padrão de sondagem automática + barra de progresso.
     'fp_criar_fluxos_produto_aguardando',
+    # 🌟 NOVO: "Equipamentos - Criar Novo Equipamento": gera os fluxos de cada produto afetado, um de cada vez.
+    'equ_criar_fluxos_aguardando',
 }
 
 # 🌟 NOVO: se um fluxo ficar parado por mais que isso, sem nenhuma
@@ -152,6 +154,7 @@ ETAPAS_SEM_EXPIRACAO = {
     'cf_processando_genealogia',
     'ce_processando_consumo_especifico', 'ce_processando_custo_variavel',
     'ce_processando_indicador_fluxo', 'ce_processando_indicador_equipamentos', 'ce_processando_custo_item_preco',
+    'equ_criar_fluxos_aguardando',
 }
 
 
@@ -447,6 +450,23 @@ def _processar_mensagem_fluxo_com_lock(estado, mensagem):
                 "Ok, parei de acompanhar por aqui -- mas a montagem do fluxo no editor continua "
                 "rodando em segundo plano normalmente (isso não cancela ela)."
             )
+        # 🌟 NOVO: o equipamento novo (cadastro, ordens, itens e consumos padrão) JÁ foi gravado nessa etapa --
+        # cancelar aqui só para de acompanhar/encadear os próximos produtos, não desfaz nada.
+        if estado.fluxo_ativo == FLUXO_EQUIPAMENTOS and estado.etapa_atual == 'equ_criar_fluxos_aguardando':
+            dados_cancelar = estado.dados_coletados or {}
+            atual = dados_cancelar.get('produto_codigo', '')
+            pendentes = [p['codigo'] for p in dados_cancelar.get('fila') or []]
+            _encerrar_fluxo(estado)
+            texto_cancelar = (
+                "Ok, parei de acompanhar por aqui. O equipamento novo, as ordens e os consumos padrão **já foram "
+                f"criados** (isso não é desfeito), e a geração dos fluxos do produto **{atual}** continua em segundo plano."
+            )
+            if pendentes:
+                texto_cancelar += (
+                    " Os fluxos destes produtos **não** serão gerados: " + ", ".join(pendentes)
+                    + ". Pede depois em Fluxos de Produção > Atualizar Fluxos de Produção por Produto."
+                )
+            return texto_cancelar
         _encerrar_fluxo(estado)
         return "Ok, cancelei. Nada foi alterado."
 
@@ -466,6 +486,8 @@ def _processar_mensagem_fluxo_com_lock(estado, mensagem):
         return _processar_importar_cf(estado, texto)
     elif estado.fluxo_ativo == FLUXO_CONSUMO_ESPECIFICO:
         return _processar_consumo_especifico(estado, texto)
+    elif estado.fluxo_ativo == FLUXO_EQUIPAMENTOS:
+        return _processar_equipamentos(estado, texto)
     elif estado.fluxo_ativo == FLUXO_TOOL_CALL:
         return _processar_tool_call(estado, texto)
 
@@ -6516,3 +6538,596 @@ def _etapa_tc_confirmar(estado, texto):
         return ferramenta['executar'](dados)
     except Exception as e:
         return f"Deu erro ao aplicar a mudança: {e}."
+
+
+# =======================================================================
+# Fluxo: Equipamentos -- "Criar novo equipamento" (1ª etapa, pra validar)
+#
+# 1) pergunta se o usuário quer criar o novo equipamento a partir do CLONE
+#    de um equipamento que já existe no cenário ativo (Sim / Não);
+# 2) Sim -> mostra uma grade de cartões (imagem, código, descrição e, no
+#    canto, a qtde de ordens de produção) -- o marcador [LISTA_EQUIPAMENTOS]
+#    faz o chat_view buscar os dados e o front-end desenhar a grade; o
+#    círculo de cada cartão abre uma janela com os detalhes das ordens;
+# 3) o usuário clica num cartão -> esta etapa registra a escolha e PÁRA.
+#
+# Os próximos passos (o "Não", e o que fazer com o clone escolhido) ainda
+# serão desenvolvidos -- por enquanto não cria nada no banco.
+# =======================================================================
+FLUXO_EQUIPAMENTOS = 'equipamentos'
+
+
+def iniciar_fluxo_criar_equipamento(usuario):
+    perfil = getattr(usuario, 'perfilusuario', None)
+    if perfil is None or perfil.cenario_ativo_id is None:
+        return "Você ainda não tem um cenário ativo escolhido. Acesse a tela de Cenários e ative um antes."
+
+    cenario = TbCenarios.objects_real.filter(id=perfil.cenario_ativo_id).first()
+    if cenario is None:
+        return "O cenário que estava ativo pra você não existe mais."
+
+    estado = _get_estado(usuario)
+    estado.fluxo_ativo = FLUXO_EQUIPAMENTOS
+    estado.etapa_atual = 'equ_criar_clone_pergunta'
+    estado.dados_coletados = {'cenario_id': cenario.id, 'cenario_nome': cenario.cen_nome}
+    estado.save()
+
+    numero = cenario.numero_sequencial if cenario.numero_sequencial is not None else cenario.id
+    return (
+        "Você quer criar o novo equipamento a partir do **clone** de um equipamento que já existe "
+        f"no cenário **{numero}/{cenario.cen_nome}**? (Sim / Não)"
+    )
+
+
+def _processar_equipamentos(estado, texto):
+    handler = _HANDLERS_EQUIPAMENTOS.get(estado.etapa_atual)
+    if handler is None:
+        # Estado inconsistente (não deveria acontecer) -- encerra por segurança
+        _encerrar_fluxo(estado)
+        return "Não consegui identificar em qual etapa estávamos. Cancelei o fluxo -- pode começar de novo se quiser."
+    return handler(estado, texto)
+
+
+def _etapa_equ_criar_clone_pergunta(estado, texto):
+    resposta = texto.strip().lower()
+    if resposta not in ('sim', 'não', 'nao'):
+        return (
+            "Não entendi -- responde \"Sim\" pra criar a partir do clone de um equipamento que já existe, "
+            "ou \"Não\" pra criar sem clone. (Sim / Não)"
+        )
+
+    if resposta != 'sim':
+        _encerrar_fluxo(estado)
+        return (
+            "Ok, sem clone. Criar um equipamento do zero (a partir do cadastro de equipamentos) é uma etapa "
+            "que ainda vamos desenvolver depois -- por enquanto, não fiz nada."
+        )
+
+    from equipamentos.models import TbEquipamentosCadastro
+    dados = estado.dados_coletados or {}
+    if not TbEquipamentosCadastro.objects.filter(tbcenarios_id=dados.get('cenario_id')).exists():
+        _encerrar_fluxo(estado)
+        return "Não encontrei nenhum equipamento cadastrado no cenário ativo, então não há o que clonar. Não fiz nada."
+
+    estado.etapa_atual = 'equ_criar_clone_escolher'
+    estado.save()
+    return (
+        "Qual equipamento você quer clonar? O número no canto superior direito de cada cartão é a quantidade "
+        "de ordens de produção que ele já tem -- clica nesse número pra ver os detalhes das ordens.\n\n"
+        "[LISTA_EQUIPAMENTOS]"
+    )
+
+
+def _etapa_equ_criar_clone_escolher(estado, texto):
+    from equipamentos.models import TbEquipamentosCadastro, TbEquipamentos
+    dados = estado.dados_coletados or {}
+    cadastro = TbEquipamentosCadastro.objects.filter(
+        tbcenarios_id=dados.get('cenario_id'), equ_cad_codigo__iexact=texto.strip()
+    ).first()
+    if cadastro is None:
+        return (
+            "Não encontrei esse equipamento no cenário ativo. Clica num dos cartões, digita o código "
+            "exatamente como aparece, ou \"Cancelar\" pra desistir.\n\n"
+            "[LISTA_EQUIPAMENTOS]"
+        )
+
+    qtd_ordens = TbEquipamentos.objects.filter(equ_codigo_id=cadastro.id, tbcenarios_id=cadastro.tbcenarios_id).count()
+    estado.etapa_atual = 'equ_criar_dados'
+    estado.dados_coletados = {
+        **dados, 'clone_cadastro_id': cadastro.id, 'clone_codigo': cadastro.equ_cad_codigo,
+        'clone_descricao': cadastro.equ_cad_descricao, 'clone_qtd_ordens': qtd_ordens,
+    }
+    estado.save()
+    return (
+        f"Você escolheu clonar o equipamento **{cadastro.equ_cad_codigo}** ({cadastro.equ_cad_descricao}), "
+        f"que tem **{qtd_ordens}** ordem(ns) de produção.\n\n"
+        "Agora informa o **código** e a **descrição** do novo equipamento. Já vêm preenchidos com os do "
+        "equipamento clonado -- é só ajustar. O código precisa ser diferente de qualquer outro do cenário.\n\n"
+        + _equ_form_equipamento(cadastro.equ_cad_codigo, cadastro.equ_cad_descricao)
+    )
+
+
+# ---------------------------------------------------------------------
+# Auxiliares do clone
+# ---------------------------------------------------------------------
+def _equ_marcador(nome, payload):
+    """Marcador [NOME:<json em base64 url-safe>] que o chat_view transforma em formulário na tela."""
+    import base64
+    bruto = json.dumps(payload, ensure_ascii=False).encode('utf-8')
+    return f"[{nome}:{base64.urlsafe_b64encode(bruto).decode('ascii')}]"
+
+
+def _equ_form_equipamento(codigo, descricao):
+    from equipamentos.models import TbEquipamentosCadastro
+    return _equ_marcador('FORM_EQUIPAMENTO', {
+        'codigo': codigo, 'descricao': descricao,
+        'max_codigo': TbEquipamentosCadastro._meta.get_field('equ_cad_codigo').max_length,
+        'max_descricao': TbEquipamentosCadastro._meta.get_field('equ_cad_descricao').max_length,
+    })
+
+
+def _equ_json(texto):
+    """O formulário do chat manda um JSON. Devolve dict, ou None se a mensagem não for isso."""
+    try:
+        valor = json.loads(texto)
+    except (TypeError, ValueError):
+        return None
+    return valor if isinstance(valor, dict) else None
+
+
+def _equ_tipos_producao_permitidos():
+    """Os mesmos Tipos de Produção que o dropdown da tela de Ordens oferece: o limit_choices_to do próprio campo."""
+    from equipamentos.models import TbEquipamentos
+    campo = TbEquipamentos._meta.get_field('equ_tipo_producao')
+    consulta = campo.remote_field.model._default_manager.all()
+    limite = campo.get_limit_choices_to()
+    if limite:
+        consulta = consulta.complex_filter(limite)
+    return [{'id': t.pk, 'nome': str(t)} for t in consulta]
+
+
+def _equ_url_novo_tipo(usuario):
+    """Endereço do "+" do Admin pra cadastrar um Tipo de Produção novo. None se o usuário não pode (ou não existe)."""
+    from equipamentos.models import TbEquipamentos
+    try:
+        from django.urls import reverse
+        meta = TbEquipamentos._meta.get_field('equ_tipo_producao').remote_field.model._meta
+        if not usuario.has_perm(f'{meta.app_label}.add_{meta.model_name}'):
+            return None
+        return reverse(f'admin:{meta.app_label}_{meta.model_name}_add')
+    except Exception:
+        return None
+
+
+def _equ_form_ordens(estado, ordens_form):
+    """ordens_form: [{'ordem': n, 'descricao': str, 'tipo_id': id|None}]"""
+    from equipamentos.models import TbEquipamentos
+    return _equ_marcador('FORM_ORDENS', {
+        'ordens': ordens_form,
+        'tipos': _equ_tipos_producao_permitidos(),
+        'url_novo_tipo': _equ_url_novo_tipo(estado.usuario),
+        'max_descricao': TbEquipamentos._meta.get_field('equ_ordem_descricao').max_length,
+    })
+
+
+def _equ_ordens_do_clone(dados):
+    from equipamentos.models import TbEquipamentos
+    return list(TbEquipamentos.objects.filter(
+        equ_codigo_id=dados.get('clone_cadastro_id'), tbcenarios_id=dados.get('cenario_id')
+    ).order_by('equ_ordem_codigo'))
+
+
+def _equ_copiar_campos(origem, **sobrescrever):
+    """
+    Cria (SEM salvar) um registro novo igual ao `origem`, campo a campo, trocando só o que vier em `sobrescrever`
+    (chaves no formato attname: 'campo_id' pra chave estrangeira). Genérico de propósito: se um dia o model ganhar
+    um campo novo, ele já é copiado sozinho. Chave primária não é copiada, `id_origem` (usado só na duplicação de
+    cenário) fica vazio, e arquivos/imagens apontam pro mesmo arquivo.
+    """
+    from django.db.models import FileField
+    dados = {}
+    for campo in origem._meta.concrete_fields:
+        if campo.primary_key or campo.attname in sobrescrever:
+            continue
+        if campo.name == 'id_origem':
+            dados[campo.attname] = None
+            continue
+        valor = getattr(origem, campo.attname)
+        if isinstance(campo, FileField):
+            valor = (valor.name if valor else None)
+            if valor is None and not campo.null:
+                valor = ''
+        dados[campo.attname] = valor
+    dados.update(sobrescrever)
+    return origem.__class__(**dados)
+
+
+def _equ_clonar_filhas(ModeloFilha, pai_origem, pai_novo):
+    """
+    Salvar o pai novo faz o banco criar as linhas filhas sozinho (procedure, com o valor inicial em todos os
+    períodos). Aqui elas são trocadas por CÓPIAS EXATAS das filhas do pai de origem (valor por período), sem chamar
+    o save() das filhas (que reexecutaria as procedures). Se a origem não tiver filha, deixa o que o banco criou.
+    """
+    copias = [
+        _equ_copiar_campos(filha, mae_id=pai_novo.pk, tbcenarios_id=pai_novo.tbcenarios_id)
+        for filha in ModeloFilha.objects.filter(mae_id=pai_origem.pk).order_by('dau_order')
+    ]
+    if not copias:
+        return 0
+    ModeloFilha.objects.filter(mae_id=pai_novo.pk).delete()
+    ModeloFilha.objects.bulk_create(copias)
+    return len(copias)
+
+
+def _equ_descricao_consumo_padrao(equip_from, equip_to):
+    """Mesma montagem do clean() do TbFluxoConsumoPadrao: CÓDIGO/ordem --> CÓDIGO/ordem."""
+    return (str(equip_from.equ_codigo) + '/' + str(equip_from.equ_ordem_codigo) + ' --> '
+            + str(equip_to.equ_codigo) + '/' + str(equip_to.equ_ordem_codigo))
+
+
+def _equ_resumo_previo(dados, ordens):
+    """Contagens e produtos afetados, pro resumo antes do "Sim"."""
+    from django.db.models import Q
+    from equipamentos.models import TbEquipamentosConsumoEspecifico
+    from fluxos.models import TbFluxoConsumoPadrao
+    ids = [o.id for o in ordens]
+    itens = TbEquipamentosConsumoEspecifico.objects.filter(equ_con_esp_equipamento_id__in=ids).count()
+    consumos = TbFluxoConsumoPadrao.objects.filter(tbcenarios_id=dados.get('cenario_id')).filter(
+        Q(flu_con_pad_from_equipamento_id__in=ids) | Q(flu_con_pad_to_equipamento_id__in=ids)).count()
+    produtos = set()
+    for ordem in ordens:
+        produtos |= ordem._ids_produtos_usados()
+    from produtos.models import TbProdutos
+    codigos = sorted(TbProdutos.objects.filter(id__in=produtos).values_list('id', 'pro_codigo'), key=lambda x: x[1])
+    return {'itens': itens, 'consumos': consumos, 'produtos': [{'id': i, 'codigo': c} for i, c in codigos]}
+
+
+def _equ_texto_resumo(dados, resumo):
+    plano = dados.get('plano_ordens') or []
+    linhas = [
+        f"Vou criar, a partir do clone de **{dados['clone_codigo']}**:",
+        f"- o equipamento **{dados['novo_codigo']}** ({dados['nova_descricao']}), com a mesma configuração e os "
+        "mesmos valores por período;",
+    ]
+    if plano:
+        linhas.append(f"- **{len(plano)}** ordem(ns) de produção: " + "; ".join(
+            f"{p['ordem']} - {p['descricao']} ({p['tipo_nome']})" for p in plano) + ";")
+        linhas.append(f"- **{resumo['itens']}** item(ns) de consumo específico das ordens e **{resumo['consumos']}** "
+                      "consumo(s) padrão (cópias dos que usam as ordens clonadas);")
+        if resumo['produtos']:
+            codigos = ", ".join(p['codigo'] for p in resumo['produtos'][:8])
+            mais = f" e mais {len(resumo['produtos']) - 8}" if len(resumo['produtos']) > 8 else ""
+            linhas.append(f"- e depois os fluxos de **{len(resumo['produtos'])}** produto(s): {codigos}{mais} "
+                          "(a quantidade de fluxos de cada um vai aumentar).")
+        else:
+            linhas.append("- nenhum produto usa as ordens clonadas nos fluxos, então não há fluxos a gerar.")
+    return "\n".join(linhas) + "\n\nConfirma? (Sim / Não)"
+
+
+# ---------------------------------------------------------------------
+# Etapa: código e descrição do novo equipamento
+# ---------------------------------------------------------------------
+def _etapa_equ_criar_dados(estado, texto):
+    from equipamentos.models import TbEquipamentosCadastro
+    dados = estado.dados_coletados or {}
+    entrada = _equ_json(texto)
+    if entrada is None or not isinstance(entrada.get('codigo'), str) or not isinstance(entrada.get('descricao'), str):
+        return (
+            "Não entendi -- preenche o código e a descrição no formulário abaixo e clica em Confirmar.\n\n"
+            + _equ_form_equipamento(dados.get('clone_codigo', ''), dados.get('clone_descricao', ''))
+        )
+
+    # Mesma intenção do clean() do cadastro: código e descrição em maiúsculas e "/" trocado por "-" na descrição.
+    codigo = entrada['codigo'].strip().upper()
+    descricao = entrada['descricao'].strip().upper().replace('/', '-')
+    max_codigo = TbEquipamentosCadastro._meta.get_field('equ_cad_codigo').max_length
+    max_descricao = TbEquipamentosCadastro._meta.get_field('equ_cad_descricao').max_length
+
+    erro = None
+    if not codigo:
+        erro = "O código não pode ficar vazio."
+    elif len(codigo) > max_codigo:
+        erro = f"O código pode ter no máximo {max_codigo} caracteres (o seu tem {len(codigo)})."
+    elif not descricao:
+        erro = "A descrição não pode ficar vazia."
+    elif len(descricao) > max_descricao:
+        erro = f"A descrição pode ter no máximo {max_descricao} caracteres (a sua tem {len(descricao)})."
+    elif TbEquipamentosCadastro.objects.filter(tbcenarios_id=dados.get('cenario_id'), equ_cad_codigo__iexact=codigo).exists():
+        erro = f"Já existe o equipamento **{codigo}** nesse cenário. Escolhe outro código."
+    if erro:
+        return erro + "\n\n" + _equ_form_equipamento(entrada['codigo'].strip(), entrada['descricao'].strip())
+
+    dados = {**dados, 'novo_codigo': codigo, 'nova_descricao': descricao}
+    ordens = _equ_ordens_do_clone(dados)
+    if not ordens:
+        # Equipamento sem nenhuma ordem: só o cadastro (e a filha dele) é clonado.
+        dados['plano_ordens'] = []
+        estado.etapa_atual = 'equ_criar_confirmar'
+        estado.dados_coletados = dados
+        estado.save()
+        return _equ_texto_resumo(dados, {'itens': 0, 'consumos': 0, 'produtos': []})
+
+    estado.etapa_atual = 'equ_criar_ordens'
+    estado.dados_coletados = dados
+    estado.save()
+    return (
+        f"Agora as **{len(ordens)}** ordem(ns) de produção do novo equipamento **{codigo}**. Pra cada uma, ajusta a "
+        "descrição e escolhe o Tipo de Produção (já vêm os da ordem original). Se o tipo que você precisa ainda não "
+        "existe, o botão **+** cadastra um novo.\n\n"
+        + _equ_form_ordens(estado, [
+            {'ordem': o.equ_ordem_codigo, 'descricao': o.equ_ordem_descricao, 'tipo_id': o.equ_tipo_producao_id}
+            for o in ordens])
+    )
+
+
+# ---------------------------------------------------------------------
+# Etapa: descrição e Tipo de Produção de cada ordem nova
+# ---------------------------------------------------------------------
+def _etapa_equ_criar_ordens(estado, texto):
+    from equipamentos.models import TbEquipamentos
+    dados = estado.dados_coletados or {}
+    originais = _equ_ordens_do_clone(dados)
+    por_ordem = {o.equ_ordem_codigo: o for o in originais}
+    padrao = [{'ordem': o.equ_ordem_codigo, 'descricao': o.equ_ordem_descricao, 'tipo_id': o.equ_tipo_producao_id}
+              for o in originais]
+
+    entrada = _equ_json(texto)
+    lista = entrada.get('ordens') if entrada else None
+    if not isinstance(lista, list):
+        return ("Não entendi -- preenche as ordens no formulário abaixo e clica em Confirmar.\n\n"
+                + _equ_form_ordens(estado, padrao))
+
+    tipos = {t['id']: t['nome'] for t in _equ_tipos_producao_permitidos()}
+    max_descricao = TbEquipamentos._meta.get_field('equ_ordem_descricao').max_length
+    digitado, plano, erros, vistos = [], [], [], set()
+    for item in lista:
+        if not isinstance(item, dict):
+            continue
+        try:
+            ordem = int(item.get('ordem'))
+        except (TypeError, ValueError):
+            continue
+        descricao = str(item.get('descricao') or '').strip()
+        try:
+            tipo_id = int(item.get('tipo_id'))
+        except (TypeError, ValueError):
+            tipo_id = None
+        digitado.append({'ordem': ordem, 'descricao': descricao, 'tipo_id': tipo_id})
+        if ordem not in por_ordem or ordem in vistos:
+            erros.append(f"A ordem {ordem} não existe no equipamento clonado.")
+            continue
+        vistos.add(ordem)
+        if not descricao:
+            erros.append(f"A descrição da ordem {ordem} não pode ficar vazia.")
+        elif len(descricao) > max_descricao:
+            erros.append(f"A descrição da ordem {ordem} pode ter no máximo {max_descricao} caracteres.")
+        if tipo_id not in tipos:
+            erros.append(f"Escolhe um Tipo de Produção válido para a ordem {ordem}.")
+        plano.append({'origem_id': por_ordem[ordem].id, 'ordem': ordem, 'descricao': descricao,
+                      'tipo_id': tipo_id, 'tipo_nome': tipos.get(tipo_id, '')})
+    faltando = sorted(set(por_ordem) - vistos)
+    if faltando:
+        erros.append("Faltou preencher a(s) ordem(ns): " + ", ".join(str(n) for n in faltando) + ".")
+    if erros:
+        reapresentar = sorted(digitado, key=lambda x: x['ordem']) if not faltando and digitado else padrao
+        return "\n".join(f"- {e}" for e in erros) + "\n\n" + _equ_form_ordens(estado, reapresentar)
+
+    plano.sort(key=lambda p: p['ordem'])
+    dados = {**dados, 'plano_ordens': plano}
+    resumo = _equ_resumo_previo(dados, originais)
+    estado.etapa_atual = 'equ_criar_confirmar'
+    estado.dados_coletados = {**dados, 'produtos_afetados': resumo['produtos']}
+    estado.save()
+    return _equ_texto_resumo(dados, resumo)
+
+
+# ---------------------------------------------------------------------
+# Etapa: confirmação e gravação
+# ---------------------------------------------------------------------
+def _equ_executar_clone(estado):
+    """
+    Grava tudo (cadastro + filha, ordens + filhas + itens + filhas, vínculo com os produtos e consumos padrão +
+    filhas). Chamada dentro de transaction.atomic(): qualquer erro desfaz tudo. Devolve um dicionário com as contagens.
+    """
+    from django.db.models import Q
+    from equipamentos.models import (
+        TbEquipamentosCadastro, TbEquipamentos, TbEquipamentosCadastroDaugther, TbEquipamentosDaugther,
+        TbEquipamentosConsumoEspecifico, TbEquipamentosConsumoEspecificoDaugther,
+    )
+    from fluxos.models import TbFluxoConsumoPadrao, TbFluxoConsumoPadraoDaugther
+
+    dados = estado.dados_coletados or {}
+    cenario_id = dados['cenario_id']
+    perfil = getattr(estado.usuario, 'perfilusuario', None)
+    if perfil is None or perfil.cenario_ativo_id != cenario_id:
+        raise ValueError("o cenário ativo mudou desde que você começou. Começa de novo no cenário certo")
+
+    origem = TbEquipamentosCadastro.objects.get(id=dados['clone_cadastro_id'], tbcenarios_id=cenario_id)
+    if TbEquipamentosCadastro.objects.filter(tbcenarios_id=cenario_id, equ_cad_codigo__iexact=dados['novo_codigo']).exists():
+        raise ValueError(f"já existe o equipamento {dados['novo_codigo']} nesse cenário")
+
+    # 1) cadastro + filha (valores por período)
+    novo_cadastro = _equ_copiar_campos(origem, equ_cad_codigo=dados['novo_codigo'], equ_cad_descricao=dados['nova_descricao'])
+    novo_cadastro.save()
+    _equ_clonar_filhas(TbEquipamentosCadastroDaugther, origem, novo_cadastro)
+
+    # 2) ordens (+ filhas, + itens de consumo específico e as filhas deles) e vínculo com os produtos
+    ordens_origem = {o.id: o for o in _equ_ordens_do_clone(dados)}
+    mapa = {}                 # id da ordem antiga -> ordem nova
+    produtos_afetados = set()
+    qtd_itens = 0
+    for item in dados.get('plano_ordens') or []:
+        antiga = ordens_origem[item['origem_id']]
+        # equ_e_clone_de NUNCA aponta pra ordem antiga: o gerador de fluxos trataria as duas como a mesma alternativa.
+        nova = _equ_copiar_campos(
+            antiga, equ_codigo_id=novo_cadastro.pk, equ_ordem_descricao=item['descricao'],
+            equ_tipo_producao_id=item['tipo_id'], equ_e_clone_de_id=None)
+        nova.save()
+        nova.equ_codigo = novo_cadastro      # evita nova consulta ao montar a descrição dos consumos padrão
+        _equ_clonar_filhas(TbEquipamentosDaugther, antiga, nova)
+        for it in TbEquipamentosConsumoEspecifico.objects.filter(equ_con_esp_equipamento_id=antiga.pk).order_by('id'):
+            novo_item = _equ_copiar_campos(it, equ_con_esp_equipamento_id=nova.pk)
+            novo_item.save()
+            _equ_clonar_filhas(TbEquipamentosConsumoEspecificoDaugther, it, novo_item)
+            qtd_itens += 1
+        usados = antiga._ids_produtos_usados()
+        # O gerador de fluxos só enxerga as ordens vinculadas ao produto (equ_produtos): sem isso as ordens novas
+        # ficariam de fora. Também é o que mantém o "Escolhidos Igual Fluxos" em Sim depois.
+        nova.equ_produtos.set(usados)
+        produtos_afetados |= usados
+        mapa[antiga.pk] = nova
+
+    # "É Clone Da Ordem": só dentro do equipamento novo (a ordem 3 clone da 1 continua clone da 1, agora a nova).
+    for antiga_id, nova in mapa.items():
+        alvo = ordens_origem[antiga_id].equ_e_clone_de_id
+        if alvo in mapa:
+            TbEquipamentos.objects.filter(pk=nova.pk).update(equ_e_clone_de_id=mapa[alvo].pk)
+
+    # 3) consumos padrão que usam as ordens antigas -> cópias que usam as novas (+ filhas)
+    qtd_consumos = 0
+    if mapa:
+        consumos = (
+            TbFluxoConsumoPadrao.objects.filter(tbcenarios_id=cenario_id)
+            .filter(Q(flu_con_pad_from_equipamento_id__in=list(mapa)) | Q(flu_con_pad_to_equipamento_id__in=list(mapa)))
+            .select_related('flu_con_pad_from_equipamento__equ_codigo', 'flu_con_pad_to_equipamento__equ_codigo')
+            .order_by('id')
+        )
+        for cp in consumos:
+            de = mapa.get(cp.flu_con_pad_from_equipamento_id) or cp.flu_con_pad_from_equipamento
+            para = mapa.get(cp.flu_con_pad_to_equipamento_id) or cp.flu_con_pad_to_equipamento
+            descricao = _equ_descricao_consumo_padrao(de, para)
+            if TbFluxoConsumoPadrao.objects.filter(tbcenarios_id=cenario_id, flu_con_pad_descricao=descricao).exists():
+                raise ValueError(f"já existe o consumo padrão {descricao}")
+            novo_cp = _equ_copiar_campos(
+                cp, flu_con_pad_from_equipamento_id=de.pk, flu_con_pad_to_equipamento_id=para.pk,
+                flu_con_pad_descricao=descricao)
+            novo_cp.save()
+            _equ_clonar_filhas(TbFluxoConsumoPadraoDaugther, cp, novo_cp)
+            qtd_consumos += 1
+
+    return {'cadastro_id': novo_cadastro.pk, 'ordens': len(mapa), 'itens': qtd_itens, 'consumos': qtd_consumos,
+            'produtos': produtos_afetados}
+
+
+def _etapa_equ_criar_confirmar(estado, texto):
+    resposta = texto.strip().lower()
+    if resposta not in ('sim', 'não', 'nao'):
+        return "Não entendi -- responde \"Sim\" pra criar ou \"Não\" pra desistir. (Sim / Não)"
+    if resposta != 'sim':
+        _encerrar_fluxo(estado)
+        return "Ok, não criei nada."
+
+    dados = estado.dados_coletados or {}
+    try:
+        with transaction.atomic():
+            feito = _equ_executar_clone(estado)
+    except Exception as erro:
+        _encerrar_fluxo(estado)
+        return f"Não criei nada -- deu erro e eu desfiz tudo: {erro}."
+
+    from produtos.models import TbProdutos
+    fila = [{'id': pid, 'codigo': codigo} for pid, codigo in sorted(
+        TbProdutos.objects.filter(id__in=feito['produtos']).values_list('id', 'pro_codigo'), key=lambda x: x[1])]
+    criado = (
+        f"✅ Equipamento **{dados['novo_codigo']}** criado a partir do clone de **{dados['clone_codigo']}**: "
+        f"**{feito['ordens']}** ordem(ns) de produção, **{feito['itens']}** item(ns) de consumo específico e "
+        f"**{feito['consumos']}** consumo(s) padrão."
+    )
+    if not fila:
+        _encerrar_fluxo(estado)
+        return criado + "\n\nNenhum produto usa as ordens clonadas nos fluxos, então não há fluxos a gerar."
+
+    total_produtos = len(fila)
+    estado.dados_coletados = {
+        'cenario_id': dados['cenario_id'], 'novo_codigo': dados['novo_codigo'], 'clone_codigo': dados['clone_codigo'],
+        'resumo_criado': criado, 'fila': fila, 'total_produtos': total_produtos, 'concluidos': 0, 'resultados': [],
+    }
+    _equ_iniciar_proximo_produto(estado)
+    return (
+        criado + f"\n\nAgora estou gerando os fluxos dos **{total_produtos}** produto(s) que usam as ordens clonadas, um de cada "
+        "vez. Pode demorar; acompanho por aqui.\n\n" + _equ_texto_andamento(estado.dados_coletados)
+    )
+
+
+# ---------------------------------------------------------------------
+# Etapa: gera os fluxos de cada produto afetado, um de cada vez
+# ---------------------------------------------------------------------
+def _equ_texto_andamento(dados):
+    return (f"Gerando os fluxos do produto **{dados.get('produto_codigo', '')}** "
+            f"({dados.get('concluidos', 0) + 1} de {dados.get('total_produtos', 0)}).")
+
+
+def _equ_iniciar_proximo_produto(estado):
+    """Tira o próximo produto da fila e dispara a task que já existe (a mesma de "Atualizar Fluxos por Produto")."""
+    from fluxos.models import TbFluxoProducao
+    dados = dict(estado.dados_coletados or {})
+    dados['fila'] = list(dados['fila'])      # cópia: quem chamou ainda usa a lista original (ex.: pra contar os produtos)
+    atual = dados['fila'].pop(0)
+    for chave in ('status', 'mensagem', 'total_criados', 'total_removidos'):
+        dados.pop(chave, None)
+    dados.update({
+        'produto_id': atual['id'], 'produto_codigo': atual['codigo'], 'status': 'processando',
+        'produto_antes': TbFluxoProducao.objects.filter(flu_pro_produto_id=atual['id']).count(),
+    })
+    estado.etapa_atual = 'equ_criar_fluxos_aguardando'
+    estado.dados_coletados = dados
+    estado.save()
+
+    from fluxos.tasks import gerar_fluxos_produto_celery
+    produto_id, usuario_id = atual['id'], estado.usuario_id
+    # on_commit: a task só começa depois de o estado acima estar gravado (ela confere o produto_id no estado).
+    transaction.on_commit(lambda: gerar_fluxos_produto_celery.delay(produto_id, usuario_id))
+
+
+def _etapa_equ_criar_fluxos_aguardando(estado, texto):
+    from fluxos.models import TbFluxoProducao
+    dados = estado.dados_coletados or {}
+    status = dados.get('status')
+    if status == 'processando':
+        return _equ_texto_andamento(dados)
+
+    # O produto atual terminou (com sucesso, com erro, ou sem resposta): registra e segue pro próximo.
+    depois = TbFluxoProducao.objects.filter(flu_pro_produto_id=dados.get('produto_id')).count()
+    resultado = {
+        'codigo': dados.get('produto_codigo', ''), 'antes': dados.get('produto_antes', 0), 'depois': depois,
+        'criados': dados.get('total_criados', 0), 'removidos': dados.get('total_removidos', 0), 'erro': None,
+    }
+    if status == 'erro':
+        resultado['erro'] = dados.get('mensagem', 'erro desconhecido')
+    elif status != 'concluido':
+        resultado['erro'] = 'não recebi a resposta da geração dos fluxos'
+    dados['resultados'] = list(dados.get('resultados') or []) + [resultado]
+    dados['concluidos'] = dados.get('concluidos', 0) + 1
+    estado.dados_coletados = dados
+
+    if dados.get('fila'):
+        _equ_iniciar_proximo_produto(estado)
+        return _equ_texto_andamento(estado.dados_coletados)
+
+    resumo = dados['resumo_criado']
+    resultados = dados['resultados']
+    _encerrar_fluxo(estado)
+    linhas = []
+    for r in resultados:
+        if r['erro']:
+            linhas.append(f"- **{r['codigo']}**: ⚠️ não consegui gerar ({r['erro']})")
+        else:
+            linhas.append(f"- **{r['codigo']}**: {r['antes']} → {r['depois']} fluxo(s) ({r['depois'] - r['antes']:+d})")
+    total = sum(r['depois'] - r['antes'] for r in resultados if not r['erro'])
+    texto_final = resumo + "\n\nFluxos por produto:\n" + "\n".join(linhas) + f"\n\nTotal: **{total:+d}** fluxo(s)."
+    if any(r['erro'] for r in resultados):
+        texto_final += ("\n\nOs produtos com ⚠️ podem ser refeitos depois em Fluxos de Produção > Atualizar Fluxos de "
+                        "Produção por Produto.")
+    texto_final += ("\n\nOs fluxos novos ainda precisam ter o I/O atualizado: roda \"Atualizar Fluxos\" (menu Cenário) "
+                    "antes de limpar.")
+    return texto_final
+
+
+_HANDLERS_EQUIPAMENTOS = {
+    'equ_criar_clone_pergunta': _etapa_equ_criar_clone_pergunta,
+    'equ_criar_clone_escolher': _etapa_equ_criar_clone_escolher,
+    'equ_criar_dados': _etapa_equ_criar_dados,
+    'equ_criar_ordens': _etapa_equ_criar_ordens,
+    'equ_criar_confirmar': _etapa_equ_criar_confirmar,
+    'equ_criar_fluxos_aguardando': _etapa_equ_criar_fluxos_aguardando,
+}

@@ -322,7 +322,7 @@ class TbEquipamentos(models.Model):
     equ_produtos = models.ManyToManyField(
         TbProdutos,
         blank=True,
-        verbose_name=_('Produtos Participantes'),
+        verbose_name=_('Produtos Que Usam'),
         limit_choices_to=limit_choices_to_cenario_ativo,
     )
 
@@ -385,6 +385,197 @@ class TbEquipamentos(models.Model):
 
     expedicao.short_description = _('Expedição')
     expedicao.boolean = True
+
+    # ------------------------------------------------------------------
+    # 🌟 NOVO: consistência entre os PRODUTOS ESCOLHIDOS (equ_produtos) e os
+    # produtos que, nos fluxos de produção já cadastrados, USAM este
+    # equipamento/ordem. É o mesmo vínculo que TbProdutos já confere do lado
+    # do produto -- aqui visto do lado do equipamento.
+    #
+    # "Usa" = o equipamento aparece como ORIGEM ou DESTINO de algum consumo
+    # padrão de um fluxo do produto (a mesma definição do qtde_fluxos_usando
+    # do Admin e de TbProdutos._ids_equipamentos_usados).
+    # ------------------------------------------------------------------
+    def _ids_produtos_usados(self):
+        # Memorizado por instância: a tela do Admin usa esse conjunto em 3
+        # lugares (painel, indicador e marcação em vermelho do seletor) e
+        # cada requisição tem a sua própria instância, então não fica velho.
+        if self.pk is None:
+            return set()
+        if getattr(self, '_cache_ids_produtos_usados', None) is None:
+            from django.apps import apps
+            from django.db.models import Q
+            ConsumoPadrao = apps.get_model('fluxos', 'TbFluxoConsumoPadrao')
+            FluxoDaugther = apps.get_model('fluxos', 'TbFluxoProducaoDaugther')
+            Fluxo = apps.get_model('fluxos', 'TbFluxoProducao')
+
+            # Uma consulta só, em 3 níveis: consumos padrão que envolvem este
+            # equipamento (tabela pequena) -> fluxos que usam esses consumos
+            # -> produtos desses fluxos. O DISTINCT é feito no banco.
+            consumos = ConsumoPadrao.objects.filter(
+                Q(flu_con_pad_from_equipamento_id=self.pk) | Q(flu_con_pad_to_equipamento_id=self.pk)
+            ).values('pk')
+            fluxos_ids = FluxoDaugther.objects.filter(
+                flu_pro_dau_consumo_padrao_id__in=consumos
+            ).values('mae_id')
+            produtos = (
+                Fluxo.objects.filter(pk__in=fluxos_ids)
+                .values_list('flu_pro_produto_id', flat=True)
+                .order_by().distinct()
+            )
+            self._cache_ids_produtos_usados = set(produtos) - {None}
+        return set(self._cache_ids_produtos_usados)
+
+    def _ids_produtos_escolhidos(self):
+        # Produtos marcados no campo "Produtos Que Usam" (equ_produtos).
+        if self.pk is None:
+            return set()
+        if getattr(self, '_cache_ids_produtos_escolhidos', None) is None:
+            self._cache_ids_produtos_escolhidos = set(self.equ_produtos.values_list('pk', flat=True))
+        return set(self._cache_ids_produtos_escolhidos)
+
+    def escolhidos_igual_fluxos(self):
+        if self.pk is None:
+            return '-'   # equipamento ainda não gravado: não há o que comparar
+        return 'Sim' if self._ids_produtos_escolhidos() == self._ids_produtos_usados() else 'Não'
+
+    escolhidos_igual_fluxos.short_description = _('Escolhidos Igual Fluxos')
+
+    # Painel somente leitura: imagem + código + descrição dos produtos que, nos
+    # fluxos cadastrados, usam este equipamento/ordem. Produto que aparece nos
+    # fluxos mas NÃO está escolhido em "Produtos Que Usam" fica com o fundo do
+    # cartão vermelho (o inverso -- escolhido e sem fluxo -- aparece em
+    # vermelho no próprio seletor). Mesmo visual do painel de equipamentos do
+    # produto; prefixo "pepu-" nas classes/ids pra nunca colidir com o "ppeu-".
+    def produtos_usados_tag(self):
+        ids = self._ids_produtos_usados()
+        if not ids:
+            return mark_safe(
+                '<span style="color: #888;">Nenhum produto encontrado nos fluxos cadastrados '
+                'que usem este equipamento/ordem.</span>'
+            )
+
+        escolhidos = self._ids_produtos_escolhidos()
+        qtd_fora_do_cadastro = len(ids - escolhidos)
+        produtos_qs = TbProdutos.objects.filter(id__in=ids).order_by('pro_codigo')
+
+        def escapar(texto):
+            return (
+                str(texto or '')
+                .replace('&', '&amp;').replace('<', '&lt;')
+                .replace('>', '&gt;').replace('"', '&quot;')
+            )
+
+        cartoes = ''
+        for produto in produtos_qs:
+            try:
+                imagem_url = produto.pro_imagem.url if produto.pro_imagem else ''
+            except Exception:
+                imagem_url = ''   # arquivo/armazenamento indisponível: cai no "Sem imagem"
+            codigo = produto.pro_codigo
+            descricao = produto.pro_descricao or ''
+
+            fora_do_cadastro = produto.id not in escolhidos
+            classe_cartao = 'pepu-item pepu-sem-cadastro' if fora_do_cadastro else 'pepu-item'
+            dica_cartao = (
+                ' title="Aparece nos fluxos com este equipamento/ordem, mas NÃO está escolhido em Produtos Que Usam"'
+                if fora_do_cadastro else ''
+            )
+
+            estilo_sem_imagem = (
+                'position:absolute !important; top:0 !important; left:0 !important; width:40px !important; '
+                'height:40px !important; align-items:center !important; justify-content:center !important; '
+                'font-size:8px !important; line-height:1.1 !important; color:#777 !important; '
+                'background:#e9e9e9 !important; text-align:center !important;'
+            )
+            if imagem_url:
+                # A imagem cobre a caixa; só se der erro ao carregar ela some e
+                # aparece o "Sem imagem" que estava escondido logo depois.
+                miniatura = (
+                    f'<img src="{escapar(imagem_url)}" alt="{escapar(codigo)}" '
+                    'style="position:absolute !important; top:0 !important; left:0 !important; '
+                    'width:40px !important; height:40px !important; object-fit:cover !important; '
+                    'max-width:none !important; max-height:none !important;" '
+                    'onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';">'
+                    f'<span style="display:none; {estilo_sem_imagem}">Sem imagem</span>'
+                )
+            else:
+                miniatura = f'<span style="display:flex; {estilo_sem_imagem}">Sem imagem</span>'
+
+            cartoes += (
+                f'<div class="{classe_cartao}"{dica_cartao} style="position:relative !important; '
+                'display:inline-flex !important; flex-direction:column !important; '
+                'justify-content:center !important; align-items:center !important;">'
+                '<span class="pepu-lupa" title="Ver detalhes" style="position:absolute !important; '
+                'top:2px !important; right:2px !important; width:16px !important; height:16px !important; '
+                'display:flex !important; align-items:center !important; justify-content:center !important; '
+                'background:rgba(0,0,0,0.6) !important; color:#fff !important; border-radius:50% !important; '
+                'font-size:9px !important; cursor:pointer !important; z-index:2 !important;" '
+                f'data-imagem="{escapar(imagem_url)}" data-codigo="{escapar(codigo)}" '
+                f'data-descricao="{escapar(descricao)}" '
+                'onclick="window.pepuAbrirDetalhe(this.dataset.imagem, this.dataset.codigo, this.dataset.descricao)">🔍</span>'
+                '<div class="pepu-thumb" style="position:relative !important; width:40px !important; '
+                'height:40px !important; margin:0 auto 6px auto !important; overflow:hidden !important;">'
+                f'{miniatura}'
+                '</div>'
+                f'<div class="pepu-codigo">{escapar(codigo)}</div>'
+                f'<div class="pepu-descricao">{escapar(descricao)}</div>'
+                '</div>'
+            )
+
+        legenda_vermelho = ''
+        if qtd_fora_do_cadastro:
+            legenda_vermelho = (
+                '<div style="margin-bottom:6px; font-size:0.85em; color:#a94442;">'
+                f'{qtd_fora_do_cadastro} produto(s) com fundo vermelho aparecem nos fluxos com este '
+                'equipamento/ordem mas NÃO estão escolhidos em &quot;Produtos Que Usam&quot;.'
+                '</div>'
+            )
+
+        html = (
+            '<style>'
+            '.pepu-painel { display:block !important; max-width:900px; box-sizing:border-box; '
+            'overflow-x:auto; overflow-y:hidden; padding:10px; border:1px solid #ddd; '
+            'border-radius:4px; background:#f7f7f7; white-space:nowrap; }'
+            '.pepu-item { display:inline-flex; flex-direction:column; justify-content:center; '
+            'align-items:center; width:150px; height:140px; box-sizing:border-box; '
+            'overflow:hidden; vertical-align:top; padding:8px; margin-right:8px; text-align:center; '
+            'background:#fff; border:1px solid #ccc; border-radius:4px; white-space:normal; position:relative; }'
+            # Produto que aparece nos fluxos mas não foi escolhido no cadastro.
+            '.pepu-item.pepu-sem-cadastro { background:#ffd6d6 !important; '
+            'border:2px solid #d9534f !important; }'
+            '.pepu-codigo { width:100%; font-weight:bold; font-size:0.8em; }'
+            '.pepu-descricao { width:100%; font-size:0.75em; color:#666; text-align:center; '
+            'display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }'
+            '</style>' + legenda_vermelho +
+            '<div class="pepu-painel">' + cartoes + '</div>'
+            '<div id="pepu-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); '
+            'z-index:5000; align-items:center; justify-content:center;" '
+            'onclick="if(event.target===this)this.style.display=\'none\';">'
+            '<div style="background:#fff; border-radius:8px; max-width:90vw; max-height:90vh; overflow:auto; '
+            'padding:24px; display:flex; flex-direction:column; align-items:center; position:relative;">'
+            '<button type="button" onclick="document.getElementById(\'pepu-modal\').style.display=\'none\';" '
+            'style="position:absolute; top:8px; right:8px; background:none; border:none; font-size:22px; '
+            'cursor:pointer; color:#666;">&times;</button>'
+            '<img id="pepu-modal-imagem" alt="" style="max-width:400px; max-height:300px; '
+            'object-fit:contain; margin-bottom:14px; display:none;">'
+            '<div id="pepu-modal-codigo" style="font-weight:bold; font-size:1.2em; margin-bottom:8px;"></div>'
+            '<div id="pepu-modal-descricao" style="font-size:1em; color:#444; text-align:center; max-width:460px;"></div>'
+            '</div></div>'
+            '<script>'
+            'if (!window.pepuAbrirDetalhe) { window.pepuAbrirDetalhe = function(imagem, codigo, descricao) {'
+            'var img = document.getElementById("pepu-modal-imagem");'
+            'if (imagem) { img.src = imagem; img.style.display = "block"; } '
+            'else { img.removeAttribute("src"); img.style.display = "none"; }'
+            'document.getElementById("pepu-modal-codigo").textContent = codigo;'
+            'document.getElementById("pepu-modal-descricao").textContent = descricao;'
+            'document.getElementById("pepu-modal").style.display = "flex";'
+            '}; }'
+            '</script>'
+        )
+        return mark_safe(html)
+
+    produtos_usados_tag.short_description = _('Produtos Usados nos Fluxos')
 
 
 post_save.connect(verifica_filha_3_valor_3_boolean, sender=TbEquipamentos)

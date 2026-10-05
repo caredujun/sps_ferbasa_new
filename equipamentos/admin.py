@@ -3,6 +3,7 @@ from django.utils.translation import gettext_lazy as _
 import xlwt
 from boto3 import Session
 from django.contrib import admin, messages
+from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.forms import Textarea
 from django.http import HttpResponse
 from xlrd import open_workbook_xls
@@ -19,6 +20,7 @@ from django.utils.html import format_html
 from django.db import models
 from django.db.models import Q
 from fluxos.models import TbFluxoProducaoDaugther
+from parameters.widget_escolhidos_sem_fluxo import WidgetEscolhidosSemFluxo
 
 # Para mostrar as ordens de produção cadastradas para o equipamento
 class TbEquipamentosCadastroOrdemDaugtherAdmin(admin.TabularInline):
@@ -278,11 +280,11 @@ class TbEquipamentosAdmin(DjangoObjectActions, admin.ModelAdmin):
             if expedicao:
                 self.fields = [('equ_codigo', 'equipamento_imagem_tag_small', 'gargalo', 'expedicao'),
                                ('equ_ordem_codigo', 'equ_ordem_descricao', 'periodos_ativa', 'total_itens', 'qtde_fluxos_usando'), ('equ_tipo_producao', 'equ_e_clone_de'),
-                               'equ_observacao', 'equ_fonte', 'equ_produtos']
+                               'equ_observacao', 'equ_fonte', 'equ_produtos', 'escolhidos_igual_fluxos', 'produtos_usados_tag']
             else:
                 self.fields = [('equ_codigo', 'equipamento_imagem_tag_small', 'gargalo', 'expedicao'),
                                ('equ_ordem_codigo', 'equ_ordem_descricao', 'periodos_ativa', 'total_itens', 'qtde_fluxos_usando'),
-                               ('equ_tipo_producao', 'equ_e_clone_de', 'equ_wip'), 'equ_observacao', 'equ_fonte', 'equ_produtos']
+                               ('equ_tipo_producao', 'equ_e_clone_de', 'equ_wip'), 'equ_observacao', 'equ_fonte', 'equ_produtos', 'escolhidos_igual_fluxos', 'produtos_usados_tag']
 
         return self.fields
 
@@ -302,10 +304,11 @@ class TbEquipamentosAdmin(DjangoObjectActions, admin.ModelAdmin):
         )
     qtde_fluxos_usando.short_description = 'Qtde Fluxos Usando'
 
-    list_display = ['id', 'equ_codigo', 'equ_ordem_codigo', 'equipamento_imagem_tag_small', 'equ_ordem_descricao', 'periodos_ativa',
+    list_display = ['id', 'equ_codigo', 'equ_ordem_codigo', 'equipamento_imagem_tag_small', 'escolhidos_igual_fluxos', 'equ_ordem_descricao', 'periodos_ativa',
                     'equ_tipo_producao', 'equ_e_clone_de', 'media_paradas_np', 'media_prod', 'media_custo_var_adi', 'total_itens', 'qtde_fluxos_usando']
 
-    readonly_fields = ('equipamento_imagem_tag_small', 'total_itens', 'gargalo', 'expedicao', 'media_paradas_np', 'media_prod', 'media_custo_var_adi', 'periodos_ativa', 'qtde_fluxos_usando')
+    readonly_fields = ('equipamento_imagem_tag_small', 'total_itens', 'gargalo', 'expedicao', 'media_paradas_np', 'media_prod', 'media_custo_var_adi', 'periodos_ativa', 'qtde_fluxos_usando',
+                       'escolhidos_igual_fluxos', 'produtos_usados_tag')
     list_display_links = ['id', 'equ_codigo']
     filter_horizontal = ('equ_produtos',)
 
@@ -780,6 +783,20 @@ class TbEquipamentosAdmin(DjangoObjectActions, admin.ModelAdmin):
     exportar_excel.short_description = _('Exportar Excel')
 
     form = TbEquipamentosFormAdmin
+
+    # 🌟 NOVO: troca o seletor de duas colunas do Admin pelo mesmo seletor, com a
+    # pintura em vermelho dos produtos escolhidos que nenhum fluxo usa com este
+    # equipamento/ordem (ver parameters/widget_escolhidos_sem_fluxo.py). Feito
+    # aqui, e não em Meta.widgets do formulário, porque o Admin sobrescreve o
+    # widget de todo campo listado em filter_horizontal. Quem informa QUAIS
+    # produtos pintar é TbEquipamentosFormAdmin (depende do equipamento aberto).
+    def formfield_for_manytomany(self, db_field, request, **kwargs):
+        campo = super().formfield_for_manytomany(db_field, request, **kwargs)
+        if db_field.name == 'equ_produtos' and campo is not None and isinstance(campo.widget, FilteredSelectMultiple):
+            novo = WidgetEscolhidosSemFluxo(campo.widget.verbose_name, campo.widget.is_stacked)
+            novo.choices = campo.widget.choices
+            campo.widget = novo
+        return campo
 
     formfield_overrides = {
         # models.CharField: {'widget': TextInput(attrs={'size': '15'})},

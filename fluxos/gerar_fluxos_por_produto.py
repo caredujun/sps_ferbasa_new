@@ -32,6 +32,8 @@ ordem "certa" definida -- qualquer ordem funciona igual no editor).
 
 from __future__ import annotations
 
+import hashlib
+import logging
 from collections import Counter, defaultdict
 from itertools import product
 from typing import Dict, List, Tuple
@@ -41,6 +43,8 @@ from django.db import connection, transaction
 from equipamentos.models import TbEquipamentos
 from fluxos.models import TbFluxoConsumoPadrao, TbFluxoProducao, TbFluxoProducaoDaugther
 from produtos.models import TbProdutos
+
+_log = logging.getLogger(__name__)
 
 
 class GeracaoFluxoError(RuntimeError):
@@ -538,93 +542,222 @@ def _assinatura_estrutural(pares_coluna_cp) -> frozenset:
     return frozenset((maior_coluna - c, cp_id) for c, cp_id in pares)
 
 
+# ---------------------------------------------------------------------
+# 🌟 NOVO (memória): processamento em FLUXO CONTÍNUO.
+#
+# O problema: a versão anterior montava, na memória, a lista com TODOS os planos de
+# TODOS os terminais e, de cada plano, uma assinatura pesada (um frozenset de ~30
+# pares), e só depois de ter tudo isso gravava o primeiro fluxo. Um produto com
+# centenas de milhares de fluxos (o que acontece ao clonar um equipamento que
+# alimenta vários pontos da cadeia, ou ao criar terminais de expedição novos) ocupava
+# vários GB e o sistema operacional matava o worker do Celery (SIGKILL).
+#
+# Agora:
+#  1) _contar_planos conta quantos planos cada terminal geraria SEM montar nenhum --
+#     se passar do limite, avisa na hora com a quantidade, em vez de estourar a memória;
+#  2) _expandir_para_tras_iter entrega os planos UM DE CADA VEZ (generator);
+#  3) a comparação com o banco guarda só uma assinatura COMPACTA (16 bytes) dos
+#     fluxos que JÁ EXISTEM; os planos novos são conferidos e descartados na hora --
+#     só os que precisam ser criados ficam guardados;
+#  4) a gravação é feita em LOTES, cada um com o seu commit: o que já foi gravado fica
+#     gravado (não se perde tudo se o processo for interrompido) e rodar de novo só
+#     cria o que ainda falta, porque a comparação é por estrutura.
+# ---------------------------------------------------------------------
+def _membros_efetivos_por_criterio(destino_id, entradas_por_destino, equipamentos):
+    """[(criterio, [(from_id, criterio, cp_id), ...])] na mesma ordem e com a mesma regra de clones de
+    _expandir_para_tras (entre um original e o clone dele, no mesmo grupo, fica só o clone)."""
+    grupos = defaultdict(list)
+    for from_id, criterio, cp_id in entradas_por_destino.get(destino_id, []):
+        grupos[criterio].append((from_id, criterio, cp_id))
+    resultado = []
+    for criterio in sorted(grupos):
+        membros = sorted(grupos[criterio], key=lambda m: (not _e_clone(m[0], equipamentos), m[2]))
+        vistos_originais, efetivos = set(), []
+        for from_id, criterio_m, cp_id in membros:
+            original_id = _original_de(from_id, equipamentos)
+            if original_id in vistos_originais:
+                continue
+            vistos_originais.add(original_id)
+            efetivos.append((from_id, criterio_m, cp_id))
+        resultado.append((criterio, efetivos))
+    return resultado
+
+
+def _contar_planos(destino_id, entradas_por_destino, equipamentos, pilha=(), memo=None) -> int:
+    """Quantos planos _expandir_para_tras geraria a partir de destino_id -- sem gerar nenhum (memoizado)."""
+    memo = {} if memo is None else memo
+    if destino_id in pilha:
+        raise GeracaoFluxoError(f"Ciclo detectado envolvendo o equipamento id={destino_id}.")
+    if destino_id in memo:
+        return memo[destino_id]
+    if not entradas_por_destino.get(destino_id):
+        memo[destino_id] = 1
+        return 1
+    total = 1
+    for _criterio, membros in _membros_efetivos_por_criterio(destino_id, entradas_por_destino, equipamentos):
+        soma = sum(
+            _contar_planos(from_id, entradas_por_destino, equipamentos, pilha + (destino_id,), memo)
+            for from_id, _c, _cp in membros
+        )
+        total *= max(soma, 1)
+    memo[destino_id] = total
+    return total
+
+
+def _expandir_para_tras_iter(destino_id, entradas_por_destino, equipamentos, pilha=()):
+    """Mesma expansão de _expandir_para_tras (mesmos planos, na mesma ordem), mas entregue UM DE CADA VEZ."""
+    if destino_id in pilha:
+        raise GeracaoFluxoError(f"Ciclo detectado envolvendo o equipamento id={destino_id}.")
+    if not entradas_por_destino.get(destino_id):
+        yield tuple()
+        return
+
+    def alternativas_do_grupo(membros):
+        for from_id, criterio_m, cp_id in membros:
+            for caminho_anterior in _expandir_para_tras_iter(
+                from_id, entradas_por_destino, equipamentos, pilha + (destino_id,),
+            ):
+                yield caminho_anterior + ((from_id, criterio_m, cp_id),)
+
+    grupos = _membros_efetivos_por_criterio(destino_id, entradas_por_destino, equipamentos)
+    if len(grupos) == 1:
+        yield from alternativas_do_grupo(grupos[0][1])      # um grupo só: entrega direto, sem guardar nada
+        return
+    # Vários grupos: cada grupo é guardado (a soma dos seus membros, bem menor que o produto entre grupos);
+    # o produto cartesiano, esse sim enorme, sai um de cada vez.
+    listas = [list(alternativas_do_grupo(membros)) for _criterio, membros in grupos]
+    for combinacao in product(*listas):
+        yield tuple(a for parte in combinacao for a in parte)
+
+
+def _iterar_planos_do_produto(terminais, entradas_por_destino, equipamentos, max_fluxos):
+    """Todos os planos de todos os terminais, um de cada vez. Antes de gerar o primeiro, conta tudo e
+    recusa (com a quantidade) se algum terminal passar do limite -- sem ter alocado nada."""
+    memo = {}
+    for terminal in terminais:
+        total = _contar_planos(terminal.id, entradas_por_destino, equipamentos, memo=memo)
+        if total > max_fluxos:
+            rotulo = f"{terminal.equ_codigo.equ_cad_codigo}/{terminal.equ_ordem_codigo}"
+            raise GeracaoFluxoError(
+                f"O terminal {rotulo} geraria {total:,} fluxos, acima do limite de {max_fluxos:,} "
+                "(max_fluxos). Nada foi gerado."
+            )
+    for terminal in terminais:
+        yield from _expandir_para_tras_iter(terminal.id, entradas_por_destino, equipamentos)
+
+
+def _assinatura_compacta(pares_coluna_cp) -> bytes:
+    """
+    Mesma assinatura ESTRUTURAL de _assinatura_estrutural (coluna normalizada pela distância até a última coluna
+    + consumo_padrao_id, como CONJUNTO), mas guardada como um resumo de 16 bytes em vez de um frozenset de ~30
+    pares (que ocupa ~4 KB). Cabe em memória mesmo com centenas de milhares de fluxos.
+    """
+    pares = list(pares_coluna_cp)
+    if not pares:
+        return b''
+    maior_coluna = max(c for c, _ in pares)
+    normalizados = sorted({(maior_coluna - c, cp_id) for c, cp_id in pares})
+    return hashlib.blake2b(repr(normalizados).encode('ascii'), digest_size=16).digest()
+
+
+def _assinaturas_dos_fluxos_existentes(produto_id: int, cenario_id: int) -> Dict[bytes, List[int]]:
+    """{assinatura compacta: [mae_id, ...]} dos fluxos que o produto já tem -- lendo as linhas filhas em
+    fluxo contínuo (ordenadas por mae_id, em blocos), sem carregar a tabela inteira na memória."""
+    por_assinatura = defaultdict(list)
+    vistos = set()
+
+    def fechar(mae_id, pares):
+        por_assinatura[_assinatura_compacta(pares)].append(mae_id)
+        vistos.add(mae_id)
+
+    linhas = (
+        TbFluxoProducaoDaugther.objects
+        .filter(mae__flu_pro_produto_id=produto_id, mae__tbcenarios_id=cenario_id)
+        .order_by('mae_id')
+        .values_list('mae_id', 'flu_pro_dau_coluna', 'flu_pro_dau_consumo_padrao_id')
+        .iterator(chunk_size=5000)
+    )
+    atual, pares = None, []
+    for mae_id, coluna, cp_id in linhas:
+        if mae_id != atual:
+            if atual is not None:
+                fechar(atual, pares)
+            atual, pares = mae_id, []
+        pares.append((coluna, cp_id))
+    if atual is not None:
+        fechar(atual, pares)
+
+    # Fluxos que existem mas não têm nenhuma linha filha: assinatura vazia.
+    for mae_id in (TbFluxoProducao.objects.filter(flu_pro_produto_id=produto_id, tbcenarios_id=cenario_id)
+                   .order_by('id').values_list('id', flat=True).iterator(chunk_size=5000)):
+        if mae_id not in vistos:
+            por_assinatura[b''].append(mae_id)
+    return por_assinatura
+
+
+def _em_lotes(sequencia, tamanho):
+    for i in range(0, len(sequencia), tamanho):
+        yield sequencia[i:i + tamanho]
+
+
 def comparar_fluxos_existentes(produto_id: int, *, max_fluxos: int = 200000) -> dict:
     """
-    Calcula os fluxos NOVOS (sem gravar nada) e compara com os que já
-    existem em TbFluxoProducao/TbFluxoProducaoDaugther pro mesmo produto,
-    pela assinatura ESTRUTURAL (coluna + consumo_padrao_id de cada
-    linha) -- não só a quantidade total, nem só o conjunto solto de
-    equipamentos usados.
+    Calcula os fluxos NOVOS (sem gravar nada) e compara com os que já existem em TbFluxoProducao/
+    TbFluxoProducaoDaugther pro mesmo produto, pela assinatura ESTRUTURAL (coluna + consumo_padrao_id de cada
+    linha) -- não só a quantidade total, nem só o conjunto solto de equipamentos usados.
 
-    Compara por MULTICONJUNTO (Counter), não por conjunto simples -- se
-    por acaso existir mais de um fluxo gravado com a mesma assinatura
-    exata (duplicata de verdade), cada ocorrência conta separada.
+    Compara por MULTICONJUNTO: se existir mais de um fluxo gravado com a mesma assinatura exata (duplicata de
+    verdade), cada ocorrência conta separada.
+
+    🌟 Em fluxo contínuo (ver o comentário no topo deste bloco): os planos são gerados e conferidos um de cada
+    vez; só guarda na memória os que precisam ser CRIADOS.
 
     Retorna um dicionário com:
-        cenario_id, qtd_existente, qtd_novo, qtd_iguais, mudou (bool),
-        planos_por_terminal (pra reaproveitar em gravar_todos_fluxos_produto
-        sem recalcular)
+        produto_id, cenario_id, qtd_existente, qtd_novo, qtd_iguais, mudou (bool),
+        mae_ids_a_remover, planos_a_criar, cp_para_to
     """
-    resultado_calculo = calcular_fluxos_produto(produto_id, max_fluxos=max_fluxos)
-    cenario_id = resultado_calculo["cenario_id"]
-
-    # 🌟 Monta cp_id -> to_id UMA VEZ SÓ pro produto inteiro, pra não
-    # precisar consultar o banco de novo a cada um dos milhares de
-    # planos (gerar_linhas_do_plano aceita esse mapa pronto agora).
+    cenario_id = _cenario_do_produto(produto_id)
     equipamentos = _equipamentos_do_produto(produto_id, cenario_id)
-    entradas_por_destino, _ = _montar_grafo(equipamentos, cenario_id)
+    entradas_por_destino, saidas_de = _montar_grafo(equipamentos, cenario_id)
+    terminais = _encontrar_terminais(equipamentos, saidas_de)
+
+    # cp_id -> to_id UMA VEZ SÓ pro produto inteiro (evita uma consulta ao banco por plano).
     cp_para_to = {
         cp_id: to_id
         for to_id, entradas in entradas_por_destino.items()
         for (_, _, cp_id) in entradas
     }
 
-    # 🌟 guarda um plano REPRESENTANTE de cada assinatura nova -- pra
-    # poder criar só os que faltam, sem ter que escolher de novo entre
-    # as alternativas (reaproveita o cálculo já feito).
-    plano_por_assinatura = {}
-    assinaturas_novas = Counter()
-    for planos in resultado_calculo["planos_por_terminal"].values():
-        for plano in planos:
-            linhas = gerar_linhas_do_plano(plano, cp_para_to=cp_para_to)
-            assinatura = _assinatura_estrutural(
-                (l["flu_pro_dau_coluna"], l["flu_pro_dau_consumo_padrao_id"]) for l in linhas
-            )
-            assinaturas_novas[assinatura] += 1
-            plano_por_assinatura.setdefault(assinatura, plano)
-
-    maes_existentes = list(
-        TbFluxoProducao.objects.filter(flu_pro_produto_id=produto_id, tbcenarios_id=cenario_id)
-        .values_list("id", flat=True)
-    )
-    daugthers_existentes = TbFluxoProducaoDaugther.objects.filter(
-        mae_id__in=maes_existentes
-    ).values_list("mae_id", "flu_pro_dau_coluna", "flu_pro_dau_consumo_padrao_id")
-
-    pares_por_mae = defaultdict(list)
-    for mae_id, coluna, cp_id in daugthers_existentes:
-        pares_por_mae[mae_id].append((coluna, cp_id))
-
-    # 🌟 guarda, por assinatura, QUAIS mae_id existentes têm ela -- pra
-    # saber exatamente quais apagar (só os que sobram, nunca os certos).
-    mae_ids_por_assinatura = defaultdict(list)
-    assinaturas_existentes = Counter()
-    for mae_id in maes_existentes:
-        assinatura = _assinatura_estrutural(pares_por_mae.get(mae_id, []))
-        assinaturas_existentes[assinatura] += 1
-        mae_ids_por_assinatura[assinatura].append(mae_id)
-
-    comuns = assinaturas_novas & assinaturas_existentes
-    sobrando_no_banco = assinaturas_existentes - assinaturas_novas  # errados/a mais
-    faltando_no_banco = assinaturas_novas - assinaturas_existentes  # novos/a menos
-
-    # 🌟 NUNCA apaga mais do que o necessário pra cada assinatura: só os
-    # que sobram ALÉM do que já está certo.
-    mae_ids_a_remover = []
-    for assinatura, qtd in sobrando_no_banco.items():
-        mae_ids_a_remover.extend(mae_ids_por_assinatura[assinatura][:qtd])
+    existentes = _assinaturas_dos_fluxos_existentes(produto_id, cenario_id)
+    qtd_existente = sum(len(ids) for ids in existentes.values())
 
     planos_a_criar = []
-    for assinatura, qtd in faltando_no_banco.items():
-        planos_a_criar.extend([plano_por_assinatura[assinatura]] * qtd)
+    qtd_novo = 0
+    qtd_iguais = 0
+    for plano in _iterar_planos_do_produto(terminais, entradas_por_destino, equipamentos, max_fluxos):
+        qtd_novo += 1
+        linhas = gerar_linhas_do_plano(plano, cp_para_to=cp_para_to)
+        assinatura = _assinatura_compacta(
+            (l["flu_pro_dau_coluna"], l["flu_pro_dau_consumo_padrao_id"]) for l in linhas
+        )
+        ids = existentes.get(assinatura)
+        if ids:
+            ids.pop()                    # já existe um fluxo igual no banco: aproveita e não mexe nele
+            qtd_iguais += 1
+        else:
+            planos_a_criar.append(plano)   # falta no banco: será criado
+        if qtd_novo % 25000 == 0:
+            _log.info("Produto %s: %s planos avaliados (%s já existem, %s a criar).",
+                      produto_id, qtd_novo, qtd_iguais, len(planos_a_criar))
 
-    qtd_iguais = sum(comuns.values())
+    # O que sobrou nas listas é o que existe no banco ALÉM do que o cálculo novo pede (errado/a mais).
+    mae_ids_a_remover = [mae_id for ids in existentes.values() for mae_id in ids]
 
     return {
         "produto_id": produto_id,
         "cenario_id": cenario_id,
-        "qtd_existente": len(maes_existentes),
-        "qtd_novo": sum(assinaturas_novas.values()),
+        "qtd_existente": qtd_existente,
+        "qtd_novo": qtd_novo,
         "qtd_iguais": qtd_iguais,
         "mudou": bool(mae_ids_a_remover) or bool(planos_a_criar),
         "mae_ids_a_remover": mae_ids_a_remover,
@@ -633,8 +766,6 @@ def comparar_fluxos_existentes(produto_id: int, *, max_fluxos: int = 200000) -> 
     }
 
 
-@transaction.atomic
-@transaction.atomic
 def sincronizar_fluxos_produto(
     produto_id: int,
     cenario_id: int,
@@ -642,18 +773,25 @@ def sincronizar_fluxos_produto(
     planos_a_criar: List[Tuple[Tuple[int, str, int], ...]],
     *,
     cp_para_to: Dict[int, int] = None,
+    tamanho_lote: int = 100,
 ) -> dict:
     """
-    🌟 Aplica só a DIFERENÇA entre o banco e o cálculo novo (vinda de
-    comparar_fluxos_existentes): apaga SÓ os fluxos que sobram/estão
-    errados (mae_ids_a_remover) e cria SÓ os que estão faltando
-    (planos_a_criar) -- nunca mexe no que já está certo. Isso evita
-    apagar e regravar milhares de fluxos quando só 1 está errado.
+    🌟 Aplica só a DIFERENÇA entre o banco e o cálculo novo (vinda de comparar_fluxos_existentes): apaga SÓ os
+    fluxos que sobram/estão errados (mae_ids_a_remover) e cria SÓ os que estão faltando (planos_a_criar) -- nunca
+    mexe no que já está certo.
+
+    🌟 Em LOTES, cada um com o seu commit (antes era uma transação única pro produto inteiro): o que já foi
+    gravado fica gravado mesmo que o processo seja interrompido, e rodar de novo (comparar + sincronizar) só cria
+    o que ainda falta, porque a comparação é por estrutura. Os apagamentos também são em lotes -- apagar milhares
+    de fluxos de uma vez carregava tudo na memória.
 
     Retorna {'removidos': int, 'criados': int}.
     """
-    if mae_ids_a_remover:
-        TbFluxoProducao.objects.filter(id__in=mae_ids_a_remover).delete()
+    removidos = 0
+    for lote in _em_lotes(mae_ids_a_remover, 500):
+        with transaction.atomic():
+            TbFluxoProducao.objects.filter(id__in=lote).delete()
+        removidos += len(lote)
 
     produto_codigo = TbProdutos.objects.get(id=produto_id).pro_codigo
     equipamentos = _equipamentos_do_produto(produto_id, cenario_id)
@@ -665,33 +803,38 @@ def sincronizar_fluxos_produto(
             for (_, _, cp_id) in entradas
         }
 
-    mae_ids_criados = []
-    for plano in planos_a_criar:
-        descricao = _construir_descricao(plano, cp_para_to, equipamentos, produto_codigo)
-        linhas = gerar_linhas_do_plano(plano, cp_para_to=cp_para_to)
+    criados = 0
+    total = len(planos_a_criar)
+    for lote in _em_lotes(planos_a_criar, tamanho_lote):
+        with transaction.atomic():
+            mae_ids_do_lote = []
+            for plano in lote:
+                descricao = _construir_descricao(plano, cp_para_to, equipamentos, produto_codigo)
+                linhas = gerar_linhas_do_plano(plano, cp_para_to=cp_para_to)
 
-        mae = TbFluxoProducao.objects.create(
-            flu_pro_descricao=descricao[:150],
-            flu_pro_produto_id=produto_id,
-            flu_pro_ativo=True,
-            tbcenarios_id=cenario_id,
-        )
-        TbFluxoProducaoDaugther.objects.bulk_create([
-            TbFluxoProducaoDaugther(
-                mae_id=mae.id,
-                tbcenarios_id=cenario_id,
-                flu_pro_dau_coluna=linha["flu_pro_dau_coluna"],
-                flu_pro_dau_linha=linha["flu_pro_dau_linha"],
-                flu_pro_dau_consumo_padrao_id=linha["flu_pro_dau_consumo_padrao_id"],
-            )
-            for linha in linhas
-        ])
-        mae_ids_criados.append(mae.id)
+                mae = TbFluxoProducao.objects.create(
+                    flu_pro_descricao=descricao[:150],
+                    flu_pro_produto_id=produto_id,
+                    flu_pro_ativo=True,
+                    tbcenarios_id=cenario_id,
+                )
+                TbFluxoProducaoDaugther.objects.bulk_create([
+                    TbFluxoProducaoDaugther(
+                        mae_id=mae.id,
+                        tbcenarios_id=cenario_id,
+                        flu_pro_dau_coluna=linha["flu_pro_dau_coluna"],
+                        flu_pro_dau_linha=linha["flu_pro_dau_linha"],
+                        flu_pro_dau_consumo_padrao_id=linha["flu_pro_dau_consumo_padrao_id"],
+                    )
+                    for linha in linhas
+                ])
+                mae_ids_do_lote.append(mae.id)
 
-    # Verifica erro só dos novos -- os antigos que ficaram intocados não
-    # precisam ser reconferidos, já estavam corretos.
-    with connection.cursor() as cursor:
-        for mae_id in mae_ids_criados:
-            cursor.execute("call public.verifica_fluxo(%s)", [mae_id])
+            # Verifica erro só dos novos -- os antigos que ficaram intocados já estavam corretos.
+            with connection.cursor() as cursor:
+                for mae_id in mae_ids_do_lote:
+                    cursor.execute("call public.verifica_fluxo(%s)", [mae_id])
+        criados += len(mae_ids_do_lote)
+        _log.info("Produto %s: %s de %s fluxos criados.", produto_id, criados, total)
 
-    return {"removidos": len(mae_ids_a_remover), "criados": len(mae_ids_criados)}
+    return {"removidos": removidos, "criados": criados}

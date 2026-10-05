@@ -478,6 +478,36 @@ class TbCenariosAdmin(DjangoObjectActions, admin.ModelAdmin):
             messages.error(request,
                            _('Existem fluxos de produção com I/O desatualizado. Use "Atualizar Fluxos" antes.'))
             return
+        # Vamos verificar se temos Equipamentos/Ordem de produção com produtos escolhidos com nenhum fluxo usando o equipamento/ordem
+        # ou se temos Produto com equipamento/ordem escolhido mas nenhum fluxo usando esse equipamento
+
+        # 🌟 NOVO: interrompe a limpeza se algum produto ou algum equipamento/ordem do cenário estiver com
+        # "Escolhidos Igual Fluxos" = Não (é o mesmo campo que aparece na lista e no formulário de Produtos e
+        # de Equipamentos). Mostra até 10 de cada; havendo mais, "e outros". Pára de procurar ao achar o 11º
+        # de cada tipo, pra não calcular o cenário inteiro à toa.
+        from itertools import islice
+        from produtos.models import TbProdutos
+        from equipamentos.models import TbEquipamentos
+        produtos_nao = list(islice(
+            (p.pro_codigo for p in TbProdutos.objects.filter(tbcenarios_id=obj.id).order_by('pro_codigo')
+             if p.escolhidos_igual_fluxos() == 'Não'), 11))
+        equipamentos_nao = list(islice(
+            (str(e) for e in TbEquipamentos.objects.filter(tbcenarios_id=obj.id).order_by(
+                'equ_codigo__equ_cad_codigo', 'equ_ordem_codigo')
+             if e.escolhidos_igual_fluxos() == 'Não'), 11))
+        if produtos_nao or equipamentos_nao:
+            if produtos_nao:
+                lista = ', '.join(produtos_nao[:10]) + (' e outros' if len(produtos_nao) > 10 else '')
+                messages.error(request,
+                               _('Limpeza interrompida. Produto(s) com "Escolhidos Igual Fluxos" = Não: %(lista)s. '
+                                 'Abra o produto e veja o que está em vermelho.') % {'lista': lista})
+            if equipamentos_nao:
+                lista = ', '.join(equipamentos_nao[:10]) + (' e outros' if len(equipamentos_nao) > 10 else '')
+                messages.error(request,
+                               _('Limpeza interrompida. Equipamento(s)/Ordem(ns) com "Escolhidos Igual Fluxos" = Não: '
+                                 '%(lista)s. Abra o equipamento e veja o que está em vermelho.') % {'lista': lista})
+            return
+
         if self.ativo(obj):
             if TbFluxoProducaoDaugther01.objects.filter(custo_variavel=None, tbcenarios_id=obj.id,
                                                         mae_id__flu_pro_ativo=True).count() > 0:

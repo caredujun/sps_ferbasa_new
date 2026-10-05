@@ -13,6 +13,7 @@ ACOES = [
     ('Câmbio', 'eliminar', 'Câmbio - Eliminar'),
     ('Câmbio', 'massa', 'Câmbio - Reajuste em Massa'),
     ('Câmbio', 'grafico', 'Câmbio - Plotar Gráfico'),
+    ('Equipamentos', 'criar', 'Equipamentos - Criar Novo Equipamento'),
     ('Cenário', 'criar', 'Cenário - Criar Novo'),
     ('Cenário', 'mudar', 'Cenário - Mudar Tipo/Período'),
     ('Cenário', 'status', 'Cenário - Ver Status'),

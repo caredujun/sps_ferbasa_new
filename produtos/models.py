@@ -140,16 +140,59 @@ class TbProdutos(models.Model):  # NÃO TEM CAMPO DO CENÁRIO. SERÁ USADO POR T
     total_equipamentos_usados.short_description = 'Qtde Equipamentos Usados'
 
     def _ids_equipamentos_usados(self):
-        fluxos_ids = fluxos.models.TbFluxoProducao.objects.filter(
-            flu_pro_produto_id=self.id
-        ).values_list('id', flat=True)
+        # 🌟 Esse conjunto passou a ser usado por vários campos da MESMA
+        # tela (total, painel, "Escolhidos Igual Fluxos" e a marcação em
+        # vermelho do campo de escolha). Por isso agora:
+        #  - é calculado UMA vez por instância (memoizado) -- no Admin cada
+        #    requisição tem a sua própria instância, então não fica velho;
+        #  - o DISTINCT é feito no banco (.order_by().distinct()): um
+        #    produto com milhares de fluxos tem dezenas de milhares de
+        #    linhas filhas e antes todas viajavam até o Python só pra
+        #    virar um set de poucas dezenas de ids. O order_by() vazio
+        #    evita que um Meta.ordering do modelo atrapalhe o DISTINCT.
+        # O resultado é exatamente o mesmo conjunto de antes.
+        if getattr(self, '_cache_ids_equipamentos_usados', None) is None:
+            fluxos_ids = fluxos.models.TbFluxoProducao.objects.filter(
+                flu_pro_produto_id=self.id
+            ).values_list('id', flat=True)
 
-        daugthers = fluxos.models.TbFluxoProducaoDaugther.objects.filter(
-            mae_id__in=fluxos_ids
-        )
-        ids_from = daugthers.values_list('flu_pro_dau_consumo_padrao__flu_con_pad_from_equipamento_id', flat=True)
-        ids_to = daugthers.values_list('flu_pro_dau_consumo_padrao__flu_con_pad_to_equipamento_id', flat=True)
-        return (set(ids_from) | set(ids_to)) - {None}
+            daugthers = fluxos.models.TbFluxoProducaoDaugther.objects.filter(
+                mae_id__in=fluxos_ids
+            )
+            ids_from = daugthers.values_list(
+                'flu_pro_dau_consumo_padrao__flu_con_pad_from_equipamento_id', flat=True
+            ).order_by().distinct()
+            ids_to = daugthers.values_list(
+                'flu_pro_dau_consumo_padrao__flu_con_pad_to_equipamento_id', flat=True
+            ).order_by().distinct()
+            self._cache_ids_equipamentos_usados = (set(ids_from) | set(ids_to)) - {None}
+        return set(self._cache_ids_equipamentos_usados)
+
+    # 🌟 NOVO: ids dos equipamentos/ordens ESCOLHIDOS no cadastro (campo
+    # "Equipamentos/Ordens Que Compõem a Produção", que lê/grava o mesmo
+    # vínculo de TbEquipamentos.equ_produtos). Contrasta com
+    # _ids_equipamentos_usados, que é o que foi DEDUZIDO dos fluxos
+    # gravados -- os dois deveriam coincidir.
+    def _ids_equipamentos_escolhidos(self):
+        if self.pk is None:
+            return set()
+        if getattr(self, '_cache_ids_equipamentos_escolhidos', None) is None:
+            from django.apps import apps
+            campo = apps.get_model('equipamentos', 'TbEquipamentos')._meta.get_field('equ_produtos')
+            acessor = getattr(self, campo.remote_field.get_accessor_name())
+            self._cache_ids_equipamentos_escolhidos = set(acessor.values_list('pk', flat=True))
+        return set(self._cache_ids_equipamentos_escolhidos)
+
+    # 🌟 NOVO: consistência entre o que foi escolhido no cadastro e o que
+    # existe nos fluxos de produção. "Não" significa que há algo pra o
+    # usuário verificar: ou um equipamento escolhido que nenhum fluxo usa,
+    # ou um equipamento que algum fluxo usa e não foi escolhido.
+    def escolhidos_igual_fluxos(self):
+        if self.pk is None:
+            return '-'   # produto ainda não gravado: não há o que comparar
+        return 'Sim' if self._ids_equipamentos_escolhidos() == self._ids_equipamentos_usados() else 'Não'
+
+    escolhidos_igual_fluxos.short_description = 'Escolhidos Igual Fluxos'
 
     # 🌟 CORRIGIDO: em vez de reinventar CSS a cada ajuste (causando os
     # problemas de corte/altura inconsistente), esse painel agora porta
@@ -168,6 +211,11 @@ class TbProdutos(models.Model):  # NÃO TEM CAMPO DO CENÁRIO. SERÁ USADO POR T
         ids = self._ids_equipamentos_usados()
         if not ids:
             return mark_safe('<span style="color: #888;">Nenhum equipamento encontrado nos fluxos cadastrados.</span>')
+
+        # 🌟 NOVO: o que foi escolhido no cadastro. Cartão de equipamento que
+        # aparece nos fluxos mas NÃO está aqui fica com fundo vermelho.
+        escolhidos = self._ids_equipamentos_escolhidos()
+        qtd_fora_do_cadastro = len(ids - escolhidos)
 
         equipamentos_qs = (
             equipamentos.models.TbEquipamentos.objects
@@ -198,8 +246,14 @@ class TbProdutos(models.Model):  # NÃO TEM CAMPO DO CENÁRIO. SERÁ USADO POR T
             # qualquer seletor de classe externo), em cima da classe
             # que já existia -- as duas convivem, o inline só garante a
             # vitória se a classe perder.
+            fora_do_cadastro = equip.id not in escolhidos
+            classe_cartao = 'ppeu-item ppeu-sem-cadastro' if fora_do_cadastro else 'ppeu-item'
+            dica_cartao = (
+                ' title="Aparece nos fluxos, mas NÃO está escolhido em Equipamentos/Ordens Que Compõem a Produção"'
+                if fora_do_cadastro else ''
+            )
             cartoes += (
-                '<div class="ppeu-item" style="position:relative !important; display:inline-flex !important; '
+                f'<div class="{classe_cartao}"{dica_cartao} style="position:relative !important; display:inline-flex !important; '
                 'flex-direction:column !important; justify-content:center !important; align-items:center !important;">'
                 f'<span class="ppeu-lupa" title="Ver detalhes" style="position:absolute !important; '
                 'top:2px !important; right:2px !important; width:16px !important; height:16px !important; '
@@ -221,6 +275,16 @@ class TbProdutos(models.Model):  # NÃO TEM CAMPO DO CENÁRIO. SERÁ USADO POR T
                 '</div>'
             )
 
+        # 🌟 NOVO: legenda só quando há pelo menos um cartão vermelho.
+        legenda_vermelho = ''
+        if qtd_fora_do_cadastro:
+            legenda_vermelho = (
+                '<div style="margin-bottom:6px; font-size:0.85em; color:#a94442;">'
+                f'{qtd_fora_do_cadastro} equipamento(s) com fundo vermelho aparecem nos fluxos mas '
+                'NÃO estão escolhidos em &quot;Equipamentos/Ordens Que Compõem a Produção&quot;.'
+                '</div>'
+            )
+
         # Estilo e comportamento embutidos (self-contained): a tela do
         # Admin não carrega editor.css/editor.html, então tudo precisa
         # vir junto aqui. window.ppeuAbrirDetalhe só é definida uma vez
@@ -235,6 +299,10 @@ class TbProdutos(models.Model):  # NÃO TEM CAMPO DO CENÁRIO. SERÁ USADO POR T
                 'align-items:center; width:150px; height:140px; box-sizing:border-box; '
                 'overflow:hidden; vertical-align:top; padding:8px; margin-right:8px; text-align:center; '
                 'background:#fff; border:1px solid #ccc; border-radius:4px; white-space:normal; position:relative; }'
+                # 🌟 NOVO: equipamento que aparece nos fluxos mas não foi
+                # escolhido no cadastro. !important pra vencer o tema do Admin.
+                '.ppeu-item.ppeu-sem-cadastro { background:#ffd6d6 !important; '
+                'border:2px solid #d9534f !important; }'
                 '.ppeu-thumb { position:relative; width:40px; height:40px; margin:0 auto 6px auto; '
                 'display:flex; align-items:center; justify-content:center; overflow:hidden; }'
                 '.ppeu-thumb img { width:100% !important; height:100% !important; object-fit:cover !important; '
@@ -251,7 +319,7 @@ class TbProdutos(models.Model):  # NÃO TEM CAMPO DO CENÁRIO. SERÁ USADO POR T
                 '.ppeu-codigo { width:100%; font-weight:bold; font-size:0.8em; }'
                 '.ppeu-descricao { width:100%; font-size:0.75em; color:#666; text-align:center; '
                 'display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }'
-                '</style>'
+                '</style>' + legenda_vermelho +
                 '<div class="ppeu-painel">' + cartoes + '</div>'
                                                         '<div id="ppeu-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); '
                                                         'z-index:5000; align-items:center; justify-content:center;" onclick="if(event.target===this)this.style.display=\'none\';">'

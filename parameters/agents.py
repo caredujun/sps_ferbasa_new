@@ -24,6 +24,7 @@ from .fluxo_criar_cenario import (
     iniciar_exportar_dados_otimizacao_cenario_ativo,
     iniciar_criar_fluxo_no_editor_cenario_ativo,
     iniciar_fluxo_criar_fluxos_produto,
+    iniciar_fluxo_criar_equipamento,
     _processar_planilha_indicador, _processar_planilha_cambio,
     _buscar_indicador, _lista_indicadores, _lista_periodos_indicador,
     _buscar_cambio, _lista_cambios, _lista_periodos_cambio,
@@ -256,6 +257,17 @@ def _detectar_intencao_criar_fluxos_produto(mensagem):
     return bool(re.search(r'(cri[ae]r?|ger[ae]r?).*fluxo.*produ[cç][aã]o', texto, re.IGNORECASE))
 
 
+# 🌟 NOVO: categoria "Equipamentos" -- "Criar novo equipamento". Exige o verbo
+# COLADO em "equipamento" (criar/adicionar/cadastrar [um] [novo] equipamento),
+# pra não confundir com outras ações que só citam equipamentos no meio da frase.
+def _detectar_intencao_criar_equipamento(mensagem):
+    texto = mensagem or ""
+    return bool(re.search(
+        r'(cri[ae]r?|adicion[ae]r?|cadastr[ae]r?)\s+((um|uma)\s+)?((novo|nova)\s+)?equipamento',
+        texto, re.IGNORECASE,
+    ))
+
+
 # 🌟 NOVO: "atualizar produção e ggf mensal" (app custo_ferbasa) --
 # aceita tanto o texto exato do menu quanto variações naturais (produção
 # e ggf mencionados juntos, em qualquer ordem, ou o nome da categoria).
@@ -347,6 +359,53 @@ def _detectar_intencao_ciclo_completo(mensagem):
         and re.search(r'otimiz[ae]r?', texto)
         and re.search(r'consolid[ae]r?', texto)
     )
+
+
+# 🌟 NOVO: trava das ações comuns "Limpar" e "Ciclo Completo" (que começa limpando).
+# Devolve o texto do aviso se algum produto ou equipamento/ordem do cenário ATIVO do usuário
+# estiver com "Escolhidos Igual Fluxos" = Não (o mesmo campo que aparece na lista e no formulário
+# de Produtos e de Equipamentos). Devolve None se estiver tudo "Sim" -- ou se o usuário não tem
+# cenário ativo, caso em que quem avisa é a própria ação.
+# Mostra até 10 de cada tipo, depois "e outros", e pára de calcular ao achar o 11º de cada tipo.
+def _bloqueio_consistencia_limpeza(usuario, ciclo=False):
+    perfil = getattr(usuario, 'perfilusuario', None)
+    if perfil is None or perfil.cenario_ativo_id is None:
+        return None
+    cenario = TbCenarios.objects_real.filter(id=perfil.cenario_ativo_id).first()
+    if cenario is None:
+        return None
+    numero = cenario.numero_sequencial if cenario.numero_sequencial is not None else cenario.id
+    try:
+        from itertools import islice
+        from produtos.models import TbProdutos
+        from equipamentos.models import TbEquipamentos
+        produtos_nao = list(islice(
+            (p.pro_codigo for p in TbProdutos.objects.filter(tbcenarios_id=cenario.id).order_by('pro_codigo')
+             if p.escolhidos_igual_fluxos() == 'Não'), 11))
+        equipamentos_nao = list(islice(
+            (str(e) for e in TbEquipamentos.objects.filter(tbcenarios_id=cenario.id).order_by(
+                'equ_codigo__equ_cad_codigo', 'equ_ordem_codigo')
+             if e.escolhidos_igual_fluxos() == 'Não'), 11))
+    except Exception as erro:
+        # Melhor parar do que limpar sem conferir.
+        return (f"Não consegui conferir o campo \"Escolhidos Igual Fluxos\" do cenário **{numero}/{cenario.cen_nome}** "
+                f"(erro técnico: {erro!r}). Por segurança, não vou limpar.")
+    if not (produtos_nao or equipamentos_nao):
+        return None
+
+    def _lista(itens):
+        return ', '.join(itens[:10]) + (' e outros' if len(itens) > 10 else '')
+
+    abertura = (f"Não vou iniciar o ciclo completo (ele começa limpando o cenário **{numero}/{cenario.cen_nome}**)"
+                if ciclo else f"Não vou limpar o cenário **{numero}/{cenario.cen_nome}**")
+    partes = [f'{abertura}: tem produto e/ou equipamento/ordem com "Escolhidos Igual Fluxos" = Não.']
+    if produtos_nao:
+        partes.append(f'**Produtos:** {_lista(produtos_nao)}')
+    if equipamentos_nao:
+        partes.append(f'**Equipamentos/ordens:** {_lista(equipamentos_nao)}')
+    partes.append('Abra o cadastro de cada um (no produto ou no equipamento) e veja o que está em vermelho. '
+                  'Depois peça a limpeza de novo.')
+    return '\n\n'.join(partes)
 
 
 # 🌟 NOVO: "qual o status/situação do cenário [ativo]" -- consulta
@@ -1011,6 +1070,15 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
         _salvar_historico(usuario, mensagem_usuario, resposta)
         return resposta, []
 
+    # 🌟 NOVO: usuário pedindo pra criar um novo equipamento (categoria "Equipamentos" das
+    # Ações Comuns) -- pergunta se quer clonar um equipamento existente e mostra os cartões.
+    if _detectar_intencao_criar_equipamento(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Equipamentos', 'criar'):
+        if esta_em_fluxo:
+            cancelar_fluxo_ativo(usuario)
+        resposta = iniciar_fluxo_criar_equipamento(usuario)
+        _salvar_historico(usuario, mensagem_usuario, resposta)
+        return resposta, []
+
     # 🌟 NOVO: usuário pedindo pra atualizar Produção Mensal / Distribuição
     # GGF Mensal (app custo_ferbasa) a partir de um arquivo enviado em
     # Relatórios -- primeiro pede o arquivo de produção, depois o de GGF,
@@ -1141,7 +1209,7 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
     if _detectar_intencao_ciclo_completo(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Cenário', 'ciclo_completo'):
         if esta_em_fluxo:
             cancelar_fluxo_ativo(usuario)
-        resposta = iniciar_ciclo_completo(usuario, mensagem_usuario)
+        resposta = _bloqueio_consistencia_limpeza(usuario, ciclo=True) or iniciar_ciclo_completo(usuario, mensagem_usuario)
         _salvar_historico(usuario, mensagem_usuario, resposta)
         return resposta, []
 
@@ -1151,7 +1219,10 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
             usuario, 'Cenário', determinar_acao_processar(mensagem_usuario)):
         if esta_em_fluxo:
             cancelar_fluxo_ativo(usuario)
-        resposta = iniciar_fluxo_processar(usuario, mensagem_usuario)
+        resposta = (
+            (_bloqueio_consistencia_limpeza(usuario) if determinar_acao_processar(mensagem_usuario) == 'limpar' else None)
+            or iniciar_fluxo_processar(usuario, mensagem_usuario)
+        )
         _salvar_historico(usuario, mensagem_usuario, resposta)
         return resposta, []
 
