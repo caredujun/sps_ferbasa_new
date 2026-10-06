@@ -1090,6 +1090,46 @@ def gerar_fluxos_produto_celery(produto_id, usuario_id):
     estado.save()
 
 
+# 🌟 NOVO: "Fluxos de Produção - Atualizar Fluxos de Produção por Produto" -- calcula a SITUAÇÃO dos fluxos de cada
+# produto do cenário (quantos cadastrados, quantos corretos, quantos faltam, quantos sobram), em segundo plano, pra
+# tela de seleção do chat. Não grava NADA nos fluxos: só compara. Cada produto é gravado no estado do usuário assim
+# que fica pronto (o chat mostra "k de n" enquanto espera). O estado só é alterado se ainda for da MESMA sessão
+# (calculo_id) -- se o usuário já começou outra coisa, o resto do cálculo é abandonado.
+@shared_task
+def calcular_situacao_fluxos_celery(produto_ids, usuario_id, calculo_id):
+    from .gerar_fluxos_por_produto import situacao_fluxos_produto
+    from parameters.models import EstadoConversaAgente
+
+    def gravar(atualizar):
+        # Ler-modificar-gravar COM TRAVA na linha do estado: o chat também grava nela a cada consulta
+        # ("Verificar"), e sem a trava uma gravação poderia apagar o resultado da outra.
+        with transaction.atomic():
+            estado = EstadoConversaAgente.objects.select_for_update().filter(usuario_id=usuario_id).first()
+            if estado is None or (estado.dados_coletados or {}).get('calculo_id') != calculo_id:
+                return False
+            dados = dict(estado.dados_coletados)
+            atualizar(dados)
+            estado.dados_coletados = dados
+            estado.save()
+            return True
+
+    for produto_id in produto_ids:
+        try:
+            resultado = situacao_fluxos_produto(produto_id)
+        except Exception as erro:
+            resultado = {'erro': f'Erro inesperado: {erro}'}
+
+        def registrar(dados, produto_id=produto_id, resultado=resultado):
+            situacao = dict(dados.get('situacao') or {})
+            situacao[str(produto_id)] = resultado
+            dados['situacao'] = situacao
+
+        if not gravar(registrar):
+            return
+
+    gravar(lambda dados: dados.__setitem__('calculo_concluido', True))
+
+
 @shared_task
 def exportar_excel_fluxo_producao_celery(lista_id, user_mail):
     nome_arquivo = 'Fluxo de Producao' + '.xlsx'

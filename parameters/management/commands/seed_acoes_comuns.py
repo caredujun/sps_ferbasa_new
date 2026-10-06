@@ -14,6 +14,7 @@ ACOES = [
     ('Câmbio', 'massa', 'Câmbio - Reajuste em Massa'),
     ('Câmbio', 'grafico', 'Câmbio - Plotar Gráfico'),
     ('Equipamentos', 'criar', 'Equipamentos - Criar Novo Equipamento'),
+    ('Equipamentos', 'criar_ordem', 'Equipamentos - Criar Nova Ordem de Produção'),
     ('Cenário', 'criar', 'Cenário - Criar Novo'),
     ('Cenário', 'mudar', 'Cenário - Mudar Tipo/Período'),
     ('Cenário', 'status', 'Cenário - Ver Status'),
@@ -29,6 +30,7 @@ ACOES = [
     ('Custo Ferbasa', 'atualizar_consumo_especifico_custo_variavel', 'Custo Ferbasa - Atualizar Consumo Específico e Custo Variável'),
     ('Fluxos de Produção', 'criar_no_editor', 'Fluxos de Produção - Atualizar Visão do Fluxo de Produção'),
     ('Fluxos de Produção', 'criar_fluxos_produto', 'Fluxos de Produção - Atualizar Fluxos de Produção por Produto'),
+    ('Fluxos de Produção', 'comparar_fluxos', 'Fluxos de Produção - Comparar Fluxos de Produção'),
 ]
 
 

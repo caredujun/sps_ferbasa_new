@@ -24,7 +24,9 @@ from .fluxo_criar_cenario import (
     iniciar_exportar_dados_otimizacao_cenario_ativo,
     iniciar_criar_fluxo_no_editor_cenario_ativo,
     iniciar_fluxo_criar_fluxos_produto,
+    iniciar_fluxo_comparar_fluxos,
     iniciar_fluxo_criar_equipamento,
+    iniciar_fluxo_criar_ordem,
     _processar_planilha_indicador, _processar_planilha_cambio,
     _buscar_indicador, _lista_indicadores, _lista_periodos_indicador,
     _buscar_cambio, _lista_cambios, _lista_periodos_cambio,
@@ -252,6 +254,12 @@ def _detectar_intencao_criar_fluxo_no_editor(mensagem):
 # TbFluxoProducaoDaugther) a partir da cadeia de consumo padrão de um
 # produto. Testado pra não colidir com o regex acima (nenhum dos dois
 # textos de botão bate no regex do outro).
+# 🌟 NOVO: "Fluxos de Produção - Comparar Fluxos de Produção" (só consulta). Exige "compar..." e "fluxo" na mesma frase.
+def _detectar_intencao_comparar_fluxos(mensagem):
+    texto = mensagem or ""
+    return bool(re.search(r'\bcompar\w*\b.*\bfluxos?\b|\bfluxos?\b.*\bcompar\w*\b', texto, re.IGNORECASE))
+
+
 def _detectar_intencao_criar_fluxos_produto(mensagem):
     texto = mensagem or ""
     return bool(re.search(r'(cri[ae]r?|ger[ae]r?).*fluxo.*produ[cç][aã]o', texto, re.IGNORECASE))
@@ -260,6 +268,16 @@ def _detectar_intencao_criar_fluxos_produto(mensagem):
 # 🌟 NOVO: categoria "Equipamentos" -- "Criar novo equipamento". Exige o verbo
 # COLADO em "equipamento" (criar/adicionar/cadastrar [um] [novo] equipamento),
 # pra não confundir com outras ações que só citam equipamentos no meio da frase.
+# 🌟 NOVO: "Equipamentos - Criar Nova Ordem de Produção" (clone de uma ordem). Exige o verbo COLADO em "ordem"
+# (criar/adicionar/cadastrar/clonar [um/uma] [novo/nova] ordem) -- não se confunde com "criar equipamento".
+def _detectar_intencao_criar_ordem(mensagem):
+    texto = mensagem or ""
+    return bool(re.search(
+        r'(cri[ae]r?|adicion[ae]r?|cadastr[ae]r?|clon[ae]r?)\s+((um|uma|a|essa|esta)\s+)?((novo|nova)\s+)?ordem',
+        texto, re.IGNORECASE,
+    ))
+
+
 def _detectar_intencao_criar_equipamento(mensagem):
     texto = mensagem or ""
     return bool(re.search(
@@ -1059,6 +1077,14 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
         _salvar_historico(usuario, mensagem_usuario, resposta)
         return resposta, []
 
+    # 🌟 NOVO: usuário pedindo pra comparar dois fluxos de produção (só consulta).
+    if _detectar_intencao_comparar_fluxos(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Fluxos de Produção', 'comparar_fluxos'):
+        if esta_em_fluxo:
+            cancelar_fluxo_ativo(usuario)
+        resposta = iniciar_fluxo_comparar_fluxos(usuario)
+        _salvar_historico(usuario, mensagem_usuario, resposta)
+        return resposta, []
+
     # 🌟 NOVO: usuário pedindo pra criar os fluxos de produção dos produtos
     # do cenário ativo (a partir da cadeia de consumo padrão, não do
     # editor visual) -- lista os produtos, deixa escolher, compara com o
@@ -1072,6 +1098,14 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
 
     # 🌟 NOVO: usuário pedindo pra criar um novo equipamento (categoria "Equipamentos" das
     # Ações Comuns) -- pergunta se quer clonar um equipamento existente e mostra os cartões.
+    # 🌟 NOVO: usuário pedindo pra criar uma nova ordem de produção por clone (categoria "Equipamentos").
+    if _detectar_intencao_criar_ordem(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Equipamentos', 'criar_ordem'):
+        if esta_em_fluxo:
+            cancelar_fluxo_ativo(usuario)
+        resposta = iniciar_fluxo_criar_ordem(usuario)
+        _salvar_historico(usuario, mensagem_usuario, resposta)
+        return resposta, []
+
     if _detectar_intencao_criar_equipamento(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Equipamentos', 'criar'):
         if esta_em_fluxo:
             cancelar_fluxo_ativo(usuario)

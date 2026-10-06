@@ -151,6 +151,83 @@
         .form-equip-inline .fe-aviso, .form-ordens-inline .fe-aviso { min-height: 16px; margin-bottom: 4px; font-size: 12px; color: #b00020; }
         .form-equip-inline input:disabled, .form-ordens-inline input:disabled, .form-ordens-inline select:disabled, .form-ordens-inline .fo-mais:disabled { opacity: 0.6; cursor: default; }
 
+        /* 🌟 NOVO: "Atualizar Fluxos de Produção por Produto" -- grade (2 colunas) com a situação dos fluxos de cada produto
+           e uma caixa de seleção (pequeno quadrado) dentro de cada cartão, pra marcar mais de um produto. */
+        .grade-selecao { margin-top: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .cartao-sel {
+            position: relative; display: flex; flex-direction: column; gap: 4px; padding: 8px; min-width: 0;
+            border: 1px solid #417690; border-radius: 8px; background: #eef5f8; color: #417690; cursor: pointer;
+        }
+        .cartao-sel:hover { box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+        .cartao-sel.marcado { background: #dcecf3; box-shadow: 0 0 0 2px #417690 inset; }
+        .cartao-sel.ok { border-color: #2e7d32; background: #eef7ee; color: #2e7d32; }
+        .cartao-sel.sem_fluxos, .cartao-sel.indisponivel { border-color: #999; background: #f3f3f3; color: #666; }
+        .cartao-sel.desativado { cursor: default; box-shadow: none; }
+        .cartao-sel .caixa-sel { position: absolute; top: 6px; right: 6px; width: 16px; height: 16px; margin: 0; cursor: pointer; accent-color: #417690; }
+        .cartao-sel .caixa-sel:disabled { cursor: default; opacity: 0.45; }
+        .cartao-sel .sel-codigo { font-weight: bold; font-size: 13px; padding-right: 24px; word-break: break-word; }
+        .cartao-sel .sel-metricas { display: grid; grid-template-columns: 1fr auto; column-gap: 8px; row-gap: 1px; font-size: 11px; color: #444; }
+        .cartao-sel .sel-valor { text-align: right; font-weight: bold; }
+        .cartao-sel .gerar { color: #b26a00; font-weight: bold; }
+        .cartao-sel .remover { color: #b00020; font-weight: bold; }
+        .cartao-sel .sel-selo { font-size: 12px; font-weight: bold; }
+        .cartao-sel .sel-motivo { font-size: 10px; line-height: 1.25; color: #666; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+        .barra-selecao { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px; }
+        .botao-sel { padding: 6px 12px; border-radius: 16px; border: 1px solid #417690; background: #fff; color: #417690; font-size: 13px; cursor: pointer; }
+        .botao-sel:hover:not(:disabled) { background: #eef5f8; }
+        .botao-sel:disabled { opacity: 0.5; cursor: default; }
+
+        /* 🌟 NOVO: "Comparar Fluxos de Produção" -- a comparação em COLUNAS PARALELAS (Fluxo A | Fluxo B | Variação B - A). */
+        .comparacao-fluxos { margin-top: 8px; font-size: 12px; color: #2b2b2b; }
+        .cf-cabecalho { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+        .cf-fluxo { border: 1px solid #b7cfdb; border-top-width: 4px; border-radius: 6px; padding: 6px 8px; background: #f7fafc; min-width: 0; }
+        .cf-fluxo.cf-a { border-top-color: #417690; }
+        .cf-fluxo.cf-b { border-top-color: #b26a00; }
+        .cf-etiqueta { font-weight: bold; font-size: 13px; }
+        .cf-fluxo.cf-a .cf-etiqueta { color: #417690; }
+        .cf-fluxo.cf-b .cf-etiqueta { color: #b26a00; }
+        .cf-desc { margin: 2px 0 4px; word-break: break-word; }
+        .cf-so { font-size: 11px; color: #555; }
+        .cf-iguais { margin: 0 0 8px; font-size: 11px; color: #555; }
+        .cf-iguais summary { cursor: pointer; }
+        .cf-iguais ul { margin: 4px 0 0 18px; padding: 0; }
+        .cf-bloco { margin-bottom: 10px; }
+        .cf-destino { font-weight: bold; color: #205067; margin-bottom: 3px; }
+        .cf-rolagem { overflow-x: auto; border: 1px solid #cfdde6; border-radius: 6px; }
+        .cf-tabela { border-collapse: collapse; width: 100%; min-width: 560px; }
+        .cf-tabela th, .cf-tabela td { padding: 3px 7px; text-align: right; white-space: nowrap; border-bottom: 1px solid #e3ecf1; }
+        .cf-tabela th:first-child, .cf-tabela td:first-child { text-align: left; font-weight: bold; position: sticky; left: 0; background: #fff; }
+        .cf-tabela thead th { background: #eef5f8; color: #205067; text-align: center; font-weight: bold; }
+        .cf-tabela thead th.cf-a { border-top: 3px solid #417690; }
+        .cf-tabela thead th.cf-b { border-top: 3px solid #b26a00; }
+        .cf-tabela thead th.cf-delta { border-top: 3px solid #666; }
+        .cf-tabela thead small { display: block; font-weight: normal; color: #555; }
+        .cf-tabela td.cf-b-col, .cf-tabela td.cf-a-col { border-left: 0; }
+        .cf-tabela td.cf-separa { border-left: 2px solid #cfdde6; }
+        .cf-tabela td.cf-dif { background: #fff6d6; font-weight: bold; }
+        .cf-tabela td.cf-vazio { background: repeating-linear-gradient(45deg, #f3f3f3, #f3f3f3 4px, #fafafa 4px, #fafafa 8px); color: #888; text-align: center; }
+        .cf-tabela td.cf-maior { color: #b26a00; font-weight: bold; }
+        .cf-tabela td.cf-menor { color: #1f5f99; font-weight: bold; }
+        .cf-tabela td.cf-igual, .cf-tabela td.cf-na { color: #888; }
+        .cf-legenda { font-size: 11px; color: #555; margin-top: 4px; }
+        .cf-aviso { font-size: 11px; color: #b26a00; margin-top: 4px; }
+        .cf-totais .cf-tabela { min-width: 360px; }
+
+        /* 🌟 NOVO: "Criar Nova Ordem de Produção" -- botões com rótulo (grade de 2 colunas) e formulário dos consumos padrão. */
+        .grade-botoes-escolha { margin-top: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .botao-escolha { text-align: left; white-space: normal; padding: 8px 10px; border-radius: 8px; line-height: 1.25; }
+        .botao-escolha.botao-escolha-nova { border-style: dashed; font-weight: bold; }
+        .form-consumos-inline { margin-top: 8px; padding: 8px; border: 1px solid #417690; border-radius: 8px; background: #eef5f8; overflow-x: auto; }
+        .tabela-consumos { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .tabela-consumos th { text-align: left; color: #417690; padding: 2px 6px; border-bottom: 1px solid #b7cfdb; }
+        .tabela-consumos td { padding: 5px 6px; vertical-align: top; border-bottom: 1px solid #dbe7ee; }
+        .tabela-consumos .fc-de { color: #666; }
+        .tabela-consumos .fc-novo { font-weight: bold; color: #205067; }
+        .tabela-consumos .fc-nota { font-size: 11px; color: #b26a00; }
+        .tabela-consumos .fc-valor { width: 92px; padding: 3px 5px; text-align: right; border: 1px solid #aaa; border-radius: 4px; }
+        .tabela-consumos .fc-valor.invalido { border-color: #b00020; background: #fdecee; }
+        .form-consumos-inline .barra-consumos { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px; }
+
         /* Painel lateral direito: Ações Comuns no SPS */
         .grupo-acoes-dropdown { margin-bottom: 16px; }
         .grupo-acoes-dropdown label {
@@ -414,13 +491,14 @@
             </div>
             {% endif %}
 
-            {% if acoes_habilitadas.fp_criar_no_editor or acoes_habilitadas.fp_criar_fluxos_produto %}
+            {% if acoes_habilitadas.fp_criar_no_editor or acoes_habilitadas.fp_criar_fluxos_produto or acoes_habilitadas.fp_comparar_fluxos %}
             <div class="grupo-acoes-dropdown">
                 <label for="dropdown-fluxos-producao">{% trans "Fluxos de Produção" %}</label>
                 <select id="dropdown-fluxos-producao" class="select-acao-comum" onchange="dispararAcaoDropdown(this)">
                     <option value="">{% trans "Selecione uma ação..." %}</option>
                     {% if acoes_habilitadas.fp_criar_no_editor %}<option value="criar fluxo no editor para os fluxos do cenário ativo">{% trans "Atualizar Visão do Fluxo de Produção" %}</option>{% endif %}
                     {% if acoes_habilitadas.fp_criar_fluxos_produto %}<option value="criar fluxos de produção dos produtos do cenário ativo">{% trans "Atualizar Fluxos de Produção por Produto" %}</option>{% endif %}
+                    {% if acoes_habilitadas.fp_comparar_fluxos %}<option value="comparar fluxos de produção">{% trans "Comparar Fluxos de Produção" %}</option>{% endif %}
                 </select>
             </div>
             {% endif %}
@@ -449,12 +527,13 @@
                 </select>
             </div>
 
-            {% if acoes_habilitadas.equ_criar %}
+            {% if acoes_habilitadas.equ_criar or acoes_habilitadas.equ_criar_ordem %}
             <div class="grupo-acoes-dropdown">
                 <label for="dropdown-equipamentos">{% trans "Equipamentos" %}</label>
                 <select id="dropdown-equipamentos" class="select-acao-comum" onchange="dispararAcaoDropdown(this)">
                     <option value="">{% trans "Selecione uma ação..." %}</option>
                     {% if acoes_habilitadas.equ_criar %}<option value="criar um novo equipamento">{% trans "Criar novo equipamento" %}</option>{% endif %}
+                    {% if acoes_habilitadas.equ_criar_ordem %}<option value="criar uma nova ordem de produção">{% trans "Criar nova ordem de produção" %}</option>{% endif %}
                 </select>
             </div>
             {% endif %}
@@ -517,6 +596,40 @@
         {% trans "Cadastrar um novo Tipo de Produção" as ROTULO_NOVO_TIPO %}
         {% trans "Ordens informadas" as ROTULO_ORDENS_INFORMADAS %}
         {% trans "Preenche todos os campos antes de confirmar." as ROTULO_PREENCHA %}
+        {% trans "Cadastrados" as ROTULO_CADASTRADOS %}
+        {% trans "Corretos" as ROTULO_CORRETOS %}
+        {% trans "A gerar" as ROTULO_A_GERAR %}
+        {% trans "A remover" as ROTULO_A_REMOVER %}
+        {% trans "OK" as ROTULO_STATUS_OK %}
+        {% trans "Sem fluxos cadastrados" as ROTULO_SEM_FLUXOS %}
+        {% trans "Não foi possível calcular" as ROTULO_NAO_CALCULAVEL %}
+        {% trans "Marcar os que precisam de ajuste" as ROTULO_MARCAR_AJUSTE %}
+        {% trans "Atualizar selecionados" as ROTULO_ATUALIZAR_SEL %}
+        {% trans "Produtos selecionados" as ROTULO_PRODUTOS_SEL %}
+        {% trans "Origem -> destino" as ROTULO_FC_LIGACAO %}
+        {% trans "Valor inicial" as ROTULO_FC_VALOR %}
+        {% trans "já existe, valor atual" as ROTULO_FC_JA_EXISTE %}
+        {% trans "Marcar todos" as ROTULO_MARCAR_TODOS %}
+        {% trans "Desmarcar todos" as ROTULO_DESMARCAR_TODOS %}
+        {% trans "Consumos padrão" as ROTULO_CONSUMOS_PADRAO %}
+        {% trans "Informe um valor numérico válido (até 4 casas decimais) nas linhas marcadas." as ROTULO_FC_INVALIDO %}
+        {% trans "Fluxo A" as ROTULO_CF_FLUXO_A %}
+        {% trans "Fluxo B" as ROTULO_CF_FLUXO_B %}
+        {% trans "Período" as ROTULO_CF_PERIODO %}
+        {% trans "Indicador" as ROTULO_CF_INDICADOR %}
+        {% trans "Custo" as ROTULO_CF_CUSTO %}
+        {% trans "Variação (B − A)" as ROTULO_CF_VARIACAO %}
+        {% trans "Para produzir em" as ROTULO_CF_PARA_PRODUZIR %}
+        {% trans "sem ligação" as ROTULO_CF_SEM_LIGACAO %}
+        {% trans "n/d" as ROTULO_CF_ND %}
+        {% trans "produto" as ROTULO_CF_PRODUTO %}
+        {% trans "Ligações só neste fluxo" as ROTULO_CF_LIGACOES_SO %}
+        {% trans "Equipamento/ordem só neste fluxo" as ROTULO_CF_ORDENS_SO %}
+        {% trans "Ligações iguais nos dois fluxos" as ROTULO_CF_IGUAIS %}
+        {% trans "Soma por período das ligações diferentes (custo variável adicionado)" as ROTULO_CF_TOTAIS %}
+        {% trans "▲ B maior que A · ▼ B menor que A · = igual · fundo amarelo = valores diferentes. Custo = custo variável adicionado do equipamento de origem × indicador (mesmo cálculo do Admin)." as ROTULO_CF_LEGENDA %}
+        {% trans "O custo variável adicionado não pôde ser calculado (a procedure do banco falhou); o indicador não depende disso." as ROTULO_CF_AVISO_INDISP %}
+        {% trans "O custo variável adicionado ficou incompleto: o cálculo passou do tempo limite." as ROTULO_CF_AVISO_INCOMPLETO %}
         var MSG_CONFIRMA_PERIODO = "{{ MSG_CONFIRMA_PERIODO|escapejs }}";
         var MSG_CONFIRMA_TUDO = "{{ MSG_CONFIRMA_TUDO|escapejs }}";
         var MSG_SELECIONE_DATAS = "{{ MSG_SELECIONE_DATAS|escapejs }}";
@@ -543,6 +656,40 @@
         var ROTULO_NOVO_TIPO = "{{ ROTULO_NOVO_TIPO|escapejs }}";
         var ROTULO_ORDENS_INFORMADAS = "{{ ROTULO_ORDENS_INFORMADAS|escapejs }}";
         var ROTULO_PREENCHA = "{{ ROTULO_PREENCHA|escapejs }}";
+        var ROTULO_CADASTRADOS = "{{ ROTULO_CADASTRADOS|escapejs }}";
+        var ROTULO_CORRETOS = "{{ ROTULO_CORRETOS|escapejs }}";
+        var ROTULO_A_GERAR = "{{ ROTULO_A_GERAR|escapejs }}";
+        var ROTULO_A_REMOVER = "{{ ROTULO_A_REMOVER|escapejs }}";
+        var ROTULO_STATUS_OK = "{{ ROTULO_STATUS_OK|escapejs }}";
+        var ROTULO_SEM_FLUXOS = "{{ ROTULO_SEM_FLUXOS|escapejs }}";
+        var ROTULO_NAO_CALCULAVEL = "{{ ROTULO_NAO_CALCULAVEL|escapejs }}";
+        var ROTULO_MARCAR_AJUSTE = "{{ ROTULO_MARCAR_AJUSTE|escapejs }}";
+        var ROTULO_ATUALIZAR_SEL = "{{ ROTULO_ATUALIZAR_SEL|escapejs }}";
+        var ROTULO_PRODUTOS_SEL = "{{ ROTULO_PRODUTOS_SEL|escapejs }}";
+        var ROTULO_FC_LIGACAO = "{{ ROTULO_FC_LIGACAO|escapejs }}";
+        var ROTULO_FC_VALOR = "{{ ROTULO_FC_VALOR|escapejs }}";
+        var ROTULO_FC_JA_EXISTE = "{{ ROTULO_FC_JA_EXISTE|escapejs }}";
+        var ROTULO_MARCAR_TODOS = "{{ ROTULO_MARCAR_TODOS|escapejs }}";
+        var ROTULO_DESMARCAR_TODOS = "{{ ROTULO_DESMARCAR_TODOS|escapejs }}";
+        var ROTULO_CONSUMOS_PADRAO = "{{ ROTULO_CONSUMOS_PADRAO|escapejs }}";
+        var ROTULO_FC_INVALIDO = "{{ ROTULO_FC_INVALIDO|escapejs }}";
+        var ROTULO_CF_FLUXO_A = "{{ ROTULO_CF_FLUXO_A|escapejs }}";
+        var ROTULO_CF_FLUXO_B = "{{ ROTULO_CF_FLUXO_B|escapejs }}";
+        var ROTULO_CF_PERIODO = "{{ ROTULO_CF_PERIODO|escapejs }}";
+        var ROTULO_CF_INDICADOR = "{{ ROTULO_CF_INDICADOR|escapejs }}";
+        var ROTULO_CF_CUSTO = "{{ ROTULO_CF_CUSTO|escapejs }}";
+        var ROTULO_CF_VARIACAO = "{{ ROTULO_CF_VARIACAO|escapejs }}";
+        var ROTULO_CF_PARA_PRODUZIR = "{{ ROTULO_CF_PARA_PRODUZIR|escapejs }}";
+        var ROTULO_CF_SEM_LIGACAO = "{{ ROTULO_CF_SEM_LIGACAO|escapejs }}";
+        var ROTULO_CF_ND = "{{ ROTULO_CF_ND|escapejs }}";
+        var ROTULO_CF_PRODUTO = "{{ ROTULO_CF_PRODUTO|escapejs }}";
+        var ROTULO_CF_LIGACOES_SO = "{{ ROTULO_CF_LIGACOES_SO|escapejs }}";
+        var ROTULO_CF_ORDENS_SO = "{{ ROTULO_CF_ORDENS_SO|escapejs }}";
+        var ROTULO_CF_IGUAIS = "{{ ROTULO_CF_IGUAIS|escapejs }}";
+        var ROTULO_CF_TOTAIS = "{{ ROTULO_CF_TOTAIS|escapejs }}";
+        var ROTULO_CF_LEGENDA = "{{ ROTULO_CF_LEGENDA|escapejs }}";
+        var ROTULO_CF_AVISO_INDISP = "{{ ROTULO_CF_AVISO_INDISP|escapejs }}";
+        var ROTULO_CF_AVISO_INCOMPLETO = "{{ ROTULO_CF_AVISO_INCOMPLETO|escapejs }}";
 
         function escapeHtml(str) {
             return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -745,6 +892,238 @@
             if (janela && !janela.closed) janela.close();
         };
 
+        // 🌟 NOVO: "Atualizar Fluxos de Produção por Produto" -- grade com a situação dos fluxos de cada produto e uma caixa
+        // de seleção por cartão (vários produtos de uma vez). Mostra: cadastrados, corretos, a gerar e a remover.
+        // O cartão inteiro é um <label>: clicar em qualquer lugar dele marca/desmarca a caixa. Produto que não dá pra
+        // atualizar (já está OK, sem fluxos, ou sem cálculo possível) fica com a caixa desabilitada e diz o motivo.
+        var _contadorSelecaoProdutos = 0;
+
+        function linhaMetricaSel(rotulo, valor, classe) {
+            return '<span class="' + classe + '">' + escapeHtml(rotulo) + '</span><span class="sel-valor ' + classe + '">' + Number(valor) + '</span>';
+        }
+
+        function montarSelecaoProdutos(sel) {
+            var id = 'sp' + (++_contadorSelecaoProdutos);
+            var itens = sel.produtos || [];
+            var algumSelecionavel = false, marcadosIniciais = 0;
+            var rotuloConfirmar = sel.rotulo_confirmar || ROTULO_ATUALIZAR_SEL;
+            var html = '<div class="selecao-produtos" id="' + id + '"><div class="grade-selecao">';
+            itens.forEach(function(p) {
+                var selecionavel = p.status === 'ajustar' || p.status === 'escolha';
+                if (selecionavel) algumSelecionavel = true;
+                if (selecionavel && p.marcado) marcadosIniciais++;
+                var corpo = '';
+                if (p.status === 'ajustar' || p.status === 'ok') {
+                    corpo = '<span class="sel-metricas">' +
+                        linhaMetricaSel(ROTULO_CADASTRADOS, p.qtd_existente, '') +
+                        linhaMetricaSel(ROTULO_CORRETOS, p.qtd_corretos, '') +
+                        linhaMetricaSel(ROTULO_A_GERAR, p.qtd_a_gerar, p.qtd_a_gerar > 0 ? 'gerar' : '') +
+                        linhaMetricaSel(ROTULO_A_REMOVER, p.qtd_a_remover, p.qtd_a_remover > 0 ? 'remover' : '') + '</span>';
+                }
+                if (p.status === 'ok') corpo += '<span class="sel-selo">&#10004; ' + escapeHtml(ROTULO_STATUS_OK) + '</span>';
+                if (p.status === 'sem_fluxos') corpo += '<span class="sel-selo">' + escapeHtml(ROTULO_SEM_FLUXOS) + '</span>';
+                if (p.status === 'indisponivel') corpo += '<span class="sel-selo">' + escapeHtml(ROTULO_NAO_CALCULAVEL) + '</span>';
+                if (p.motivo) corpo += '<span class="sel-motivo">' + escapeHtml(p.motivo) + '</span>';
+                html += '<label class="cartao-sel ' + escapeAttr(p.status) + (selecionavel ? '' : ' desativado') + (selecionavel && p.marcado ? ' marcado' : '') + '" title="' + escapeAttr(p.motivo || p.titulo || '') + '">' +
+                        '<input type="checkbox" class="caixa-sel" value="' + Number(p.id) + '"' + (selecionavel ? '' : ' disabled') + (selecionavel && p.marcado ? ' checked' : '') +
+                            ' onchange="atualizarSelecaoProdutos(\'' + id + '\')">' +
+                        '<span class="sel-codigo">' + escapeHtml(p.codigo) + '</span>' + corpo + '</label>';
+            });
+            html += '</div>';
+            if (algumSelecionavel) {
+                html += '<div class="barra-selecao">' +
+                    '<button type="button" class="botao-sel" onclick="marcarQuePrecisamDeAjuste(\'' + id + '\')">' + escapeHtml(sel.rotulo_marcar || ROTULO_MARCAR_AJUSTE) + '</button>' +
+                    '<button type="button" class="botao-opcao botao-confirmar-sel" data-rotulo="' + escapeAttr(rotuloConfirmar) + '"' + (marcadosIniciais === 0 ? ' disabled' : '') + ' onclick="confirmarSelecaoProdutos(\'' + id + '\')">' + escapeHtml(rotuloConfirmar) + ' (' + marcadosIniciais + ')</button>' +
+                    '</div>';
+            }
+            return html + '</div>';
+        }
+
+        function atualizarSelecaoProdutos(id) {
+            var f = document.getElementById(id);
+            if (!f) return;
+            var marcados = f.querySelectorAll('.caixa-sel:checked').length;
+            f.querySelectorAll('.cartao-sel').forEach(function(c) { c.classList.toggle('marcado', c.querySelector('.caixa-sel').checked); });
+            var botao = f.querySelector('.botao-confirmar-sel');
+            if (botao) { botao.textContent = (botao.getAttribute('data-rotulo') || ROTULO_ATUALIZAR_SEL) + ' (' + marcados + ')'; botao.disabled = (marcados === 0); }
+        }
+
+        function marcarQuePrecisamDeAjuste(id) {
+            var f = document.getElementById(id);
+            if (!f) return;
+            f.querySelectorAll('.caixa-sel:not(:disabled)').forEach(function(c) { c.checked = true; });
+            atualizarSelecaoProdutos(id);
+        }
+
+
+        // 🌟 NOVO: "Criar Nova Ordem de Produção" -- grade de botões COM RÓTULO (o valor enviado é só o número da ordem; o
+        // rótulo mostra código/ordem, descrição e tipo). Clicar envia o valor e mostra o rótulo no balão do usuário.
+        var _contadorBotoesEscolha = 0;
+        function montarBotoesEscolha(spec) {
+            var id = 'be' + (++_contadorBotoesEscolha);
+            var html = '<div class="grade-botoes-escolha" id="' + id + '">';
+            (spec.botoes || []).forEach(function(b) {
+                html += '<button type="button" class="botao-opcao botao-escolha' + (b.tipo === 'nova' ? ' botao-escolha-nova' : '') + '" ' +
+                        'data-valor="' + escapeAttr(b.valor) + '" data-rotulo="' + escapeAttr(b.rotulo) + '" onclick="escolherBotaoRotulado(this)">' +
+                        escapeHtml(b.rotulo) + '</button>';
+            });
+            return html + '</div>';
+        }
+
+        function escolherBotaoRotulado(botao) {
+            rotuloExibicaoOverride = botao.getAttribute('data-rotulo');
+            escolherOpcao(botao.getAttribute('data-valor'));
+        }
+
+        // 🌟 NOVO: formulário dos consumos padrão a clonar. Uma linha por consumo padrão que sai da ordem clonada: caixa
+        // "clonar" (os que já existem não têm: só o valor, pra confirmar ou ajustar), "origem -> destino" e o valor inicial.
+        var _contadorFormConsumos = 0;
+        function montarFormConsumos(form) {
+            var id = 'fc' + (++_contadorFormConsumos);
+            var html = '<div class="form-consumos-inline" id="' + id + '"><table class="tabela-consumos"><thead><tr><th></th><th>' +
+                escapeHtml(ROTULO_FC_LIGACAO) + '</th><th>' + escapeHtml(ROTULO_FC_VALOR) + '</th></tr></thead><tbody>';
+            (form.consumos || []).forEach(function(c) {
+                var nota = c.existe ? '<div class="fc-nota">' + escapeHtml(ROTULO_FC_JA_EXISTE) + ': ' + escapeHtml(c.valor_atual) + '</div>' : '';
+                html += '<tr class="linha-consumo" data-cp="' + Number(c.cp_id) + '" data-existe="' + (c.existe ? '1' : '0') + '">' +
+                    '<td>' + (c.existe ? '' : '<input type="checkbox" class="fc-clonar" checked>') + '</td>' +
+                    '<td><div class="fc-de">' + escapeHtml(c.de) + ' &rarr; ' + escapeHtml(c.para) + '</div>' +
+                        '<div class="fc-novo">' + escapeHtml(c.novo_de) + ' &rarr; ' + escapeHtml(c.para) + '</div>' + nota + '</td>' +
+                    '<td><input type="text" class="fc-valor" inputmode="decimal" value="' + escapeAttr(c.valor) + '"></td></tr>';
+            });
+            return html + '</tbody></table><div class="fe-aviso"></div><div class="barra-consumos">' +
+                '<button type="button" class="botao-sel" onclick="alternarTodosConsumos(\'' + id + '\')">' + escapeHtml(ROTULO_DESMARCAR_TODOS) + '</button>' +
+                '<button type="button" class="botao-opcao" onclick="confirmarFormConsumos(\'' + id + '\')">' + escapeHtml(ROTULO_CONFIRMAR) + '</button>' +
+                '</div></div>';
+        }
+
+        function alternarTodosConsumos(id) {
+            var f = document.getElementById(id);
+            if (!f) return;
+            var caixas = f.querySelectorAll('.fc-clonar');
+            var marcar = Array.prototype.some.call(caixas, function(c) { return !c.checked; });
+            caixas.forEach(function(c) { c.checked = marcar; });
+            f.querySelector('.barra-consumos .botao-sel').textContent = marcar ? ROTULO_DESMARCAR_TODOS : ROTULO_MARCAR_TODOS;
+        }
+
+        function confirmarFormConsumos(id) {
+            var f = document.getElementById(id);
+            if (!f || f.getAttribute('data-enviado') === '1') return;
+            var linhas = [], clonados = 0, valido = true;
+            f.querySelectorAll('.linha-consumo').forEach(function(tr) {
+                var existe = tr.getAttribute('data-existe') === '1';
+                var caixa = tr.querySelector('.fc-clonar');
+                var clonar = existe ? true : !!(caixa && caixa.checked);
+                var campo = tr.querySelector('.fc-valor');
+                var valor = campo.value.trim();
+                var ok = !clonar || /^\d{1,7}([.,]\d{1,4})?$/.test(valor);
+                campo.classList.toggle('invalido', !ok);
+                if (!ok) valido = false;
+                if (clonar && !existe) clonados++;
+                linhas.push({ cp_id: Number(tr.getAttribute('data-cp')), clonar: clonar, valor: valor });
+            });
+            if (!valido) { f.querySelector('.fe-aviso').textContent = ROTULO_FC_INVALIDO; return; }
+            f.setAttribute('data-enviado', '1');
+            travarForm(f);
+            rotuloExibicaoOverride = ROTULO_CONSUMOS_PADRAO + ' (' + clonados + ' / ' + linhas.length + ')';
+            escolherOpcao(JSON.stringify({ consumos: linhas }));
+        }
+
+
+        // 🌟 NOVO: "Comparar Fluxos de Produção" -- a comparação em COLUNAS PARALELAS. Os dados vêm prontos e formatados do
+        // back-end (período a período, em faixas de períodos iguais): aqui só se desenha. Fluxo A | Fluxo B | Variação (B − A);
+        // célula com valor diferente em amarelo; variação com ▲ (B maior) / ▼ (B menor) / = (igual), em cores neutras (não
+        // julga se maior é bom ou ruim); lado sem ligação em cinza tracejado. As ligações iguais ficam recolhidas.
+        var _SETA_CF = { maior: '▲ ', menor: '▼ ', igual: '= ', na: '' };
+
+        function celulaCF(texto, classe, ladoAusente) {
+            if (ladoAusente) return '<td class="cf-vazio ' + classe + '">&mdash;</td>';
+            if (texto === null || texto === undefined) return '<td class="' + classe + '">' + escapeHtml(ROTULO_CF_ND) + '</td>';
+            return '<td class="' + classe + '">' + escapeHtml(texto) + '</td>';
+        }
+
+        function cabecalhoLadoCF(lado, classe, rotuloFluxo) {
+            var sub = lado ? escapeHtml(lado.de) + ' &rarr; ' + escapeHtml(lado.para) : escapeHtml(ROTULO_CF_SEM_LIGACAO);
+            return '<th colspan="2" class="' + classe + '">' + escapeHtml(rotuloFluxo) + '<small>' + sub + '</small></th>';
+        }
+
+        function tabelaParCF(par) {
+            var html = '<div class="cf-rolagem"><table class="cf-tabela"><thead><tr><th rowspan="2">' + escapeHtml(ROTULO_CF_PERIODO) + '</th>' +
+                cabecalhoLadoCF(par.a, 'cf-a', ROTULO_CF_FLUXO_A) + cabecalhoLadoCF(par.b, 'cf-b', ROTULO_CF_FLUXO_B) +
+                '<th colspan="3" class="cf-delta">' + escapeHtml(ROTULO_CF_VARIACAO) + '</th></tr><tr>' +
+                '<th>' + escapeHtml(ROTULO_CF_INDICADOR) + '</th><th>' + escapeHtml(ROTULO_CF_CUSTO) + '</th>' +
+                '<th>' + escapeHtml(ROTULO_CF_INDICADOR) + '</th><th>' + escapeHtml(ROTULO_CF_CUSTO) + '</th>' +
+                '<th>' + escapeHtml(ROTULO_CF_INDICADOR) + '</th><th>%</th><th>' + escapeHtml(ROTULO_CF_CUSTO) + '</th></tr></thead><tbody>';
+            (par.linhas || []).forEach(function(l) {
+                var difInd = l.a.ind !== null && l.b.ind !== null && l.a.ind !== l.b.ind ? ' cf-dif' : '';
+                var difCusto = l.a.custo !== null && l.b.custo !== null && l.a.custo !== l.b.custo ? ' cf-dif' : '';
+                var sInd = 'cf-' + escapeAttr(l.sentido_ind), sCusto = 'cf-' + escapeAttr(l.sentido_custo);
+                html += '<tr><td>' + escapeHtml(l.periodo) + '</td>' +
+                    celulaCF(l.a.ind, 'cf-a-col' + difInd, !par.a) + celulaCF(l.a.custo, 'cf-a-col' + difCusto, !par.a) +
+                    celulaCF(l.b.ind, 'cf-b-col cf-separa' + difInd, !par.b) + celulaCF(l.b.custo, 'cf-b-col' + difCusto, !par.b) +
+                    celulaCF(l.delta.ind === null ? null : (_SETA_CF[l.sentido_ind] || '') + l.delta.ind, 'cf-separa ' + sInd, false) +
+                    celulaCF(l.delta.pct, sInd, false) +
+                    celulaCF(l.delta.custo === null ? null : (_SETA_CF[l.sentido_custo] || '') + l.delta.custo, sCusto, false) + '</tr>';
+            });
+            return html + '</tbody></table></div>';
+        }
+
+        function montarComparacaoFluxos(d) {
+            var r = d.resumo || {};
+            var fluxo = function(f, classe, rotulo, soLigacoes, soOrdens) {
+                return '<div class="cf-fluxo ' + classe + '"><span class="cf-etiqueta">' + escapeHtml(rotulo) + '</span> <small>id ' + Number(f.id) +
+                    ' · ' + escapeHtml(ROTULO_CF_PRODUTO) + ' ' + escapeHtml(f.produto) + '</small><div class="cf-desc">' + escapeHtml(f.descricao) + '</div>' +
+                    '<div class="cf-so">' + escapeHtml(ROTULO_CF_LIGACOES_SO) + ': <b>' + Number(soLigacoes) + '</b>' +
+                    (soOrdens && soOrdens.length ? '<br>' + escapeHtml(ROTULO_CF_ORDENS_SO) + ': ' + soOrdens.map(escapeHtml).join(', ') : '') + '</div></div>';
+            };
+            var html = '<div class="comparacao-fluxos"><div class="cf-cabecalho">' +
+                fluxo(d.a, 'cf-a', ROTULO_CF_FLUXO_A, r.so_a, r.ordens_so_a) + fluxo(d.b, 'cf-b', ROTULO_CF_FLUXO_B, r.so_b, r.ordens_so_b) + '</div>';
+            if ((d.iguais || []).length) {
+                html += '<details class="cf-iguais"><summary>' + escapeHtml(ROTULO_CF_IGUAIS) + ' (' + Number(d.iguais_total || d.iguais.length) + ')</summary><ul>' +
+                    d.iguais.map(function(x) { return '<li>' + escapeHtml(x) + '</li>'; }).join('') + '</ul></details>';
+            }
+            (d.grupos || []).forEach(function(g) {
+                html += '<div class="cf-bloco"><div class="cf-destino">' + escapeHtml(ROTULO_CF_PARA_PRODUZIR) + ' ' + escapeHtml(g.to) + '</div>';
+                (g.pares || []).forEach(function(par) { html += tabelaParCF(par); });
+                html += '</div>';
+            });
+            if (d.totais && d.totais.length) {
+                html += '<div class="cf-bloco cf-totais"><div class="cf-destino">' + escapeHtml(ROTULO_CF_TOTAIS) + '</div><div class="cf-rolagem"><table class="cf-tabela"><thead><tr>' +
+                    '<th>' + escapeHtml(ROTULO_CF_PERIODO) + '</th><th class="cf-a">' + escapeHtml(ROTULO_CF_FLUXO_A) + '</th><th class="cf-b">' + escapeHtml(ROTULO_CF_FLUXO_B) +
+                    '</th><th class="cf-delta">' + escapeHtml(ROTULO_CF_VARIACAO) + '</th></tr></thead><tbody>';
+                d.totais.forEach(function(t) {
+                    html += '<tr><td>' + escapeHtml(t.periodo) + '</td>' + celulaCF(t.a, 'cf-a-col', false) + celulaCF(t.b, 'cf-b-col cf-separa', false) +
+                        celulaCF(t.delta === null ? null : (_SETA_CF[t.sentido] || '') + t.delta, 'cf-separa cf-' + escapeAttr(t.sentido), false) + '</tr>';
+                });
+                html += '</tbody></table></div></div>';
+            }
+            if (d.custo_indisponivel) html += '<div class="cf-aviso">' + escapeHtml(ROTULO_CF_AVISO_INDISP) + '</div>';
+            else if (d.custo_incompleto) html += '<div class="cf-aviso">' + escapeHtml(ROTULO_CF_AVISO_INCOMPLETO) + '</div>';
+            return html + ((d.grupos || []).length ? '<div class="cf-legenda">' + escapeHtml(ROTULO_CF_LEGENDA) + '</div>' : '') + '</div>';
+        }
+
+        // O marcador [COMPARACAO_FLUXOS:...] guarda a tabela como JSON em base64 url-safe (UTF-8): decodifica pra redesenhar
+        // a comparação ao recarregar a página (o histórico guarda o texto original com o marcador).
+        function decodificarMarcadorBase64(b64) {
+            try {
+                var t = String(b64).replace(/-/g, '+').replace(/_/g, '/');
+                while (t.length % 4) t += '=';
+                var bin = atob(t), bytes = new Uint8Array(bin.length);
+                for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+                return JSON.parse(new TextDecoder('utf-8').decode(bytes));
+            } catch (e) { return null; }
+        }
+
+        function confirmarSelecaoProdutos(id) {
+            var f = document.getElementById(id);
+            if (!f || f.getAttribute('data-enviado') === '1') return;      // já confirmada: nunca envia duas vezes
+            var ids = Array.prototype.map.call(f.querySelectorAll('.caixa-sel:checked'), function(c) { return Number(c.value); });
+            if (ids.length === 0) return;
+            f.setAttribute('data-enviado', '1');
+            f.querySelectorAll('input, button').forEach(function(el) { el.disabled = true; });
+            rotuloExibicaoOverride = ROTULO_PRODUTOS_SEL + ' (' + ids.length + ')';
+            escolherOpcao(JSON.stringify({ produtos: ids }));
+        }
+
         // 🌟 NOVO: chamada pelo onclick dos botões de opção clicável --
         // preenche o campo de mensagem com a opção escolhida e envia,
         // como se o usuário tivesse digitado e apertado Enter.
@@ -791,9 +1170,41 @@
             var destino = containerDasMensagens();
             var wrapper = document.createElement('div');
             wrapper.innerHTML = htmlConteudo;
+            var primeira = null;
             while (wrapper.firstChild) {
+                if (primeira === null && wrapper.firstChild.nodeType === 1) primeira = wrapper.firstChild;
                 destino.appendChild(wrapper.firstChild);
             }
+            return primeira;          // 🌟 NOVO: o elemento da mensagem (usado pra posicionar a rolagem)
+        }
+
+        // 🌟 NOVO: onde fica a rolagem depois de uma resposta do agente. Antes ia SEMPRE pro final: numa resposta grande
+        // (cartões de equipamentos, botões das ordens, formulários), o usuário caía no rodapé e tinha que subir até achar
+        // o começo da resposta. Agora, se a resposta é mais alta que a área visível da conversa, a tela fica no INÍCIO
+        // dela; se cabe na tela, continua indo pro final, como sempre. As imagens dos cartões carregam depois e mudam a
+        // altura, então a posição é reavaliada quando elas carregam -- a não ser que o usuário já tenha mexido na rolagem.
+        function posicionarRolagemResposta(mensagem) {
+            var caixa = document.getElementById('chat-box');
+            if (!mensagem || typeof mensagem.getBoundingClientRect !== 'function') {
+                caixa.scrollTop = caixa.scrollHeight;
+                return;
+            }
+            var ajustar = function() {
+                if (mensagem.offsetHeight > caixa.clientHeight) {
+                    caixa.scrollTop = mensagem.getBoundingClientRect().top - caixa.getBoundingClientRect().top + caixa.scrollTop;
+                } else {
+                    caixa.scrollTop = caixa.scrollHeight;
+                }
+            };
+            ajustar();
+            var usuarioMexeu = false;
+            var marcar = function() { usuarioMexeu = true; };
+            ['wheel', 'touchstart', 'mousedown', 'keydown'].forEach(function(evento) {
+                caixa.addEventListener(evento, marcar, { once: true, passive: true });
+            });
+            mensagem.querySelectorAll('img').forEach(function(img) {
+                if (!img.complete) img.addEventListener('load', function() { if (!usuarioMexeu) ajustar(); }, { once: true });
+            });
         }
 
         function escolherOpcao(opcao) {
@@ -1641,11 +2052,15 @@
             // 🌟 NOVO: formulários do clone de equipamento (código/descrição e ordens), quando o back-end manda.
             var formEquipamentoHtml = data.form_equipamento ? montarFormEquipamento(data.form_equipamento) : '';
             var formOrdensHtml = data.form_ordens ? montarFormOrdens(data.form_ordens) : '';
+            var selecaoProdutosHtml = data.selecao_produtos ? montarSelecaoProdutos(data.selecao_produtos) : '';
+            var botoesEscolhaHtml = data.botoes_escolha ? montarBotoesEscolha(data.botoes_escolha) : '';
+            var formConsumosHtml = data.form_consumos ? montarFormConsumos(data.form_consumos) : '';
+            var comparacaoFluxosHtml = data.comparacao_fluxos ? montarComparacaoFluxos(data.comparacao_fluxos) : '';
 
             var textoLimpoHTML = processarRespostaCompleta(data.resposta || data.resposta_ia);
-            adicionarMensagemAoChat('<div class="chat-box-p" style="color: #2b2b2b;"><strong style="color: #0056b3;">' + ROTULO_AGENTE + ':</strong><div style="margin-top: 5px;">' + textoLimpoHTML + '</div>' + fontesHtml + opcoesHtml + formPeriodoHtml + listaProdutosHtml + listaEquipamentosHtml + formEquipamentoHtml + formOrdensHtml + '</div>');
+            var mensagemAgente = adicionarMensagemAoChat('<div class="chat-box-p" style="color: #2b2b2b;"><strong style="color: #0056b3;">' + ROTULO_AGENTE + ':</strong><div style="margin-top: 5px;">' + textoLimpoHTML + '</div>' + fontesHtml + opcoesHtml + formPeriodoHtml + listaProdutosHtml + listaEquipamentosHtml + formEquipamentoHtml + formOrdensHtml + selecaoProdutosHtml + botoesEscolhaHtml + formConsumosHtml + comparacaoFluxosHtml + '</div>');
             desenharGraficosPendentes();
-            chatBox.scrollTop = chatBox.scrollHeight;
+            posicionarRolagemResposta(mensagemAgente);
         }
 
         function sondarAutomaticamente() {
@@ -1922,8 +2337,15 @@
                     adicionarMensagemAoChat('<div class="chat-box-p"><strong>' + ROTULO_VOCE_NOME + ':</strong> ' + escapeHtml(item.comando_usuario) + '</div>', true);
                 }
                 if (item.resposta_ia) {
-                    var textoLimpoHTML = processarRespostaCompleta(String(item.resposta_ia).replace(/\n*\[LISTA_EQUIPAMENTOS\]/g, '').replace(/\n*\[FORM_(EQUIPAMENTO|ORDENS):[^\]]*\]/g, ''));
-                    adicionarMensagemAoChat('<div class="chat-box-p" style="color: #2b2b2b;"><strong style="color: #0056b3;">' + ROTULO_AGENTE + ':</strong><div style="margin-top: 5px;">' + textoLimpoHTML + '</div></div>');
+                    var textoLimpoHTML = processarRespostaCompleta(String(item.resposta_ia).replace(/\n*\[LISTA_EQUIPAMENTOS\]/g, '').replace(/\n*\[(FORM_(EQUIPAMENTO|ORDENS|CONSUMOS)|SELECAO_PRODUTOS|BOTOES|COMPARACAO_FLUXOS):[^\]]*\]/g, ''));
+                    // A comparação de fluxos é RESULTADO (não formulário): é redesenhada a partir do marcador guardado no histórico.
+                    var comparacaoHistoricoHtml = '';
+                    var mComparacao = String(item.resposta_ia).match(/\[COMPARACAO_FLUXOS:([A-Za-z0-9_=-]*)\]/);
+                    if (mComparacao) {
+                        var dadosComparacao = decodificarMarcadorBase64(mComparacao[1]);
+                        if (dadosComparacao) comparacaoHistoricoHtml = montarComparacaoFluxos(dadosComparacao);
+                    }
+                    adicionarMensagemAoChat('<div class="chat-box-p" style="color: #2b2b2b;"><strong style="color: #0056b3;">' + ROTULO_AGENTE + ':</strong><div style="margin-top: 5px;">' + textoLimpoHTML + '</div>' + comparacaoHistoricoHtml + '</div>');
                 }
             });
             desenharGraficosPendentes();

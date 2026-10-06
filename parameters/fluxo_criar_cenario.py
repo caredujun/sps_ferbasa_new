@@ -122,6 +122,8 @@ ETAPAS_AGUARDANDO_CELERY = {
     'fp_criar_fluxos_produto_aguardando',
     # 🌟 NOVO: "Equipamentos - Criar Novo Equipamento": gera os fluxos de cada produto afetado, um de cada vez.
     'equ_criar_fluxos_aguardando',
+    # 🌟 NOVO: "Atualizar Fluxos de Produção por Produto": cálculo da situação e execução, produto a produto.
+    'fp_sit_calculando', 'fp_lote_aguardando', 'fp_io_aguardando',
 }
 
 # 🌟 NOVO: se um fluxo ficar parado por mais que isso, sem nenhuma
@@ -155,6 +157,7 @@ ETAPAS_SEM_EXPIRACAO = {
     'ce_processando_consumo_especifico', 'ce_processando_custo_variavel',
     'ce_processando_indicador_fluxo', 'ce_processando_indicador_equipamentos', 'ce_processando_custo_item_preco',
     'equ_criar_fluxos_aguardando',
+    'fp_sit_calculando', 'fp_lote_aguardando', 'fp_io_aguardando',
 }
 
 
@@ -467,6 +470,29 @@ def _processar_mensagem_fluxo_com_lock(estado, mensagem):
                     + ". Pede depois em Fluxos de Produção > Atualizar Fluxos de Produção por Produto."
                 )
             return texto_cancelar
+        # 🌟 NOVO: "Atualizar Fluxos por Produto" já em execução: o que foi atualizado não é desfeito; cancelar só para
+        # de acompanhar e de encadear os próximos produtos.
+        if estado.fluxo_ativo == FLUXO_PROCESSAR and estado.etapa_atual == 'fp_lote_aguardando':
+            d_cancelar = estado.dados_coletados or {}
+            atual = d_cancelar.get('produto_codigo', '')
+            pendentes = [p['codigo'] for p in d_cancelar.get('fila') or []]
+            _encerrar_fluxo(estado)
+            texto_cancelar = (
+                "Ok, parei de acompanhar por aqui. O que já foi atualizado **não é desfeito**, e a atualização do "
+                f"produto **{atual}** continua em segundo plano."
+            )
+            if pendentes:
+                texto_cancelar += (" Estes produtos **não** serão atualizados: " + ", ".join(pendentes)
+                                   + ". Pede de novo nesta mesma ação quando quiser.")
+            return texto_cancelar
+        # 🌟 NOVO: depois da atualização dos produtos o genérico ("nada foi alterado") seria falso.
+        if estado.fluxo_ativo == FLUXO_PROCESSAR and estado.etapa_atual == 'fp_io_confirmar':
+            _encerrar_fluxo(estado)
+            return _FP_IO_TEXTO_NAO
+        if estado.fluxo_ativo == FLUXO_PROCESSAR and estado.etapa_atual == 'fp_io_aguardando':
+            _encerrar_fluxo(estado)
+            return ("Ok, parei de acompanhar por aqui. A atualização do I/O continua em segundo plano e **não é "
+                    "desfeita**.")
         _encerrar_fluxo(estado)
         return "Ok, cancelei. Nada foi alterado."
 
@@ -2166,39 +2192,516 @@ def iniciar_fluxo_criar_fluxos_produto(usuario):
         return "O cenário que estava ativo pra você não existe mais."
 
     from produtos.models import TbProdutos
-    from fluxos.models import TbFluxoProducao
-    from django.db.models import Count
+    import uuid
+    from datetime import datetime, timezone as _tz
 
     produtos = list(TbProdutos.objects.filter(tbcenarios_id=cenario.id).order_by('pro_codigo'))
     if not produtos:
         return f"Não encontrei nenhum produto cadastrado no cenário **{cenario.numero_sequencial}/{cenario.cen_nome}**."
 
-    contagem_qs = (
-        TbFluxoProducao.objects.filter(tbcenarios_id=cenario.id, flu_pro_produto_id__in=[p.id for p in produtos])
-        .values('flu_pro_produto_id')
-        .annotate(qtd=Count('id'))
-    )
-    contagem = {item['flu_pro_produto_id']: item['qtd'] for item in contagem_qs}
+    # 🌟 NOVO: antes de listar os produtos, CALCULA (em segundo plano, no Celery) a situação dos fluxos de cada um --
+    # cadastrados, corretos, a gerar e a remover --, pra o usuário poder marcar o que quer atualizar. A comparação
+    # leva alguns segundos por produto (mais nos produtos com muitos fluxos), então não dá pra fazer dentro do clique.
+    calculo_id, task_id = str(uuid.uuid4()), str(uuid.uuid4())
+    estado = _get_estado(usuario)
+    estado.fluxo_ativo = FLUXO_PROCESSAR
+    estado.etapa_atual = 'fp_sit_calculando'
+    estado.dados_coletados = {
+        'cenario_id': cenario.id, 'cenario_nome': cenario.cen_nome, 'calculo_id': calculo_id,
+        'produtos': [{'id': p.id, 'codigo': p.pro_codigo} for p in produtos], 'situacao': {},
+        'task_ids': [task_id], 'disparado_em': datetime.now(_tz.utc).isoformat(),
+    }
+    estado.save()
 
-    # 🌟 NOVO: em vez de listar em texto (que tem limite de 12 botões no
-    # mecanismo genérico, e duplica o texto junto com os botões), embute
-    # um marcador -- igual ao [FORM_PERIODO:...] -- que o front-end usa
-    # pra desenhar a grade de botões direto, sem limite e sem repetir o
-    # texto. "=" separa código de quantidade, "|" separa os produtos --
-    # nenhum dos dois aparece em código de produto.
-    itens_marcador = "|".join(f"{p.pro_codigo}={contagem.get(p.id, 0)}" for p in produtos)
+    from fluxos.tasks import calcular_situacao_fluxos_celery
+    produto_ids, usuario_id = [p.id for p in produtos], estado.usuario_id
+    # on_commit: a task só começa depois de o estado acima estar gravado (ela confere o calculo_id no estado).
+    transaction.on_commit(lambda: calcular_situacao_fluxos_celery.apply_async(
+        (produto_ids, usuario_id, calculo_id), task_id=task_id))
+
+    return (
+        f"Vou conferir a situação dos fluxos de cada produto do cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** "
+        "pra você escolher o que atualizar. Pode levar alguns instantes; acompanho por aqui.\n\n"
+        + _fp_texto_calculo(estado.dados_coletados)
+    )
+
+
+def _fp_texto_calculo(dados):
+    return (f"Calculando a situação dos fluxos... {len(dados.get('situacao') or {})} de "
+            f"{len(dados.get('produtos') or [])} produto(s).")
+
+
+def _etapa_fp_sit_calculando(estado, texto):
+    dados = estado.dados_coletados or {}
+    total = len(dados.get('produtos') or [])
+    feitos = len(dados.get('situacao') or {})
+    if feitos >= total:
+        return _fp_montar_selecao(estado, dados)
+    if _equ_geracao_morreu(dados):
+        _encerrar_fluxo(estado)
+        return (
+            f"O cálculo parou antes de terminar ({feitos} de {total} produtos) -- o processo do Celery foi encerrado "
+            "(provavelmente por falta de memória). Não mexi em nenhum fluxo. Pode pedir de novo."
+        )
+    return _fp_texto_calculo(dados)
+
+
+def _fp_montar_selecao(estado, dados):
+    situacao = dados.get('situacao') or {}
+    itens = []
+    for produto in dados.get('produtos') or []:
+        s = situacao.get(str(produto['id'])) or {}
+        if s.get('erro'):
+            status, motivo = 'indisponivel', s['erro']
+        # Produto SEM nenhum fluxo cadastrado (ex.: o equipamento excluído estava em todos os fluxos dele) entra na
+        # mesma regra dos demais: se faltam fluxos ("A gerar" > 0), dá pra marcar e gerar a partir do zero.
+        elif not s.get('qtd_a_gerar') and not s.get('qtd_a_remover'):
+            status, motivo = 'ok', ''
+        else:
+            status, motivo = 'ajustar', ''
+        itens.append({
+            'id': produto['id'], 'codigo': produto['codigo'], 'status': status, 'motivo': motivo,
+            'qtd_existente': s.get('qtd_existente', 0), 'qtd_corretos': s.get('qtd_corretos', 0),
+            'qtd_a_gerar': s.get('qtd_a_gerar', 0), 'qtd_a_remover': s.get('qtd_a_remover', 0),
+        })
+
+    dados = {**dados, 'itens': itens}
+    precisam = sum(1 for i in itens if i['status'] == 'ajustar')
+    texto = (
+        f"Esta é a situação dos fluxos de cada produto do cenário **{dados.get('cenario_nome', '')}**: "
+        "**Cadastrados** são os fluxos que o produto tem hoje, **Corretos** são os cadastrados que batem com o que eu "
+        "calcularia agora, **A gerar** são os que faltam e **A remover** são os cadastrados que estão errados ou sobrando.\n\n"
+    )
+    if precisam == 0:
+        estado.dados_coletados = dados
+        _encerrar_fluxo(estado)
+        return (texto + "Nenhum produto precisa de ajuste agora (ou não dá pra atualizar). Não há o que fazer.\n\n"
+                + _equ_marcador('SELECAO_PRODUTOS', {'produtos': itens}))
+    estado.etapa_atual = 'fp_sit_selecionar'
+    estado.dados_coletados = dados
+    estado.save()
+    return (texto + f"**{precisam}** produto(s) precisam de ajuste. Marque os que você quer atualizar.\n\n"
+            + _equ_marcador('SELECAO_PRODUTOS', {'produtos': itens}))
+
+
+def _etapa_fp_sit_selecionar(estado, texto):
+    dados = estado.dados_coletados or {}
+    itens = {i['id']: i for i in dados.get('itens') or []}
+    reapresentar = lambda: _equ_marcador('SELECAO_PRODUTOS', {'produtos': list(itens.values())})
+
+    entrada = _equ_json(texto)
+    if entrada is not None and isinstance(entrada.get('produtos'), list):
+        ids = []
+        for valor in entrada['produtos']:
+            try:
+                ids.append(int(valor))
+            except (TypeError, ValueError):
+                pass
+    else:
+        # Código digitado (um produto só), como era antes.
+        achado = next((i for i in itens.values() if i['codigo'].lower() == texto.strip().lower()), None)
+        if achado is None:
+            return ("Não encontrei esse produto. Marque os produtos na lista, digite o código exatamente como aparece, "
+                    "ou \"Cancelar\" pra desistir.\n\n" + reapresentar())
+        ids = [achado['id']]
+    ids = list(dict.fromkeys(ids))      # sem repetir, mantendo a ordem
+
+    if not ids:
+        return "Marque pelo menos um produto na lista.\n\n" + reapresentar()
+    problemas = []
+    for produto_id in ids:
+        item = itens.get(produto_id)
+        if item is None:
+            problemas.append("- Um dos produtos marcados não existe nessa lista.")
+        elif item['status'] != 'ajustar':
+            problemas.append(f"- **{item['codigo']}**: " + (item['motivo'] or "já está tudo certo, não há o que atualizar."))
+    if problemas:
+        return ("Não dá pra atualizar estes:\n" + "\n".join(problemas)
+                + "\n\nDesmarque-os e tente de novo.\n\n" + reapresentar())
+
+    selecionados = [{
+        'id': i['id'], 'codigo': i['codigo'], 'qtd_a_gerar': i['qtd_a_gerar'], 'qtd_a_remover': i['qtd_a_remover'],
+    } for i in (itens[p] for p in ids)]
+    estado.etapa_atual = 'fp_sit_confirmar'
+    estado.dados_coletados = {**dados, 'selecionados': selecionados}
+    estado.save()
+
+    linhas = [
+        f"- **{i['codigo']}**: criar {i['qtd_a_gerar']}, remover {i['qtd_a_remover']} "
+        f"(hoje {itens[i['id']]['qtd_existente']} cadastrados, {itens[i['id']]['qtd_corretos']} corretos)"
+        for i in selecionados[:30]
+    ]
+    if len(selecionados) > 30:
+        linhas.append(f"- ... e mais {len(selecionados) - 30}")
+    return (
+        f"Vou atualizar **{len(selecionados)}** produto(s), um de cada vez, mexendo só no que está errado ou faltando:\n"
+        + "\n".join(linhas)
+        + f"\n\nTotal: criar **{sum(i['qtd_a_gerar'] for i in selecionados)}** e remover "
+          f"**{sum(i['qtd_a_remover'] for i in selecionados)}** fluxo(s). O resto não é tocado.\n\n"
+        "Quer que eu faça isso? (Sim / Não)"
+    )
+
+
+def _etapa_fp_sit_confirmar(estado, texto):
+    resposta = texto.strip().lower()
+    if resposta not in ('sim', 'não', 'nao'):
+        return "Não entendi -- responde \"Sim\" pra atualizar ou \"Não\" pra deixar como está. (Sim / Não)"
+    if resposta != 'sim':
+        _encerrar_fluxo(estado)
+        return "Ok, não mexi em nada -- o banco continua como estava."
+
+    dados = estado.dados_coletados or {}
+    selecionados = dados.get('selecionados') or []
+    estado.dados_coletados = {
+        'cenario_id': dados.get('cenario_id'), 'cenario_nome': dados.get('cenario_nome'),
+        'fila': [{'id': s['id'], 'codigo': s['codigo']} for s in selecionados],
+        'total_produtos': len(selecionados), 'concluidos': 0, 'resultados': [],
+    }
+    _fp_lote_iniciar_proximo(estado)
+    return (f"Atualizando os fluxos de **{len(selecionados)}** produto(s), um de cada vez, só mexendo no que está "
+            "errado ou faltando. Pode demorar; acompanho por aqui.\n\n" + _fp_texto_lote(estado.dados_coletados))
+
+
+# ---------------------------------------------------------------------
+# Execução encadeada: um produto de cada vez (mesma ideia do clone de equipamento)
+# ---------------------------------------------------------------------
+def _fp_texto_lote(dados):
+    return (f"Atualizando os fluxos do produto **{dados.get('produto_codigo', '')}** "
+            f"({dados.get('concluidos', 0) + 1} de {dados.get('total_produtos', 0)}).")
+
+
+def _fp_lote_iniciar_proximo(estado):
+    """Tira o próximo produto da fila e dispara a task que já existe (gerar_fluxos_produto_celery)."""
+    import uuid
+    from datetime import datetime, timezone as _tz
+    from fluxos.models import TbFluxoProducao
+    dados = dict(estado.dados_coletados or {})
+    dados['fila'] = list(dados['fila'])
+    atual = dados['fila'].pop(0)
+    for chave in ('status', 'mensagem', 'total_criados', 'total_removidos'):
+        dados.pop(chave, None)
+    task_id = str(uuid.uuid4())
+    dados.update({
+        'produto_id': atual['id'], 'produto_codigo': atual['codigo'], 'status': 'processando',
+        'produto_antes': TbFluxoProducao.objects.filter(flu_pro_produto_id=atual['id']).count(),
+        'task_ids': [task_id], 'disparado_em': datetime.now(_tz.utc).isoformat(),
+    })
+    estado.etapa_atual = 'fp_lote_aguardando'
+    estado.dados_coletados = dados
+    estado.save()
+
+    from fluxos.tasks import gerar_fluxos_produto_celery
+    produto_id, usuario_id = atual['id'], estado.usuario_id
+    transaction.on_commit(lambda: gerar_fluxos_produto_celery.apply_async((produto_id, usuario_id), task_id=task_id))
+
+
+def _etapa_fp_lote_aguardando(estado, texto):
+    from fluxos.models import TbFluxoProducao
+    dados = dict(estado.dados_coletados or {})
+    status = dados.get('status')
+    if status == 'processando':
+        if not _equ_geracao_morreu(dados):
+            return _fp_texto_lote(dados)
+        status = 'erro'
+        dados['mensagem'] = ("a atualização parou antes de terminar -- o processo do Celery foi encerrado "
+                             "(provavelmente por falta de memória)")
+
+    depois = TbFluxoProducao.objects.filter(flu_pro_produto_id=dados.get('produto_id')).count()
+    resultado = {
+        'codigo': dados.get('produto_codigo', ''), 'antes': dados.get('produto_antes', 0), 'depois': depois,
+        'criados': dados.get('total_criados', 0), 'removidos': dados.get('total_removidos', 0), 'erro': None,
+    }
+    if status == 'erro':
+        resultado['erro'] = dados.get('mensagem', 'erro desconhecido')
+    elif status != 'concluido':
+        resultado['erro'] = 'não recebi a resposta da atualização dos fluxos'
+    dados['resultados'] = list(dados.get('resultados') or []) + [resultado]
+    dados['concluidos'] = dados.get('concluidos', 0) + 1
+    estado.dados_coletados = dados
+
+    if dados.get('fila'):
+        _fp_lote_iniciar_proximo(estado)
+        return _fp_texto_lote(estado.dados_coletados)
+
+    resultados = dados['resultados']
+    linhas = []
+    for r in resultados:
+        if r['erro']:
+            linhas.append(f"- **{r['codigo']}**: ⚠️ não consegui atualizar ({r['erro']})")
+        else:
+            linhas.append(f"- **{r['codigo']}**: {r['antes']} → {r['depois']} fluxo(s) "
+                          f"(criados {r['criados']}, removidos {r['removidos']})")
+    texto_final = "✅ Atualização concluída.\n\nFluxos por produto:\n" + "\n".join(linhas)
+    if any(r['erro'] for r in resultados):
+        texto_final += ("\n\nOs produtos com ⚠️ podem ser refeitos depois nesta mesma ação (Atualizar Fluxos de "
+                        "Produção por Produto).")
+    if any(not r['erro'] and r['criados'] for r in resultados):
+        return _fp_io_perguntar_ou_encerrar(estado, dados.get('cenario_id'), dados.get('cenario_nome'), texto_final)
+    _encerrar_fluxo(estado)
+    return texto_final
+
+
+def _fp_io_perguntar_ou_encerrar(estado, cenario_id, cenario_nome, texto_final):
+    """
+    Fim de uma geração de fluxos que CRIOU fluxos (Atualizar Fluxos por Produto e Clonar Equipamento): os fluxos novos
+    nascem com o I/O desatualizado, então, em vez de só avisar, PERGUNTA se o usuário quer atualizar agora (todos os
+    fluxos ativos do cenário com flu_pro_input_output_atualizado=False). Sem nenhum desatualizado: só encerra.
+    """
+    from fluxos.models import TbFluxoProducao
+    qtd = TbFluxoProducao.objects.filter(
+        tbcenarios_id=cenario_id, flu_pro_input_output_atualizado=False, flu_pro_ativo=True).count()
+    if qtd == 0:
+        _encerrar_fluxo(estado)
+        return texto_final
+    if not cenario_nome:
+        cenario = TbCenarios.objects_real.filter(id=cenario_id).first()
+        cenario_nome = cenario.cen_nome if cenario is not None else ''
+    # fluxo_ativo = processar: as etapas "fp_io_*" são desse fluxo (vale também quando a pergunta vem do clone).
+    estado.fluxo_ativo = FLUXO_PROCESSAR
+    estado.etapa_atual = 'fp_io_confirmar'
+    estado.dados_coletados = {'cenario_id': cenario_id, 'cenario_nome': cenario_nome, 'qtd_desatualizados': qtd}
+    estado.save()
+    return (texto_final + f"\n\nExistem **{qtd}** fluxo(s) ativo(s) com I/O desatualizado no cenário "
+            f"**{cenario_nome}** (os novos entram nessa conta). Quer que eu atualize o I/O "
+            "(input/output/custos) deles agora? (Sim / Não)")
+
+
+def _etapa_fp_io_confirmar(estado, texto):
+    """Resposta a "quer atualizar o I/O dos fluxos desatualizados agora?". Sim = mesma rotina da ação do Admin
+    "Atualizar Input/Output/Custos dos Fluxos Selecionados" (atualizar_fluxo_celery), pra TODOS os fluxos ativos do
+    cenário com flu_pro_input_output_atualizado=False."""
+    resposta = texto.strip().lower()
+    if resposta not in ('sim', 'não', 'nao'):
+        return "Não entendi -- responde \"Sim\" pra atualizar o I/O ou \"Não\" pra deixar como está. (Sim / Não)"
+    dados = estado.dados_coletados or {}
+    if resposta != 'sim':
+        _encerrar_fluxo(estado)
+        return _FP_IO_TEXTO_NAO
+
+    import uuid
+    from datetime import datetime, timezone as _tz
+    from fluxos.models import TbFluxoProducao
+    # A lista é refeita AGORA (a da pergunta pode estar velha). Um cenário só: a task descobre o cenário pelo 1º fluxo.
+    ids = list(TbFluxoProducao.objects.filter(
+        tbcenarios_id=dados['cenario_id'], flu_pro_input_output_atualizado=False, flu_pro_ativo=True,
+    ).values_list('id', flat=True))
+    if not ids:
+        _encerrar_fluxo(estado)
+        return "Não há mais nenhum fluxo ativo com I/O desatualizado nesse cenário -- não precisei fazer nada."
+
+    task_id = str(uuid.uuid4())
+    estado.etapa_atual = 'fp_io_aguardando'
+    estado.dados_coletados = {**dados, 'total': len(ids), 'task_ids': [task_id],
+                              'disparado_em': datetime.now(_tz.utc).isoformat()}
+    estado.save()
+
+    from fluxos.tasks import atualizar_fluxo_celery
+    transaction.on_commit(lambda: atualizar_fluxo_celery.apply_async((ids,), task_id=task_id))
+    return (f"Disparei a atualização do I/O (input/output/custos) de **{len(ids)}** fluxo(s) em segundo plano. "
+            "Acompanho por aqui.\n\n" + _fp_io_texto_andamento(estado.dados_coletados, len(ids)))
+
+
+_FP_IO_TEXTO_NAO = ("Ok, não atualizei o I/O. Os fluxos novos continuam com o I/O desatualizado -- roda \"Atualizar "
+                    "Fluxos\" (menu Cenário) antes de limpar o cenário.")
+
+
+def _fp_io_texto_andamento(dados, restantes):
+    total = dados.get('total', 0)
+    return f"Atualizando o I/O dos fluxos... {min(max(total - restantes, 0), total)} de {total} já atualizados."
+
+
+def _fp_io_status_tarefa(task_ids):
+    try:
+        from django_celery_results.models import TaskResult
+        return TaskResult.objects.filter(task_id=task_ids[0]).values_list('status', flat=True).first() if task_ids else None
+    except Exception:
+        return None
+
+
+def _etapa_fp_io_aguardando(estado, texto):
+    from fluxos.models import TbFluxoProducao
+    dados = estado.dados_coletados or {}
+    nome = dados.get('cenario_nome', '')
+    restantes = TbFluxoProducao.objects.filter(
+        tbcenarios_id=dados.get('cenario_id'), flu_pro_input_output_atualizado=False, flu_pro_ativo=True).count()
+
+    if _fp_io_status_tarefa(dados.get('task_ids')) == 'SUCCESS':
+        _encerrar_fluxo(estado)
+        resposta = f"✅ I/O (input/output/custos) atualizado em **{dados.get('total', 0)}** fluxo(s) do cenário **{nome}**."
+        if restantes:
+            resposta += (f"\n\nAinda há **{restantes}** fluxo(s) ativo(s) com I/O marcado como desatualizado -- "
+                         "confere no Admin.")
+        return resposta
+    if _equ_geracao_morreu(dados):
+        _encerrar_fluxo(estado)
+        return (f"A atualização do I/O parou antes de terminar -- o processo do Celery foi encerrado (provavelmente por "
+                f"falta de memória). Faltam **{restantes}** fluxo(s) ativo(s) com I/O desatualizado no cenário "
+                f"**{nome}**; pode pedir de novo em \"Atualizar Fluxos\" (menu Cenário).")
+    return _fp_io_texto_andamento(dados, restantes)
+
+
+# ---------------------------------------------------------------------
+# 🌟 NOVO: "Fluxos de Produção - Comparar Fluxos de Produção" (só consulta: não altera nada)
+#
+# Escolhe o produto, depois acha o 1º e o 2º fluxo digitando parte da descrição (ou o id) -- um produto tem milhares de
+# fluxos --, e mostra as LIGAÇÕES (consumos padrão from -> to) que diferem entre os dois, com o indicador cadastrado
+# (período a período) e o custo variável adicionado de cada ligação. A lógica fica em fluxos/comparar_fluxos.py.
+# ---------------------------------------------------------------------
+def _cmp_produtos_com_fluxos(cenario_id, excluir_fluxo_id=None):
+    """[(produto, qtd_de_fluxos)] dos produtos do cenário que têm pelo menos 1 fluxo -- sem contar o fluxo já escolhido
+    (um produto cujo ÚNICO fluxo é o já escolhido não tem com o que ser comparado)."""
+    from produtos.models import TbProdutos
+    from fluxos.models import TbFluxoProducao
+    from django.db.models import Count
+    fluxos = TbFluxoProducao.objects.filter(tbcenarios_id=cenario_id)
+    if excluir_fluxo_id is not None:
+        fluxos = fluxos.exclude(id=excluir_fluxo_id)
+    contagem = {i['flu_pro_produto_id']: i['qtd'] for i in
+                fluxos.order_by().values('flu_pro_produto_id').annotate(qtd=Count('id'))}
+    return [(p, contagem[p.id]) for p in TbProdutos.objects.filter(tbcenarios_id=cenario_id).order_by('pro_codigo')
+            if contagem.get(p.id, 0) >= 1]
+
+
+def _cmp_texto_pedir_produto(dados):
+    produtos = _cmp_produtos_com_fluxos(dados['cenario_id'], dados.get('fluxo_a_id') if dados.get('alvo') == 'b' else None)
+    itens_marcador = "|".join(f"{p.pro_codigo}={qtd}" for p, qtd in produtos)
+    if dados.get('alvo') == 'b':
+        cabecalho = (f"Primeiro fluxo: **id {dados['fluxo_a_id']}** (produto {dados['fluxo_a_produto']}) — "
+                     f"{dados['fluxo_a_descricao']}\n\nDe qual produto é o **segundo** fluxo? Pode ser o mesmo produto ou "
+                     "outro. ")
+    else:
+        cabecalho = ("De qual produto é o **primeiro** fluxo? A comparação pode ser entre fluxos do mesmo produto ou de "
+                     "produtos diferentes. ")
+    return (cabecalho + "O número ao lado do código é a quantidade de fluxos do produto (só aparecem produtos que "
+            "têm fluxos).\n\n" + f"[LISTA_PRODUTOS:{itens_marcador}]")
+
+
+def iniciar_fluxo_comparar_fluxos(usuario):
+    perfil = getattr(usuario, 'perfilusuario', None)
+    if perfil is None or perfil.cenario_ativo_id is None:
+        return "Você ainda não tem um cenário ativo escolhido. Acesse a tela de Cenários e ative um antes."
+    cenario = TbCenarios.objects_real.filter(id=perfil.cenario_ativo_id).first()
+    if cenario is None:
+        return "O cenário que estava ativo pra você não existe mais."
+
+    produtos = _cmp_produtos_com_fluxos(cenario.id)
+    if sum(qtd for _, qtd in produtos) < 2:
+        return (f"O cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** tem menos de 2 fluxos de produção, "
+                "então não há o que comparar.")
 
     estado = _get_estado(usuario)
     estado.fluxo_ativo = FLUXO_PROCESSAR
-    estado.etapa_atual = 'fp_criar_fluxos_produto_escolher'
-    estado.dados_coletados = {'cenario_id': cenario.id, 'cenario_nome': cenario.cen_nome}
+    estado.etapa_atual = 'cmp_produto'
+    estado.dados_coletados = {'cenario_id': cenario.id, 'cenario_nome': cenario.cen_nome, 'alvo': 'a'}
     estado.save()
+    return _cmp_texto_pedir_produto(estado.dados_coletados)
 
+
+def _cmp_texto_pedir_busca(dados):
+    primeiro = dados.get('alvo', 'a') == 'a'
+    produto = dados.get('produto_codigo', '')
     return (
-        "Pra qual produto você quer gerar os fluxos de produção? O número ao lado do código é a "
-        "quantidade de fluxos que já existem hoje pra esse produto.\n\n"
-        f"[LISTA_PRODUTOS:{itens_marcador}]"
+        (f"Digite parte da descrição do **primeiro** fluxo do produto **{produto}** (por exemplo, os códigos de "
+         "equipamento que ele usa) ou o id dele. "
+         if primeiro else
+         f"Agora o **segundo** fluxo, do produto **{produto}**: digite parte da descrição dele ou o id. ")
+        + "Se quiser desistir, digite \"cancelar\"."
     )
+
+
+def _etapa_cmp_produto(estado, texto):
+    dados = estado.dados_coletados or {}
+    excluir = dados.get('fluxo_a_id') if dados.get('alvo') == 'b' else None
+    validos = {p.pro_codigo.lower(): p for p, _ in _cmp_produtos_com_fluxos(dados.get('cenario_id'), excluir)}
+    produto = validos.get(texto.strip().lower())
+    if produto is None:
+        return ("Não encontrei esse produto entre os que têm fluxos disponíveis. Clique em um dos produtos da lista, "
+                "ou digite o código exatamente como aparece (ou \"cancelar\" pra desistir).")
+    estado.etapa_atual = 'cmp_busca'
+    estado.dados_coletados = {**dados, 'produto_id': produto.id, 'produto_codigo': produto.pro_codigo}
+    estado.save()
+    return _cmp_texto_pedir_busca(estado.dados_coletados)
+
+
+def _etapa_cmp_busca(estado, texto):
+    from fluxos.comparar_fluxos import buscar_fluxos, LIMITE_CANDIDATOS
+    dados = estado.dados_coletados or {}
+    excluir = dados.get('fluxo_a_id') if dados.get('alvo') == 'b' else None
+    itens, total = buscar_fluxos(dados['cenario_id'], dados['produto_id'], texto, excluir_id=excluir)
+    if total == 0:
+        extra = " Pode escolher um dos que mostrei (pelo número) ou tentar outras palavras." if dados.get('candidatos') else \
+                " Tente outras palavras (ou o id do fluxo)."
+        return f"Não achei nenhum fluxo com **{texto.strip()}**.{extra}"
+    if total == 1:
+        return _cmp_fluxo_escolhido(estado, dados, itens[0])
+    estado.etapa_atual = 'cmp_escolher'
+    estado.dados_coletados = {**dados, 'candidatos': itens}
+    estado.save()
+    linhas = "\n".join(f"- {i}: {item['descricao']} (id {item['id']})" for i, item in enumerate(itens, start=1))
+    aviso = (f" (mostrando só os {LIMITE_CANDIDATOS} primeiros; digite mais palavras pra refinar)" if total > len(itens) else "")
+    return (f"Achei **{total}** fluxos{aviso}. Escolha o número do fluxo, ou digite outras palavras pra refinar a busca "
+            "(ou \"cancelar\" pra desistir).\n\n"
+            f"Fluxos encontrados:\n{linhas}")
+
+
+def _etapa_cmp_escolher(estado, texto):
+    dados = estado.dados_coletados or {}
+    candidatos = dados.get('candidatos') or []
+    t = texto.strip()
+    if t.isdigit():
+        n = int(t)
+        if 1 <= n <= len(candidatos):
+            return _cmp_fluxo_escolhido(estado, dados, candidatos[n - 1])
+        por_id = {c['id']: c for c in candidatos}
+        if n in por_id:
+            return _cmp_fluxo_escolhido(estado, dados, por_id[n])
+    # Qualquer outra coisa (palavras, ou um número que não é da lista) é uma NOVA busca.
+    return _etapa_cmp_busca(estado, texto)
+
+
+def _cmp_fluxo_escolhido(estado, dados, item):
+    if dados.get('alvo') == 'a':
+        estado.etapa_atual = 'cmp_produto'
+        estado.dados_coletados = {**{k: v for k, v in dados.items() if k not in ('candidatos', 'produto_id', 'produto_codigo')},
+                                  'alvo': 'b', 'fluxo_a_id': item['id'], 'fluxo_a_descricao': item['descricao'],
+                                  'fluxo_a_produto': dados.get('produto_codigo', '')}
+        estado.save()
+        return _cmp_texto_pedir_produto(estado.dados_coletados)
+    return _cmp_executar(estado, dados, item)
+
+
+def _cmp_moeda(estado):
+    try:
+        from parameters.models import TbEmpresa
+        perfil = getattr(estado.usuario, 'perfilusuario', None)
+        empresa = TbEmpresa.objects.filter(id=perfil.empresa_efetiva_id()).first() if perfil else None
+        return {'BRL': 'R$ ', 'USD': 'US$ ', 'EUR': '€ '}.get(getattr(empresa, 'emp_moeda', None), '')
+    except Exception:
+        return ''
+
+
+def _cmp_executar(estado, dados, fluxo_b):
+    from fluxos.comparar_fluxos import comparar_fluxos, dados_para_tabela, ComparacaoError
+    cenario = TbCenarios.objects_real.filter(id=dados['cenario_id']).first()
+    if cenario is None:
+        _encerrar_fluxo(estado)
+        return "O cenário dessa comparação não existe mais."
+    try:
+        resultado = comparar_fluxos(dados['fluxo_a_id'], fluxo_b['id'], cenario)
+    except ComparacaoError as erro:
+        _encerrar_fluxo(estado)
+        return f"Não consegui comparar: {erro}"
+    moeda = _cmp_moeda(estado)
+    _encerrar_fluxo(estado)
+    # 🌟 NOVO: a comparação é desenhada pela tela em COLUNAS PARALELAS (Fluxo A | Fluxo B | Variação B - A), a partir do
+    # marcador abaixo. O texto fica curto: título, contagens e (se não há diferença) o aviso.
+    tabela = dados_para_tabela(resultado, moeda)
+    r = tabela['resumo']
+    texto = (f"**{tabela['titulo']}**\n\nLigações iguais nos dois: **{r['iguais']}** · só no A: **{r['so_a']}** · só no B: **{r['so_b']}**")
+    if not tabela['grupos']:
+        texto += ("\n\nOs dois fluxos usam exatamente as mesmas ligações (os mesmos consumos padrão), então o indicador "
+                  "cadastrado é o mesmo em todos os pontos.")
+    return texto + "\n\n" + _equ_marcador('COMPARACAO_FLUXOS', tabela)
 
 
 def _etapa_fp_criar_fluxos_produto_escolher(estado, texto):
@@ -5459,6 +5962,17 @@ _HANDLERS_PROCESSAR = {
     'fp_criar_fluxos_produto_escolher': _etapa_fp_criar_fluxos_produto_escolher,
     'fp_criar_fluxos_produto_confirmar': _etapa_fp_criar_fluxos_produto_confirmar,
     'fp_criar_fluxos_produto_aguardando': _etapa_fp_criar_fluxos_produto_aguardando,
+    # 🌟 NOVO: "Atualizar Fluxos de Produção por Produto" com situação por produto e seleção múltipla.
+    'fp_sit_calculando': _etapa_fp_sit_calculando,
+    'fp_sit_selecionar': _etapa_fp_sit_selecionar,
+    'fp_sit_confirmar': _etapa_fp_sit_confirmar,
+    'fp_lote_aguardando': _etapa_fp_lote_aguardando,
+    'fp_io_confirmar': _etapa_fp_io_confirmar,
+    'fp_io_aguardando': _etapa_fp_io_aguardando,
+    # 🌟 NOVO: "Comparar Fluxos de Produção" (só consulta)
+    'cmp_produto': _etapa_cmp_produto,
+    'cmp_busca': _etapa_cmp_busca,
+    'cmp_escolher': _etapa_cmp_escolher,
 }
 
 
@@ -7060,14 +7574,18 @@ def _equ_texto_andamento(dados):
 def _equ_iniciar_proximo_produto(estado):
     """Tira o próximo produto da fila e dispara a task que já existe (a mesma de "Atualizar Fluxos por Produto")."""
     from fluxos.models import TbFluxoProducao
+    import uuid
+    from datetime import datetime, timezone as _tz
     dados = dict(estado.dados_coletados or {})
     dados['fila'] = list(dados['fila'])      # cópia: quem chamou ainda usa a lista original (ex.: pra contar os produtos)
     atual = dados['fila'].pop(0)
     for chave in ('status', 'mensagem', 'total_criados', 'total_removidos'):
         dados.pop(chave, None)
+    task_id = str(uuid.uuid4())              # id escolhido aqui: é por ele que dá pra saber depois se a task morreu
     dados.update({
         'produto_id': atual['id'], 'produto_codigo': atual['codigo'], 'status': 'processando',
         'produto_antes': TbFluxoProducao.objects.filter(flu_pro_produto_id=atual['id']).count(),
+        'task_ids': [task_id], 'disparado_em': datetime.now(_tz.utc).isoformat(),
     })
     estado.etapa_atual = 'equ_criar_fluxos_aguardando'
     estado.dados_coletados = dados
@@ -7076,15 +7594,39 @@ def _equ_iniciar_proximo_produto(estado):
     from fluxos.tasks import gerar_fluxos_produto_celery
     produto_id, usuario_id = atual['id'], estado.usuario_id
     # on_commit: a task só começa depois de o estado acima estar gravado (ela confere o produto_id no estado).
-    transaction.on_commit(lambda: gerar_fluxos_produto_celery.delay(produto_id, usuario_id))
+    transaction.on_commit(lambda: gerar_fluxos_produto_celery.apply_async((produto_id, usuario_id), task_id=task_id))
+
+
+def _equ_geracao_morreu(dados):
+    """
+    True se a task do produto atual morreu SEM avisar o chat (a task grava o resultado no estado no fim; se o worker
+    for encerrado no meio -- por exemplo pelo sistema operacional, por falta de memória -- ela nunca grava e o chat
+    ficaria em "Gerando..." pra sempre). Duas fontes: a falha que o próprio Celery registra na tabela de resultados
+    (aparece na hora) e o detector conservador que os outros fluxos já usam (>= 10 min sem a task em nenhum worker).
+    """
+    task_ids = dados.get('task_ids') or []
+    if not task_ids:
+        return False
+    try:
+        from django_celery_results.models import TaskResult
+        if TaskResult.objects.filter(task_id__in=task_ids, status__in=('FAILURE', 'REVOKED')).exists():
+            return True
+    except Exception:
+        pass
+    return _todas_tasks_mortas(task_ids, dados.get('disparado_em')) is True
 
 
 def _etapa_equ_criar_fluxos_aguardando(estado, texto):
     from fluxos.models import TbFluxoProducao
-    dados = estado.dados_coletados or {}
+    dados = dict(estado.dados_coletados or {})
     status = dados.get('status')
     if status == 'processando':
-        return _equ_texto_andamento(dados)
+        if not _equ_geracao_morreu(dados):
+            return _equ_texto_andamento(dados)
+        # A task morreu sem avisar: conta como erro desse produto e o chat segue pro próximo (ou encerra).
+        status = 'erro'
+        dados['mensagem'] = ("a geração parou antes de terminar -- o processo do Celery foi encerrado "
+                             "(provavelmente por falta de memória)")
 
     # O produto atual terminou (com sucesso, com erro, ou sem resposta): registra e segue pro próximo.
     depois = TbFluxoProducao.objects.filter(flu_pro_produto_id=dados.get('produto_id')).count()
@@ -7106,7 +7648,6 @@ def _etapa_equ_criar_fluxos_aguardando(estado, texto):
 
     resumo = dados['resumo_criado']
     resultados = dados['resultados']
-    _encerrar_fluxo(estado)
     linhas = []
     for r in resultados:
         if r['erro']:
@@ -7118,9 +7659,578 @@ def _etapa_equ_criar_fluxos_aguardando(estado, texto):
     if any(r['erro'] for r in resultados):
         texto_final += ("\n\nOs produtos com ⚠️ podem ser refeitos depois em Fluxos de Produção > Atualizar Fluxos de "
                         "Produção por Produto.")
-    texto_final += ("\n\nOs fluxos novos ainda precisam ter o I/O atualizado: roda \"Atualizar Fluxos\" (menu Cenário) "
-                    "antes de limpar.")
+    if any(not r['erro'] and r['criados'] for r in resultados):
+        return _fp_io_perguntar_ou_encerrar(estado, dados.get('cenario_id'), None, texto_final)
+    _encerrar_fluxo(estado)
     return texto_final
+
+
+# ---------------------------------------------------------------------
+# 🌟 NOVO: "Equipamentos - Criar Nova Ordem de Produção" (clone de equipamento/ordem: CRIA uma ordem nova ou ALTERA uma
+# existente, assumindo as informações da ordem clonada).
+#
+# Sequência: equipamento de destino -> ordem (as existentes + a sugerida; repetir um número existente = ALTERAR, com
+# aviso) -> equipamento a clonar -> ordem a clonar -> tipo de produção e descrição -> produtos que a ordem atende ->
+# consumos padrão (os que saem da ordem clonada: clonar ou não, com o valor inicial do indicador) -> resumo e "Sim".
+# NADA é gravado antes do "Sim" final: aí vai tudo numa transação só (tudo-ou-nada). Depois, a mesma geração de fluxos
+# por produto do clone de equipamento (etapa equ_criar_fluxos_aguardando) e a pergunta do I/O.
+#
+# CRIANDO: copia a ordem inteira (campos + filhas por período) e os itens de consumo específico (+ filhas).
+# ALTERANDO: muda só o tipo de produção, a descrição, os produtos e os consumos específicos (os atuais são APAGADOS e
+# substituídos pelos da ordem clonada). WIP, valores iniciais, observação e valores por período da ordem não mudam.
+# "É Clone Da Ordem" nunca é preenchido (marca "o mesmo recurso físico de outra ordem", caso raro).
+# ---------------------------------------------------------------------
+def _ord_fmt_valor(valor):
+    from decimal import Decimal
+    return f"{Decimal(str(valor)):.4f}".replace('.', ',')
+
+
+def _ord_parse_valor(texto):
+    """'2,5' / '2.5' / '1.234,5000' -> Decimal; None se não for um número válido pro campo (11 dígitos, 4 decimais, >= 0)."""
+    from decimal import Decimal, InvalidOperation
+    t = str(texto if texto is not None else '').strip().replace(' ', '')
+    if not t:
+        return None
+    if ',' in t:
+        t = t.replace('.', '').replace(',', '.')
+    try:
+        d = Decimal(t)
+    except InvalidOperation:
+        return None
+    if not d.is_finite() or d < 0 or d.as_tuple().exponent < -4 or len(d.as_tuple().digits) + d.as_tuple().exponent > 7:
+        return None
+    return d
+
+
+def _ord_ordens(cadastro_id, cenario_id):
+    from equipamentos.models import TbEquipamentos
+    return list(TbEquipamentos.objects.filter(equ_codigo_id=cadastro_id, tbcenarios_id=cenario_id)
+                .select_related('equ_tipo_producao').order_by('equ_ordem_codigo'))
+
+
+def _ord_botao_ordem(codigo, ordem):
+    return {'valor': str(ordem.equ_ordem_codigo), 'tipo': 'existente',
+            'rotulo': f"{codigo}/{ordem.equ_ordem_codigo} — {ordem.equ_ordem_descricao} ({ordem.equ_tipo_producao})"}
+
+
+def iniciar_fluxo_criar_ordem(usuario):
+    perfil = getattr(usuario, 'perfilusuario', None)
+    if perfil is None or perfil.cenario_ativo_id is None:
+        return "Você ainda não tem um cenário ativo escolhido. Acesse a tela de Cenários e ative um antes."
+    cenario = TbCenarios.objects_real.filter(id=perfil.cenario_ativo_id).first()
+    if cenario is None:
+        return "O cenário que estava ativo pra você não existe mais."
+
+    from equipamentos.models import TbEquipamentosCadastro, TbEquipamentos
+    numero = cenario.numero_sequencial if cenario.numero_sequencial is not None else cenario.id
+    if not TbEquipamentosCadastro.objects.filter(tbcenarios_id=cenario.id).exists() or \
+            not TbEquipamentos.objects.filter(tbcenarios_id=cenario.id).exists():
+        return (f"Não encontrei equipamentos com ordens de produção no cenário **{numero}/{cenario.cen_nome}**, então "
+                "não há de onde clonar. Não fiz nada.")
+
+    estado = _get_estado(usuario)
+    estado.fluxo_ativo = FLUXO_EQUIPAMENTOS
+    estado.etapa_atual = 'ord_destino_equipamento'
+    estado.dados_coletados = {'cenario_id': cenario.id, 'cenario_nome': cenario.cen_nome}
+    estado.save()
+    return (
+        f"Vou criar uma nova ordem de produção (ou alterar uma que já existe) no cenário **{numero}/{cenario.cen_nome}**, "
+        "clonando outra ordem. Primeiro: em qual equipamento fica a ordem que você quer criar ou alterar? O número no "
+        "canto superior direito de cada cartão é a quantidade de ordens de produção dele.\n\n[LISTA_EQUIPAMENTOS]"
+    )
+
+
+def _ord_pedir_ordem_destino(estado, dados, cadastro):
+    ordens = _ord_ordens(cadastro.id, dados['cenario_id'])
+    proximo = (max(o.equ_ordem_codigo for o in ordens) + 1) if ordens else 1
+    estado.etapa_atual = 'ord_destino_ordem'
+    estado.dados_coletados = {**dados, 'destino_cadastro_id': cadastro.id, 'destino_codigo': cadastro.equ_cad_codigo,
+                              'proximo_numero': proximo}
+    estado.save()
+    botoes = [_ord_botao_ordem(cadastro.equ_cad_codigo, o) for o in ordens]
+    botoes.append({'valor': str(proximo), 'tipo': 'nova', 'rotulo': f"Nova ordem {cadastro.equ_cad_codigo}/{proximo}"})
+    if ordens:
+        corpo = (f"O equipamento **{cadastro.equ_cad_codigo}** — {cadastro.equ_cad_descricao} já tem {len(ordens)} ordem(ns). "
+                 f"Escolha uma **ordem existente** pra ALTERAR, ou a **nova ordem sugerida ({proximo})**. Também pode "
+                 "digitar outro número: se ele já existir, aquela ordem será alterada.")
+    else:
+        corpo = (f"O equipamento **{cadastro.equ_cad_codigo}** — {cadastro.equ_cad_descricao} ainda não tem nenhuma ordem. "
+                 f"A primeira será a **{proximo}** (ou digite outro número).")
+    return corpo + " Se quiser desistir, digite \"cancelar\".\n\n" + _equ_marcador('BOTOES', {'botoes': botoes})
+
+
+def _etapa_ord_destino_equipamento(estado, texto):
+    from equipamentos.models import TbEquipamentosCadastro
+    dados = estado.dados_coletados or {}
+    cadastro = TbEquipamentosCadastro.objects.filter(
+        tbcenarios_id=dados.get('cenario_id'), equ_cad_codigo__iexact=texto.strip()).first()
+    if cadastro is None:
+        return ("Não encontrei esse equipamento no cenário ativo. Clica num dos cartões, digita o código exatamente "
+                "como aparece, ou \"cancelar\" pra desistir.\n\n[LISTA_EQUIPAMENTOS]")
+    return _ord_pedir_ordem_destino(estado, dados, cadastro)
+
+
+def _etapa_ord_destino_ordem(estado, texto):
+    from equipamentos.models import TbEquipamentosCadastro
+    dados = estado.dados_coletados or {}
+    cadastro = TbEquipamentosCadastro.objects.get(id=dados['destino_cadastro_id'])
+    try:
+        numero = int(texto.strip())
+    except ValueError:
+        numero = None
+    if numero is None or numero < 1 or numero > 2147483647:
+        return ("Não entendi -- clique em um dos botões ou digite o número da ordem (um inteiro maior que zero).\n\n"
+                + _ord_pedir_ordem_destino(estado, dados, cadastro))
+    existente = next((o for o in _ord_ordens(cadastro.id, dados['cenario_id']) if o.equ_ordem_codigo == numero), None)
+    if existente is None:
+        estado.dados_coletados = {**dados, 'numero': numero, 'existente': False, 'destino_ordem_id': None}
+        estado.save()
+        return _ord_pedir_origem_equipamento(estado, estado.dados_coletados)
+
+    from equipamentos.models import TbEquipamentosConsumoEspecifico
+    itens = TbEquipamentosConsumoEspecifico.objects.filter(equ_con_esp_equipamento_id=existente.id).count()
+    estado.etapa_atual = 'ord_alterar_confirmar'
+    estado.dados_coletados = {**dados, 'numero': numero, 'existente': True, 'destino_ordem_id': existente.id}
+    estado.save()
+    return (
+        f"Atenção: a ordem **{cadastro.equ_cad_codigo}/{numero}** já existe — {existente.equ_ordem_descricao} "
+        f"({existente.equ_tipo_producao}). Se você seguir, eu vou **ALTERAR** essa ordem: o tipo de produção e a "
+        "descrição (você poderá ajustar), os produtos que ela atende e os **consumos específicos** — os atuais "
+        f"({itens} item(ns)) serão **apagados** e substituídos pelos da ordem que você vai clonar. O restante da ordem "
+        "(WIP, valores iniciais, valores por período) não muda, e os consumos padrão que já saem dela e não existem na "
+        "ordem clonada continuam como estão. Nada é gravado até a confirmação final. Quer continuar? (Sim / Não)"
+    )
+
+
+def _etapa_ord_alterar_confirmar(estado, texto):
+    from equipamentos.models import TbEquipamentosCadastro
+    resposta = texto.strip().lower()
+    dados = estado.dados_coletados or {}
+    if resposta not in ('sim', 'não', 'nao'):
+        return "Não entendi -- responde \"Sim\" pra alterar essa ordem ou \"Não\" pra escolher outra. (Sim / Não)"
+    if resposta == 'sim':
+        return _ord_pedir_origem_equipamento(estado, dados)
+    return _ord_pedir_ordem_destino(estado, dados, TbEquipamentosCadastro.objects.get(id=dados['destino_cadastro_id']))
+
+
+def _ord_pedir_origem_equipamento(estado, dados):
+    estado.etapa_atual = 'ord_origem_equipamento'
+    estado.dados_coletados = dados
+    estado.save()
+    alvo = f"{dados['destino_codigo']}/{dados['numero']}"
+    acao = "alterada" if dados.get('existente') else "criada"
+    return (f"Ordem **{alvo}** será {acao}. Agora escolha o equipamento que será **clonado** (a ordem dele serve de "
+            "modelo).\n\n[LISTA_EQUIPAMENTOS]")
+
+
+def _etapa_ord_origem_equipamento(estado, texto):
+    from equipamentos.models import TbEquipamentosCadastro
+    dados = estado.dados_coletados or {}
+    cadastro = TbEquipamentosCadastro.objects.filter(
+        tbcenarios_id=dados.get('cenario_id'), equ_cad_codigo__iexact=texto.strip()).first()
+    if cadastro is None:
+        return ("Não encontrei esse equipamento no cenário ativo. Clica num dos cartões, digita o código exatamente "
+                "como aparece, ou \"cancelar\" pra desistir.\n\n[LISTA_EQUIPAMENTOS]")
+    return _ord_pedir_ordem_origem(estado, dados, cadastro)
+
+
+def _ord_pedir_ordem_origem(estado, dados, cadastro, aviso=''):
+    ordens = _ord_ordens(cadastro.id, dados['cenario_id'])
+    if not ordens:
+        return (f"O equipamento **{cadastro.equ_cad_codigo}** não tem nenhuma ordem de produção, então não há o que "
+                "clonar. Escolhe outro.\n\n[LISTA_EQUIPAMENTOS]")
+    estado.etapa_atual = 'ord_origem_ordem'
+    estado.dados_coletados = {**dados, 'origem_cadastro_id': cadastro.id, 'origem_codigo': cadastro.equ_cad_codigo}
+    estado.save()
+    return (aviso + f"Qual ordem do equipamento **{cadastro.equ_cad_codigo}** será clonada? Clique no botão (ou "
+            "\"cancelar\" pra desistir).\n\n"
+            + _equ_marcador('BOTOES', {'botoes': [_ord_botao_ordem(cadastro.equ_cad_codigo, o) for o in ordens]}))
+
+
+def _etapa_ord_origem_ordem(estado, texto):
+    from equipamentos.models import TbEquipamentosCadastro
+    dados = estado.dados_coletados or {}
+    cadastro = TbEquipamentosCadastro.objects.get(id=dados['origem_cadastro_id'])
+    try:
+        numero = int(texto.strip())
+    except ValueError:
+        numero = None
+    ordem = next((o for o in _ord_ordens(cadastro.id, dados['cenario_id']) if o.equ_ordem_codigo == numero), None)
+    if ordem is None:
+        return _ord_pedir_ordem_origem(estado, dados, cadastro, "Não encontrei essa ordem. Escolha uma da lista.\n\n")
+    if dados.get('existente') and ordem.id == dados.get('destino_ordem_id'):
+        return _ord_pedir_ordem_origem(
+            estado, dados, cadastro,
+            f"A ordem **{cadastro.equ_cad_codigo}/{numero}** é a própria ordem que você quer alterar -- não dá pra clonar "
+            "ela nela mesma. Escolha outra.\n\n")
+    estado.dados_coletados = {**dados, 'origem_ordem_id': ordem.id, 'origem_ordem_numero': ordem.equ_ordem_codigo}
+    estado.save()
+    return _ord_pedir_dados(estado, estado.dados_coletados)
+
+
+def _ord_pedir_dados(estado, dados):
+    from equipamentos.models import TbEquipamentos
+    base = TbEquipamentos.objects.get(id=dados['destino_ordem_id'] if dados.get('existente') else dados['origem_ordem_id'])
+    linha = {'ordem': dados['numero'], 'descricao': base.equ_ordem_descricao, 'tipo_id': base.equ_tipo_producao_id}
+    estado.etapa_atual = 'ord_dados'
+    estado.dados_coletados = dados
+    estado.save()
+    de_onde = ("os valores ATUAIS da ordem" if dados.get('existente') else
+               f"os da ordem clonada ({dados['origem_codigo']}/{dados['origem_ordem_numero']})")
+    return (f"Agora o **tipo de produção** e a **descrição** da ordem **{dados['destino_codigo']}/{dados['numero']}**. Já "
+            f"vêm preenchidos com {de_onde} -- é só ajustar. Se o tipo que você precisa não existe, use o + pra "
+            "cadastrar um novo.\n\n" + _equ_form_ordens(estado, [linha]))
+
+
+def _etapa_ord_dados(estado, texto):
+    from equipamentos.models import TbEquipamentos
+    dados = estado.dados_coletados or {}
+    base = TbEquipamentos.objects.get(id=dados['destino_ordem_id'] if dados.get('existente') else dados['origem_ordem_id'])
+    padrao = [{'ordem': dados['numero'], 'descricao': base.equ_ordem_descricao, 'tipo_id': base.equ_tipo_producao_id}]
+
+    entrada = _equ_json(texto)
+    lista = entrada.get('ordens') if entrada else None
+    if not isinstance(lista, list):
+        return ("Não entendi -- preenche a ordem no formulário abaixo e clica em Confirmar.\n\n"
+                + _equ_form_ordens(estado, padrao))
+    tipos = {t['id']: t['nome'] for t in _equ_tipos_producao_permitidos()}
+    max_descricao = TbEquipamentos._meta.get_field('equ_ordem_descricao').max_length
+    item = next((i for i in lista if isinstance(i, dict) and str(i.get('ordem')) == str(dados['numero'])), None)
+    if item is None:
+        return "Não encontrei os dados da ordem no formulário.\n\n" + _equ_form_ordens(estado, padrao)
+    descricao = str(item.get('descricao') or '').strip()
+    try:
+        tipo_id = int(item.get('tipo_id'))
+    except (TypeError, ValueError):
+        tipo_id = None
+    erros = []
+    if not descricao:
+        erros.append("A descrição da ordem não pode ficar vazia.")
+    elif len(descricao) > max_descricao:
+        erros.append(f"A descrição pode ter no máximo {max_descricao} caracteres.")
+    if tipo_id not in tipos:
+        erros.append("Escolhe um Tipo de Produção válido.")
+    if erros:
+        digitado = [{'ordem': dados['numero'], 'descricao': descricao, 'tipo_id': tipo_id}]
+        return "\n".join(f"- {e}" for e in erros) + "\n\n" + _equ_form_ordens(estado, digitado)
+    return _ord_pedir_produtos(estado, {**dados, 'descricao': descricao, 'tipo_id': tipo_id, 'tipo_nome': tipos[tipo_id]})
+
+
+def _ord_pedir_produtos(estado, dados):
+    from equipamentos.models import TbEquipamentos
+    from produtos.models import TbProdutos
+    ordem_ref = TbEquipamentos.objects.get(id=dados['destino_ordem_id'] if dados.get('existente') else dados['origem_ordem_id'])
+    marcados = set(ordem_ref.equ_produtos.values_list('id', flat=True))
+    produtos = list(TbProdutos.objects.filter(tbcenarios_id=dados['cenario_id']).order_by('pro_codigo'))
+    estado.etapa_atual = 'ord_produtos'
+    estado.dados_coletados = dados
+    estado.save()
+    if not produtos:
+        return _ord_produtos_escolhidos(estado, dados, [])
+    de_onde = "os que a ordem atende hoje" if dados.get('existente') else "os da ordem clonada"
+    itens = [{'id': p.id, 'codigo': p.pro_codigo, 'status': 'escolha', 'motivo': '', 'marcado': p.id in marcados,
+              'titulo': p.pro_descricao or ''} for p in produtos]
+    return (f"Quais produtos a ordem **{dados['destino_codigo']}/{dados['numero']}** vai atender? Já deixei marcados {de_onde}: "
+            "marque ou desmarque e confirme. Se ela não atende nenhum produto, digite \"nenhum\" (ou \"cancelar\" pra "
+            "desistir).\n\n" + _equ_marcador('SELECAO_PRODUTOS', {
+                'produtos': itens, 'rotulo_confirmar': 'Confirmar produtos', 'rotulo_marcar': 'Marcar todos'}))
+
+
+def _etapa_ord_produtos(estado, texto):
+    from produtos.models import TbProdutos
+    dados = estado.dados_coletados or {}
+    validos = set(TbProdutos.objects.filter(tbcenarios_id=dados['cenario_id']).values_list('id', flat=True))
+    if texto.strip().lower() in ('nenhum', 'nenhuma'):
+        return _ord_produtos_escolhidos(estado, dados, [])
+    entrada = _equ_json(texto)
+    if entrada is None or not isinstance(entrada.get('produtos'), list):
+        return ("Não entendi -- marque os produtos na lista e clique em \"Confirmar produtos\" (ou digite \"nenhum\").\n\n"
+                + _ord_pedir_produtos(estado, dados))
+    ids = []
+    for valor in entrada['produtos']:
+        try:
+            ids.append(int(valor))
+        except (TypeError, ValueError):
+            pass
+    ids = list(dict.fromkeys(ids))
+    if any(i not in validos for i in ids):
+        return "Um dos produtos marcados não existe nesse cenário.\n\n" + _ord_pedir_produtos(estado, dados)
+    return _ord_produtos_escolhidos(estado, dados, ids)
+
+
+def _ord_produtos_escolhidos(estado, dados, ids):
+    dados = {**dados, 'produtos_ids': ids}
+    return _ord_pedir_consumos(estado, dados)
+
+
+def _ord_consumos_da_origem(dados):
+    """Consumos padrão que têm a ordem clonada como FROM, com o que seria o novo (from = ordem de destino)."""
+    from fluxos.models import TbFluxoConsumoPadrao
+    linhas, ignorados = [], []
+    consumos = (TbFluxoConsumoPadrao.objects.filter(tbcenarios_id=dados['cenario_id'], flu_con_pad_from_equipamento_id=dados['origem_ordem_id'])
+                .select_related('flu_con_pad_from_equipamento__equ_codigo', 'flu_con_pad_to_equipamento__equ_codigo').order_by('id'))
+    alvo = f"{dados['destino_codigo']}/{dados['numero']}"
+    for cp in consumos:
+        para = cp.flu_con_pad_to_equipamento
+        para_rotulo = f"{para.equ_codigo}/{para.equ_ordem_codigo}"
+        if dados.get('existente') and para.id == dados.get('destino_ordem_id'):
+            ignorados.append(f"{cp.flu_con_pad_from_equipamento.equ_codigo}/{cp.flu_con_pad_from_equipamento.equ_ordem_codigo} --> {para_rotulo}")
+            continue          # a nova ligação seria da ordem pra ela mesma
+        nova_desc = f"{alvo} --> {para_rotulo}"
+        ja = TbFluxoConsumoPadrao.objects.filter(tbcenarios_id=dados['cenario_id'], flu_con_pad_descricao=nova_desc).first()
+        linhas.append({'cp': cp, 'para': para_rotulo, 'nova_desc': nova_desc, 'existente': ja})
+    return linhas, ignorados
+
+
+def _ord_pedir_consumos(estado, dados):
+    linhas, ignorados = _ord_consumos_da_origem(dados)
+    estado.etapa_atual = 'ord_consumos'
+    estado.dados_coletados = dados
+    estado.save()
+    if not linhas:
+        extra = (f" (ignorei {len(ignorados)} cujo destino é a própria ordem alterada)" if ignorados else "")
+        return _ord_resumo_ou_confirmar(estado, {**dados, 'consumos_decididos': []},
+                                        f"A ordem clonada não tem consumos padrão de saída para clonar{extra}.\n\n")
+    de = f"{dados['origem_codigo']}/{dados['origem_ordem_numero']}"
+    alvo = f"{dados['destino_codigo']}/{dados['numero']}"
+    rows = []
+    for l in linhas:
+        rows.append({
+            'cp_id': l['cp'].id, 'de': de, 'para': l['para'], 'novo_de': alvo,
+            'valor': _ord_fmt_valor((l['existente'] or l['cp']).valor_inicial),
+            'existe': l['existente'] is not None,
+            'valor_atual': _ord_fmt_valor(l['existente'].valor_inicial) if l['existente'] else None,
+        })
+    nota = (f" Ignorei {len(ignorados)} consumo(s) padrão cujo destino é a própria ordem alterada." if ignorados else "")
+    return (
+        f"A ordem clonada (**{de}**) envia produção para {len(rows)} ordem(ns) (consumos padrão com ela como origem). "
+        f"Marque os que devem ser **clonados** para **{alvo}** e confira o **valor inicial do indicador** de cada um: já vem "
+        "o valor do consumo padrão clonado. Os que já existem aparecem com o valor atual -- confirme ou ajuste (se mudar, "
+        "o novo valor passa a valer em todos os períodos)." + nota + " Se quiser desistir, digite \"cancelar\".\n\n"
+        + _equ_marcador('FORM_CONSUMOS', {'consumos': rows, 'max_inteiros': 7, 'casas': 4}))
+
+
+def _etapa_ord_consumos(estado, texto):
+    dados = estado.dados_coletados or {}
+    linhas, _ignorados = _ord_consumos_da_origem(dados)
+    por_id = {l['cp'].id: l for l in linhas}
+    entrada = _equ_json(texto)
+    lista = entrada.get('consumos') if entrada else None
+    if not isinstance(lista, list):
+        return ("Não entendi -- confira os consumos padrão no formulário e clique em Confirmar.\n\n"
+                + _ord_pedir_consumos(estado, dados))
+    enviados = {}
+    for item in lista:
+        if isinstance(item, dict):
+            try:
+                enviados[int(item.get('cp_id'))] = item
+            except (TypeError, ValueError):
+                pass
+    erros, decididos = [], []
+    for cp_id, l in por_id.items():
+        item = enviados.get(cp_id)
+        rotulo = f"{dados['origem_codigo']}/{dados['origem_ordem_numero']} --> {l['para']}"
+        if item is None:
+            erros.append(f"Faltou o consumo padrão {rotulo}.")
+            continue
+        existe = l['existente'] is not None
+        clonar = bool(item.get('clonar'))
+        if not existe and not clonar:
+            decididos.append({'cp_id': cp_id, 'acao': 'ignorar', 'valor': None})
+            continue
+        valor = _ord_parse_valor(item.get('valor'))
+        if valor is None:
+            erros.append(f"O valor do consumo padrão {l['nova_desc']} é inválido -- use um número (até 4 casas decimais, "
+                         "até 7 dígitos antes da vírgula).")
+            continue
+        if existe:
+            acao = 'manter' if valor == l['existente'].valor_inicial else 'atualizar'
+        else:
+            acao = 'criar'
+        decididos.append({'cp_id': cp_id, 'acao': acao, 'valor': _ord_fmt_valor(valor)})
+    if erros:
+        return "\n".join(f"- {e}" for e in erros) + "\n\n" + _ord_pedir_consumos(estado, dados)
+    return _ord_resumo_ou_confirmar(estado, {**dados, 'consumos_decididos': decididos}, "")
+
+
+def _ord_resumo_ou_confirmar(estado, dados, prefixo):
+    from equipamentos.models import TbEquipamentos, TbEquipamentosConsumoEspecifico
+    from produtos.models import TbProdutos
+    origem = TbEquipamentos.objects.get(id=dados['origem_ordem_id'])
+    anteriores = set()
+    itens_apagar = 0
+    if dados.get('existente'):
+        alvo = TbEquipamentos.objects.get(id=dados['destino_ordem_id'])
+        anteriores = set(alvo.equ_produtos.values_list('id', flat=True))
+        itens_apagar = TbEquipamentosConsumoEspecifico.objects.filter(equ_con_esp_equipamento_id=alvo.id).count()
+    itens_copiar = TbEquipamentosConsumoEspecifico.objects.filter(equ_con_esp_equipamento_id=origem.id).count()
+    afetados = sorted(anteriores | set(dados['produtos_ids']))
+    codigos = dict(TbProdutos.objects.filter(id__in=afetados).values_list('id', 'pro_codigo'))
+    escolhidos = sorted(codigos[i] for i in dados['produtos_ids'])
+    dec = dados['consumos_decididos']
+    cont = {a: sum(1 for d in dec if d['acao'] == a) for a in ('criar', 'atualizar', 'manter', 'ignorar')}
+    estado.etapa_atual = 'ord_confirmar'
+    estado.dados_coletados = {**dados, 'afetados': [{'id': i, 'codigo': codigos[i]} for i in afetados],
+                              'itens_apagar': itens_apagar}
+    estado.save()
+
+    nome = f"{dados['destino_codigo']}/{dados['numero']}"
+    de = f"{dados['origem_codigo']}/{dados['origem_ordem_numero']}"
+    L = [f"Vou {'ALTERAR a ordem' if dados.get('existente') else 'criar a ordem'} **{nome}** a partir do clone da ordem **{de}**:",
+         f"- tipo de produção **{dados['tipo_nome']}** e descrição **{dados['descricao']}**;",
+         f"- produtos que ela atende ({len(escolhidos)}): " + (", ".join(escolhidos[:10]) + (f" e mais {len(escolhidos) - 10}" if len(escolhidos) > 10 else "") if escolhidos else "nenhum") + ";"]
+    if dados.get('existente'):
+        L.append(f"- consumos específicos: **apagar o(s) {itens_apagar} item(ns) atual(is)** e copiar o(s) **{itens_copiar}** da ordem {de};")
+    else:
+        L.append(f"- consumos específicos: copiar os **{itens_copiar}** item(ns) da ordem {de} (com os valores por período);")
+    partes = []
+    if cont['criar']:
+        partes.append(f"**{cont['criar']}** clonado(s)")
+    if cont['atualizar']:
+        partes.append(f"**{cont['atualizar']}** com o valor ajustado")
+    if cont['manter']:
+        partes.append(f"**{cont['manter']}** já existente(s) mantido(s)")
+    if cont['ignorar']:
+        partes.append(f"**{cont['ignorar']}** não clonado(s)")
+    L.append("- consumos padrão (origem " + nome + "): " + (", ".join(partes) if partes else "nenhum") + ";")
+    if afetados:
+        L.append(f"- e depois os fluxos de **{len(afetados)}** produto(s): "
+                 + ", ".join(codigos[i] for i in afetados[:8]) + (f" e mais {len(afetados) - 8}" if len(afetados) > 8 else "")
+                 + " (a quantidade de fluxos de cada um pode mudar).")
+    else:
+        L.append("- nenhum produto usa essa ordem, então não há fluxos a gerar.")
+    return prefixo + "\n".join(L) + "\n\nConfirma? (Sim / Não)"
+
+
+def _ord_filhas_com_valor(ModeloFilha, pai_origem, pai_novo, valor):
+    """Filhas (valor por período) do consumo padrão novo: as do original, só que com o MESMO valor em todos os períodos."""
+    copias = [_equ_copiar_campos(f, mae_id=pai_novo.pk, tbcenarios_id=pai_novo.tbcenarios_id, dau_valor=valor)
+              for f in ModeloFilha.objects.filter(mae_id=pai_origem.pk).order_by('dau_order')]
+    if copias:
+        ModeloFilha.objects.filter(mae_id=pai_novo.pk).delete()
+        ModeloFilha.objects.bulk_create(copias)
+
+
+def _ord_executar(estado):
+    """Grava tudo numa transação só (a chamada fica dentro de transaction.atomic()): qualquer erro desfaz tudo."""
+    from decimal import Decimal
+    from equipamentos.models import (
+        TbEquipamentosCadastro, TbEquipamentos, TbEquipamentosDaugther,
+        TbEquipamentosConsumoEspecifico, TbEquipamentosConsumoEspecificoDaugther,
+    )
+    from fluxos.models import (TbFluxoConsumoPadrao, TbFluxoConsumoPadraoDaugther, TbFluxoProducao, TbFluxoProducaoDaugther)
+
+    dados = estado.dados_coletados or {}
+    cenario_id = dados['cenario_id']
+    perfil = getattr(estado.usuario, 'perfilusuario', None)
+    if perfil is None or perfil.cenario_ativo_id != cenario_id:
+        raise ValueError("o cenário ativo mudou desde que você começou. Começa de novo no cenário certo")
+
+    origem = TbEquipamentos.objects.select_related('equ_codigo').get(id=dados['origem_ordem_id'], tbcenarios_id=cenario_id)
+    destino = TbEquipamentosCadastro.objects.get(id=dados['destino_cadastro_id'], tbcenarios_id=cenario_id)
+    numero = dados['numero']
+    existente = TbEquipamentos.objects.filter(equ_codigo_id=destino.pk, equ_ordem_codigo=numero, tbcenarios_id=cenario_id).first()
+
+    anteriores, itens_apagados = set(), 0
+    if dados.get('existente'):
+        if existente is None or existente.id != dados['destino_ordem_id']:
+            raise ValueError(f"a ordem {destino.equ_cad_codigo}/{numero} não existe mais")
+        alvo = existente
+        anteriores = set(alvo.equ_produtos.values_list('id', flat=True))
+        alvo.equ_ordem_descricao = dados['descricao']
+        alvo.equ_tipo_producao_id = dados['tipo_id']
+        alvo.save()
+        itens_apagados = TbEquipamentosConsumoEspecifico.objects.filter(equ_con_esp_equipamento_id=alvo.pk).count()
+        TbEquipamentosConsumoEspecifico.objects.filter(equ_con_esp_equipamento_id=alvo.pk).delete()    # cascata: as filhas
+    else:
+        if existente is not None:
+            raise ValueError(f"a ordem {destino.equ_cad_codigo}/{numero} já existe")
+        # equ_e_clone_de NUNCA aponta pra origem: o gerador de fluxos trataria as duas como UMA alternativa.
+        alvo = _equ_copiar_campos(origem, equ_codigo_id=destino.pk, equ_ordem_codigo=numero,
+                                  equ_ordem_descricao=dados['descricao'], equ_tipo_producao_id=dados['tipo_id'],
+                                  equ_e_clone_de_id=None)
+        alvo.save()
+        _equ_clonar_filhas(TbEquipamentosDaugther, origem, alvo)
+    alvo.equ_codigo = destino                      # evita nova consulta ao montar a descrição dos consumos padrão
+    alvo.equ_produtos.set(dados['produtos_ids'])   # sem isso o gerador de fluxos não enxerga a ordem
+
+    qtd_itens = 0
+    for it in TbEquipamentosConsumoEspecifico.objects.filter(equ_con_esp_equipamento_id=origem.pk).order_by('id'):
+        novo_item = _equ_copiar_campos(it, equ_con_esp_equipamento_id=alvo.pk)
+        novo_item.save()
+        _equ_clonar_filhas(TbEquipamentosConsumoEspecificoDaugther, it, novo_item)
+        qtd_itens += 1
+
+    contagem = {'criar': 0, 'atualizar': 0, 'manter': 0, 'ignorar': 0}
+    for d in dados.get('consumos_decididos') or []:
+        contagem[d['acao']] += 1
+        if d['acao'] in ('ignorar', 'manter'):
+            continue
+        cp = TbFluxoConsumoPadrao.objects.select_related('flu_con_pad_to_equipamento__equ_codigo').get(
+            id=d['cp_id'], tbcenarios_id=cenario_id, flu_con_pad_from_equipamento_id=origem.pk)
+        valor = Decimal(d['valor'].replace(',', '.'))
+        descricao = _equ_descricao_consumo_padrao(alvo, cp.flu_con_pad_to_equipamento)
+        ja = TbFluxoConsumoPadrao.objects.filter(tbcenarios_id=cenario_id, flu_con_pad_descricao=descricao).first()
+        if d['acao'] == 'criar':
+            if ja is not None:
+                raise ValueError(f"já existe o consumo padrão {descricao}")
+            novo = _equ_copiar_campos(cp, flu_con_pad_from_equipamento_id=alvo.pk, flu_con_pad_descricao=descricao,
+                                      valor_inicial=valor)
+            novo.save()
+            if valor == cp.valor_inicial:
+                _equ_clonar_filhas(TbFluxoConsumoPadraoDaugther, cp, novo)      # cópia exata (valores por período)
+            else:
+                _ord_filhas_com_valor(TbFluxoConsumoPadraoDaugther, cp, novo, valor)
+        else:                                                                    # atualizar um que já existe
+            if ja is None:
+                raise ValueError(f"o consumo padrão {descricao} deixou de existir")
+            TbFluxoConsumoPadrao.objects.filter(pk=ja.pk).update(valor_inicial=valor)
+            TbFluxoConsumoPadraoDaugther.objects.filter(mae_id=ja.pk).update(dau_valor=valor)
+            # O I/O dos fluxos que usam esse consumo padrão ficou desatualizado: entra na pergunta do I/O no fim.
+            TbFluxoProducao.objects.filter(
+                id__in=TbFluxoProducaoDaugther.objects.filter(flu_pro_dau_consumo_padrao_id=ja.pk).values('mae_id')
+            ).update(flu_pro_input_output_atualizado=False)
+    return {'ordem_id': alvo.pk, 'alterada': bool(dados.get('existente')), 'itens_apagados': itens_apagados,
+            'itens': qtd_itens, 'consumos': contagem, 'produtos': anteriores | set(dados['produtos_ids'])}
+
+
+def _etapa_ord_confirmar(estado, texto):
+    resposta = texto.strip().lower()
+    if resposta not in ('sim', 'não', 'nao'):
+        return "Não entendi -- responde \"Sim\" pra gravar ou \"Não\" pra desistir. (Sim / Não)"
+    if resposta != 'sim':
+        _encerrar_fluxo(estado)
+        return "Ok, não gravei nada."
+
+    dados = estado.dados_coletados or {}
+    try:
+        with transaction.atomic():
+            feito = _ord_executar(estado)
+    except Exception as erro:
+        _encerrar_fluxo(estado)
+        return f"Não gravei nada -- deu erro e eu desfiz tudo: {erro}."
+
+    nome = f"{dados['destino_codigo']}/{dados['numero']}"
+    de = f"{dados['origem_codigo']}/{dados['origem_ordem_numero']}"
+    c = feito['consumos']
+    partes = [f"**{feito['itens']}** item(ns) de consumo específico"]
+    if feito['alterada']:
+        partes.insert(0, f"**{feito['itens_apagados']}** item(ns) antigo(s) apagado(s)")
+    partes.append(f"consumos padrão: {c['criar']} clonado(s), {c['atualizar']} ajustado(s), {c['manter']} mantido(s)")
+    criado = (f"✅ Ordem **{nome}** {'alterada' if feito['alterada'] else 'criada'} a partir do clone da ordem **{de}**: "
+              + "; ".join(partes) + ".")
+    fila = list(dados.get('afetados') or [])
+    if not fila:
+        _encerrar_fluxo(estado)
+        return criado + "\n\nNenhum produto usa essa ordem, então não há fluxos a gerar."
+
+    estado.dados_coletados = {
+        'cenario_id': dados['cenario_id'], 'resumo_criado': criado, 'fila': fila, 'total_produtos': len(fila),
+        'concluidos': 0, 'resultados': [],
+    }
+    _equ_iniciar_proximo_produto(estado)
+    return (criado + f"\n\nAgora estou gerando os fluxos dos **{len(fila)}** produto(s) afetados, um de cada vez. Pode "
+            "demorar; acompanho por aqui.\n\n" + _equ_texto_andamento(estado.dados_coletados))
 
 
 _HANDLERS_EQUIPAMENTOS = {
@@ -7130,4 +8240,14 @@ _HANDLERS_EQUIPAMENTOS = {
     'equ_criar_ordens': _etapa_equ_criar_ordens,
     'equ_criar_confirmar': _etapa_equ_criar_confirmar,
     'equ_criar_fluxos_aguardando': _etapa_equ_criar_fluxos_aguardando,
+    # 🌟 NOVO: "Criar Nova Ordem de Produção" (clone de equipamento/ordem; cria ou altera)
+    'ord_destino_equipamento': _etapa_ord_destino_equipamento,
+    'ord_destino_ordem': _etapa_ord_destino_ordem,
+    'ord_alterar_confirmar': _etapa_ord_alterar_confirmar,
+    'ord_origem_equipamento': _etapa_ord_origem_equipamento,
+    'ord_origem_ordem': _etapa_ord_origem_ordem,
+    'ord_dados': _etapa_ord_dados,
+    'ord_produtos': _etapa_ord_produtos,
+    'ord_consumos': _etapa_ord_consumos,
+    'ord_confirmar': _etapa_ord_confirmar,
 }

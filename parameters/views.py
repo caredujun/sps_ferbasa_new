@@ -112,6 +112,15 @@ _PADRAO_LISTA_EQUIPAMENTOS = re.compile(r'\n*\[LISTA_EQUIPAMENTOS\]')
 # O fluxo (fluxo_criar_cenario.py) já monta o conteúdo; aqui só se decodifica e se manda pro front-end desenhar.
 _PADRAO_FORM_EQUIPAMENTO = re.compile(r'\n*\[FORM_EQUIPAMENTO:([A-Za-z0-9_=-]*)\]')
 _PADRAO_FORM_ORDENS = re.compile(r'\n*\[FORM_ORDENS:([A-Za-z0-9_=-]*)\]')
+# 🌟 NOVO: [SELECAO_PRODUTOS:<json em base64>] -- a grade de produtos com a situação dos fluxos e a caixa de seleção
+# ("Atualizar Fluxos de Produção por Produto").
+_PADRAO_SELECAO_PRODUTOS = re.compile(r'\n*\[SELECAO_PRODUTOS:([A-Za-z0-9_=-]*)\]')
+# 🌟 NOVO: "Criar Nova Ordem de Produção": [BOTOES:<json base64>] (botões com RÓTULO diferente do valor enviado, ex.: as
+# ordens de um equipamento) e [FORM_CONSUMOS:<json base64>] (formulário dos consumos padrão a clonar, com o valor inicial).
+_PADRAO_BOTOES = re.compile(r'\n*\[BOTOES:([A-Za-z0-9_=-]*)\]')
+_PADRAO_FORM_CONSUMOS = re.compile(r'\n*\[FORM_CONSUMOS:([A-Za-z0-9_=-]*)\]')
+# 🌟 NOVO: "Comparar Fluxos de Produção": [COMPARACAO_FLUXOS:<json base64>] -- a comparação em colunas paralelas.
+_PADRAO_COMPARACAO_FLUXOS = re.compile(r'\n*\[COMPARACAO_FLUXOS:([A-Za-z0-9_=-]*)\]')
 
 
 def _extrair_form_base64(padrao, texto):
@@ -197,7 +206,9 @@ def _extrair_opcoes_clicaveis(texto):
         # "(qtde atual de fluxos)" no final -- removido pelo mesmo
         # mecanismo de parênteses abaixo, sobrando só o código do
         # produto como valor do botão.
-        r'Produtos do cenário ativo):\n'
+        r'Produtos do cenário ativo|'
+        # 🌟 NOVO: "Comparar Fluxos de Produção" -- candidatos da busca ("- 1: descrição (id 123)"): vira o NÚMERO.
+        r'Fluxos encontrados):\n'
         r'((?:-\s.+\n?)+)',
         texto
     )
@@ -534,6 +545,14 @@ def chat_view(request):
         resposta, _ignorar_form_equip = _extrair_form_base64(_PADRAO_FORM_EQUIPAMENTO, resposta)
         resposta_original, form_ordens = _extrair_form_base64(_PADRAO_FORM_ORDENS, resposta_original)
         resposta, _ignorar_form_ordens = _extrair_form_base64(_PADRAO_FORM_ORDENS, resposta)
+        resposta_original, selecao_produtos = _extrair_form_base64(_PADRAO_SELECAO_PRODUTOS, resposta_original)
+        resposta, _ignorar_selecao = _extrair_form_base64(_PADRAO_SELECAO_PRODUTOS, resposta)
+        resposta_original, botoes_escolha = _extrair_form_base64(_PADRAO_BOTOES, resposta_original)
+        resposta, _ignorar_botoes = _extrair_form_base64(_PADRAO_BOTOES, resposta)
+        resposta_original, form_consumos = _extrair_form_base64(_PADRAO_FORM_CONSUMOS, resposta_original)
+        resposta, _ignorar_consumos = _extrair_form_base64(_PADRAO_FORM_CONSUMOS, resposta)
+        resposta_original, comparacao_fluxos = _extrair_form_base64(_PADRAO_COMPARACAO_FLUXOS, resposta_original)
+        resposta, _ignorar_comparacao = _extrair_form_base64(_PADRAO_COMPARACAO_FLUXOS, resposta)
         lista_equipamentos = (
             _dados_cartoes_equipamentos(request.user)
             if (tem_lista_equip_original or tem_lista_equip_traduzida) else None
@@ -631,6 +650,10 @@ def chat_view(request):
             "lista_equipamentos": lista_equipamentos,
             "form_equipamento": form_equipamento,
             "form_ordens": form_ordens,
+            "selecao_produtos": selecao_produtos,
+            "botoes_escolha": botoes_escolha,
+            "form_consumos": form_consumos,
+            "comparacao_fluxos": comparacao_fluxos,
             "nome_empresa": nome_empresa_atual,
             "nome_cenario": nome_cenario_atual,
             "status_cenario": status_cenario_atual,

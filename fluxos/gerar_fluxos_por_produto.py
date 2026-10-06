@@ -700,7 +700,7 @@ def _em_lotes(sequencia, tamanho):
         yield sequencia[i:i + tamanho]
 
 
-def comparar_fluxos_existentes(produto_id: int, *, max_fluxos: int = 200000) -> dict:
+def comparar_fluxos_existentes(produto_id: int, *, max_fluxos: int = 200000, guardar_planos: bool = True) -> dict:
     """
     Calcula os fluxos NOVOS (sem gravar nada) e compara com os que já existem em TbFluxoProducao/
     TbFluxoProducaoDaugther pro mesmo produto, pela assinatura ESTRUTURAL (coluna + consumo_padrao_id de cada
@@ -712,9 +712,12 @@ def comparar_fluxos_existentes(produto_id: int, *, max_fluxos: int = 200000) -> 
     🌟 Em fluxo contínuo (ver o comentário no topo deste bloco): os planos são gerados e conferidos um de cada
     vez; só guarda na memória os que precisam ser CRIADOS.
 
+    guardar_planos=False: só CONTA o que precisa ser criado (qtd_a_criar) e não guarda os planos --
+    planos_a_criar fica vazio. É o que a "situação dos fluxos" usa: não precisa dos planos, só dos números.
+
     Retorna um dicionário com:
-        produto_id, cenario_id, qtd_existente, qtd_novo, qtd_iguais, mudou (bool),
-        mae_ids_a_remover, planos_a_criar, cp_para_to
+        produto_id, cenario_id, qtd_existente, qtd_novo, qtd_iguais, qtd_a_criar, qtd_a_remover,
+        mudou (bool), mae_ids_a_remover, planos_a_criar, cp_para_to
     """
     cenario_id = _cenario_do_produto(produto_id)
     equipamentos = _equipamentos_do_produto(produto_id, cenario_id)
@@ -734,6 +737,7 @@ def comparar_fluxos_existentes(produto_id: int, *, max_fluxos: int = 200000) -> 
     planos_a_criar = []
     qtd_novo = 0
     qtd_iguais = 0
+    qtd_a_criar = 0
     for plano in _iterar_planos_do_produto(terminais, entradas_por_destino, equipamentos, max_fluxos):
         qtd_novo += 1
         linhas = gerar_linhas_do_plano(plano, cp_para_to=cp_para_to)
@@ -745,10 +749,12 @@ def comparar_fluxos_existentes(produto_id: int, *, max_fluxos: int = 200000) -> 
             ids.pop()                    # já existe um fluxo igual no banco: aproveita e não mexe nele
             qtd_iguais += 1
         else:
-            planos_a_criar.append(plano)   # falta no banco: será criado
+            qtd_a_criar += 1               # falta no banco: será criado
+            if guardar_planos:
+                planos_a_criar.append(plano)
         if qtd_novo % 25000 == 0:
             _log.info("Produto %s: %s planos avaliados (%s já existem, %s a criar).",
-                      produto_id, qtd_novo, qtd_iguais, len(planos_a_criar))
+                      produto_id, qtd_novo, qtd_iguais, qtd_a_criar)
 
     # O que sobrou nas listas é o que existe no banco ALÉM do que o cálculo novo pede (errado/a mais).
     mae_ids_a_remover = [mae_id for ids in existentes.values() for mae_id in ids]
@@ -759,10 +765,38 @@ def comparar_fluxos_existentes(produto_id: int, *, max_fluxos: int = 200000) -> 
         "qtd_existente": qtd_existente,
         "qtd_novo": qtd_novo,
         "qtd_iguais": qtd_iguais,
-        "mudou": bool(mae_ids_a_remover) or bool(planos_a_criar),
+        "qtd_a_criar": qtd_a_criar,
+        "qtd_a_remover": len(mae_ids_a_remover),
+        "mudou": bool(mae_ids_a_remover) or qtd_a_criar > 0,
         "mae_ids_a_remover": mae_ids_a_remover,
         "planos_a_criar": planos_a_criar,
         "cp_para_to": cp_para_to,
+    }
+
+
+def situacao_fluxos_produto(produto_id: int, *, max_fluxos: int = 200000) -> dict:
+    """
+    Resumo da situação dos fluxos de UM produto, sem gravar nada e sem guardar os planos na memória:
+
+        qtd_existente : fluxos cadastrados hoje
+        qtd_esperada  : fluxos que o cálculo diz que o produto deveria ter
+        qtd_corretos  : cadastrados que batem (por estrutura) com o cálculo
+        qtd_a_gerar   : esperados que ainda não existem  (esperada - corretos)
+        qtd_a_remover : cadastrados que estão errados/sobrando  (existente - corretos)
+
+    Quando não dá pra calcular (produto sem equipamentos, sem terminal, passou do limite...), devolve
+    {'erro': '<motivo>'} em vez de levantar -- o chamador mostra o motivo ao lado do produto.
+    """
+    try:
+        r = comparar_fluxos_existentes(produto_id, max_fluxos=max_fluxos, guardar_planos=False)
+    except GeracaoFluxoError as erro:
+        return {'erro': str(erro)}
+    return {
+        'qtd_existente': r['qtd_existente'],
+        'qtd_esperada': r['qtd_novo'],
+        'qtd_corretos': r['qtd_iguais'],
+        'qtd_a_gerar': r['qtd_a_criar'],
+        'qtd_a_remover': r['qtd_a_remover'],
     }
 
 

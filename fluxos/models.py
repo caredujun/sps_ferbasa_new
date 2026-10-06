@@ -1005,3 +1005,58 @@ class TbFluxoProducaoInputOutputDaugther(models.Model):
         unique_together = ('mae', 'dau_order', 'tbcenarios',)
 
 # ***********************************************************************************************************
+
+
+# ***********************************************************************************************************
+# 🌟 NOVO: EXCLUIR UM EQUIPAMENTO / ORDEM APAGA TAMBÉM OS FLUXOS DE PRODUÇÃO QUE PASSAVAM POR ELE
+#
+# O Django já apaga, em cascata, as ordens, os consumos padrão que as tocam e as LINHAS dos fluxos (CASCADE). Mas o
+# cabeçalho do fluxo (TbFluxoProducao) só aponta pro produto, não pro equipamento -- ficava pra trás, vazio ou furado
+# (e a otimização podia usar um fluxo quebrado). Agora, quando uma ordem é excluída (direto, ou porque o equipamento
+# foi excluído), os fluxos que passavam por ela também são.
+#
+# Duas etapas, porque a cascata apaga as linhas e some a pista de QUEM usava a ordem:
+#   1) pre_delete  (as linhas ainda existem): descobre quais fluxos usam a ordem e anota na própria instância;
+#   2) post_delete (cascata já feita): apaga esses fluxos.
+# Apagar DEPOIS (e não já no pre_delete) é de propósito: ao apagar as linhas dos consumos padrão, a cascata dispara a
+# procedure verifica_fluxo (verifica_fluxo_automatico) pra cada linha, e isso precisa acontecer com o fluxo ainda existindo.
+# Tudo roda na mesma transação da exclusão: se algo falhar, nada é apagado (nem os fluxos).
+# ***********************************************************************************************************
+def _ids_fluxos_que_usam_a_ordem(ordem_id):
+    """Ids dos fluxos de produção que passam pela ordem: por alguma LINHA (consumo padrão que sai dela ou chega nela)
+    ou por alguma linha do I/O (equipamento / envia para)."""
+    from django.db.models import Q
+    consumos = TbFluxoConsumoPadrao._base_manager.filter(
+        Q(flu_con_pad_from_equipamento_id=ordem_id) | Q(flu_con_pad_to_equipamento_id=ordem_id)).values('id')
+    ids = set(TbFluxoProducaoDaugther._base_manager.filter(
+        flu_pro_dau_consumo_padrao_id__in=consumos).values_list('mae_id', flat=True).distinct())
+    ids.update(TbFluxoProducaoInputOutput._base_manager.filter(
+        flu_pro_inp_out_equipamento_id=ordem_id).values_list('mae_id', flat=True).distinct())
+    ids.update(TbFluxoProducaoInputOutput._base_manager.filter(
+        flu_pro_inp_out_envia_para_id=ordem_id).values_list('mae_id', flat=True).distinct())
+    return ids
+
+
+@receiver(pre_delete, sender=TbEquipamentos)
+def anota_fluxos_da_ordem_excluida(sender, instance, **kwargs):
+    origem = kwargs.get('origin')       # Django >= 4.1 informa o que originou a exclusão (versões antigas: None)
+    if origem is not None:
+        modelo = getattr(origem, 'model', None) or type(origem)
+        if issubclass(modelo, TbCenarios):
+            return                       # excluindo o CENÁRIO inteiro: os fluxos vão junto de qualquer jeito
+    instance._fluxos_a_apagar = _ids_fluxos_que_usam_a_ordem(instance.pk)
+
+
+@receiver(post_delete, sender=TbEquipamentos)
+def apaga_fluxos_da_ordem_excluida(sender, instance, using=None, **kwargs):
+    from django.db import DEFAULT_DB_ALIAS
+    using = using or DEFAULT_DB_ALIAS
+    ids = sorted(getattr(instance, '_fluxos_a_apagar', None) or ())
+    instance._fluxos_a_apagar = None
+    # Em lotes (apagar milhares de uma vez carregaria tudo na memória). As LINHAS são apagadas direto, sem sinais:
+    # o sinal verifica_fluxo_automatico rodaria uma procedure POR LINHA, inútil pra um fluxo que vai deixar de existir.
+    # Os demais filhos (custos por período, I/O, vínculo com produto de mercado...) o ORM apaga normalmente.
+    for i in range(0, len(ids), 500):
+        lote = ids[i:i + 500]
+        TbFluxoProducaoDaugther._base_manager.using(using).filter(mae_id__in=lote)._raw_delete(using)
+        TbFluxoProducao._base_manager.using(using).filter(id__in=lote).delete()
