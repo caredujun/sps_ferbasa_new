@@ -213,6 +213,59 @@
         .cf-aviso { font-size: 11px; color: #b26a00; margin-top: 4px; }
         .cf-totais .cf-tabela { min-width: 360px; }
 
+        /* 🌟 NOVO: comparação por EQUIPAMENTO (mapa do fluxo): Fluxo A (coluna, ordem) | Fluxo B (coluna, ordem) | diferença. */
+        .ce-mapa td.ce-equip { font-weight: bold; text-align: left; white-space: normal; min-width: 110px; }
+        .ce-mapa td.ce-equip small, .ce-mapa td.ce-lado small { display: block; font-weight: normal; color: #666; }
+        .ce-mapa td.ce-lado { text-align: left; white-space: normal; min-width: 150px; }
+        .ce-mapa td.ce-lado .ce-ordem { font-weight: bold; color: #205067; }
+        .ce-mapa td.ce-lado .ce-col { display: inline-block; font-size: 10px; background: #e6eef3; color: #205067; border-radius: 3px; padding: 0 4px; margin-right: 4px; }
+        .ce-mapa td.ce-lado .ce-col.ce-col-dif { background: #ffe0a3; color: #7a4b00; font-weight: bold; }
+        .ce-mapa td.ce-sit { text-align: left; white-space: normal; min-width: 130px; }
+        .ce-mapa tr.ce-linha-igual td.ce-sit { color: #2e7d32; }
+        .ce-mapa tr.ce-linha-ordem_diferente td.ce-sit, .ce-mapa tr.ce-linha-ligacao_diferente td.ce-sit { background: #fff6d6; color: #8a5a00; font-weight: bold; }
+        .ce-mapa tr.ce-linha-so_a td.ce-sit, .ce-mapa tr.ce-linha-so_b td.ce-sit { background: #f0e8f7; color: #5b3a7a; font-weight: bold; }
+        .ce-mapa a.ce-ver { display: block; font-weight: normal; font-size: 11px; color: #417690; cursor: pointer; text-decoration: underline; }
+        .ce-fichas { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 6px; }
+        .ce-ficha .ce-ordem-grande { font-size: 14px; font-weight: bold; color: #205067; }
+        .ce-ficha .ce-dif { background: #fff6d6; font-weight: bold; padding: 0 3px; border-radius: 3px; }
+        .ce-subtitulo { font-weight: bold; color: #444; margin: 8px 0 3px; font-size: 12px; }
+        .ce-item td { background: #eef5f8; font-weight: bold; color: #205067; text-align: left; }
+        .ce-item small { font-weight: normal; color: #5b3a7a; }
+
+        /* 🌟 NOVO: lista de fluxos com rolagem (escolher o 1º e o 2º fluxo da comparação). */
+        .lista-fluxos { margin-top: 8px; border: 1px solid #417690; border-radius: 8px; background: #f7fafc; overflow: hidden; }
+        .lf-topo { padding: 6px 8px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; background: #eef5f8; font-size: 12px; }
+        .lf-topo .lf-contagem { color: #555; }
+        .lf-topo input.lf-filtro { flex: 1 1 200px; min-width: 120px; padding: 4px 6px; border: 1px solid #aaa; border-radius: 4px; font-size: 12px; }
+        .lf-rolagem { max-height: 280px; overflow-y: auto; background: #fff; }
+        /* O hover global de .botao-opcao deixa o fundo azul e o texto BRANCO; aqui o fundo é claro, então o texto fica escuro em TODOS os estados. */
+        .lf-item { display: flex; gap: 10px; width: 100%; text-align: left; padding: 6px 8px; border: 0; border-bottom: 1px solid #e3ecf1; background: #fff; color: #2b2b2b; cursor: pointer; font-size: 12px; border-radius: 0; }
+        .lf-item:hover { background: #fff6d6; color: #2b2b2b; }
+        .lf-item:disabled, .lf-item:disabled:hover { background: #fff; color: #2b2b2b; cursor: default; }
+        .lf-item .lf-id { min-width: 64px; font-weight: bold; color: #205067; }
+        .lf-item .lf-desc { flex: 1; word-break: break-word; color: inherit; }
+        .lf-item.lf-escolhido, .lf-item.lf-escolhido:hover, .lf-item.lf-escolhido:disabled { background: #d9ecf5; color: #2b2b2b; }
+        .lf-rodape { padding: 4px 8px; font-size: 11px; color: #b26a00; }
+        /* 🌟 NOVO: comparação de CUSTO por equipamento/ordem (do fim do fluxo ao começo), com o botão Detalhar. */
+        .cc-tabela td.cc-equip { text-align: left; white-space: normal; min-width: 130px; font-weight: bold; }
+        .cc-tabela td.cc-equip small { display: block; font-weight: normal; color: #666; }
+        .cc-tabela td.cc-col { text-align: center; }
+        .cc-tabela tr.cc-so_a td.cc-delta, .cc-tabela tr.cc-so_b td.cc-delta { background: #f0e8f7; }
+        .cc-tabela tr.cc-valor_diferente td.cc-delta { background: #fff6d6; }
+        .cc-tabela tr.cc-coluna_diferente td.cc-col { background: #ffe0a3; }
+        .cc-tabela tr.cc-igual td { color: #666; }
+        .cc-tabela td.cc-delta { font-weight: bold; }
+        .cc-tabela tr.cc-total td { background: #eef5f8; font-weight: bold; border-top: 2px solid #417690; }
+        .cc-tabela td.cc-acao { text-align: center; }
+        .cc-tabela button.cc-detalhar { padding: 2px 8px; font-size: 11px; border: 1px solid #417690; background: #fff; color: #417690; border-radius: 4px; cursor: pointer; }
+        .cc-tabela tr.cc-detalhe > td { text-align: left; white-space: normal; background: #f7fafc; padding: 8px; }
+        .cc-tabela td.cc-ordem { text-align: center; font-weight: bold; color: #205067; white-space: nowrap; }
+        .cc-tabela td.cc-ordem.cc-ordem-dif { background: #ffe0a3; color: #7a4b00; }
+        .cc-tabela td.cc-col.cc-col-dif { background: #ffe0a3; font-weight: bold; }
+        .cc-tabela tr.cc-ordem_diferente td.cc-delta { background: #fff6d6; }
+        .cc-resumo { margin: 0 0 8px; padding: 6px 8px; border-radius: 6px; background: #eef5f8; font-size: 13px; }
+        .cc-resumo.cc-maior { background: #fff6d6; } .cc-resumo.cc-menor { background: #e3f0fb; }
+
         /* 🌟 NOVO: "Criar Nova Ordem de Produção" -- botões com rótulo (grade de 2 colunas) e formulário dos consumos padrão. */
         .grade-botoes-escolha { margin-top: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
         .botao-escolha { text-align: left; white-space: normal; padding: 8px 10px; border-radius: 8px; line-height: 1.25; }
@@ -630,6 +683,57 @@
         {% trans "▲ B maior que A · ▼ B menor que A · = igual · fundo amarelo = valores diferentes. Custo = custo variável adicionado do equipamento de origem × indicador (mesmo cálculo do Admin)." as ROTULO_CF_LEGENDA %}
         {% trans "O custo variável adicionado não pôde ser calculado (a procedure do banco falhou); o indicador não depende disso." as ROTULO_CF_AVISO_INDISP %}
         {% trans "O custo variável adicionado ficou incompleto: o cálculo passou do tempo limite." as ROTULO_CF_AVISO_INCOMPLETO %}
+        {% trans "Mapa dos equipamentos" as ROTULO_CE_MAPA %}
+        {% trans "Equipamento" as ROTULO_CE_EQUIPAMENTO %}
+        {% trans "col" as ROTULO_CE_COLUNA %}
+        {% trans "Diferença" as ROTULO_CE_DIFERENCA %}
+        {% trans "mesma ordem" as ROTULO_CE_MESMA %}
+        {% trans "ordem diferente" as ROTULO_CE_ORDEM_DIF %}
+        {% trans "mesma ordem, ligação diferente" as ROTULO_CE_LIGACAO_DIF %}
+        {% trans "só no Fluxo A" as ROTULO_CE_SO_A %}
+        {% trans "só no Fluxo B" as ROTULO_CE_SO_B %}
+        {% trans "coluna diferente" as ROTULO_CE_COL_DIF %}
+        {% trans "ver o que muda ↓" as ROTULO_CE_VER_DETALHE %}
+        {% trans "o que muda de uma ordem para a outra" as ROTULO_CE_O_QUE_MUDA %}
+        {% trans "Custo variável adicionado da ordem" as ROTULO_CE_CUSTO_ORDEM %}
+        {% trans "Consumo padrão de saída (para o próximo equipamento)" as ROTULO_CE_SAIDA %}
+        {% trans "Consumos específicos" as ROTULO_CE_CONSUMOS %}
+        {% trans "só na ordem do Fluxo A" as ROTULO_CE_ITEM_SO_A %}
+        {% trans "só na ordem do Fluxo B" as ROTULO_CE_ITEM_SO_B %}
+        {% trans "Tipo de produção" as ROTULO_CE_TIPO %}
+        {% trans "Equipamentos só neste fluxo" as ROTULO_CE_EQUIP_SO %}
+        {% trans "Equipamentos com a mesma ordem e a mesma ligação" as ROTULO_CE_IGUAIS_RESUMO %}
+        {% trans "Ordem" as ROTULO_CE_ORDEM %}
+        {% trans "%" as ROTULO_CE_PCT %}
+        {% trans "▲ B maior que A · ▼ B menor que A · = igual · fundo amarelo = ordem ou valores diferentes. Custo da ordem = custo variável adicionado da ordem (procedure do banco); custo da ligação = custo da ordem de origem × indicador." as ROTULO_CE_LEGENDA %}
+        {% trans "Filtrar" as ROTULO_LF_FILTRAR %}
+        {% trans "Filtrar por palavras da descrição" as ROTULO_LF_PLACEHOLDER %}
+        {% trans "mostrando" as ROTULO_LF_MOSTRANDO %}
+        {% trans "de" as ROTULO_LF_DE %}
+        {% trans "fluxos" as ROTULO_LF_FLUXOS %}
+        {% trans "Há mais fluxos do que os mostrados: use o filtro para refinar." as ROTULO_LF_MAIS %}
+        {% trans "Nenhum fluxo encontrado." as ROTULO_LF_VAZIA %}
+        {% trans "Filtro" as ROTULO_LF_FILTRO %}
+        {% trans "Equipamento" as ROTULO_CC_EQUIP %}
+        {% trans "Ordem" as ROTULO_CC_ORDEM %}
+        {% trans "Valor" as ROTULO_CC_VALOR %}
+        {% trans "Coluna" as ROTULO_CC_COLUNA %}
+        {% trans "Delta (B − A)" as ROTULO_CC_DELTA %}
+        {% trans "Detalhar" as ROTULO_CC_DETALHAR %}
+        {% trans "Ocultar" as ROTULO_CC_OCULTAR %}
+        {% trans "Custo do fluxo (média dos períodos)" as ROTULO_CC_TOTAL %}
+        {% trans "Período a período" as ROTULO_CC_PERIODO_A_PERIODO %}
+        {% trans "Indicador" as ROTULO_CC_INDICADOR %}
+        {% trans "Output real" as ROTULO_CC_OUT_REAL %}
+        {% trans "Custo da ordem" as ROTULO_CC_CUSTO_ORDEM %}
+        {% trans "Custo no fluxo" as ROTULO_CC_CUSTO_FLUXO %}
+        {% trans "Consumos específicos" as ROTULO_CC_CONSUMOS %}
+        {% trans "mesma ordem nos dois fluxos: os consumos específicos são iguais" as ROTULO_CC_MESMA_ORDEM %}
+        {% trans "só no Fluxo A" as ROTULO_CC_SO_A %}
+        {% trans "só no Fluxo B" as ROTULO_CC_SO_B %}
+        {% trans "custo indisponível" as ROTULO_CC_SEM_CUSTO %}
+        {% trans "Diferença do custo do fluxo (B − A)" as ROTULO_CC_DIF_TOTAL %}
+        {% trans "Ordem = ordem(ns) de produção do equipamento naquela coluna do fluxo (1/2 = duas ordens na mesma coluna); a diferença entre os fluxos costuma ser a ordem. Valor = soma, das ordens, de output real (dau_valor_4 do I/O) × custo variável adicionado da ordem, em média dos períodos. Delta = B − A (o que um fluxo não tem conta como zero). A comparação parte do último equipamento do fluxo. ▲ B maior · ▼ B menor · = igual · fundo amarelo = ordem ou coluna diferente." as ROTULO_CC_LEGENDA %}
         var MSG_CONFIRMA_PERIODO = "{{ MSG_CONFIRMA_PERIODO|escapejs }}";
         var MSG_CONFIRMA_TUDO = "{{ MSG_CONFIRMA_TUDO|escapejs }}";
         var MSG_SELECIONE_DATAS = "{{ MSG_SELECIONE_DATAS|escapejs }}";
@@ -690,6 +794,57 @@
         var ROTULO_CF_LEGENDA = "{{ ROTULO_CF_LEGENDA|escapejs }}";
         var ROTULO_CF_AVISO_INDISP = "{{ ROTULO_CF_AVISO_INDISP|escapejs }}";
         var ROTULO_CF_AVISO_INCOMPLETO = "{{ ROTULO_CF_AVISO_INCOMPLETO|escapejs }}";
+        var ROTULO_CE_MAPA = "{{ ROTULO_CE_MAPA|escapejs }}";
+        var ROTULO_CE_EQUIPAMENTO = "{{ ROTULO_CE_EQUIPAMENTO|escapejs }}";
+        var ROTULO_CE_COLUNA = "{{ ROTULO_CE_COLUNA|escapejs }}";
+        var ROTULO_CE_DIFERENCA = "{{ ROTULO_CE_DIFERENCA|escapejs }}";
+        var ROTULO_CE_MESMA = "{{ ROTULO_CE_MESMA|escapejs }}";
+        var ROTULO_CE_ORDEM_DIF = "{{ ROTULO_CE_ORDEM_DIF|escapejs }}";
+        var ROTULO_CE_LIGACAO_DIF = "{{ ROTULO_CE_LIGACAO_DIF|escapejs }}";
+        var ROTULO_CE_SO_A = "{{ ROTULO_CE_SO_A|escapejs }}";
+        var ROTULO_CE_SO_B = "{{ ROTULO_CE_SO_B|escapejs }}";
+        var ROTULO_CE_COL_DIF = "{{ ROTULO_CE_COL_DIF|escapejs }}";
+        var ROTULO_CE_VER_DETALHE = "{{ ROTULO_CE_VER_DETALHE|escapejs }}";
+        var ROTULO_CE_O_QUE_MUDA = "{{ ROTULO_CE_O_QUE_MUDA|escapejs }}";
+        var ROTULO_CE_CUSTO_ORDEM = "{{ ROTULO_CE_CUSTO_ORDEM|escapejs }}";
+        var ROTULO_CE_SAIDA = "{{ ROTULO_CE_SAIDA|escapejs }}";
+        var ROTULO_CE_CONSUMOS = "{{ ROTULO_CE_CONSUMOS|escapejs }}";
+        var ROTULO_CE_ITEM_SO_A = "{{ ROTULO_CE_ITEM_SO_A|escapejs }}";
+        var ROTULO_CE_ITEM_SO_B = "{{ ROTULO_CE_ITEM_SO_B|escapejs }}";
+        var ROTULO_CE_TIPO = "{{ ROTULO_CE_TIPO|escapejs }}";
+        var ROTULO_CE_EQUIP_SO = "{{ ROTULO_CE_EQUIP_SO|escapejs }}";
+        var ROTULO_CE_IGUAIS_RESUMO = "{{ ROTULO_CE_IGUAIS_RESUMO|escapejs }}";
+        var ROTULO_CE_ORDEM = "{{ ROTULO_CE_ORDEM|escapejs }}";
+        var ROTULO_CE_PCT = "{{ ROTULO_CE_PCT|escapejs }}";
+        var ROTULO_CE_LEGENDA = "{{ ROTULO_CE_LEGENDA|escapejs }}";
+        var ROTULO_LF_FILTRAR = "{{ ROTULO_LF_FILTRAR|escapejs }}";
+        var ROTULO_LF_PLACEHOLDER = "{{ ROTULO_LF_PLACEHOLDER|escapejs }}";
+        var ROTULO_LF_MOSTRANDO = "{{ ROTULO_LF_MOSTRANDO|escapejs }}";
+        var ROTULO_LF_DE = "{{ ROTULO_LF_DE|escapejs }}";
+        var ROTULO_LF_FLUXOS = "{{ ROTULO_LF_FLUXOS|escapejs }}";
+        var ROTULO_LF_MAIS = "{{ ROTULO_LF_MAIS|escapejs }}";
+        var ROTULO_LF_VAZIA = "{{ ROTULO_LF_VAZIA|escapejs }}";
+        var ROTULO_LF_FILTRO = "{{ ROTULO_LF_FILTRO|escapejs }}";
+        var ROTULO_CC_EQUIP = "{{ ROTULO_CC_EQUIP|escapejs }}";
+        var ROTULO_CC_ORDEM = "{{ ROTULO_CC_ORDEM|escapejs }}";
+        var ROTULO_CC_VALOR = "{{ ROTULO_CC_VALOR|escapejs }}";
+        var ROTULO_CC_COLUNA = "{{ ROTULO_CC_COLUNA|escapejs }}";
+        var ROTULO_CC_DELTA = "{{ ROTULO_CC_DELTA|escapejs }}";
+        var ROTULO_CC_DETALHAR = "{{ ROTULO_CC_DETALHAR|escapejs }}";
+        var ROTULO_CC_OCULTAR = "{{ ROTULO_CC_OCULTAR|escapejs }}";
+        var ROTULO_CC_TOTAL = "{{ ROTULO_CC_TOTAL|escapejs }}";
+        var ROTULO_CC_PERIODO_A_PERIODO = "{{ ROTULO_CC_PERIODO_A_PERIODO|escapejs }}";
+        var ROTULO_CC_INDICADOR = "{{ ROTULO_CC_INDICADOR|escapejs }}";
+        var ROTULO_CC_OUT_REAL = "{{ ROTULO_CC_OUT_REAL|escapejs }}";
+        var ROTULO_CC_CUSTO_ORDEM = "{{ ROTULO_CC_CUSTO_ORDEM|escapejs }}";
+        var ROTULO_CC_CUSTO_FLUXO = "{{ ROTULO_CC_CUSTO_FLUXO|escapejs }}";
+        var ROTULO_CC_CONSUMOS = "{{ ROTULO_CC_CONSUMOS|escapejs }}";
+        var ROTULO_CC_MESMA_ORDEM = "{{ ROTULO_CC_MESMA_ORDEM|escapejs }}";
+        var ROTULO_CC_SO_A = "{{ ROTULO_CC_SO_A|escapejs }}";
+        var ROTULO_CC_SO_B = "{{ ROTULO_CC_SO_B|escapejs }}";
+        var ROTULO_CC_SEM_CUSTO = "{{ ROTULO_CC_SEM_CUSTO|escapejs }}";
+        var ROTULO_CC_DIF_TOTAL = "{{ ROTULO_CC_DIF_TOTAL|escapejs }}";
+        var ROTULO_CC_LEGENDA = "{{ ROTULO_CC_LEGENDA|escapejs }}";
 
         function escapeHtml(str) {
             return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -1067,7 +1222,336 @@
             return html + '</tbody></table></div>';
         }
 
+
+        // 🌟 NOVO: comparação por EQUIPAMENTO ("versao": 2). Mapa: uma linha por equipamento, com a coluna e a ORDEM usada em cada
+        // fluxo lado a lado -- o que difere é a ordem --, e, embaixo, o detalhe do que muda de uma ordem para a outra
+        // (custo da ordem, consumo padrão de saída e consumos específicos, período a período).
+        var _contadorCE = 0;
+
+        function ladoMapaCE(ficha, colunaDif) {
+            if (!ficha) return '<td class="cf-vazio ce-lado">&mdash;</td>';
+            return '<td class="ce-lado"><span class="ce-col' + (colunaDif ? ' ce-col-dif' : '') + '">' + escapeHtml(ROTULO_CE_COLUNA) + ' ' + Number(ficha.coluna) +
+                '</span><span class="ce-ordem">' + escapeHtml(ficha.rotulo) + '</span><small>' + escapeHtml(ficha.descricao) + ' · ' + escapeHtml(ficha.tipo) + '</small></td>';
+        }
+
+        function textoSituacaoCE(m) {
+            if (m.situacao === 'igual') return '✓ ' + ROTULO_CE_MESMA + (m.coluna_diferente ? ' (' + ROTULO_CE_COL_DIF + ')' : '');
+            if (m.situacao === 'ordem_diferente') return '≠ ' + ROTULO_CE_ORDEM_DIF + ': ' + Number(m.a.numero) + ' × ' + Number(m.b.numero) + (m.coluna_diferente ? ' (' + ROTULO_CE_COL_DIF + ')' : '');
+            if (m.situacao === 'ligacao_diferente') return '≠ ' + ROTULO_CE_LIGACAO_DIF;
+            return m.situacao === 'so_a' ? ROTULO_CE_SO_A : ROTULO_CE_SO_B;
+        }
+
+        function irParaDetalheCE(idAlvo) {
+            var el = document.getElementById(idAlvo);
+            if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function tabelaCustoOrdemCE(linhas) {
+            var html = '<div class="cf-rolagem"><table class="cf-tabela"><thead><tr><th>' + escapeHtml(ROTULO_CF_PERIODO) + '</th><th class="cf-a">' + escapeHtml(ROTULO_CF_FLUXO_A) +
+                '</th><th class="cf-b">' + escapeHtml(ROTULO_CF_FLUXO_B) + '</th><th class="cf-delta">' + escapeHtml(ROTULO_CF_VARIACAO) + '</th><th class="cf-delta">' + escapeHtml(ROTULO_CE_PCT) + '</th></tr></thead><tbody>';
+            linhas.forEach(function(l) {
+                var dif = l.a !== null && l.b !== null && l.a !== l.b ? ' cf-dif' : '', sent = 'cf-' + escapeAttr(l.sentido);
+                html += '<tr><td>' + escapeHtml(l.periodo) + '</td>' + celulaCF(l.a, 'cf-a-col' + dif, false) + celulaCF(l.b, 'cf-b-col cf-separa' + dif, false) +
+                    celulaCF(l.delta === null ? null : (_SETA_CF[l.sentido] || '') + l.delta, 'cf-separa ' + sent, false) + celulaCF(l.pct, sent, false) + '</tr>';
+            });
+            return html + '</tbody></table></div>';
+        }
+
+        function tabelaConsumosCE(itens) {
+            var html = '<div class="cf-rolagem"><table class="cf-tabela"><thead><tr><th>' + escapeHtml(ROTULO_CF_PERIODO) + '</th><th class="cf-a">' + escapeHtml(ROTULO_CF_FLUXO_A) +
+                '</th><th class="cf-b">' + escapeHtml(ROTULO_CF_FLUXO_B) + '</th><th class="cf-delta">' + escapeHtml(ROTULO_CF_VARIACAO) + '</th><th class="cf-delta">' + escapeHtml(ROTULO_CE_PCT) + '</th></tr></thead><tbody>';
+            itens.forEach(function(it) {
+                var so = it.a_ausente ? ' <small>(' + escapeHtml(ROTULO_CE_ITEM_SO_B) + ')</small>' : (it.b_ausente ? ' <small>(' + escapeHtml(ROTULO_CE_ITEM_SO_A) + ')</small>' : '');
+                html += '<tr class="ce-item"><td colspan="5">' + escapeHtml(it.item) + so + '</td></tr>';
+                it.linhas.forEach(function(l) {
+                    var dif = l.a !== null && l.b !== null && l.a !== l.b ? ' cf-dif' : '', sent = 'cf-' + escapeAttr(l.sentido);
+                    html += '<tr><td>' + escapeHtml(l.periodo) + '</td>' + celulaCF(l.a, 'cf-a-col' + dif, it.a_ausente) + celulaCF(l.b, 'cf-b-col cf-separa' + dif, it.b_ausente) +
+                        celulaCF(l.delta === null ? null : (_SETA_CF[l.sentido] || '') + l.delta, 'cf-separa ' + sent, false) + celulaCF(l.pct, sent, false) + '</tr>';
+                });
+            });
+            return html + '</tbody></table></div>';
+        }
+
+        function fichaDetalheCE(ficha, classe, rotulo, outra) {
+            if (!ficha) return '<div class="cf-fluxo ' + classe + ' ce-ficha"><span class="cf-etiqueta">' + escapeHtml(rotulo) + '</span><div class="cf-desc">' + escapeHtml(ROTULO_CF_SEM_LIGACAO) + '</div></div>';
+            var difDesc = outra && outra.descricao !== ficha.descricao ? ' ce-dif' : '', difTipo = outra && outra.tipo !== ficha.tipo ? ' ce-dif' : '';
+            return '<div class="cf-fluxo ' + classe + ' ce-ficha"><span class="cf-etiqueta">' + escapeHtml(rotulo) + '</span> <small>' + escapeHtml(ROTULO_CE_COLUNA) + ' ' + Number(ficha.coluna) + '</small>' +
+                '<div class="ce-ordem-grande">' + escapeHtml(ficha.rotulo) + '</div><div class="cf-desc"><span class="' + difDesc.trim() + '">' + escapeHtml(ficha.descricao) + '</span></div>' +
+                '<div class="cf-so">' + escapeHtml(ROTULO_CE_TIPO) + ': <span class="' + difTipo.trim() + '">' + escapeHtml(ficha.tipo) + '</span></div></div>';
+        }
+
+        function montarComparacaoEquipamentos(d) {
+            var uid = 'ce' + (++_contadorCE);
+            var r = d.resumo || {};
+            var cabecalho = function(f, classe, rotulo, so) {
+                return '<div class="cf-fluxo ' + classe + '"><span class="cf-etiqueta">' + escapeHtml(rotulo) + '</span> <small>id ' + Number(f.id) + ' · ' + escapeHtml(ROTULO_CF_PRODUTO) + ' ' +
+                    escapeHtml(f.produto) + '</small><div class="cf-desc">' + escapeHtml(f.descricao) + '</div><div class="cf-so">' + escapeHtml(ROTULO_CE_EQUIP_SO) + ': <b>' + Number(so) + '</b></div></div>';
+            };
+            var html = '<div class="comparacao-fluxos"><div class="cf-cabecalho">' + cabecalho(d.a, 'cf-a', ROTULO_CF_FLUXO_A, r.so_a) + cabecalho(d.b, 'cf-b', ROTULO_CF_FLUXO_B, r.so_b) + '</div>';
+            html += '<div class="cf-bloco"><div class="cf-destino">' + escapeHtml(ROTULO_CE_MAPA) + '</div><div class="cf-rolagem"><table class="cf-tabela ce-mapa"><thead><tr><th>' +
+                escapeHtml(ROTULO_CE_EQUIPAMENTO) + '</th><th class="cf-a">' + escapeHtml(ROTULO_CF_FLUXO_A) + '</th><th class="cf-b">' + escapeHtml(ROTULO_CF_FLUXO_B) + '</th><th>' + escapeHtml(ROTULO_CE_DIFERENCA) + '</th></tr></thead><tbody>';
+            (d.mapa || []).forEach(function(m) {
+                var ver = m.detalhe ? '<a class="ce-ver" onclick="irParaDetalheCE(\'' + uid + '-d' + Number(m.idx) + '\')">' + escapeHtml(ROTULO_CE_VER_DETALHE) + '</a>' : '';
+                html += '<tr class="ce-linha-' + escapeAttr(m.situacao) + '"><td class="ce-equip">' + escapeHtml(m.equipamento) + '<small>' + escapeHtml(m.descricao) + '</small></td>' +
+                    ladoMapaCE(m.a, m.coluna_diferente) + ladoMapaCE(m.b, m.coluna_diferente) +
+                    '<td class="ce-sit">' + escapeHtml(textoSituacaoCE(m)) + ver + '</td></tr>';
+            });
+            html += '</tbody></table></div></div>';
+            (d.detalhes || []).forEach(function(x) {
+                html += '<div class="cf-bloco" id="' + uid + '-d' + Number(x.idx) + '"><div class="cf-destino">' + escapeHtml(x.equipamento) + ' — ' + escapeHtml(ROTULO_CE_O_QUE_MUDA) + '</div>' +
+                    '<div class="ce-fichas">' + fichaDetalheCE(x.a, 'cf-a', ROTULO_CF_FLUXO_A, x.b) + fichaDetalheCE(x.b, 'cf-b', ROTULO_CF_FLUXO_B, x.a) + '</div>';
+                if (x.custo_ordem && x.custo_ordem.length) html += '<div class="ce-subtitulo">' + escapeHtml(ROTULO_CE_CUSTO_ORDEM) + '</div>' + tabelaCustoOrdemCE(x.custo_ordem);
+                if (x.saida) html += '<div class="ce-subtitulo">' + escapeHtml(ROTULO_CE_SAIDA) + '</div>' + tabelaParCF(x.saida);
+                if (x.consumos && x.consumos.length) html += '<div class="ce-subtitulo">' + escapeHtml(ROTULO_CE_CONSUMOS) + '</div>' + tabelaConsumosCE(x.consumos);
+                html += '</div>';
+            });
+            if (d.totais && d.totais.length) {
+                html += '<div class="cf-bloco cf-totais"><div class="cf-destino">' + escapeHtml(ROTULO_CF_TOTAIS) + '</div><div class="cf-rolagem"><table class="cf-tabela"><thead><tr>' +
+                    '<th>' + escapeHtml(ROTULO_CF_PERIODO) + '</th><th class="cf-a">' + escapeHtml(ROTULO_CF_FLUXO_A) + '</th><th class="cf-b">' + escapeHtml(ROTULO_CF_FLUXO_B) +
+                    '</th><th class="cf-delta">' + escapeHtml(ROTULO_CF_VARIACAO) + '</th></tr></thead><tbody>';
+                d.totais.forEach(function(t) {
+                    html += '<tr><td>' + escapeHtml(t.periodo) + '</td>' + celulaCF(t.a, 'cf-a-col', false) + celulaCF(t.b, 'cf-b-col cf-separa', false) +
+                        celulaCF(t.delta === null ? null : (_SETA_CF[t.sentido] || '') + t.delta, 'cf-separa cf-' + escapeAttr(t.sentido), false) + '</tr>';
+                });
+                html += '</tbody></table></div></div>';
+            }
+            if (d.custo_indisponivel) html += '<div class="cf-aviso">' + escapeHtml(ROTULO_CF_AVISO_INDISP) + '</div>';
+            else if (d.custo_incompleto) html += '<div class="cf-aviso">' + escapeHtml(ROTULO_CF_AVISO_INCOMPLETO) + '</div>';
+            return html + ((d.detalhes || []).length ? '<div class="cf-legenda">' + escapeHtml(ROTULO_CE_LEGENDA) + '</div>' : '') + '</div>';
+        }
+
+
+        // 🌟 NOVO: lista de fluxos do produto, com rolagem: id e descrição em ordem alfabética (vem pronta do servidor). Clicar num
+        // fluxo envia o id dele; o campo de filtro envia palavras (o servidor devolve a lista filtrada, também em ordem alfabética).
+        var _contadorLF = 0;
+        function montarListaFluxos(d) {
+            var id = 'lf' + (++_contadorLF);
+            var itens = d.fluxos || [];
+            var html = '<div class="lista-fluxos" id="' + id + '"><div class="lf-topo"><b>' + escapeHtml(d.titulo) + '</b><span class="lf-contagem">' +
+                escapeHtml(ROTULO_LF_MOSTRANDO) + ' ' + Number(d.mostrando) + ' ' + escapeHtml(ROTULO_LF_DE) + ' ' + Number(d.total) + ' ' + escapeHtml(ROTULO_LF_FLUXOS) +
+                (d.filtro ? ' · ' + escapeHtml(ROTULO_LF_FILTRO) + ': ' + escapeHtml(d.filtro) : '') + '</span>' +
+                '<input type="text" class="lf-filtro" placeholder="' + escapeAttr(ROTULO_LF_PLACEHOLDER) + '" value="' + escapeAttr(d.filtro || '') + '" onkeydown="if (event.key === \'Enter\') { filtrarListaFluxos(\'' + id + '\'); }">' +
+                '<button type="button" class="botao-opcao" onclick="filtrarListaFluxos(\'' + id + '\')">' + escapeHtml(ROTULO_LF_FILTRAR) + '</button></div>' +
+                '<div class="lf-rolagem">';
+            if (!itens.length) html += '<div class="lf-rodape">' + escapeHtml(ROTULO_LF_VAZIA) + '</div>';
+            itens.forEach(function(f) {
+                html += '<button type="button" class="botao-opcao lf-item" data-id="' + Number(f.id) + '" data-rotulo="' + escapeAttr('id ' + f.id + ' — ' + String(f.descricao).slice(0, 140)) + '" onclick="escolherFluxoLista(this)">' +
+                    '<span class="lf-id">' + Number(f.id) + '</span><span class="lf-desc">' + escapeHtml(f.descricao) + '</span></button>';
+            });
+            html += '</div>';
+            if (Number(d.total) > Number(d.mostrando)) html += '<div class="lf-rodape">' + escapeHtml(ROTULO_LF_MAIS) + '</div>';
+            return html + '</div>';
+        }
+
+        function escolherFluxoLista(botao) {
+            botao.classList.add('lf-escolhido');
+            rotuloExibicaoOverride = botao.getAttribute('data-rotulo');
+            escolherOpcao(botao.getAttribute('data-id'));
+        }
+
+        function filtrarListaFluxos(id) {
+            var lista = document.getElementById(id);
+            if (!lista) return;
+            var campo = lista.querySelector('.lf-filtro');
+            var texto = campo.value.trim();
+            if (!texto) return;
+            campo.disabled = true;
+            rotuloExibicaoOverride = ROTULO_LF_FILTRO + ': ' + texto;
+            escolherOpcao(texto);
+        }
+
+        // 🌟 NOVO: comparação de CUSTO por equipamento/ordem ("versao": 3). Do ÚLTIMO equipamento ao primeiro: Equipamento/Ordem | Coluna |
+        // Fluxo A | Fluxo B | Delta | Detalhar. O valor é a contribuição média (output real x custo variável adicionado da ordem). O
+        // botão Detalhar abre, logo abaixo da linha, o período a período (indicador, output real, custo) e os consumos específicos.
+        var _contadorCC = 0, _dadosCusto = {};
+
+        function textoColunaCC(l) {
+            if (l.coluna_a === null) return String(Number(l.coluna_b));
+            if (l.coluna_b === null) return String(Number(l.coluna_a));
+            return l.coluna_a === l.coluna_b ? String(Number(l.coluna_a)) : Number(l.coluna_a) + ' → ' + Number(l.coluna_b);
+        }
+
+        function celulaValorCC(v, ausente, indisp, classe) {
+            var extra = classe ? ' ' + classe : '';
+            if (ausente) return '<td class="cf-vazio' + extra + '">&mdash;</td>';
+            if (v === null || v === undefined) return '<td class="' + extra.trim() + '">' + escapeHtml(indisp ? ROTULO_CC_SEM_CUSTO : ROTULO_CF_ND) + '</td>';
+            return '<td class="' + extra.trim() + '">' + escapeHtml(v) + '</td>';
+        }
+
+        function tabelaPeriodosCCV3(det) {
+            var cab4 = function(rot, cls) {
+                return '<th colspan="4" class="' + cls + '">' + escapeHtml(rot) + '</th>';
+            };
+            var sub = '<th>' + escapeHtml(ROTULO_CC_INDICADOR) + '</th><th>' + escapeHtml(ROTULO_CC_OUT_REAL) + '</th><th>' + escapeHtml(ROTULO_CC_CUSTO_ORDEM) + '</th><th>' + escapeHtml(ROTULO_CC_CUSTO_FLUXO) + '</th>';
+            var html = '<div class="cf-rolagem"><table class="cf-tabela"><thead><tr><th rowspan="2">' + escapeHtml(ROTULO_CF_PERIODO) + '</th>' +
+                cab4(ROTULO_CF_FLUXO_A + (det.a ? ' (' + ROTULO_CE_COLUNA + ' ' + Number(det.a.coluna) + ')' : ''), 'cf-a') +
+                cab4(ROTULO_CF_FLUXO_B + (det.b ? ' (' + ROTULO_CE_COLUNA + ' ' + Number(det.b.coluna) + ')' : ''), 'cf-b') +
+                '<th rowspan="2" class="cf-delta">' + escapeHtml(ROTULO_CC_CUSTO_FLUXO) + ' Δ</th></tr><tr>' + sub + sub + '</tr></thead><tbody>';
+            (det.periodos || []).forEach(function(f) {
+                var lado = function(x, ausente, cls) {
+                    return [x.ind, x.out_real, x.custo_ordem, x.custo].map(function(v, i) {
+                        return celulaValorCC(v, ausente, false, cls + (i === 0 ? ' cf-separa' : ''));
+                    }).join('');
+                };
+                var sent = 'cf-' + escapeAttr(f.sentido);
+                html += '<tr><td>' + escapeHtml(f.periodo) + '</td>' + lado(f.a, !det.a, 'cf-a-col') + lado(f.b, !det.b, 'cf-b-col') +
+                    celulaCF(f.delta === null ? null : (_SETA_CF[f.sentido] || '') + f.delta, 'cf-separa ' + sent, false) + '</tr>';
+            });
+            return html + '</tbody></table></div>';
+        }
+
+        function alternarDetalheCustoV3(uid, idx, botao) {
+            var d = _dadosCusto[uid];
+            var tr = botao.closest('tr');
+            var proxima = tr.nextElementSibling;
+            if (proxima && proxima.classList.contains('cc-detalhe')) {
+                var abrir = proxima.style.display === 'none';
+                proxima.style.display = abrir ? '' : 'none';
+                botao.textContent = abrir ? ROTULO_CC_OCULTAR : ROTULO_CC_DETALHAR;
+                return;
+            }
+            var det = (d.detalhes || []).filter(function(x) { return x.idx === idx; })[0];
+            if (!det) return;
+            var html = '<div class="ce-subtitulo">' + escapeHtml(det.rotulo) + ' — ' + escapeHtml(ROTULO_CC_PERIODO_A_PERIODO) + '</div>' + tabelaPeriodosCCV3(det);
+            if (det.consumos && det.consumos.length) {
+                html += '<details class="cf-iguais"' + (det.mesma_ordem ? '' : ' open') + '><summary>' + escapeHtml(ROTULO_CC_CONSUMOS) + ' (' + det.consumos.length + ')' +
+                    (det.mesma_ordem ? ' — ' + escapeHtml(ROTULO_CC_MESMA_ORDEM) : '') + '</summary>' + tabelaConsumosCE(det.consumos) + '</details>';
+            }
+            var nova = document.createElement('tr');
+            nova.className = 'cc-detalhe';
+            nova.innerHTML = '<td colspan="6">' + html + '</td>';
+            tr.parentNode.insertBefore(nova, tr.nextSibling);
+            botao.textContent = ROTULO_CC_OCULTAR;
+        }
+
+        function montarComparacaoCustoV3(d) {
+            var uid = 'cc' + (++_contadorCC);
+            _dadosCusto[uid] = d;
+            var moeda = d.moeda ? ' (' + d.moeda + ')' : '';
+            var cab = function(f, classe, rotulo, total) {
+                return '<div class="cf-fluxo ' + classe + '"><span class="cf-etiqueta">' + escapeHtml(rotulo) + '</span> <small>id ' + Number(f.id) + ' · ' + escapeHtml(ROTULO_CF_PRODUTO) + ' ' +
+                    escapeHtml(f.produto) + '</small><div class="cf-desc">' + escapeHtml(f.descricao) + '</div><div class="cf-so">' + escapeHtml(ROTULO_CC_TOTAL) + moeda + ': <b>' + escapeHtml(total === null ? ROTULO_CF_ND : total) + '</b></div></div>';
+            };
+            var t = d.total || {};
+            var html = '<div class="comparacao-fluxos"><div class="cf-cabecalho">' + cab(d.a, 'cf-a', ROTULO_CF_FLUXO_A, t.a) + cab(d.b, 'cf-b', ROTULO_CF_FLUXO_B, t.b) + '</div>';
+            if (t.delta !== null && t.delta !== undefined) {
+                html += '<div class="cc-resumo cc-' + escapeAttr(t.sentido) + '">' + escapeHtml(ROTULO_CC_DIF_TOTAL) + moeda + ': <b>' + escapeHtml((_SETA_CF[t.sentido] || '') + t.delta) + '</b></div>';
+            }
+            html += '<div class="cf-rolagem"><table class="cf-tabela cc-tabela"><thead><tr><th>' + escapeHtml(ROTULO_CC_EQUIP) + '</th><th>' + escapeHtml(ROTULO_CC_COLUNA) + '</th><th class="cf-a">' +
+                escapeHtml(ROTULO_CF_FLUXO_A) + '<small>' + escapeHtml(ROTULO_CF_PRODUTO) + ' ' + escapeHtml(d.a.produto) + moeda.replace('(', '').replace(')', '') + '</small></th><th class="cf-b">' +
+                escapeHtml(ROTULO_CF_FLUXO_B) + '<small>' + escapeHtml(ROTULO_CF_PRODUTO) + ' ' + escapeHtml(d.b.produto) + '</small></th><th class="cf-delta">' + escapeHtml(ROTULO_CC_DELTA) + '</th><th></th></tr></thead><tbody>';
+            (d.linhas || []).forEach(function(l) {
+                var aus_a = l.coluna_a === null, aus_b = l.coluna_b === null;
+                var nota = l.situacao === 'so_a' ? ROTULO_CC_SO_A : l.situacao === 'so_b' ? ROTULO_CC_SO_B : '';
+                html += '<tr class="cc-' + escapeAttr(l.situacao) + '"><td class="cc-equip">' + escapeHtml(l.rotulo) + '<small>' + escapeHtml(l.descricao) + (nota ? ' · ' + escapeHtml(nota) : '') + '</small></td>' +
+                    '<td class="cc-col">' + escapeHtml(textoColunaCC(l)) + '</td>' + celulaValorCC(l.a, aus_a, d.custo_indisponivel) + celulaValorCC(l.b, aus_b, d.custo_indisponivel) +
+                    '<td class="cc-delta cf-' + escapeAttr(l.sentido) + '">' + escapeHtml(l.delta === null ? ROTULO_CF_ND : (_SETA_CF[l.sentido] || '') + l.delta) + '</td>' +
+                    '<td class="cc-acao"><button type="button" class="cc-detalhar" onclick="alternarDetalheCustoV3(\'' + uid + '\', ' + Number(l.idx) + ', this)">' + escapeHtml(ROTULO_CC_DETALHAR) + '</button></td></tr>';
+            });
+            html += '<tr class="cc-total"><td colspan="2">' + escapeHtml(ROTULO_CC_TOTAL) + '</td>' + celulaValorCC(t.a, false, d.custo_indisponivel) + celulaValorCC(t.b, false, d.custo_indisponivel) +
+                '<td class="cc-delta cf-' + escapeAttr(t.sentido || 'na') + '">' + escapeHtml(t.delta === null || t.delta === undefined ? ROTULO_CF_ND : (_SETA_CF[t.sentido] || '') + t.delta) + '</td><td></td></tr></tbody></table></div>';
+            if (d.custo_indisponivel) html += '<div class="cf-aviso">' + escapeHtml(ROTULO_CF_AVISO_INDISP) + '</div>';
+            else if (d.custo_incompleto) html += '<div class="cf-aviso">' + escapeHtml(ROTULO_CF_AVISO_INCOMPLETO) + '</div>';
+            return html + '<div class="cf-legenda">' + escapeHtml(ROTULO_CC_LEGENDA) + '</div></div>';
+        }
+
+        // ---- (acima: desenho da versão 3, mantido só pra comparações antigas que estejam no histórico) ----
+
+        // 🌟 NOVO: comparação de CUSTO por EQUIPAMENTO em cada COLUNA do fluxo ("versao": 4). Uma linha por equipamento, do último ao primeiro:
+        // Equipamento | Coluna | Fluxo A (Ordem, Valor) | Fluxo B (Ordem, Valor) | Delta | Detalhar. O que muda de um fluxo pro outro costuma ser a ORDEM
+        // do equipamento; várias ordens do mesmo equipamento na mesma coluna aparecem como "1/2/3" e o valor é a soma delas. Equipamento só
+        // de um fluxo: só o lado dele fica preenchido. Detalhar compara as ordens (indicador, output real, custo e consumos específicos).
+        function celulaOrdemCC(texto, ausente, diferente) {
+            if (ausente) return '<td class="cf-vazio cc-ordem">&mdash;</td>';
+            return '<td class="cc-ordem' + (diferente ? ' cc-ordem-dif' : '') + '">' + escapeHtml(texto) + '</td>';
+        }
+
+        function tabelaPeriodosCC(par) {
+            var cab4 = function(rot, cls) { return '<th colspan="4" class="' + cls + '">' + escapeHtml(rot) + '</th>'; };
+            var sub = '<th>' + escapeHtml(ROTULO_CC_INDICADOR) + '</th><th>' + escapeHtml(ROTULO_CC_OUT_REAL) + '</th><th>' + escapeHtml(ROTULO_CC_CUSTO_ORDEM) + '</th><th>' + escapeHtml(ROTULO_CC_CUSTO_FLUXO) + '</th>';
+            var nome = function(rotulo, coluna, fluxo) { return fluxo + (rotulo ? ' — ' + rotulo + ' (' + ROTULO_CE_COLUNA + ' ' + Number(coluna) + ')' : ''); };
+            var html = '<div class="cf-rolagem"><table class="cf-tabela"><thead><tr><th rowspan="2">' + escapeHtml(ROTULO_CF_PERIODO) + '</th>' +
+                cab4(nome(par.rotulo_a, par.coluna_a, ROTULO_CF_FLUXO_A), 'cf-a') + cab4(nome(par.rotulo_b, par.coluna_b, ROTULO_CF_FLUXO_B), 'cf-b') +
+                '<th rowspan="2" class="cf-delta">' + escapeHtml(ROTULO_CC_CUSTO_FLUXO) + ' Δ</th></tr><tr>' + sub + sub + '</tr></thead><tbody>';
+            (par.periodos || []).forEach(function(f) {
+                var lado = function(x, ausente, cls) {
+                    return [x.ind, x.out_real, x.custo_ordem, x.custo].map(function(v, i) {
+                        return celulaValorCC(v, ausente, false, cls + (i === 0 ? ' cf-separa' : ''));
+                    }).join('');
+                };
+                html += '<tr><td>' + escapeHtml(f.periodo) + '</td>' + lado(f.a, !par.rotulo_a, 'cf-a-col') + lado(f.b, !par.rotulo_b, 'cf-b-col') +
+                    celulaCF(f.delta === null ? null : (_SETA_CF[f.sentido] || '') + f.delta, 'cf-separa cf-' + escapeAttr(f.sentido), false) + '</tr>';
+            });
+            return html + '</tbody></table></div>';
+        }
+
+        function alternarDetalheCusto(uid, idx, botao) {
+            var d = _dadosCusto[uid];
+            var tr = botao.closest('tr');
+            var proxima = tr.nextElementSibling;
+            if (proxima && proxima.classList.contains('cc-detalhe')) {
+                var abrir = proxima.style.display === 'none';
+                proxima.style.display = abrir ? '' : 'none';
+                botao.textContent = abrir ? ROTULO_CC_OCULTAR : ROTULO_CC_DETALHAR;
+                return;
+            }
+            var det = (d.detalhes || []).filter(function(x) { return x.idx === idx; })[0];
+            if (!det) return;
+            var html = '';
+            (det.pares || []).forEach(function(par) {
+                html += '<div class="ce-subtitulo">' + escapeHtml(det.equipamento) + ': ' + escapeHtml((par.rotulo_a || '—') + ' × ' + (par.rotulo_b || '—')) + ' — ' + escapeHtml(ROTULO_CC_PERIODO_A_PERIODO) + '</div>' + tabelaPeriodosCC(par);
+                if (par.consumos && par.consumos.length) {
+                    html += '<details class="cf-iguais"' + (par.mesma_ordem ? '' : ' open') + '><summary>' + escapeHtml(ROTULO_CC_CONSUMOS) + ' (' + par.consumos.length + ')' +
+                        (par.mesma_ordem ? ' — ' + escapeHtml(ROTULO_CC_MESMA_ORDEM) : '') + '</summary>' + tabelaConsumosCE(par.consumos) + '</details>';
+                }
+            });
+            var nova = document.createElement('tr');
+            nova.className = 'cc-detalhe';
+            nova.innerHTML = '<td colspan="8">' + html + '</td>';
+            tr.parentNode.insertBefore(nova, tr.nextSibling);
+            botao.textContent = ROTULO_CC_OCULTAR;
+        }
+
+        function montarComparacaoCusto(d) {
+            var uid = 'cc' + (++_contadorCC);
+            _dadosCusto[uid] = d;
+            var moeda = d.moeda ? ' (' + d.moeda + ')' : '';
+            var cab = function(f, classe, rotulo, total) {
+                return '<div class="cf-fluxo ' + classe + '"><span class="cf-etiqueta">' + escapeHtml(rotulo) + '</span> <small>id ' + Number(f.id) + ' · ' + escapeHtml(ROTULO_CF_PRODUTO) + ' ' +
+                    escapeHtml(f.produto) + '</small><div class="cf-desc">' + escapeHtml(f.descricao) + '</div><div class="cf-so">' + escapeHtml(ROTULO_CC_TOTAL) + moeda + ': <b>' + escapeHtml(total === null ? ROTULO_CF_ND : total) + '</b></div></div>';
+            };
+            var t = d.total || {};
+            var html = '<div class="comparacao-fluxos"><div class="cf-cabecalho">' + cab(d.a, 'cf-a', ROTULO_CF_FLUXO_A, t.a) + cab(d.b, 'cf-b', ROTULO_CF_FLUXO_B, t.b) + '</div>';
+            if (t.delta !== null && t.delta !== undefined) {
+                html += '<div class="cc-resumo cc-' + escapeAttr(t.sentido) + '">' + escapeHtml(ROTULO_CC_DIF_TOTAL) + moeda + ': <b>' + escapeHtml((_SETA_CF[t.sentido] || '') + t.delta) + '</b></div>';
+            }
+            var valorHdr = escapeHtml(ROTULO_CC_VALOR) + (d.moeda ? ' (' + escapeHtml(d.moeda) + ')' : '');
+            html += '<div class="cf-rolagem"><table class="cf-tabela cc-tabela"><thead><tr><th rowspan="2">' + escapeHtml(ROTULO_CC_EQUIP) + '</th><th rowspan="2">' + escapeHtml(ROTULO_CC_COLUNA) + '</th>' +
+                '<th colspan="2" class="cf-a">' + escapeHtml(ROTULO_CF_FLUXO_A) + '<small>' + escapeHtml(ROTULO_CF_PRODUTO) + ' ' + escapeHtml(d.a.produto) + '</small></th>' +
+                '<th colspan="2" class="cf-b">' + escapeHtml(ROTULO_CF_FLUXO_B) + '<small>' + escapeHtml(ROTULO_CF_PRODUTO) + ' ' + escapeHtml(d.b.produto) + '</small></th>' +
+                '<th rowspan="2" class="cf-delta">' + escapeHtml(ROTULO_CC_DELTA) + '</th><th rowspan="2"></th></tr>' +
+                '<tr><th>' + escapeHtml(ROTULO_CC_ORDEM) + '</th><th>' + valorHdr + '</th><th>' + escapeHtml(ROTULO_CC_ORDEM) + '</th><th>' + valorHdr + '</th></tr></thead><tbody>';
+            (d.linhas || []).forEach(function(l) {
+                var aus_a = l.coluna_a === null, aus_b = l.coluna_b === null, ordemDif = l.situacao === 'ordem_diferente';
+                var nota = l.situacao === 'so_a' ? ROTULO_CC_SO_A : l.situacao === 'so_b' ? ROTULO_CC_SO_B : '';
+                html += '<tr class="cc-' + escapeAttr(l.situacao) + '"><td class="cc-equip">' + escapeHtml(l.equipamento) + '<small>' + escapeHtml(l.descricao) + (nota ? ' · ' + escapeHtml(nota) : '') + '</small></td>' +
+                    '<td class="cc-col' + (l.coluna_diferente ? ' cc-col-dif' : '') + '">' + escapeHtml(textoColunaCC(l)) + '</td>' +
+                    celulaOrdemCC(l.ordens_a, aus_a, ordemDif) + celulaValorCC(l.a, aus_a, d.custo_indisponivel) +
+                    celulaOrdemCC(l.ordens_b, aus_b, ordemDif) + celulaValorCC(l.b, aus_b, d.custo_indisponivel) +
+                    '<td class="cc-delta cf-' + escapeAttr(l.sentido) + '">' + escapeHtml(l.delta === null ? ROTULO_CF_ND : (_SETA_CF[l.sentido] || '') + l.delta) + '</td>' +
+                    '<td class="cc-acao"><button type="button" class="cc-detalhar" onclick="alternarDetalheCusto(\'' + uid + '\', ' + Number(l.idx) + ', this)">' + escapeHtml(ROTULO_CC_DETALHAR) + '</button></td></tr>';
+            });
+            html += '<tr class="cc-total"><td colspan="2">' + escapeHtml(ROTULO_CC_TOTAL) + '</td><td></td>' + celulaValorCC(t.a, false, d.custo_indisponivel) + '<td></td>' + celulaValorCC(t.b, false, d.custo_indisponivel) +
+                '<td class="cc-delta cf-' + escapeAttr(t.sentido || 'na') + '">' + escapeHtml(t.delta === null || t.delta === undefined ? ROTULO_CF_ND : (_SETA_CF[t.sentido] || '') + t.delta) + '</td><td></td></tr></tbody></table></div>';
+            if (d.custo_indisponivel) html += '<div class="cf-aviso">' + escapeHtml(ROTULO_CF_AVISO_INDISP) + '</div>';
+            else if (d.custo_incompleto) html += '<div class="cf-aviso">' + escapeHtml(ROTULO_CF_AVISO_INCOMPLETO) + '</div>';
+            return html + '<div class="cf-legenda">' + escapeHtml(ROTULO_CC_LEGENDA) + '</div></div>';
+        }
+
         function montarComparacaoFluxos(d) {
+            if (d && d.versao === 4) return montarComparacaoCusto(d);                  // 🌟 comparação de custo por equipamento/coluna (a atual)
+            if (d && d.versao === 3) return montarComparacaoCustoV3(d);                // comparação de custo antiga (histórico)
+            if (d && d.versao === 2) return montarComparacaoEquipamentos(d);          // 🌟 comparação por equipamento (mapa)
             var r = d.resumo || {};
             var fluxo = function(f, classe, rotulo, soLigacoes, soOrdens) {
                 return '<div class="cf-fluxo ' + classe + '"><span class="cf-etiqueta">' + escapeHtml(rotulo) + '</span> <small>id ' + Number(f.id) +
@@ -2056,9 +2540,10 @@
             var botoesEscolhaHtml = data.botoes_escolha ? montarBotoesEscolha(data.botoes_escolha) : '';
             var formConsumosHtml = data.form_consumos ? montarFormConsumos(data.form_consumos) : '';
             var comparacaoFluxosHtml = data.comparacao_fluxos ? montarComparacaoFluxos(data.comparacao_fluxos) : '';
+            var listaFluxosHtml = data.lista_fluxos ? montarListaFluxos(data.lista_fluxos) : '';
 
             var textoLimpoHTML = processarRespostaCompleta(data.resposta || data.resposta_ia);
-            var mensagemAgente = adicionarMensagemAoChat('<div class="chat-box-p" style="color: #2b2b2b;"><strong style="color: #0056b3;">' + ROTULO_AGENTE + ':</strong><div style="margin-top: 5px;">' + textoLimpoHTML + '</div>' + fontesHtml + opcoesHtml + formPeriodoHtml + listaProdutosHtml + listaEquipamentosHtml + formEquipamentoHtml + formOrdensHtml + selecaoProdutosHtml + botoesEscolhaHtml + formConsumosHtml + comparacaoFluxosHtml + '</div>');
+            var mensagemAgente = adicionarMensagemAoChat('<div class="chat-box-p" style="color: #2b2b2b;"><strong style="color: #0056b3;">' + ROTULO_AGENTE + ':</strong><div style="margin-top: 5px;">' + textoLimpoHTML + '</div>' + fontesHtml + opcoesHtml + formPeriodoHtml + listaProdutosHtml + listaEquipamentosHtml + formEquipamentoHtml + formOrdensHtml + selecaoProdutosHtml + botoesEscolhaHtml + formConsumosHtml + comparacaoFluxosHtml + listaFluxosHtml + '</div>');
             desenharGraficosPendentes();
             posicionarRolagemResposta(mensagemAgente);
         }
@@ -2337,7 +2822,7 @@
                     adicionarMensagemAoChat('<div class="chat-box-p"><strong>' + ROTULO_VOCE_NOME + ':</strong> ' + escapeHtml(item.comando_usuario) + '</div>', true);
                 }
                 if (item.resposta_ia) {
-                    var textoLimpoHTML = processarRespostaCompleta(String(item.resposta_ia).replace(/\n*\[LISTA_EQUIPAMENTOS\]/g, '').replace(/\n*\[(FORM_(EQUIPAMENTO|ORDENS|CONSUMOS)|SELECAO_PRODUTOS|BOTOES|COMPARACAO_FLUXOS):[^\]]*\]/g, ''));
+                    var textoLimpoHTML = processarRespostaCompleta(String(item.resposta_ia).replace(/\n*\[LISTA_EQUIPAMENTOS\]/g, '').replace(/\n*\[(FORM_(EQUIPAMENTO|ORDENS|CONSUMOS)|SELECAO_PRODUTOS|BOTOES|COMPARACAO_FLUXOS|LISTA_FLUXOS):[^\]]*\]/g, ''));
                     // A comparação de fluxos é RESULTADO (não formulário): é redesenhada a partir do marcador guardado no histórico.
                     var comparacaoHistoricoHtml = '';
                     var mComparacao = String(item.resposta_ia).match(/\[COMPARACAO_FLUXOS:([A-Za-z0-9_=-]*)\]/);

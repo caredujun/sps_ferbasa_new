@@ -121,6 +121,8 @@ _PADRAO_BOTOES = re.compile(r'\n*\[BOTOES:([A-Za-z0-9_=-]*)\]')
 _PADRAO_FORM_CONSUMOS = re.compile(r'\n*\[FORM_CONSUMOS:([A-Za-z0-9_=-]*)\]')
 # 🌟 NOVO: "Comparar Fluxos de Produção": [COMPARACAO_FLUXOS:<json base64>] -- a comparação em colunas paralelas.
 _PADRAO_COMPARACAO_FLUXOS = re.compile(r'\n*\[COMPARACAO_FLUXOS:([A-Za-z0-9_=-]*)\]')
+# 🌟 NOVO: [LISTA_FLUXOS:<json base64>] -- a lista de fluxos do produto (id e descrição, com rolagem e filtro) da comparação.
+_PADRAO_LISTA_FLUXOS = re.compile(r'\n*\[LISTA_FLUXOS:([A-Za-z0-9_=-]*)\]')
 
 
 def _extrair_form_base64(padrao, texto):
@@ -553,6 +555,8 @@ def chat_view(request):
         resposta, _ignorar_consumos = _extrair_form_base64(_PADRAO_FORM_CONSUMOS, resposta)
         resposta_original, comparacao_fluxos = _extrair_form_base64(_PADRAO_COMPARACAO_FLUXOS, resposta_original)
         resposta, _ignorar_comparacao = _extrair_form_base64(_PADRAO_COMPARACAO_FLUXOS, resposta)
+        resposta_original, lista_fluxos = _extrair_form_base64(_PADRAO_LISTA_FLUXOS, resposta_original)
+        resposta, _ignorar_lista_fluxos = _extrair_form_base64(_PADRAO_LISTA_FLUXOS, resposta)
         lista_equipamentos = (
             _dados_cartoes_equipamentos(request.user)
             if (tem_lista_equip_original or tem_lista_equip_traduzida) else None
@@ -654,6 +658,7 @@ def chat_view(request):
             "botoes_escolha": botoes_escolha,
             "form_consumos": form_consumos,
             "comparacao_fluxos": comparacao_fluxos,
+            "lista_fluxos": lista_fluxos,
             "nome_empresa": nome_empresa_atual,
             "nome_cenario": nome_cenario_atual,
             "status_cenario": status_cenario_atual,

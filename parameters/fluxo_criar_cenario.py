@@ -2597,16 +2597,22 @@ def iniciar_fluxo_comparar_fluxos(usuario):
     return _cmp_texto_pedir_produto(estado.dados_coletados)
 
 
-def _cmp_texto_pedir_busca(dados):
-    primeiro = dados.get('alvo', 'a') == 'a'
+def _cmp_texto_lista_fluxos(dados, filtro='', aviso=''):
+    """A lista de fluxos do produto escolhido: a TELA mostra id e descrição, em ordem alfabética, com rolagem e um filtro."""
+    from fluxos.comparar_fluxos import listar_fluxos, LIMITE_LISTA_FLUXOS
+    excluir = dados.get('fluxo_a_id') if dados.get('alvo') == 'b' else None
+    itens, total = listar_fluxos(dados['cenario_id'], dados['produto_id'], filtro, excluir_id=excluir)
     produto = dados.get('produto_codigo', '')
-    return (
-        (f"Digite parte da descrição do **primeiro** fluxo do produto **{produto}** (por exemplo, os códigos de "
-         "equipamento que ele usa) ou o id dele. "
-         if primeiro else
-         f"Agora o **segundo** fluxo, do produto **{produto}**: digite parte da descrição dele ou o id. ")
-        + "Se quiser desistir, digite \"cancelar\"."
-    )
+    if dados.get('alvo', 'a') == 'a':
+        cabecalho = f"Escolha o **primeiro** fluxo do produto **{produto}** na lista abaixo (em ordem alfabética da descrição). "
+    else:
+        cabecalho = (f"Primeiro fluxo: **id {dados['fluxo_a_id']}** (produto {dados['fluxo_a_produto']}) — {dados['fluxo_a_descricao']}\n\n"
+                     f"Agora escolha o **segundo** fluxo, do produto **{produto}**, na lista abaixo (em ordem alfabética da descrição). ")
+    dica = ("Clique no fluxo. Se a lista for grande, use o campo de filtro (palavras da descrição, por exemplo os códigos de equipamento "
+            "que ele usa) ou digite o id do fluxo. Se quiser desistir, digite \"cancelar\".")
+    return aviso + cabecalho + dica + "\n\n" + _equ_marcador('LISTA_FLUXOS', {
+        'titulo': f"Fluxos do produto {produto}", 'alvo': dados.get('alvo', 'a'), 'fluxos': itens, 'total': total,
+        'mostrando': len(itens), 'filtro': filtro.strip(), 'limite': LIMITE_LISTA_FLUXOS})
 
 
 def _etapa_cmp_produto(estado, texto):
@@ -2617,46 +2623,29 @@ def _etapa_cmp_produto(estado, texto):
     if produto is None:
         return ("Não encontrei esse produto entre os que têm fluxos disponíveis. Clique em um dos produtos da lista, "
                 "ou digite o código exatamente como aparece (ou \"cancelar\" pra desistir).")
-    estado.etapa_atual = 'cmp_busca'
+    estado.etapa_atual = 'cmp_fluxo'
     estado.dados_coletados = {**dados, 'produto_id': produto.id, 'produto_codigo': produto.pro_codigo}
     estado.save()
-    return _cmp_texto_pedir_busca(estado.dados_coletados)
+    return _cmp_texto_lista_fluxos(estado.dados_coletados)
 
 
-def _etapa_cmp_busca(estado, texto):
-    from fluxos.comparar_fluxos import buscar_fluxos, LIMITE_CANDIDATOS
+def _etapa_cmp_fluxo(estado, texto):
+    """Clicar num fluxo da lista envia o id dele. Qualquer outro texto é um FILTRO (palavras da descrição)."""
+    from fluxos.models import TbFluxoProducao
     dados = estado.dados_coletados or {}
     excluir = dados.get('fluxo_a_id') if dados.get('alvo') == 'b' else None
-    itens, total = buscar_fluxos(dados['cenario_id'], dados['produto_id'], texto, excluir_id=excluir)
-    if total == 0:
-        extra = " Pode escolher um dos que mostrei (pelo número) ou tentar outras palavras." if dados.get('candidatos') else \
-                " Tente outras palavras (ou o id do fluxo)."
-        return f"Não achei nenhum fluxo com **{texto.strip()}**.{extra}"
-    if total == 1:
-        return _cmp_fluxo_escolhido(estado, dados, itens[0])
-    estado.etapa_atual = 'cmp_escolher'
-    estado.dados_coletados = {**dados, 'candidatos': itens}
-    estado.save()
-    linhas = "\n".join(f"- {i}: {item['descricao']} (id {item['id']})" for i, item in enumerate(itens, start=1))
-    aviso = (f" (mostrando só os {LIMITE_CANDIDATOS} primeiros; digite mais palavras pra refinar)" if total > len(itens) else "")
-    return (f"Achei **{total}** fluxos{aviso}. Escolha o número do fluxo, ou digite outras palavras pra refinar a busca "
-            "(ou \"cancelar\" pra desistir).\n\n"
-            f"Fluxos encontrados:\n{linhas}")
-
-
-def _etapa_cmp_escolher(estado, texto):
-    dados = estado.dados_coletados or {}
-    candidatos = dados.get('candidatos') or []
     t = texto.strip()
     if t.isdigit():
-        n = int(t)
-        if 1 <= n <= len(candidatos):
-            return _cmp_fluxo_escolhido(estado, dados, candidatos[n - 1])
-        por_id = {c['id']: c for c in candidatos}
-        if n in por_id:
-            return _cmp_fluxo_escolhido(estado, dados, por_id[n])
-    # Qualquer outra coisa (palavras, ou um número que não é da lista) é uma NOVA busca.
-    return _etapa_cmp_busca(estado, texto)
+        fluxo = (TbFluxoProducao.objects.filter(id=int(t), tbcenarios_id=dados['cenario_id'], flu_pro_produto_id=dados['produto_id'])
+                 .exclude(id=excluir or 0).first())
+        if fluxo is not None:
+            return _cmp_fluxo_escolhido(estado, dados, {'id': fluxo.id, 'descricao': fluxo.flu_pro_descricao})
+        return _cmp_texto_lista_fluxos(dados, aviso=f"Não há fluxo com o id **{t}** entre os fluxos desse produto. ")
+    from fluxos.comparar_fluxos import listar_fluxos
+    _itens, total = listar_fluxos(dados['cenario_id'], dados['produto_id'], t, excluir_id=excluir)
+    if total == 0:
+        return _cmp_texto_lista_fluxos(dados, aviso=f"Não achei nenhum fluxo com **{t}**; mostrei a lista completa de novo. ")
+    return _cmp_texto_lista_fluxos(dados, filtro=t)
 
 
 def _cmp_fluxo_escolhido(estado, dados, item):
@@ -2681,26 +2670,31 @@ def _cmp_moeda(estado):
 
 
 def _cmp_executar(estado, dados, fluxo_b):
-    from fluxos.comparar_fluxos import comparar_fluxos, dados_para_tabela, ComparacaoError
+    from fluxos.comparar_fluxos import comparar_custo_fluxos, dados_para_tabela_custo, ComparacaoError
     cenario = TbCenarios.objects_real.filter(id=dados['cenario_id']).first()
     if cenario is None:
         _encerrar_fluxo(estado)
         return "O cenário dessa comparação não existe mais."
     try:
-        resultado = comparar_fluxos(dados['fluxo_a_id'], fluxo_b['id'], cenario)
+        resultado = comparar_custo_fluxos(dados['fluxo_a_id'], fluxo_b['id'], cenario)
     except ComparacaoError as erro:
         _encerrar_fluxo(estado)
         return f"Não consegui comparar: {erro}"
     moeda = _cmp_moeda(estado)
     _encerrar_fluxo(estado)
-    # 🌟 NOVO: a comparação é desenhada pela tela em COLUNAS PARALELAS (Fluxo A | Fluxo B | Variação B - A), a partir do
-    # marcador abaixo. O texto fica curto: título, contagens e (se não há diferença) o aviso.
-    tabela = dados_para_tabela(resultado, moeda)
-    r = tabela['resumo']
-    texto = (f"**{tabela['titulo']}**\n\nLigações iguais nos dois: **{r['iguais']}** · só no A: **{r['so_a']}** · só no B: **{r['so_b']}**")
-    if not tabela['grupos']:
-        texto += ("\n\nOs dois fluxos usam exatamente as mesmas ligações (os mesmos consumos padrão), então o indicador "
-                  "cadastrado é o mesmo em todos os pontos.")
+    # 🌟 NOVO: a comparação explica a diferença de CUSTO do fluxo (que sai do I/O: output real x custo variável adicionado da
+    # ordem), do último equipamento até o primeiro. A tela desenha a tabela (com o botão Detalhar) a partir do marcador abaixo;
+    # o texto fica curto: título, contagens e o custo total de cada fluxo.
+    tabela = dados_para_tabela_custo(resultado, moeda)
+    r, t = tabela['resumo'], tabela['total']
+    texto = (f"**{tabela['titulo']}**\n\nEquipamentos: **{r['equipamentos']}** · iguais: **{r['iguais']}** · "
+             f"com ordem diferente: **{r['ordem_diferente']}** · com custo diferente: **{r['custo_diferente']}** · "
+             f"só no A: **{r['so_a']}** · só no B: **{r['so_b']}**")
+    if t['delta'] is not None:
+        texto += (f"\n\nCusto do fluxo (média dos períodos): A **{moeda}{t['a']}** · B **{moeda}{t['b']}** · "
+                  f"diferença (B − A) **{t['delta']}**")
+    if r['iguais'] == r['equipamentos']:
+        texto += "\n\nOs dois fluxos usam as mesmas ordens e têm o mesmo custo em todos os equipamentos."
     return texto + "\n\n" + _equ_marcador('COMPARACAO_FLUXOS', tabela)
 
 
@@ -5971,8 +5965,9 @@ _HANDLERS_PROCESSAR = {
     'fp_io_aguardando': _etapa_fp_io_aguardando,
     # 🌟 NOVO: "Comparar Fluxos de Produção" (só consulta)
     'cmp_produto': _etapa_cmp_produto,
-    'cmp_busca': _etapa_cmp_busca,
-    'cmp_escolher': _etapa_cmp_escolher,
+    'cmp_fluxo': _etapa_cmp_fluxo,
+    'cmp_busca': _etapa_cmp_fluxo,        # nomes antigos: uma conversa em andamento antes da atualização continua funcionando
+    'cmp_escolher': _etapa_cmp_fluxo,
 }
 
 
