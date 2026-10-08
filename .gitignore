@@ -12,3 +12,4 @@ __pycache__/
 backup_spsferbasa
 apps_cenario.zip
 staticfiles/
+django_migrate_5.sh
