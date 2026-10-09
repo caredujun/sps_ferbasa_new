@@ -267,6 +267,12 @@ class TbFluxoConsumoPadraoDaugther(models.Model):
         verbose_name = _('Consumo Padrão Previsto')
         verbose_name_plural = _('Consumos Padrões Previstos')
         ordering = ['dau_order']
+        indexes = [
+            models.Index(
+                fields=['mae', 'tbcenarios', 'dau_order'],
+                name='ix_cpd_dau_mae_cen_ord',
+            ),
+        ]
 
 
 # Para alterar o input/output dos fluxos de produção que usam o consumo padrão
@@ -448,6 +454,12 @@ class TbFluxoProducaoDaugther(models.Model):
         verbose_name = _('Sequenciamento da Produção')
         verbose_name_plural = _('Sequenciamento da Produção')
         ordering = ['flu_pro_dau_coluna', 'flu_pro_dau_linha']
+        indexes = [
+            models.Index(
+                fields=['mae', 'flu_pro_dau_coluna', 'flu_pro_dau_linha'],
+                name='ix_fpd_dau_mae_col_lin',
+            ),
+        ]
 
     def descricao_consumo_padrao(self):
 
@@ -835,6 +847,18 @@ class TbFluxoProducaoInputOutput(models.Model):
         verbose_name = _('Detalhamento por Equipamento')
         verbose_name_plural = _('Detalhamento por Equipamento')
         ordering = ['flu_pro_inp_out_coluna', 'flu_pro_inp_out_linha']
+        indexes = [
+            models.Index(
+                fields=[
+                    'mae',
+                    'tbcenarios',
+                    'flu_pro_inp_out_coluna',
+                    'flu_pro_inp_out_linha',
+                    'flu_pro_inp_out_equipamento',
+                ],
+                name='ix_io_mae_flux_cen_pos',
+            ),
+        ]
 
 
 class TbFluxoProducaoInputOutputDaugther(models.Model):
@@ -1003,6 +1027,12 @@ class TbFluxoProducaoInputOutputDaugther(models.Model):
         verbose_name_plural = _('Detalhes por Período (click e use setas para direita e esquerda)')
         ordering = ['dau_order']
         unique_together = ('mae', 'dau_order', 'tbcenarios',)
+        indexes = [
+            models.Index(
+                fields=['mae', 'tbcenarios', 'dau_order'],
+                name='ix_io_daug_mae_cen_ord',
+            ),
+        ]
 
 # ***********************************************************************************************************
 

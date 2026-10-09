@@ -459,12 +459,12 @@ class TbContaContabilCentroCustoAdmin(_CustoFerbasaAdminMixin, admin.ModelAdmin)
 admin.site.register(TbContaContabilCentroCusto, TbContaContabilCentroCustoAdmin)
 
 class TbProducaoMensalAdmin(_CustoFerbasaAdminMixin, admin.ModelAdmin):
-    fields = ('pro_men_ano_mes', 'pro_men_estabelecimento', 'pro_men_grupo_maquina', 'pro_men_ordem_producao', 'pro_men_item_producao', 'pro_men_qtde_produzida', 'pro_men_item_consumo', ('pro_men_qtde_consumo', 'indicador'), ('pro_men_valor_material', 'pro_men_valor_ggf', 'pro_men_valor_ultima_entrada'), 'pro_men_observacao')
-    list_display = ['pro_men_ano_mes', 'pro_men_item_producao', 'pro_men_grupo_maquina', 'pro_men_item_consumo', 'pro_men_ordem_producao', 'indicador']
+    fields = ('pro_men_ano_mes', 'pro_men_estabelecimento', 'pro_men_grupo_maquina', 'pro_men_ordem_producao', 'pro_men_item_producao', 'pro_men_qtde_produzida', ('pro_men_item_consumo',  'tipo_item_consumo'), ('pro_men_qtde_consumo', 'indicador'), ('pro_men_valor_material', 'pro_men_valor_ggf', 'pro_men_valor_ultima_entrada'), 'pro_men_observacao')
+    list_display = ['pro_men_ano_mes', 'pro_men_item_producao', 'pro_men_grupo_maquina', 'pro_men_item_consumo', 'tipo_item_consumo', 'pro_men_ordem_producao', 'indicador']
     list_display_links = ['pro_men_ano_mes', 'pro_men_item_producao', 'pro_men_item_consumo']
-    list_filter = ('pro_men_ano_mes', ('pro_men_item_producao__ite_pro_descricao', custom_titled_filter('Item de Produção')), ('pro_men_grupo_maquina__gru_maq_nome', custom_titled_filter('Grupo Máquina')), ('pro_men_item_consumo__ite_con_descricao', custom_titled_filter('Item de Consumo')))
+    list_filter = ('pro_men_ano_mes', ('pro_men_item_producao__ite_pro_descricao', custom_titled_filter('Item de Produção')), ('pro_men_grupo_maquina__gru_maq_nome', custom_titled_filter('Grupo Máquina')), 'pro_men_ordem_producao', ('pro_men_item_consumo__ite_con_descricao', custom_titled_filter('Item de Consumo')))
     search_fields = ['pro_men_ano_mes', 'pro_men_item_producao__ite_pro_codigo', 'pro_men_item_producao__ite_pro_descricao', 'pro_men_grupo_maquina__gru_maq_codigo', 'pro_men_grupo_maquina__gru_maq_nome', 'pro_men_item_consumo__ite_con_codigo', 'pro_men_item_consumo__ite_con_descricao', 'pro_men_ordem_producao']
-    readonly_fields = ('indicador',)
+    readonly_fields = ('indicador', 'tipo_item_consumo')
 
     formfield_overrides = {models.TextField: {'widget': Textarea(attrs={'rows': 3, 'cols': 100})}, }
 

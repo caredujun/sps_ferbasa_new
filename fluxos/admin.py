@@ -999,7 +999,14 @@ class TbFluxoProducao01Admin(nested_admin.NestedModelAdmin):
     list_display = ['id', 'flu_pro_descricao', 'flu_pro_produto', 'flu_pro_custo_variavel_medio', 'flu_pro_ativo']
     list_filter = (('flu_pro_produto', admin.RelatedOnlyFieldListFilter), 'flu_pro_ativo')
     list_display_links = ['id', 'flu_pro_descricao', 'flu_pro_produto']
-    search_fields = ['flu_pro_descricao']
+
+    search_fields = (
+        'id',
+        'flu_pro_descricao',
+        'flu_pro_produto__id',
+        'flu_pro_produto__pro_descricao',
+    )
+
     list_per_page = 15
 
     def has_delete_permission(self, request, obj=None):

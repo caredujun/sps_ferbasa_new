@@ -413,6 +413,11 @@ class TbProducaoMensal(models.Model):
 
         return valor_retorno
 
+    def tipo_item_consumo(self):
+        return TbItensConsumo.objects.get(id=self.pro_men_item_consumo_id).ite_con_tipo
+
+    tipo_item_consumo.short_description = _('Tipo')
+
 
 class TbDistribuicaoGGFMensal(models.Model):
     dis_ggf_men_ano_mes = models.CharField(max_length=7, null=False, blank=False, verbose_name=_('Ano/Mês'))

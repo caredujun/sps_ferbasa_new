@@ -398,13 +398,14 @@ def atualizar_fluxo_celery(self, lista):
     # sem contexto de usuário logado).
     id_cenario = TbFluxoProducao.objects.filter(id__in=lista).values_list('tbcenarios_id', flat=True).first()
 
+    '''
     cursor = connection.cursor()
     # Observar que tem que colocar o array antes da string da lista
     sql = "call public.atualiza_input_output_lista(" + str(id_cenario) + ", array" + str(lista) + ")"
     cursor.execute(sql)
     cursor.close()
-
     '''
+
     # Vamos atualizar um a um
     cursor = connection.cursor()
 
@@ -413,7 +414,7 @@ def atualizar_fluxo_celery(self, lista):
         cursor.execute(sql)
 
     cursor.close()
-    '''
+
 
 @shared_task(bind=True)
 def atualizar_custos_celery(self, lista):
