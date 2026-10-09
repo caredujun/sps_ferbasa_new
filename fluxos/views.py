@@ -272,38 +272,13 @@ def api_fluxo_custo_variavel_distribuicao(request, fluxo_id):
     """
     fluxo = _fluxo_acessivel_ou_404(request.user, fluxo_id)
 
-    if fluxo.flu_pro_produto_id is None:
-        return JsonResponse({'error': 'Este fluxo não tem produto definido.'}, status=400)
-
-    fluxos_do_produto = TbFluxoProducao.objects.filter(
-        flu_pro_produto_id=fluxo.flu_pro_produto_id,
-        tbcenarios_id=fluxo.tbcenarios_id,
-    )
-
-    if fluxos_do_produto.filter(flu_pro_input_output_atualizado=False).exists():
-        return JsonResponse({
-            'atualizado': False,
-            'mensagem': 'Temos fluxo de produção para esse produto desatualizado em I/O. '
-                        'Favor atualizar e repetir o procedimento.',
-        })
-
-    # 🌟 NOVO: manda fluxo_id e descrição de cada um, não só o valor solto
-    # -- usado no front pra destacar a barra do fluxo em análise (verde) e
-    # pra mostrar a descrição dos fluxos ao clicar numa barra.
-    valores = list(
-        fluxos_do_produto.exclude(flu_pro_custo_variavel_medio__isnull=True)
-        .values_list('id', 'flu_pro_descricao', 'flu_pro_custo_variavel_medio')
-    )
-
-    return JsonResponse({
-        'atualizado': True,
-        'total_fluxos': fluxos_do_produto.count(),
-        'fluxo_atual_id': fluxo.id,
-        'valores': [
-            {'fluxo_id': fid, 'descricao': descricao or '', 'custo_variavel_medio': float(valor)}
-            for fid, descricao, valor in valores
-        ],
-    })
+    # 🌟 CORRIGIDO: o cálculo saiu daqui pra fluxos/graficos_custo.py (também usado pelo chat do Agente IA, na Ação
+    # Comum "Custo Variável Distribuição / Escada por Equipamento"). A resposta continua exatamente a mesma.
+    from .graficos_custo import dados_distribuicao_custo_variavel
+    dados = dados_distribuicao_custo_variavel(fluxo)
+    if 'erro' in dados:
+        return JsonResponse({'error': dados['erro']}, status=400)
+    return JsonResponse(dados)
 
 
 @login_required
@@ -326,38 +301,10 @@ def api_fluxo_custo_por_equipamento(request, fluxo_id):
     """
     fluxo = _fluxo_acessivel_ou_404(request.user, fluxo_id)
 
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "call public.calcula_contribuicao_custo_fluxo_producao(%s, %s)",
-            [fluxo.tbcenarios_id, fluxo.id],
-        )
-        cursor.execute("""
-            SELECT
-                cad.equ_cad_codigo AS codigo,
-                cad.equ_cad_descricao AS descricao,
-                SUM(t.contribuicao_media) AS contribuicao_media,
-                MIN(flu.flu_pro_inp_out_coluna) AS primeira_coluna
-            FROM tmp_contribuicao_custo_fluxo t
-            JOIN equipamentos_tbequipamentos eq ON eq.id = t.equipamento_id
-            JOIN equipamentos_tbequipamentoscadastro cad ON cad.id = eq.equ_codigo_id
-            JOIN fluxos_tbfluxoproducaoinputoutput flu
-                ON flu.flu_pro_inp_out_equipamento_id = t.equipamento_id AND flu.mae_id = %s
-            GROUP BY cad.equ_cad_codigo, cad.equ_cad_descricao
-            ORDER BY primeira_coluna ASC
-        """, [fluxo.id])
-        colunas = [c[0] for c in cursor.description]
-        linhas = [dict(zip(colunas, row)) for row in cursor.fetchall()]
-
-    equipamentos_lista = [
-        {
-            'codigo': l['codigo'],
-            'descricao': l['descricao'] or '',
-            'contribuicao_media': float(l['contribuicao_media']),
-        }
-        for l in linhas
-    ]
-
-    return JsonResponse({'equipamentos': equipamentos_lista})
+    # 🌟 CORRIGIDO: o cálculo saiu daqui pra fluxos/graficos_custo.py (também usado pelo chat do Agente IA). A resposta
+    # continua exatamente a mesma.
+    from .graficos_custo import dados_custo_por_equipamento
+    return JsonResponse({'equipamentos': dados_custo_por_equipamento(fluxo)})
 
 
 @login_required
@@ -387,7 +334,7 @@ def api_fluxo_salvar(request):
                 'status': 'error',
                 'message': 'Este editor só funciona para um fluxo já existente -- crie o fluxo de '
                            'produção pelo Admin primeiro (lá o produto é escolhido corretamente), '
-                           'depois abra "Visualizar / Editar Fluxo" para montá-lo aqui.',
+                           'depois abra "Visualizar Fluxo" para montá-lo aqui.',
             }, status=400)
         fluxo_id = _normalizar_fluxo_id(fluxo_id_bruto)
         if fluxo_id is None:

@@ -453,7 +453,10 @@ def comparar_fluxos_por_equipamento(fluxo_a_id, fluxo_b_id, cenario, *, custo_fn
                 situacao = 'so_a' if na else 'so_b'
             pares.append({'equipamento': ref.equ_cad_codigo, 'equipamento_descricao': ref.equ_cad_descricao, 'a': na, 'b': nb,
                           'situacao': situacao, 'coluna_diferente': bool(na and nb and na['coluna'] != nb['coluna'])})
-    pares.sort(key=lambda r: (min(n['coluna'] for n in (r['a'], r['b']) if n), min(n['linha'] for n in (r['a'], r['b']) if n), r['equipamento']))
+    # 🌟 ALTERADO: colunas em ordem DECRESCENTE (do fim do fluxo pro começo). Par com o mesmo equipamento em colunas
+    # diferentes nos dois fluxos entra pela MAIOR das duas. Desempate: linha (crescente) e código do equipamento.
+    pares.sort(key=lambda r: (-max(n['coluna'] for n in (r['a'], r['b']) if n),
+                              min(n['linha'] for n in (r['a'], r['b']) if n), str(r['equipamento'])))
     for i, r in enumerate(pares):
         r['idx'] = i
 
@@ -677,6 +680,7 @@ def listar_fluxos(cenario_id, produto_id, filtro='', *, excluir_id=None, limite=
 # Fluxo A é procurado no Fluxo B (mesma ordem, mesma coluna); os dois comparados saem da lista; o que não achou é uma
 # diferença; por fim o que sobrou no Fluxo B (que o A não tem) também é diferença. O valor mostrado é a contribuição média
 # dos períodos; o detalhe traz, período a período, indicador, output real, custo da ordem e consumos específicos.
+# 🌟 ALTERADO: no fim, TODAS as linhas (inclusive as que só o Fluxo B tem) são reordenadas por coluna DECRESCENTE.
 # ---------------------------------------------------------------------------------------------------------------
 ORCAMENTO_CUSTO_FLUXO_SEGUNDOS = 45     # a procedure de custo roda por (ordem, período) distintos dos dois fluxos
 
@@ -763,8 +767,6 @@ def comparar_custo_fluxos(fluxo_a_id, fluxo_b_id, cenario, *, custo_fn=None, orc
                 par['b'] = restantes_b.pop(min(candidatas, key=lambda k: (abs(k[1] - coluna), -k[1])))
     for lista_b in restantes_b.values():                        # o que só o Fluxo B tem
         pares.append({'a': None, 'b': lista_b})
-    for i, par in enumerate(pares):
-        par['idx'] = i
 
     ordens_periodo = sorted({o for nos in (nos_a, nos_b) for n in nos for o in n['v']})
     consumos = _consumos_especificos({n['ordem'].id for nos in (nos_a, nos_b) for n in nos})
@@ -812,6 +814,21 @@ def comparar_custo_fluxos(fluxo_a_id, fluxo_b_id, cenario, *, custo_fn=None, orc
         par['ordens_b'] = sorted({n['ordem'].equ_ordem_codigo for n in par['b']}) if par['b'] else None
         ref = (par['a'] or par['b'])[0]['ordem']
         par['equipamento'], par['equipamento_descricao'] = ref.equ_codigo.equ_cad_codigo, ref.equ_codigo.equ_cad_descricao
+
+    # 🌟 ALTERADO: colunas em ordem DECRESCENTE. Antes as linhas que só o Fluxo B tem iam pro FIM da tabela, fora da ordem
+    # das colunas. Agora todas são reordenadas juntas: coluna (maior primeiro; quando A e B estão em colunas diferentes,
+    # vale a maior das duas), depois linha (crescente) e código do equipamento. O idx é refeito DEPOIS da ordenação,
+    # pra o botão "Detalhar" continuar apontando pro detalhe certo.
+    def _coluna_do_par(par):
+        return max(c for c in (par['coluna_a'], par['coluna_b']) if c is not None)
+
+    def _linha_do_par(par):
+        return min(n['linha'] for n in (par['a'] or []) + (par['b'] or []))
+
+    pares.sort(key=lambda p: (-_coluna_do_par(p), _linha_do_par(p), str(p['equipamento'])))
+    for i, par in enumerate(pares):
+        par['idx'] = i
+
     return {
         'cenario_id': cenario.id,
         'a': {'id': fa.id, 'descricao': fa.flu_pro_descricao, 'produto': _codigo_produto(fa)},

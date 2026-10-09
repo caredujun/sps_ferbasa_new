@@ -1692,7 +1692,7 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
             messages.success(
                 request,
                 f'Fluxo montado no editor a partir da tabela ({total_equipamentos} equipamento(s)). '
-                'Abra "Visualizar / Editar Fluxo" pra conferir.'
+                'Abra "Visualizar Fluxo" pra conferir.'
             )
         else:
             messages.warning(
@@ -1705,7 +1705,7 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
         if obj.id:
             from django.utils.html import format_html
             return format_html(
-                _('<a href="/fluxo_producao/editor/{0}/" class="button" target="_blank">Visualizar / Editar Fluxo</a>'
+                _('<a href="/fluxo_producao/editor/{0}/" class="button" target="_blank">Visualizar Fluxo</a>'
                   '&nbsp;&nbsp;'
                   '<a href="{1}" class="button" '
                   'onclick="return confirm(\'Isso substitui o desenho atual do editor pelo que está cadastrado hoje na tabela filha (coluna/linha). Continuar?\');">'

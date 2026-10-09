@@ -2698,6 +2698,233 @@ def _cmp_executar(estado, dados, fluxo_b):
     return texto + "\n\n" + _equ_marcador('COMPARACAO_FLUXOS', tabela)
 
 
+# ---------------------------------------------------------------------
+# 🌟 NOVO: "Fluxos de Produção - Custo Variável Distribuição / Escada por Equipamento" (só consulta: não altera nada)
+#
+# Os mesmos dois gráficos do editor (Assistente IA > Análise do fluxo > "Distribuição de Custo Variável" e "Custo Por
+# Equipamento"), agora no chat: o usuário escolhe o produto (só aparecem os que têm fluxos, com a quantidade) e depois
+# o fluxo -- igual à ação "Comparar Fluxos de Produção", mas com um fluxo só. O cálculo fica em fluxos/graficos_custo.py
+# (o mesmo usado pelo editor); a tela desenha os gráficos a partir do marcador [GRAFICOS_CUSTO_FLUXO:...].
+# ---------------------------------------------------------------------
+def iniciar_fluxo_custo_variavel_fluxo(usuario):
+    perfil = getattr(usuario, 'perfilusuario', None)
+    if perfil is None or perfil.cenario_ativo_id is None:
+        return "Você ainda não tem um cenário ativo escolhido. Acesse a tela de Cenários e ative um antes."
+    cenario = TbCenarios.objects_real.filter(id=perfil.cenario_ativo_id).first()
+    if cenario is None:
+        return "O cenário que estava ativo pra você não existe mais."
+
+    if not _cmp_produtos_com_fluxos(cenario.id):
+        return f"O cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** não tem fluxos de produção."
+
+    estado = _get_estado(usuario)
+    estado.fluxo_ativo = FLUXO_PROCESSAR
+    estado.etapa_atual = 'cvf_produto'
+    estado.dados_coletados = {'cenario_id': cenario.id, 'cenario_nome': cenario.cen_nome}
+    estado.save()
+    return _cvf_texto_pedir_produto(estado.dados_coletados)
+
+
+def _cvf_texto_pedir_produto(dados):
+    produtos = _cmp_produtos_com_fluxos(dados['cenario_id'])
+    itens_marcador = "|".join(f"{p.pro_codigo}={qtd}" for p, qtd in produtos)
+    return ("De qual produto é o fluxo que você quer analisar? O número ao lado do código é a quantidade de fluxos do "
+            "produto (só aparecem produtos que têm fluxos).\n\n" + f"[LISTA_PRODUTOS:{itens_marcador}]")
+
+
+def _cvf_texto_lista_fluxos(dados, filtro='', aviso=''):
+    from fluxos.comparar_fluxos import listar_fluxos, LIMITE_LISTA_FLUXOS
+    itens, total = listar_fluxos(dados['cenario_id'], dados['produto_id'], filtro)
+    produto = dados.get('produto_codigo', '')
+    return (aviso + f"Escolha o fluxo do produto **{produto}** na lista abaixo (em ordem alfabética da descrição). "
+            "Clique no fluxo. Se a lista for grande, use o campo de filtro (palavras da descrição, por exemplo os códigos "
+            "de equipamento que ele usa) ou digite o id do fluxo. Se quiser desistir, digite \"cancelar\".\n\n"
+            + _equ_marcador('LISTA_FLUXOS', {
+                'titulo': f"Fluxos do produto {produto}", 'alvo': 'a', 'fluxos': itens, 'total': total,
+                'mostrando': len(itens), 'filtro': filtro.strip(), 'limite': LIMITE_LISTA_FLUXOS}))
+
+
+def _etapa_cvf_produto(estado, texto):
+    dados = estado.dados_coletados or {}
+    validos = {p.pro_codigo.lower(): p for p, _ in _cmp_produtos_com_fluxos(dados.get('cenario_id'))}
+    produto = validos.get(texto.strip().lower())
+    if produto is None:
+        return ("Não encontrei esse produto entre os que têm fluxos. Clique em um dos produtos da lista, ou digite o "
+                "código exatamente como aparece (ou \"cancelar\" pra desistir).")
+    estado.etapa_atual = 'cvf_fluxo'
+    estado.dados_coletados = {**dados, 'produto_id': produto.id, 'produto_codigo': produto.pro_codigo}
+    estado.save()
+    return _cvf_texto_lista_fluxos(estado.dados_coletados)
+
+
+def _etapa_cvf_fluxo(estado, texto):
+    """Clicar num fluxo da lista envia o id dele. Qualquer outro texto é um FILTRO (palavras da descrição)."""
+    from fluxos.models import TbFluxoProducao
+    from fluxos.comparar_fluxos import listar_fluxos
+    dados = estado.dados_coletados or {}
+    t = texto.strip()
+    if t.isdigit():
+        fluxo = TbFluxoProducao.objects.filter(id=int(t), tbcenarios_id=dados['cenario_id'],
+                                               flu_pro_produto_id=dados['produto_id']).first()
+        if fluxo is not None:
+            return _cvf_executar(estado, dados, fluxo)
+        return _cvf_texto_lista_fluxos(dados, aviso=f"Não há fluxo com o id **{t}** entre os fluxos desse produto. ")
+    _itens, total = listar_fluxos(dados['cenario_id'], dados['produto_id'], t)
+    if total == 0:
+        return _cvf_texto_lista_fluxos(dados, aviso=f"Não achei nenhum fluxo com **{t}**; mostrei a lista completa de novo. ")
+    return _cvf_texto_lista_fluxos(dados, filtro=t)
+
+
+def _cvf_executar(estado, dados, fluxo):
+    from django.db import transaction
+    from fluxos.graficos_custo import dados_distribuicao_custo_variavel, faixas_distribuicao, dados_custo_por_equipamento
+    moeda = _cmp_moeda(estado)
+    _encerrar_fluxo(estado)
+
+    # 1) Distribuição do custo variável médio entre os fluxos do produto (em faixas, já calculadas aqui).
+    try:
+        bruto = dados_distribuicao_custo_variavel(fluxo)
+    except Exception as erro:
+        bruto = {'erro': f"Não consegui calcular a distribuição: {erro}"}
+    if 'erro' in bruto:
+        distribuicao = {'erro': bruto['erro']}
+    elif not bruto['atualizado']:
+        distribuicao = {'aviso': bruto['mensagem']}
+    else:
+        distribuicao = {'total_fluxos': bruto['total_fluxos'],
+                        'faixas': faixas_distribuicao(bruto['valores'], bruto['fluxo_atual_id'])}
+
+    # 2) Escada (cascata) do custo por equipamento DENTRO do fluxo -- a procedure roda num savepoint, pra uma falha
+    # dela não derrubar a transação do chat.
+    try:
+        with transaction.atomic():
+            escada = {'equipamentos': dados_custo_por_equipamento(fluxo)}
+    except Exception as erro:
+        escada = {'erro': f"Não consegui calcular o custo por equipamento: {erro}"}
+
+    produto = getattr(fluxo.flu_pro_produto, 'pro_codigo', '') if fluxo.flu_pro_produto_id else ''
+    payload = {
+        'fluxo': {'id': fluxo.id, 'descricao': fluxo.flu_pro_descricao or '', 'produto': produto},
+        'moeda': moeda,
+        'distribuicao': distribuicao,
+        'escada': escada,
+    }
+    texto = (f"**Custo variável do fluxo id {fluxo.id}** (produto {produto})\n\n{fluxo.flu_pro_descricao or ''}")
+    return texto + "\n\n" + _equ_marcador('GRAFICOS_CUSTO_FLUXO', payload)
+
+
+# ---------------------------------------------------------------------
+# 🌟 NOVO: "Custo Ferbasa - Montar Fluxo de Produção pela Produção Mensal" (só consulta: não altera nada)
+#
+# O usuário marca um ou mais itens de produção (só aparecem os que têm Produção Mensal) e escolhe o período; o fluxo
+# é montado de trás pra frente a partir deles (custo_ferbasa/fluxo_producao_mensal.py) e o chat desenha em colunas,
+# como o editor, a partir do marcador [FLUXO_PRODUCAO_MENSAL:...].
+# ---------------------------------------------------------------------
+def iniciar_fluxo_montar_fluxo_producao_mensal(usuario):
+    from custo_ferbasa.fluxo_producao_mensal import itens_com_producao
+    perfil = getattr(usuario, 'perfilusuario', None)
+    empresa_id = perfil.empresa_efetiva_id() if perfil else None
+    if empresa_id is None:
+        return "Não consegui identificar a sua empresa. Escolha uma empresa ativa antes."
+    if not itens_com_producao(empresa_id):
+        return ("Não encontrei nenhum registro em Produção Mensal. Atualize a Produção Mensal (Custo Ferbasa) antes de "
+                "montar o fluxo.")
+    estado = _get_estado(usuario)
+    estado.fluxo_ativo = FLUXO_PROCESSAR
+    estado.etapa_atual = 'cfx_itens'
+    estado.dados_coletados = {'empresa_id': empresa_id}
+    estado.save()
+    return _cfx_texto_itens(estado.dados_coletados)
+
+
+def _cfx_texto_itens(dados, aviso=''):
+    from custo_ferbasa.fluxo_producao_mensal import itens_com_producao
+    itens = [{'id': i.id, 'codigo': i.ite_pro_codigo, 'status': 'escolha', 'motivo': i.ite_pro_descricao,
+              'marcado': False, 'titulo': f"{i.ite_pro_descricao} -- Produção Mensal de {minimo} a {maximo}"}
+             for i, minimo, maximo in itens_com_producao(dados['empresa_id'])]
+    return (aviso + "Quais **itens de produção** você quer ver? Marque um ou mais e confirme -- o fluxo é montado de trás "
+            "pra frente a partir deles, seguindo os itens de consumo que também são produzidos. Também dá pra digitar "
+            "os códigos separados por vírgula (ou \"cancelar\" pra desistir).\n\n"
+            + _equ_marcador('SELECAO_PRODUTOS', {'produtos': itens, 'rotulo_confirmar': 'Confirmar itens',
+                                                  'rotulo_marcar': 'Marcar todos'}))
+
+
+def _etapa_cfx_itens(estado, texto):
+    from custo_ferbasa.fluxo_producao_mensal import itens_com_producao
+    dados = estado.dados_coletados or {}
+    disponiveis = {i.id: (i, minimo, maximo) for i, minimo, maximo in itens_com_producao(dados['empresa_id'])}
+    entrada = _equ_json(texto)
+    ids = []
+    if entrada is not None and isinstance(entrada.get('produtos'), list):
+        for valor in entrada['produtos']:
+            try:
+                ids.append(int(valor))
+            except (TypeError, ValueError):
+                pass
+    else:       # códigos digitados
+        por_codigo = {i.ite_pro_codigo.upper(): i.id for i, _a, _b in disponiveis.values()}
+        desconhecidos = []
+        for parte in re.split(r'[,;\s]+', texto.strip()):
+            if not parte:
+                continue
+            if parte.upper() in por_codigo:
+                ids.append(por_codigo[parte.upper()])
+            else:
+                desconhecidos.append(parte)
+        if desconhecidos:
+            return _cfx_texto_itens(dados, aviso="Não encontrei com Produção Mensal: **" + ", ".join(desconhecidos) + "**.\n\n")
+    ids = [i for i in dict.fromkeys(ids) if i in disponiveis]
+    if not ids:
+        return _cfx_texto_itens(dados, aviso="Marque pelo menos um item.\n\n")
+    minimo = min(disponiveis[i][1] for i in ids)
+    maximo = max(disponiveis[i][2] for i in ids)
+    codigos = [disponiveis[i][0].ite_pro_codigo for i in ids]
+    estado.etapa_atual = 'cfx_periodo'
+    estado.dados_coletados = {**dados, 'itens_ids': ids, 'itens_codigos': codigos, 'ano_mes_minimo': minimo, 'ano_mes_maximo': maximo}
+    estado.save()
+    return (f"Itens: **{', '.join(codigos)}**. A Produção Mensal deles vai de **{minimo}** a **{maximo}**. Escolha o período "
+            "(ano/mês início e fim) e confirme abaixo, ou clica em \"Cancelar\".\n\n"
+            f"[FORM_PERIODO:{minimo}:{maximo}]")
+
+
+def _etapa_cfx_periodo(estado, texto):
+    from custo_ferbasa.fluxo_producao_mensal import carregar_grafo, FluxoProducaoMensalError
+    dados = estado.dados_coletados or {}
+    minimo, maximo = dados['ano_mes_minimo'], dados['ano_mes_maximo']
+    periodos = re.findall(r'\d{4}/\d{2}', texto or '')
+    if (texto or '').strip().lower() in ('sim', 's'):
+        periodos = [minimo, maximo]
+    if len(periodos) != 2:
+        return f"Não consegui entender esse período. Ajuste abaixo, ou clica em \"Cancelar\".\n\n[FORM_PERIODO:{minimo}:{maximo}]"
+    inicio, fim = periodos
+    if fim < inicio:
+        return (f"O fim ({fim}) não pode ser antes do início ({inicio}). Ajuste abaixo, ou clica em \"Cancelar\".\n\n"
+                f"[FORM_PERIODO:{inicio}:{fim}]")
+    try:
+        grafo = carregar_grafo(dados['empresa_id'], dados['itens_ids'], inicio, fim)
+    except FluxoProducaoMensalError as erro:
+        return f"{erro}\n\n[FORM_PERIODO:{inicio}:{fim}]"
+    _encerrar_fluxo(estado)
+
+    codigos = ', '.join(dados.get('itens_codigos', []))
+    r = grafo['resumo']
+    if not r['operacoes']:
+        return (f"Não há Produção Mensal de **{codigos}** entre **{inicio}** e **{fim}** -- não tenho o que desenhar. "
+                "Rode a ação de novo com outro período.")
+    texto_resposta = (f"**Fluxo de produção de {codigos}** -- Produção Mensal de **{inicio}** a **{fim}**\n\n"
+                      f"Operações (item × grupo de máquina): **{r['operacoes']}** · matérias-primas: **{r['materias_primas']}** · "
+                      f"ligações: **{r['ligacoes']}**")
+    if r['subprodutos']:
+        texto_resposta += f" · subprodutos/bonificações: **{r['subprodutos']}**"
+    if r['ciclos']:
+        texto_resposta += (f"\n\nA cadeia volta a um item que já estava no caminho em **{r['ciclos']}** ponto(s) (reciclagem): "
+                           "essas ligações aparecem tracejadas em vermelho e não são seguidas.")
+    if grafo['sem_producao']:
+        texto_resposta += ("\n\nSem produção no período (ficaram de fora): **" + ", ".join(grafo['sem_producao']) + "**.")
+    payload = {'titulo': f"Fluxo de produção de {codigos}", 'periodo': f"{inicio} a {fim}", **grafo}
+    return texto_resposta + "\n\n" + _equ_marcador('FLUXO_PRODUCAO_MENSAL', payload)
+
+
 def _etapa_fp_criar_fluxos_produto_escolher(estado, texto):
     dados = estado.dados_coletados or {}
     cenario_id = dados.get('cenario_id')
@@ -5968,6 +6195,12 @@ _HANDLERS_PROCESSAR = {
     'cmp_fluxo': _etapa_cmp_fluxo,
     'cmp_busca': _etapa_cmp_fluxo,        # nomes antigos: uma conversa em andamento antes da atualização continua funcionando
     'cmp_escolher': _etapa_cmp_fluxo,
+    # 🌟 NOVO: "Custo Variável Distribuição / Escada por Equipamento" (só consulta)
+    'cvf_produto': _etapa_cvf_produto,
+    'cvf_fluxo': _etapa_cvf_fluxo,
+    # 🌟 NOVO: "Custo Ferbasa - Montar Fluxo de Produção pela Produção Mensal" (só consulta)
+    'cfx_itens': _etapa_cfx_itens,
+    'cfx_periodo': _etapa_cfx_periodo,
 }
 
 

@@ -8,6 +8,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/l10n/pt.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <!-- 🌟 NOVO: exportar gráficos como imagem (o mesmo usado no editor de fluxo) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         body { font-family: "Roboto", Arial, sans-serif; background-color: #f8f9fa; margin: 0; padding: 20px; display: flex; justify-content: center; }
         .app-container { display: flex; gap: 20px; max-width: 1650px; width: 100%; margin: 40px auto; }
@@ -176,6 +178,58 @@
         .botao-sel { padding: 6px 12px; border-radius: 16px; border: 1px solid #417690; background: #fff; color: #417690; font-size: 13px; cursor: pointer; }
         .botao-sel:hover:not(:disabled) { background: #eef5f8; }
         .botao-sel:disabled { opacity: 0.5; cursor: default; }
+
+        /* 🌟 NOVO: "Montar Fluxo de Produção pela Produção Mensal" -- o fluxo em colunas, com tela cheia (zoom/arrastar). */
+        .fluxo-pm { margin-top: 8px; border: 1px solid #ddd; border-radius: 6px; background: #fff; font-size: 12px; }
+        .fpm-topo { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 8px 10px; border-bottom: 1px solid #eee; }
+        .fpm-topo .botao-opcao, .fpm-overlay-barra .botao-opcao { margin: 0 0 0 6px; }
+        .fpm-exportar, .fpm-btn-exportar { background-color: #3498db !important; color: #fff !important; border-color: #3498db !important; }
+        .fpm-chave { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; user-select: none; }
+        .fpm-legenda { display: flex; flex-wrap: wrap; gap: 14px; padding: 6px 10px; color: #555; font-size: 11px; border-bottom: 1px solid #f2f2f2; }
+        .fpm-leg { display: inline-flex; align-items: center; gap: 5px; }
+        .fpm-area { overflow: auto; max-height: 560px; padding: 4px; }
+        .fpm-area .fpm-svg { display: block; }
+        .fpm-overlay { position: fixed; inset: 0; z-index: 10000; background: #fff; display: none; flex-direction: column; }
+        .fpm-overlay-barra { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border-bottom: 1px solid #ddd; background: #f7f9fb; }
+        .fpm-overlay-titulo { flex: 1; color: #003366; }
+        .fpm-overlay-dica { padding: 4px 14px; font-size: 11px; color: #777; }
+        .fpm-overlay-area { flex: 1; min-height: 0; cursor: grab; overflow: hidden; }
+        .fpm-overlay-area.arrastando { cursor: grabbing; }
+
+        /* 🌟 NOVO: "Custo Variável Distribuição / Escada por Equipamento" -- os dois gráficos de custo do fluxo (iguais ao editor). */
+        .graficos-custo-fluxo { margin-top: 8px; display: flex; flex-direction: column; gap: 14px; font-size: 12px; color: #2b2b2b; }
+        .gc-bloco { border: 1px solid #ddd; border-radius: 6px; background: #fff; }
+        .gc-topo { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .gc-topo .gc-exportar { margin: 0; background-color: #3498db; color: #fff; border-color: #3498db; }
+        .gc-captura { padding: 10px 12px 12px; background: #fff; border-radius: 6px; }
+        .gc-titulo-img { font-weight: bold; font-size: 13px; color: #003366; }
+        .gc-sub { font-size: 12px; color: #555; margin: 2px 0 8px; word-wrap: break-word; overflow-wrap: break-word; }
+        .gc-resumo { margin: 0 0 10px; color: #555; line-height: 1.4; }
+        .gc-aviso { padding: 9px 11px; border-radius: 5px; font-weight: bold; }
+        .gc-aviso.gc-invalido { color: #721c24; background: #f8d7da; border: 1px solid #f5c6cb; }
+        .gc-aviso.gc-neutro { color: #0c5460; background: #d1ecf1; border: 1px solid #bee5eb; }
+        .gc-histograma { display: flex; align-items: flex-end; gap: 4px; height: 220px; border-bottom: 1px solid #ccc; border-left: 1px solid #ccc; padding: 10px 10px 0 10px; }
+        .gc-coluna { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+        .gc-contagem { font-size: 12px; color: #333; margin-bottom: 2px; }
+        .gc-barra-vertical { width: 100%; background-color: #3498db; border-radius: 3px 3px 0 0; }
+        .gc-barra-vertical.gc-atual { background-color: #2ecc71; }
+        .gc-barra-vertical.gc-clicavel { cursor: pointer; }
+        .gc-eixo-x { display: flex; gap: 4px; padding: 4px 10px 0 10px; }
+        .gc-eixo-x div { flex: 1; font-size: 10px; color: #666; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .gc-detalhe { margin-top: 14px; }
+        .gc-detalhe h4 { margin: 0 0 6px; font-size: 12px; color: #333; }
+        .gc-detalhe ul { margin: 0; padding-left: 20px; color: #444; line-height: 1.45; }
+        .gc-escada { display: flex; flex-direction: column; gap: 8px; }
+        .gc-linha { display: flex; flex-direction: column; gap: 2px; }
+        .gc-linha-barra, .gc-total { display: flex; align-items: center; gap: 8px; }
+        .gc-codigo { width: 110px; flex-shrink: 0; font-size: 12px; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: none; border: none; color: #3498db; text-decoration: underline; cursor: pointer; padding: 0; }
+        .gc-trilha { flex: 1; background-color: #f5f5f5; border-radius: 3px; height: 18px; position: relative; }
+        .gc-trilha-total { height: 20px; }
+        .gc-barra { position: absolute; top: 0; bottom: 0; border-radius: 3px; }
+        .gc-valor { width: 105px; flex-shrink: 0; font-size: 12px; color: #333; }
+        .gc-desc { margin-left: 118px; font-size: 11px; color: #666; }
+        .gc-total { margin-top: 10px; padding-top: 10px; border-top: 2px solid #333; }
+        .gc-rotulo-total { width: 110px; flex-shrink: 0; font-size: 12px; font-weight: bold; text-align: right; }
 
         /* 🌟 NOVO: "Comparar Fluxos de Produção" -- a comparação em COLUNAS PARALELAS (Fluxo A | Fluxo B | Variação B - A). */
         .comparacao-fluxos { margin-top: 8px; font-size: 12px; color: #2b2b2b; }
@@ -533,18 +587,19 @@
                 </select>
             </div>
 
-            {% if acoes_habilitadas.cf_atualizar_producao_ggf_mensal or acoes_habilitadas.cf_atualizar_consumo_especifico_custo_variavel %}
+            {% if acoes_habilitadas.cf_atualizar_producao_ggf_mensal or acoes_habilitadas.cf_atualizar_consumo_especifico_custo_variavel or acoes_habilitadas.cf_montar_fluxo_producao_mensal %}
             <div class="grupo-acoes-dropdown">
                 <label for="dropdown-custo-ferbasa">{% trans "Custo Ferbasa" %}</label>
                 <select id="dropdown-custo-ferbasa" class="select-acao-comum" onchange="dispararAcaoDropdown(this)">
                     <option value="">{% trans "Selecione uma ação..." %}</option>
                     {% if acoes_habilitadas.cf_atualizar_producao_ggf_mensal %}<option value="atualizar produção e ggf mensal">{% trans "Atualizar Produção e GGF Mensal" %}</option>{% endif %}
                     {% if acoes_habilitadas.cf_atualizar_consumo_especifico_custo_variavel %}<option value="atualizar consumo específico e custo variável">{% trans "Atualizar Consumo Específico e Custo Variável" %}</option>{% endif %}
+                    {% if acoes_habilitadas.cf_montar_fluxo_producao_mensal %}<option value="montar fluxo de produção pela produção mensal">{% trans "Montar Fluxo de Produção pela Produção Mensal" %}</option>{% endif %}
                 </select>
             </div>
             {% endif %}
 
-            {% if acoes_habilitadas.fp_criar_no_editor or acoes_habilitadas.fp_criar_fluxos_produto or acoes_habilitadas.fp_comparar_fluxos %}
+            {% if acoes_habilitadas.fp_criar_no_editor or acoes_habilitadas.fp_criar_fluxos_produto or acoes_habilitadas.fp_comparar_fluxos or acoes_habilitadas.fp_custo_variavel_fluxo %}
             <div class="grupo-acoes-dropdown">
                 <label for="dropdown-fluxos-producao">{% trans "Fluxos de Produção" %}</label>
                 <select id="dropdown-fluxos-producao" class="select-acao-comum" onchange="dispararAcaoDropdown(this)">
@@ -552,6 +607,7 @@
                     {% if acoes_habilitadas.fp_criar_no_editor %}<option value="criar fluxo no editor para os fluxos do cenário ativo">{% trans "Atualizar Visão do Fluxo de Produção" %}</option>{% endif %}
                     {% if acoes_habilitadas.fp_criar_fluxos_produto %}<option value="criar fluxos de produção dos produtos do cenário ativo">{% trans "Atualizar Fluxos de Produção por Produto" %}</option>{% endif %}
                     {% if acoes_habilitadas.fp_comparar_fluxos %}<option value="comparar fluxos de produção">{% trans "Comparar Fluxos de Produção" %}</option>{% endif %}
+                    {% if acoes_habilitadas.fp_custo_variavel_fluxo %}<option value="custo variável distribuição / escada por equipamento">{% trans "Custo Variável Distribuição / Escada por Equipamento" %}</option>{% endif %}
                 </select>
             </div>
             {% endif %}
@@ -709,6 +765,42 @@
         {% trans "Filtrar" as ROTULO_LF_FILTRAR %}
         {% trans "Filtrar por palavras da descrição" as ROTULO_LF_PLACEHOLDER %}
         {% trans "mostrando" as ROTULO_LF_MOSTRANDO %}
+        {% trans "Produção" as ROTULO_FPM_PRODUCAO %}
+        {% trans "Total consumido" as ROTULO_FPM_TOTAL %}
+        {% trans "Saída" as ROTULO_FPM_SAIDA %}
+        {% trans "vários grupos de máquina" as ROTULO_FPM_VARIOS %}
+        {% trans "matéria-prima" as ROTULO_FPM_MP %}
+        {% trans "subproduto/bonificação" as ROTULO_FPM_SUB %}
+        {% trans "subproduto" as ROTULO_FPM_SUB_CURTO %}
+        {% trans "Mostrar matérias-primas" as ROTULO_FPM_MOSTRAR_MP %}
+        {% trans "Tela cheia" as ROTULO_FPM_TELA_CHEIA %}
+        {% trans "Ajustar à tela" as ROTULO_FPM_AJUSTAR %}
+        {% trans "Fechar" as ROTULO_FPM_FECHAR %}
+        {% trans "Roda do mouse: zoom · arrastar: mover · Esc: fechar" as ROTULO_FPM_DICA_ZOOM %}
+        {% trans "consumo no período (total e por unidade produzida)" as ROTULO_FPM_LEG_CONSUMO %}
+        {% trans "produção de cada grupo de máquina" as ROTULO_FPM_LEG_PRODUTORES %}
+        {% trans "subproduto/bonificação" as ROTULO_FPM_LEG_SUB %}
+        {% trans "volta a um item já no caminho (não seguida)" as ROTULO_FPM_LEG_CICLO %}
+        {% trans "Distribuição de Custo Variável do Produto" as ROTULO_GC_DIST_TITULO %}
+        {% trans "Custo Por Equipamento" as ROTULO_GC_ESCADA_TITULO %}
+        {% trans "Exportar Gráfico" as ROTULO_GC_EXPORTAR %}
+        {% trans "Gerando…" as ROTULO_GC_GERANDO %}
+        {% trans "Erro ao gerar a imagem do gráfico." as ROTULO_GC_ERRO_EXPORTAR %}
+        {% trans "fluxo(s) de produção -- custo variável médio entre" as ROTULO_GC_FLUXOS_ENTRE %}
+        {% trans "e" as ROTULO_GC_E %}
+        {% trans "a" as ROTULO_GC_A %}
+        {% trans "entre" as ROTULO_GC_ENTRE %}
+        {% trans "fluxo(s)" as ROTULO_GC_FLUXOS %}
+        {% trans "A barra verde é a faixa do fluxo que você está analisando. Clique numa barra pra ver os fluxos dela." as ROTULO_GC_DICA_VERDE %}
+        {% trans "Clique numa barra pra ver os fluxos dela." as ROTULO_GC_DICA %}
+        {% trans "(inclui o fluxo em análise)" as ROTULO_GC_INCLUI_ATUAL %}
+        {% trans "Faixa" as ROTULO_GC_FAIXA %}
+        {% trans "os de maior custo variável" as ROTULO_GC_MAIORES %}
+        {% trans "Nenhum fluxo com custo variável calculado ainda." as ROTULO_GC_VAZIO_DIST %}
+        {% trans "Nenhuma contribuição de custo calculada pra esse fluxo." as ROTULO_GC_VAZIO_ESCADA %}
+        {% trans "equipamento(s) na cadeia, em cascata até o custo total. Clique no código pra ver a descrição." as ROTULO_GC_EQUIP_RESUMO %}
+        {% trans "TOTAL" as ROTULO_GC_TOTAL %}
+        {% trans "(sem descrição)" as ROTULO_GC_SEM_DESCRICAO %}
         {% trans "de" as ROTULO_LF_DE %}
         {% trans "fluxos" as ROTULO_LF_FLUXOS %}
         {% trans "Há mais fluxos do que os mostrados: use o filtro para refinar." as ROTULO_LF_MAIS %}
@@ -820,6 +912,42 @@
         var ROTULO_LF_FILTRAR = "{{ ROTULO_LF_FILTRAR|escapejs }}";
         var ROTULO_LF_PLACEHOLDER = "{{ ROTULO_LF_PLACEHOLDER|escapejs }}";
         var ROTULO_LF_MOSTRANDO = "{{ ROTULO_LF_MOSTRANDO|escapejs }}";
+        var ROTULO_FPM_PRODUCAO = "{{ ROTULO_FPM_PRODUCAO|escapejs }}";
+        var ROTULO_FPM_TOTAL = "{{ ROTULO_FPM_TOTAL|escapejs }}";
+        var ROTULO_FPM_SAIDA = "{{ ROTULO_FPM_SAIDA|escapejs }}";
+        var ROTULO_FPM_VARIOS = "{{ ROTULO_FPM_VARIOS|escapejs }}";
+        var ROTULO_FPM_MP = "{{ ROTULO_FPM_MP|escapejs }}";
+        var ROTULO_FPM_SUB = "{{ ROTULO_FPM_SUB|escapejs }}";
+        var ROTULO_FPM_SUB_CURTO = "{{ ROTULO_FPM_SUB_CURTO|escapejs }}";
+        var ROTULO_FPM_MOSTRAR_MP = "{{ ROTULO_FPM_MOSTRAR_MP|escapejs }}";
+        var ROTULO_FPM_TELA_CHEIA = "{{ ROTULO_FPM_TELA_CHEIA|escapejs }}";
+        var ROTULO_FPM_AJUSTAR = "{{ ROTULO_FPM_AJUSTAR|escapejs }}";
+        var ROTULO_FPM_FECHAR = "{{ ROTULO_FPM_FECHAR|escapejs }}";
+        var ROTULO_FPM_DICA_ZOOM = "{{ ROTULO_FPM_DICA_ZOOM|escapejs }}";
+        var ROTULO_FPM_LEG_CONSUMO = "{{ ROTULO_FPM_LEG_CONSUMO|escapejs }}";
+        var ROTULO_FPM_LEG_PRODUTORES = "{{ ROTULO_FPM_LEG_PRODUTORES|escapejs }}";
+        var ROTULO_FPM_LEG_SUB = "{{ ROTULO_FPM_LEG_SUB|escapejs }}";
+        var ROTULO_FPM_LEG_CICLO = "{{ ROTULO_FPM_LEG_CICLO|escapejs }}";
+        var ROTULO_GC_DIST_TITULO = "{{ ROTULO_GC_DIST_TITULO|escapejs }}";
+        var ROTULO_GC_ESCADA_TITULO = "{{ ROTULO_GC_ESCADA_TITULO|escapejs }}";
+        var ROTULO_GC_EXPORTAR = "{{ ROTULO_GC_EXPORTAR|escapejs }}";
+        var ROTULO_GC_GERANDO = "{{ ROTULO_GC_GERANDO|escapejs }}";
+        var ROTULO_GC_ERRO_EXPORTAR = "{{ ROTULO_GC_ERRO_EXPORTAR|escapejs }}";
+        var ROTULO_GC_FLUXOS_ENTRE = "{{ ROTULO_GC_FLUXOS_ENTRE|escapejs }}";
+        var ROTULO_GC_E = "{{ ROTULO_GC_E|escapejs }}";
+        var ROTULO_GC_A = "{{ ROTULO_GC_A|escapejs }}";
+        var ROTULO_GC_ENTRE = "{{ ROTULO_GC_ENTRE|escapejs }}";
+        var ROTULO_GC_FLUXOS = "{{ ROTULO_GC_FLUXOS|escapejs }}";
+        var ROTULO_GC_DICA_VERDE = "{{ ROTULO_GC_DICA_VERDE|escapejs }}";
+        var ROTULO_GC_DICA = "{{ ROTULO_GC_DICA|escapejs }}";
+        var ROTULO_GC_INCLUI_ATUAL = "{{ ROTULO_GC_INCLUI_ATUAL|escapejs }}";
+        var ROTULO_GC_FAIXA = "{{ ROTULO_GC_FAIXA|escapejs }}";
+        var ROTULO_GC_MAIORES = "{{ ROTULO_GC_MAIORES|escapejs }}";
+        var ROTULO_GC_VAZIO_DIST = "{{ ROTULO_GC_VAZIO_DIST|escapejs }}";
+        var ROTULO_GC_VAZIO_ESCADA = "{{ ROTULO_GC_VAZIO_ESCADA|escapejs }}";
+        var ROTULO_GC_EQUIP_RESUMO = "{{ ROTULO_GC_EQUIP_RESUMO|escapejs }}";
+        var ROTULO_GC_TOTAL = "{{ ROTULO_GC_TOTAL|escapejs }}";
+        var ROTULO_GC_SEM_DESCRICAO = "{{ ROTULO_GC_SEM_DESCRICAO|escapejs }}";
         var ROTULO_LF_DE = "{{ ROTULO_LF_DE|escapejs }}";
         var ROTULO_LF_FLUXOS = "{{ ROTULO_LF_FLUXOS|escapejs }}";
         var ROTULO_LF_MAIS = "{{ ROTULO_LF_MAIS|escapejs }}";
@@ -1341,6 +1469,482 @@
             html += '</div>';
             if (Number(d.total) > Number(d.mostrando)) html += '<div class="lf-rodape">' + escapeHtml(ROTULO_LF_MAIS) + '</div>';
             return html + '</div>';
+        }
+
+        // 🌟 NOVO: "Custo Variável Distribuição / Escada por Equipamento" -- os mesmos dois gráficos do editor (Assistente IA >
+        // Análise do fluxo), desenhados a partir do marcador [GRAFICOS_CUSTO_FLUXO:...]. As faixas da distribuição já vêm
+        // calculadas do servidor (mesma regra do editor), com os 10 fluxos de maior custo de cada faixa (aparecem ao clicar
+        // na barra). Cada gráfico tem o botão "Exportar Gráfico" (PNG), como no editor.
+        var _contadorGC = 0, _dadosGC = {};
+
+        function formatarValorGC(v) {
+            return Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function avisoGC(texto, classe) {
+            return '<div class="gc-aviso ' + (classe || '') + '">' + escapeHtml(texto) + '</div>';
+        }
+
+        // Título do gráfico com o botão "Exportar Gráfico" ao lado. O botão tem data-html2canvas-ignore: não sai na imagem.
+        function cabecalhoGC(titulo, idCaptura, prefixo, fluxoId, habilitar) {
+            return '<div class="gc-topo"><div class="gc-titulo-img">' + escapeHtml(titulo) + '</div>' +
+                (habilitar ? '<button type="button" class="botao-opcao gc-exportar" data-html2canvas-ignore="true" data-fluxo="' + Number(fluxoId) + '" onclick="exportarGraficoChat(\'' + idCaptura + '\', \'' + prefixo + '\', this)">' +
+                    escapeHtml(ROTULO_GC_EXPORTAR) + '</button>' : '') + '</div>';
+        }
+
+        function montarDistribuicaoGC(uid, d, moeda, fluxo) {
+            var idCaptura = uid + '-dist';
+            var corpo = '', temGrafico = false;
+            if (d.erro) corpo = avisoGC(d.erro, 'gc-invalido');
+            else if (d.aviso) corpo = avisoGC(d.aviso, 'gc-invalido');
+            else if (!d.faixas || !d.faixas.faixas || !d.faixas.faixas.length) corpo = avisoGC(ROTULO_GC_VAZIO_DIST, 'gc-neutro');
+            else {
+                temGrafico = true;
+                var f = d.faixas, faixas = f.faixas;
+                var temAtual = faixas.some(function(x) { return x.atual; });
+                var maior = Math.max.apply(null, faixas.map(function(x) { return x.qtd; }));
+                corpo += '<p class="gc-resumo">' + Number(d.total_fluxos) + ' ' + escapeHtml(ROTULO_GC_FLUXOS_ENTRE) + ' ' + escapeHtml(moeda) + formatarValorGC(f.minimo) +
+                    ' ' + escapeHtml(ROTULO_GC_E) + ' ' + escapeHtml(moeda) + formatarValorGC(f.maximo) + '. ' + escapeHtml(temAtual ? ROTULO_GC_DICA_VERDE : ROTULO_GC_DICA) + '</p>';
+                corpo += '<div class="gc-histograma">';
+                faixas.forEach(function(x, i) {
+                    var altura = maior > 0 ? (x.qtd / maior) * 100 : 0;
+                    var titulo = x.qtd + ' ' + ROTULO_GC_FLUXOS + ' ' + ROTULO_GC_ENTRE + ' ' + moeda + formatarValorGC(x.inicio) + ' ' + ROTULO_GC_E + ' ' + moeda + formatarValorGC(x.fim) +
+                        (x.atual ? ' ' + ROTULO_GC_INCLUI_ATUAL : '');
+                    corpo += '<div class="gc-coluna"><div class="gc-contagem">' + (x.qtd > 0 ? Number(x.qtd) : '') + '</div>' +
+                        '<div class="gc-barra-vertical' + (x.atual ? ' gc-atual' : '') + (x.qtd > 0 ? ' gc-clicavel' : '') + '" style="height: ' + altura + '%; min-height: ' + (x.qtd > 0 ? '2px' : '0') + ';"' +
+                        ' title="' + escapeAttr(titulo) + '"' + (x.qtd > 0 ? ' onclick="mostrarFaixaGC(\'' + uid + '\', ' + i + ')"' : '') + '></div></div>';
+                });
+                corpo += '</div><div class="gc-eixo-x">';
+                faixas.forEach(function(x) {
+                    corpo += '<div>' + escapeHtml(Number(x.inicio).toLocaleString('pt-BR', { maximumFractionDigits: 0 })) + '</div>';
+                });
+                corpo += '</div><div class="gc-detalhe" id="' + uid + '-dist-detalhe"></div>';
+            }
+            return '<div class="gc-bloco"><div class="gc-captura" id="' + idCaptura + '">' +
+                cabecalhoGC(ROTULO_GC_DIST_TITULO, idCaptura, 'distribuicao_custo_variavel', fluxo.id, temGrafico) +
+                '<div class="gc-sub">' + escapeHtml('id ' + fluxo.id + ' — ' + fluxo.descricao) + '</div>' + corpo + '</div></div>';
+        }
+
+        function mostrarFaixaGC(uid, i) {
+            var dados = _dadosGC[uid], destino = document.getElementById(uid + '-dist-detalhe');
+            if (!dados || !destino) return;
+            var x = dados.distribuicao.faixas.faixas[i], moeda = dados.moeda;
+            var html = '<h4>' + escapeHtml(ROTULO_GC_FAIXA) + ' ' + escapeHtml(moeda) + formatarValorGC(x.inicio) + ' ' + escapeHtml(ROTULO_GC_A) + ' ' + escapeHtml(moeda) + formatarValorGC(x.fim) +
+                ' — ' + Number(x.qtd) + ' ' + escapeHtml(ROTULO_GC_FLUXOS) + '; ' + escapeHtml(ROTULO_GC_MAIORES) + ' (' + x.fluxos.length + '):</h4><ul>';
+            x.fluxos.forEach(function(f) {
+                html += '<li>' + escapeHtml(f.descricao || ('Fluxo ' + f.fluxo_id)) + ' — ' + escapeHtml(moeda) + formatarValorGC(f.custo_variavel_medio) + '</li>';
+            });
+            destino.innerHTML = html + '</ul>';
+        }
+
+        function montarEscadaGC(uid, e, moeda, fluxo) {
+            var idCaptura = uid + '-escada';
+            var corpo = '', temGrafico = false;
+            if (e.erro) corpo = avisoGC(e.erro, 'gc-invalido');
+            else if (!e.equipamentos || !e.equipamentos.length) corpo = avisoGC(ROTULO_GC_VAZIO_ESCADA, 'gc-neutro');
+            else {
+                temGrafico = true;
+                var lista = e.equipamentos;
+                var total = lista.reduce(function(s, x) { return s + x.contribuicao_media; }, 0);
+                // Mesma escala do editor: do vale mais baixo ao pico mais alto que o ACUMULADO atinge (não só 0 até o total).
+                var acum = 0, pontos = [0];
+                lista.forEach(function(x) { acum += x.contribuicao_media; pontos.push(acum); });
+                var minE = Math.min.apply(null, [0].concat(pontos)), maxE = Math.max.apply(null, [0].concat(pontos));
+                var faixa = (maxE - minE) || 1;
+                var pct = function(v) { return ((v - minE) / faixa) * 100; };
+                corpo += '<p class="gc-resumo">' + lista.length + ' ' + escapeHtml(ROTULO_GC_EQUIP_RESUMO) + '</p><div class="gc-escada">';
+                acum = 0;
+                lista.forEach(function(x) {
+                    var antes = acum;
+                    acum += x.contribuicao_media;
+                    var ini = Math.min(pct(antes), pct(acum)), larg = Math.abs(pct(acum) - pct(antes));
+                    var cor = x.contribuicao_media < 0 ? '#e74c3c' : '#3498db';
+                    corpo += '<div class="gc-linha"><div class="gc-linha-barra">' +
+                        '<button type="button" class="gc-codigo" onclick="alternarDescricaoGC(this)">' + escapeHtml(x.codigo) + '</button>' +
+                        '<div class="gc-trilha"><div class="gc-barra" style="left: ' + ini + '%; width: ' + larg + '%; background-color: ' + cor + ';" title="' +
+                        escapeAttr(x.codigo + (x.descricao ? ' -- ' + x.descricao : '') + ' -- ' + moeda + formatarValorGC(x.contribuicao_media)) + '"></div></div>' +
+                        '<div class="gc-valor">' + escapeHtml(moeda) + formatarValorGC(x.contribuicao_media) + '</div></div>' +
+                        '<div class="gc-desc" style="display: none;">' + escapeHtml(x.descricao || ROTULO_GC_SEM_DESCRICAO) + '</div></div>';
+                });
+                var iniT = Math.min(pct(0), pct(total)), largT = Math.abs(pct(total) - pct(0));
+                corpo += '</div><div class="gc-total"><div class="gc-rotulo-total">' + escapeHtml(ROTULO_GC_TOTAL) + '</div>' +
+                    '<div class="gc-trilha gc-trilha-total"><div class="gc-barra" style="left: ' + iniT + '%; width: ' + largT + '%; background-color: #2ecc71;"></div></div>' +
+                    '<div class="gc-valor"><b>' + escapeHtml(moeda) + formatarValorGC(total) + '</b></div></div>';
+            }
+            return '<div class="gc-bloco"><div class="gc-captura" id="' + idCaptura + '">' +
+                cabecalhoGC(ROTULO_GC_ESCADA_TITULO, idCaptura, 'custo_por_equipamento', fluxo.id, temGrafico) +
+                '<div class="gc-sub">' + escapeHtml('id ' + fluxo.id + ' — ' + fluxo.descricao) + '</div>' + corpo + '</div></div>';
+        }
+
+        function alternarDescricaoGC(botao) {
+            var desc = botao.closest('.gc-linha').querySelector('.gc-desc');
+            if (desc) desc.style.display = desc.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function montarGraficosCustoFluxo(d) {
+            if (!d || !d.fluxo) return '';
+            var uid = 'gc' + (++_contadorGC);
+            _dadosGC[uid] = d;
+            var moeda = d.moeda || '';
+            return '<div class="graficos-custo-fluxo">' + montarDistribuicaoGC(uid, d.distribuicao || {}, moeda, d.fluxo) +
+                montarEscadaGC(uid, d.escada || {}, moeda, d.fluxo) + '</div>';
+        }
+
+        // Exporta a área do gráfico (título, descrição do fluxo e o gráfico -- inclusive a lista da faixa clicada, se houver)
+        // como PNG, com html2canvas -- o mesmo jeito do editor. O próprio botão não sai na imagem (data-html2canvas-ignore).
+        function exportarGraficoChat(idCaptura, prefixo, botao) {
+            var alvo = document.getElementById(idCaptura);
+            if (!alvo) return;
+            if (typeof html2canvas === 'undefined') { alert(ROTULO_GC_ERRO_EXPORTAR); return; }
+            var textoOriginal = botao.textContent;
+            botao.textContent = ROTULO_GC_GERANDO;
+            botao.disabled = true;
+            html2canvas(alvo, { backgroundColor: '#ffffff', scale: 2 }).then(function(canvas) {
+                var link = document.createElement('a');
+                link.href = canvas.toDataURL('image/png');
+                link.download = prefixo + '_fluxo_' + botao.getAttribute('data-fluxo') + '_' + new Date().toISOString().slice(0, 10) + '.png';
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+            }).catch(function(erro) {
+                console.error('[Exportar gráfico] Erro:', erro);
+                alert(ROTULO_GC_ERRO_EXPORTAR);
+            }).then(function() {
+                botao.textContent = textoOriginal;
+                botao.disabled = false;
+            });
+        }
+
+        // 🌟 NOVO: "Custo Ferbasa - Montar Fluxo de Produção pela Produção Mensal" -- o fluxo montado a partir da Produção
+        // Mensal, desenhado em COLUNAS como no editor (matérias-primas à esquerda, produto final à direita). O layout é feito
+        // aqui no navegador, pra chave "Mostrar matérias-primas" poder redesenhar na hora. Tem "Tela cheia" (zoom com a roda
+        // do mouse e arrastar) e "Exportar Gráfico" (PNG).
+        var _contadorFPM = 0, _dadosFPM = {}, _estadoFPM = {};
+        var FPM_LARG = 210, FPM_VAO_COL = 200, FPM_VAO_LIN = 28, FPM_MARGEM = 30;
+        var FPM_ALTURA = { op: 74, item: 58, mp: 58, sub: 58 };
+        var FPM_CORES = {
+            consumo: '#5b6b7a', producao: '#8e44ad', subproduto: '#e67e22', ciclo: '#e74c3c'
+        };
+
+        function numFPM(v, casas) {
+            return Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: casas });
+        }
+
+        function cortarFPM(texto, max) {
+            texto = String(texto || '');
+            return texto.length > max ? texto.slice(0, max - 1) + '…' : texto;
+        }
+
+        // Linhas de texto de cada caixa: [texto, negrito?]
+        function linhasNoFPM(n) {
+            if (n.tipo === 'op') return [[n.grupo_codigo + (n.grupo_nome ? ' — ' + n.grupo_nome : ''), true],
+                [n.item_codigo + ' — ' + n.item_descricao, false],
+                [ROTULO_FPM_PRODUCAO + ': ' + numFPM(n.producao, 2) + ' ' + n.unidade, false]];
+            if (n.tipo === 'item') return [[n.item_codigo + ' (' + ROTULO_FPM_VARIOS + ')', true], [n.item_descricao, false],
+                [ROTULO_FPM_PRODUCAO + ': ' + numFPM(n.producao, 2) + ' ' + n.unidade, false]];
+            if (n.tipo === 'mp') return [[n.item_codigo + ' — ' + ROTULO_FPM_MP, true], [n.item_descricao, false],
+                [ROTULO_FPM_TOTAL + ': ' + numFPM(n.total, 2) + ' ' + n.unidade, false]];
+            return [[n.item_codigo + ' — ' + ROTULO_FPM_SUB_CURTO, true], [n.item_descricao, false],
+                [ROTULO_FPM_SAIDA + ': ' + numFPM(n.total, 2) + ' ' + n.unidade, false]];
+        }
+
+        function layoutFPM(d, mostrarMP) {
+            var nos = (d.nos || []).filter(function(n) { return mostrarMP || n.tipo !== 'mp'; });
+            var porId = {};
+            nos.forEach(function(n) { porId[n.id] = n; });
+            var arestas = (d.arestas || []).filter(function(a) { return porId[a.de] && porId[a.para]; });
+            var paraLayout = arestas.filter(function(a) { return a.tipo !== 'ciclo' && a.de !== a.para; });
+
+            // Coluna = distância até a saída (produto final/subproduto fica à direita). Limitado pra nunca travar.
+            var dist = {};
+            nos.forEach(function(n) { dist[n.id] = 0; });
+            for (var rodada = 0; rodada <= nos.length; rodada++) {
+                var mudou = false;
+                paraLayout.forEach(function(a) {
+                    if (dist[a.de] < dist[a.para] + 1) { dist[a.de] = dist[a.para] + 1; mudou = true; }
+                });
+                if (!mudou) break;
+            }
+            var maxDist = 0;
+            nos.forEach(function(n) { if (dist[n.id] > maxDist) maxDist = dist[n.id]; });
+            var colunas = [];
+            for (var c = 0; c <= maxDist; c++) colunas.push([]);
+            var ordemTipo = { op: 0, item: 1, mp: 2, sub: 3 };
+            nos.slice().sort(function(a, b) {
+                return (ordemTipo[a.tipo] - ordemTipo[b.tipo]) || String(a.item_codigo).localeCompare(String(b.item_codigo));
+            }).forEach(function(n) { n._col = maxDist - dist[n.id]; colunas[n._col].push(n); });
+
+            // Ordem dentro de cada coluna: média da posição dos vizinhos (reduz cruzamentos), ida e volta, 2 vezes.
+            var pos = {};
+            var atualizaPos = function() { colunas.forEach(function(col) { col.forEach(function(n, i) { pos[n.id] = i; }); }); };
+            atualizaPos();
+            var vizinhos = function(n, entrada) {
+                return paraLayout.filter(function(a) { return entrada ? a.para === n.id : a.de === n.id; })
+                    .map(function(a) { return pos[entrada ? a.de : a.para]; });
+            };
+            var ordenar = function(col, entrada) {
+                col.forEach(function(n, i) {
+                    var v = vizinhos(n, entrada);
+                    n._bc = v.length ? v.reduce(function(s, x) { return s + x; }, 0) / v.length : i;
+                });
+                col.sort(function(a, b) { return a._bc - b._bc; });
+            };
+            for (var r = 0; r < 2; r++) {
+                for (var i1 = 1; i1 < colunas.length; i1++) { ordenar(colunas[i1], true); atualizaPos(); }
+                for (var i2 = colunas.length - 2; i2 >= 0; i2--) { ordenar(colunas[i2], false); atualizaPos(); }
+            }
+
+            // Posições
+            var alturaCol = colunas.map(function(col) {
+                return col.reduce(function(s, n) { return s + FPM_ALTURA[n.tipo] + FPM_VAO_LIN; }, -FPM_VAO_LIN);
+            });
+            var alturaMax = Math.max.apply(null, alturaCol.concat([0]));
+            colunas.forEach(function(col, ic) {
+                var y = FPM_MARGEM + 60 + (alturaMax - alturaCol[ic]) / 2;
+                col.forEach(function(n) {
+                    n._x = FPM_MARGEM + ic * (FPM_LARG + FPM_VAO_COL);
+                    n._y = y;
+                    n._h = FPM_ALTURA[n.tipo];
+                    y += n._h + FPM_VAO_LIN;
+                });
+            });
+
+            // Pontos de encaixe espalhados na altura da caixa (entradas à esquerda, saídas à direita)
+            var encaixe = function(lista, lado) {
+                var grupos = {};
+                lista.forEach(function(a) { var k = lado === 'saida' ? a.de : a.para; (grupos[k] = grupos[k] || []).push(a); });
+                Object.keys(grupos).forEach(function(k) {
+                    var g = grupos[k], n = porId[k];
+                    // saídas na ordem vertical dos destinos; entradas na ordem vertical das origens (evita ligações cruzadas)
+                    var outro = function(a) { return porId[lado === 'saida' ? a.para : a.de]; };
+                    g.sort(function(a, b) { return outro(a)._y - outro(b)._y; });
+                    g.forEach(function(a, i) { a[lado === 'saida' ? '_y1' : '_y2'] = n._y + n._h * (i + 1) / (g.length + 1); });
+                });
+            };
+            var frente = arestas.filter(function(a) { return a.tipo !== 'ciclo' && a.de !== a.para; });
+            encaixe(frente, 'saida');
+            encaixe(frente, 'entrada');
+
+            var largura = FPM_MARGEM * 2 + colunas.length * FPM_LARG + Math.max(0, colunas.length - 1) * FPM_VAO_COL;
+            var altura = FPM_MARGEM * 2 + 60 + alturaMax + 70;
+            return { nos: nos, arestas: arestas, porId: porId, largura: largura, altura: altura };
+        }
+
+        function svgFPM(d, mostrarMP) {
+            var L = layoutFPM(d, mostrarMP);
+            var s = '<svg xmlns="http://www.w3.org/2000/svg" class="fpm-svg" width="' + L.largura + '" height="' + L.altura + '" viewBox="0 0 ' + L.largura + ' ' + L.altura +
+                '" font-family="Arial, Helvetica, sans-serif"><rect x="0" y="0" width="' + L.largura + '" height="' + L.altura + '" fill="#ffffff"/><defs>';
+            Object.keys(FPM_CORES).forEach(function(t) {
+                s += '<marker id="fpm-seta-' + t + '" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">' +
+                    '<path d="M0,0 L10,5 L0,10 z" fill="' + FPM_CORES[t] + '"/></marker>';
+            });
+            s += '</defs><text x="' + FPM_MARGEM + '" y="' + (FPM_MARGEM + 4) + '" font-size="13" font-weight="bold" fill="#003366">' +
+                escapeHtml((d.titulo || '') + (d.periodo ? ' — ' + d.periodo : '')) + '</text>';
+
+            var caixasRotulo = [];
+            L.arestas.forEach(function(a) {
+                var o = L.porId[a.de], p = L.porId[a.para], cor = FPM_CORES[a.tipo] || '#5b6b7a';
+                var tracejado = (a.tipo === 'ciclo' || a.tipo === 'producao') ? ' stroke-dasharray="6 4"' : '';
+                var caminho, lx, ly;
+                if (a.de === a.para) {                      // consome a si mesmo
+                    var x0 = o._x + FPM_LARG - 40, y0 = o._y;
+                    caminho = 'M' + x0 + ',' + y0 + ' C' + (x0 - 10) + ',' + (y0 - 45) + ' ' + (x0 + 50) + ',' + (y0 - 45) + ' ' + (x0 + 30) + ',' + y0;
+                    lx = x0 + 10; ly = y0 - 40;
+                } else if (a.tipo === 'ciclo' || p._col <= o._col) {
+                    // Volta pra trás: arco por FORA das duas caixas -- por cima se o destino está acima da origem, senão por
+                    // baixo -- pra não atravessar as caixas do meio.
+                    var porCima = (p._y + p._h / 2) <= (o._y + o._h / 2);
+                    var xa = o._x + FPM_LARG / 2, xb = p._x + FPM_LARG / 2;
+                    var ya = porCima ? o._y : o._y + o._h, yb = porCima ? p._y : p._y + p._h;
+                    var extremo = porCima ? Math.min(ya, yb) - 45 : Math.max(ya, yb) + 45;
+                    caminho = 'M' + xa + ',' + ya + ' C' + xa + ',' + extremo + ' ' + xb + ',' + extremo + ' ' + xb + ',' + yb;
+                    lx = (xa + xb) / 2; ly = extremo + (porCima ? 8 : -8);
+                } else {
+                    var x1 = o._x + FPM_LARG, y1 = a._y1, x2 = p._x, y2 = a._y2, meio = (x1 + x2) / 2;
+                    caminho = 'M' + x1 + ',' + y1 + ' C' + meio + ',' + y1 + ' ' + meio + ',' + y2 + ' ' + (x2 - 2) + ',' + y2;
+                    lx = meio; ly = (y1 + y2) / 2;
+                }
+                var dica = (o.item_codigo || '') + ' → ' + (p.item_codigo || '') + ': ' + numFPM(a.qtd, 2) + ' ' + a.unidade +
+                    (a.especifico !== null && a.especifico !== undefined ? ' (' + numFPM(a.especifico, 4) + ' ' + a.unidade_esp + ')' : '');
+                s += '<path d="' + caminho + '" fill="none" stroke="' + cor + '" stroke-width="1.6"' + tracejado +
+                    ' marker-end="url(#fpm-seta-' + a.tipo + ')"><title>' + escapeHtml(dica) + '</title></path>';
+                var l1 = numFPM(a.qtd, 2) + ' ' + a.unidade;
+                var l2 = (a.especifico !== null && a.especifico !== undefined) ? numFPM(a.especifico, 4) + ' ' + a.unidade_esp : '';
+                var larg = Math.max(l1.length, l2.length) * 6.1 + 10, alt = l2 ? 30 : 17;
+                caixasRotulo.push({ x: lx, y: ly - alt / 2, w: larg, h: alt, cor: cor, l1: l1, l2: l2 });
+            });
+            // Rótulos que se sobrepõem (na mesma faixa horizontal) são empurrados pra baixo, um a um.
+            caixasRotulo.sort(function(a, b) { return a.y - b.y; });
+            caixasRotulo.forEach(function(c, i) {
+                for (var j = 0; j < i; j++) {
+                    var o = caixasRotulo[j];
+                    var cruzaX = Math.abs(c.x - o.x) < (c.w + o.w) / 2 + 4;
+                    if (cruzaX && c.y < o.y + o.h + 3 && c.y + c.h > o.y - 3) c.y = o.y + o.h + 3;
+                }
+            });
+            var rotulos = '';
+            caixasRotulo.forEach(function(c) {
+                rotulos += '<g><rect x="' + (c.x - c.w / 2) + '" y="' + c.y + '" width="' + c.w + '" height="' + c.h + '" rx="3" fill="#ffffff" fill-opacity="0.94" stroke="' + c.cor + '" stroke-width="0.6"/>' +
+                    '<text x="' + c.x + '" y="' + (c.y + 12) + '" font-size="11" text-anchor="middle" fill="#222">' + escapeHtml(c.l1) + '</text>' +
+                    (c.l2 ? '<text x="' + c.x + '" y="' + (c.y + 25) + '" font-size="10" text-anchor="middle" fill="#666">' + escapeHtml(c.l2) + '</text>' : '') + '</g>';
+            });
+
+            L.nos.forEach(function(n) {
+                var estilo = { op: ['#eaf3fb', '#3498db'], item: ['#f4ecf7', '#8e44ad'], mp: ['#f2f3f4', '#95a5a6'], sub: ['#fdf2e9', '#e67e22'] }[n.tipo];
+                if (n.tipo === 'op' && n.final) estilo = ['#e8f8ef', '#27ae60'];
+                var linhas = linhasNoFPM(n);
+                s += '<g><title>' + escapeHtml(linhas.map(function(l) { return l[0]; }).join('\n')) + '</title>' +
+                    '<rect x="' + n._x + '" y="' + n._y + '" width="' + FPM_LARG + '" height="' + n._h + '" rx="' + (n.tipo === 'op' ? 6 : 14) +
+                    '" fill="' + estilo[0] + '" stroke="' + estilo[1] + '" stroke-width="' + (n.final ? 2.5 : 1.4) + '"/>';
+                var passo = (n._h - 10) / linhas.length;
+                linhas.forEach(function(l, i) {
+                    s += '<text x="' + (n._x + 9) + '" y="' + (n._y + 7 + passo * (i + 0.72)) + '" font-size="' + (l[1] ? 12 : 11) + '"' +
+                        (l[1] ? ' font-weight="bold"' : '') + ' fill="' + (l[1] ? '#1d2f40' : '#3d4b57') + '">' + escapeHtml(cortarFPM(l[0], l[1] ? 26 : 32)) + '</text>';
+                });
+                s += '</g>';
+            });
+            return s + rotulos + '</svg>';
+        }
+
+        function montarFluxoProducaoMensal(d) {
+            if (!d || !d.nos) return '';
+            var uid = 'fpm' + (++_contadorFPM);
+            _dadosFPM[uid] = d;
+            _estadoFPM[uid] = { mostrarMP: true };
+            var legenda = function(cor, texto, tracejado) {
+                return '<span class="fpm-leg"><svg width="26" height="10"><line x1="0" y1="5" x2="26" y2="5" stroke="' + cor + '" stroke-width="2"' +
+                    (tracejado ? ' stroke-dasharray="5 3"' : '') + '/></svg>' + escapeHtml(texto) + '</span>';
+            };
+            return '<div class="fluxo-pm" id="' + uid + '"><div class="fpm-topo">' +
+                '<label class="fpm-chave"><input type="checkbox" checked onchange="alternarMateriasPrimasFPM(\'' + uid + '\', this.checked)"> ' + escapeHtml(ROTULO_FPM_MOSTRAR_MP) + '</label>' +
+                '<span class="fpm-botoes"><button type="button" class="botao-opcao" onclick="abrirTelaCheiaFPM(\'' + uid + '\')">' + escapeHtml(ROTULO_FPM_TELA_CHEIA) + '</button>' +
+                '<button type="button" class="botao-opcao fpm-exportar" onclick="exportarFluxoFPM(\'' + uid + '\', this)">' + escapeHtml(ROTULO_GC_EXPORTAR) + '</button></span></div>' +
+                '<div class="fpm-legenda">' + legenda(FPM_CORES.consumo, ROTULO_FPM_LEG_CONSUMO) + legenda(FPM_CORES.producao, ROTULO_FPM_LEG_PRODUTORES, true) +
+                legenda(FPM_CORES.subproduto, ROTULO_FPM_LEG_SUB) + legenda(FPM_CORES.ciclo, ROTULO_FPM_LEG_CICLO, true) + '</div>' +
+                '<div class="fpm-area" id="' + uid + '-area">' + svgFPM(d, true) + '</div></div>';
+        }
+
+        function alternarMateriasPrimasFPM(uid, mostrar) {
+            _estadoFPM[uid].mostrarMP = mostrar;
+            var area = document.getElementById(uid + '-area');
+            if (area) area.innerHTML = svgFPM(_dadosFPM[uid], mostrar);
+            var sobre = document.getElementById('fpm-overlay');
+            if (sobre && sobre.getAttribute('data-uid') === uid) {
+                sobre.querySelector('.fpm-overlay-chave input').checked = mostrar;
+                desenharTelaCheiaFPM(uid);
+            }
+        }
+
+        // ---- Tela cheia: zoom com a roda do mouse, arrastar pra mover, Esc ou "Fechar" pra sair.
+        function abrirTelaCheiaFPM(uid) {
+            var sobre = document.getElementById('fpm-overlay');
+            if (!sobre) {
+                sobre = document.createElement('div');
+                sobre.id = 'fpm-overlay';
+                sobre.className = 'fpm-overlay';
+                sobre.innerHTML = '<div class="fpm-overlay-barra"><b class="fpm-overlay-titulo"></b>' +
+                    '<label class="fpm-chave fpm-overlay-chave"><input type="checkbox"> ' + escapeHtml(ROTULO_FPM_MOSTRAR_MP) + '</label>' +
+                    '<button type="button" class="botao-opcao fpm-btn-ajustar">' + escapeHtml(ROTULO_FPM_AJUSTAR) + '</button>' +
+                    '<button type="button" class="botao-opcao fpm-btn-exportar">' + escapeHtml(ROTULO_GC_EXPORTAR) + '</button>' +
+                    '<button type="button" class="botao-opcao fpm-btn-fechar">' + escapeHtml(ROTULO_FPM_FECHAR) + '</button></div>' +
+                    '<div class="fpm-overlay-dica">' + escapeHtml(ROTULO_FPM_DICA_ZOOM) + '</div><div class="fpm-overlay-area"></div>';
+                document.body.appendChild(sobre);
+                sobre.querySelector('.fpm-btn-fechar').onclick = fecharTelaCheiaFPM;
+                sobre.querySelector('.fpm-btn-ajustar').onclick = function() { desenharTelaCheiaFPM(sobre.getAttribute('data-uid')); };
+                sobre.querySelector('.fpm-btn-exportar').onclick = function() { exportarFluxoFPM(sobre.getAttribute('data-uid'), this); };
+                sobre.querySelector('.fpm-overlay-chave input').onchange = function() {
+                    var u = sobre.getAttribute('data-uid');
+                    var caixa = document.querySelector('#' + u + ' .fpm-topo .fpm-chave input');
+                    if (caixa) caixa.checked = this.checked;
+                    alternarMateriasPrimasFPM(u, this.checked);
+                };
+                document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && sobre.style.display === 'flex') fecharTelaCheiaFPM(); });
+                var area = sobre.querySelector('.fpm-overlay-area');
+                var arrasto = null;
+                area.addEventListener('wheel', function(e) {
+                    var svg = area.querySelector('svg'); if (!svg) return;
+                    e.preventDefault();
+                    var vb = svg.viewBox.baseVal, ret = svg.getBoundingClientRect();
+                    var fator = e.deltaY > 0 ? 1.15 : 1 / 1.15;
+                    var px = vb.x + (e.clientX - ret.left) / ret.width * vb.width, py = vb.y + (e.clientY - ret.top) / ret.height * vb.height;
+                    vb.x = px - (px - vb.x) * fator; vb.y = py - (py - vb.y) * fator; vb.width *= fator; vb.height *= fator;
+                }, { passive: false });
+                area.addEventListener('mousedown', function(e) {
+                    var svg = area.querySelector('svg'); if (!svg) return;
+                    arrasto = { x: e.clientX, y: e.clientY, vx: svg.viewBox.baseVal.x, vy: svg.viewBox.baseVal.y };
+                    area.classList.add('arrastando');
+                });
+                window.addEventListener('mousemove', function(e) {
+                    if (!arrasto) return;
+                    var svg = area.querySelector('svg'); if (!svg) return;
+                    var vb = svg.viewBox.baseVal, ret = svg.getBoundingClientRect();
+                    vb.x = arrasto.vx - (e.clientX - arrasto.x) * vb.width / ret.width;
+                    vb.y = arrasto.vy - (e.clientY - arrasto.y) * vb.height / ret.height;
+                });
+                window.addEventListener('mouseup', function() { arrasto = null; area.classList.remove('arrastando'); });
+            }
+            sobre.setAttribute('data-uid', uid);
+            sobre.querySelector('.fpm-overlay-titulo').textContent = (_dadosFPM[uid].titulo || '') + ' — ' + (_dadosFPM[uid].periodo || '');
+            sobre.querySelector('.fpm-overlay-chave input').checked = _estadoFPM[uid].mostrarMP;
+            sobre.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+            desenharTelaCheiaFPM(uid);
+        }
+
+        function desenharTelaCheiaFPM(uid) {
+            var area = document.querySelector('#fpm-overlay .fpm-overlay-area');
+            area.innerHTML = svgFPM(_dadosFPM[uid], _estadoFPM[uid].mostrarMP);
+            var svg = area.querySelector('svg');
+            svg.setAttribute('width', '100%');
+            svg.setAttribute('height', '100%');
+            svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+        }
+
+        function fecharTelaCheiaFPM() {
+            var sobre = document.getElementById('fpm-overlay');
+            if (sobre) sobre.style.display = 'none';
+            document.body.style.overflow = '';
+        }
+
+        // Exporta o desenho inteiro (como está: com ou sem matérias-primas) como PNG, desenhando o SVG num canvas.
+        function exportarFluxoFPM(uid, botao) {
+            var d = _dadosFPM[uid];
+            if (!d) return;
+            var svgTexto = svgFPM(d, _estadoFPM[uid].mostrarMP);
+            var m = svgTexto.match(/width="(\d+(?:\.\d+)?)" height="(\d+(?:\.\d+)?)"/);
+            var largura = Number(m[1]), altura = Number(m[2]);
+            var escala = Math.min(2, 8000 / Math.max(largura, altura));      // limite de tamanho de imagem dos navegadores
+            var textoOriginal = botao.textContent;
+            botao.textContent = ROTULO_GC_GERANDO;
+            botao.disabled = true;
+            var restaurar = function() { botao.textContent = textoOriginal; botao.disabled = false; };
+            var url = URL.createObjectURL(new Blob([svgTexto], { type: 'image/svg+xml;charset=utf-8' }));
+            var img = new Image();
+            img.onload = function() {
+                try {
+                    var canvas = document.createElement('canvas');
+                    canvas.width = Math.round(largura * escala);
+                    canvas.height = Math.round(altura * escala);
+                    var ctx = canvas.getContext('2d');
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    var link = document.createElement('a');
+                    link.href = canvas.toDataURL('image/png');
+                    link.download = 'fluxo_producao_mensal_' + String(d.periodo || '').replace(/[^0-9]+/g, '_') + '_' + new Date().toISOString().slice(0, 10) + '.png';
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
+                } catch (erro) {
+                    console.error('[Exportar fluxo] Erro:', erro);
+                    alert(ROTULO_GC_ERRO_EXPORTAR);
+                } finally {
+                    URL.revokeObjectURL(url);
+                    restaurar();
+                }
+            };
+            img.onerror = function() { URL.revokeObjectURL(url); restaurar(); alert(ROTULO_GC_ERRO_EXPORTAR); };
+            img.src = url;
         }
 
         function escolherFluxoLista(botao) {
@@ -2541,9 +3145,11 @@
             var formConsumosHtml = data.form_consumos ? montarFormConsumos(data.form_consumos) : '';
             var comparacaoFluxosHtml = data.comparacao_fluxos ? montarComparacaoFluxos(data.comparacao_fluxos) : '';
             var listaFluxosHtml = data.lista_fluxos ? montarListaFluxos(data.lista_fluxos) : '';
+            var graficosCustoFluxoHtml = data.graficos_custo_fluxo ? montarGraficosCustoFluxo(data.graficos_custo_fluxo) : '';
+            var fluxoProducaoMensalHtml = data.fluxo_producao_mensal ? montarFluxoProducaoMensal(data.fluxo_producao_mensal) : '';
 
             var textoLimpoHTML = processarRespostaCompleta(data.resposta || data.resposta_ia);
-            var mensagemAgente = adicionarMensagemAoChat('<div class="chat-box-p" style="color: #2b2b2b;"><strong style="color: #0056b3;">' + ROTULO_AGENTE + ':</strong><div style="margin-top: 5px;">' + textoLimpoHTML + '</div>' + fontesHtml + opcoesHtml + formPeriodoHtml + listaProdutosHtml + listaEquipamentosHtml + formEquipamentoHtml + formOrdensHtml + selecaoProdutosHtml + botoesEscolhaHtml + formConsumosHtml + comparacaoFluxosHtml + listaFluxosHtml + '</div>');
+            var mensagemAgente = adicionarMensagemAoChat('<div class="chat-box-p" style="color: #2b2b2b;"><strong style="color: #0056b3;">' + ROTULO_AGENTE + ':</strong><div style="margin-top: 5px;">' + textoLimpoHTML + '</div>' + fontesHtml + opcoesHtml + formPeriodoHtml + listaProdutosHtml + listaEquipamentosHtml + formEquipamentoHtml + formOrdensHtml + selecaoProdutosHtml + botoesEscolhaHtml + formConsumosHtml + comparacaoFluxosHtml + listaFluxosHtml + graficosCustoFluxoHtml + fluxoProducaoMensalHtml + '</div>');
             desenharGraficosPendentes();
             posicionarRolagemResposta(mensagemAgente);
         }
@@ -2822,13 +3428,25 @@
                     adicionarMensagemAoChat('<div class="chat-box-p"><strong>' + ROTULO_VOCE_NOME + ':</strong> ' + escapeHtml(item.comando_usuario) + '</div>', true);
                 }
                 if (item.resposta_ia) {
-                    var textoLimpoHTML = processarRespostaCompleta(String(item.resposta_ia).replace(/\n*\[LISTA_EQUIPAMENTOS\]/g, '').replace(/\n*\[(FORM_(EQUIPAMENTO|ORDENS|CONSUMOS)|SELECAO_PRODUTOS|BOTOES|COMPARACAO_FLUXOS|LISTA_FLUXOS):[^\]]*\]/g, ''));
+                    var textoLimpoHTML = processarRespostaCompleta(String(item.resposta_ia).replace(/\n*\[LISTA_EQUIPAMENTOS\]/g, '').replace(/\n*\[(FORM_(EQUIPAMENTO|ORDENS|CONSUMOS)|SELECAO_PRODUTOS|BOTOES|COMPARACAO_FLUXOS|LISTA_FLUXOS|GRAFICOS_CUSTO_FLUXO|FLUXO_PRODUCAO_MENSAL):[^\]]*\]/g, ''));
                     // A comparação de fluxos é RESULTADO (não formulário): é redesenhada a partir do marcador guardado no histórico.
                     var comparacaoHistoricoHtml = '';
                     var mComparacao = String(item.resposta_ia).match(/\[COMPARACAO_FLUXOS:([A-Za-z0-9_=-]*)\]/);
                     if (mComparacao) {
                         var dadosComparacao = decodificarMarcadorBase64(mComparacao[1]);
                         if (dadosComparacao) comparacaoHistoricoHtml = montarComparacaoFluxos(dadosComparacao);
+                    }
+                    // 🌟 NOVO: os gráficos de custo do fluxo também são RESULTADO: redesenhados a partir do marcador.
+                    var mGraficos = String(item.resposta_ia).match(/\[GRAFICOS_CUSTO_FLUXO:([A-Za-z0-9_=-]*)\]/);
+                    if (mGraficos) {
+                        var dadosGraficos = decodificarMarcadorBase64(mGraficos[1]);
+                        if (dadosGraficos) comparacaoHistoricoHtml += montarGraficosCustoFluxo(dadosGraficos);
+                    }
+                    // 🌟 NOVO: o fluxo montado pela Produção Mensal também é RESULTADO: redesenhado a partir do marcador.
+                    var mFpm = String(item.resposta_ia).match(/\[FLUXO_PRODUCAO_MENSAL:([A-Za-z0-9_=-]*)\]/);
+                    if (mFpm) {
+                        var dadosFpm = decodificarMarcadorBase64(mFpm[1]);
+                        if (dadosFpm) comparacaoHistoricoHtml += montarFluxoProducaoMensal(dadosFpm);
                     }
                     adicionarMensagemAoChat('<div class="chat-box-p" style="color: #2b2b2b;"><strong style="color: #0056b3;">' + ROTULO_AGENTE + ':</strong><div style="margin-top: 5px;">' + textoLimpoHTML + '</div>' + comparacaoHistoricoHtml + '</div>');
                 }

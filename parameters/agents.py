@@ -25,6 +25,8 @@ from .fluxo_criar_cenario import (
     iniciar_criar_fluxo_no_editor_cenario_ativo,
     iniciar_fluxo_criar_fluxos_produto,
     iniciar_fluxo_comparar_fluxos,
+    iniciar_fluxo_custo_variavel_fluxo,
+    iniciar_fluxo_montar_fluxo_producao_mensal,
     iniciar_fluxo_criar_equipamento,
     iniciar_fluxo_criar_ordem,
     _processar_planilha_indicador, _processar_planilha_cambio,
@@ -260,6 +262,15 @@ def _detectar_intencao_comparar_fluxos(mensagem):
     return bool(re.search(r'\bcompar\w*\b.*\bfluxos?\b|\bfluxos?\b.*\bcompar\w*\b', texto, re.IGNORECASE))
 
 
+# 🌟 NOVO: "Fluxos de Produção - Custo Variável Distribuição / Escada por Equipamento" (só consulta). Exige "custo
+# variável" + "distribuição" ou "escada" + "equipamento" -- não confunde com "atualizar consumo específico e custo
+# variável" (Custo Ferbasa), que não tem nenhuma das duas combinações.
+def _detectar_intencao_custo_variavel_fluxo(mensagem):
+    texto = mensagem or ""
+    return bool(re.search(r'custo\s+vari[aá]vel.*distribui[cç][aã]o|distribui[cç][aã]o.*custo\s+vari[aá]vel|'
+                          r'escada.*equipamento', texto, re.IGNORECASE))
+
+
 def _detectar_intencao_criar_fluxos_produto(mensagem):
     texto = mensagem or ""
     return bool(re.search(r'(cri[ae]r?|ger[ae]r?).*fluxo.*produ[cç][aã]o', texto, re.IGNORECASE))
@@ -289,6 +300,12 @@ def _detectar_intencao_criar_equipamento(mensagem):
 # 🌟 NOVO: "atualizar produção e ggf mensal" (app custo_ferbasa) --
 # aceita tanto o texto exato do menu quanto variações naturais (produção
 # e ggf mencionados juntos, em qualquer ordem, ou o nome da categoria).
+# 🌟 NOVO: "Custo Ferbasa - Montar Fluxo de Produção pela Produção Mensal" (só consulta). Exige "montar" + "fluxo" +
+# "produção mensal" -- checado ANTES dos outros detectores de Custo Ferbasa.
+def _detectar_intencao_montar_fluxo_producao_mensal(mensagem):
+    return bool(re.search(r'mont\w*.*fluxo.*produ[cç][aã]o\s+mensal', mensagem or "", re.IGNORECASE))
+
+
 PADRAO_CUSTO_FERBASA = re.compile(
     r"(produ[cç][aã]o.{0,20}ggf|ggf.{0,20}produ[cç][aã]o|custo ferbasa)", re.IGNORECASE
 )
@@ -397,13 +414,19 @@ def _bloqueio_consistencia_limpeza(usuario, ciclo=False):
         from itertools import islice
         from produtos.models import TbProdutos
         from equipamentos.models import TbEquipamentos
+        # Só os produtos ATIVOS (pro_ativo=True) entram na verificação: produto inativo não bloqueia a limpeza.
         produtos_nao = list(islice(
-            (p.pro_codigo for p in TbProdutos.objects.filter(tbcenarios_id=cenario.id).order_by('pro_codigo')
+            (p.pro_codigo for p in TbProdutos.objects.filter(tbcenarios_id=cenario.id, pro_ativo=True).order_by('pro_codigo')
              if p.escolhidos_igual_fluxos() == 'Não'), 11))
+        # Equipamento/ordem: compara "escolhidos" x "usados nos fluxos" considerando só os produtos ATIVOS
+        # (produto inativo que apareça só de um dos lados não bloqueia a limpeza).
+        ids_produtos_ativos = set(
+            TbProdutos.objects.filter(tbcenarios_id=cenario.id, pro_ativo=True).values_list('pk', flat=True))
         equipamentos_nao = list(islice(
             (str(e) for e in TbEquipamentos.objects.filter(tbcenarios_id=cenario.id).order_by(
                 'equ_codigo__equ_cad_codigo', 'equ_ordem_codigo')
-             if e.escolhidos_igual_fluxos() == 'Não'), 11))
+             if (e._ids_produtos_escolhidos() & ids_produtos_ativos) != (e._ids_produtos_usados() & ids_produtos_ativos)),
+            11))
     except Exception as erro:
         # Melhor parar do que limpar sem conferir.
         return (f"Não consegui conferir o campo \"Escolhidos Igual Fluxos\" do cenário **{numero}/{cenario.cen_nome}** "
@@ -1085,6 +1108,14 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
         _salvar_historico(usuario, mensagem_usuario, resposta)
         return resposta, []
 
+    # 🌟 NOVO: usuário pedindo os gráficos de custo variável de um fluxo (distribuição e escada por equipamento).
+    if _detectar_intencao_custo_variavel_fluxo(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Fluxos de Produção', 'custo_variavel_fluxo'):
+        if esta_em_fluxo:
+            cancelar_fluxo_ativo(usuario)
+        resposta = iniciar_fluxo_custo_variavel_fluxo(usuario)
+        _salvar_historico(usuario, mensagem_usuario, resposta)
+        return resposta, []
+
     # 🌟 NOVO: usuário pedindo pra criar os fluxos de produção dos produtos
     # do cenário ativo (a partir da cadeia de consumo padrão, não do
     # editor visual) -- lista os produtos, deixa escolher, compara com o
@@ -1110,6 +1141,14 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
         if esta_em_fluxo:
             cancelar_fluxo_ativo(usuario)
         resposta = iniciar_fluxo_criar_equipamento(usuario)
+        _salvar_historico(usuario, mensagem_usuario, resposta)
+        return resposta, []
+
+    # 🌟 NOVO: montar o fluxo de produção a partir da Produção Mensal (Custo Ferbasa) -- só consulta.
+    if _detectar_intencao_montar_fluxo_producao_mensal(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Custo Ferbasa', 'montar_fluxo_producao_mensal'):
+        if esta_em_fluxo:
+            cancelar_fluxo_ativo(usuario)
+        resposta = iniciar_fluxo_montar_fluxo_producao_mensal(usuario)
         _salvar_historico(usuario, mensagem_usuario, resposta)
         return resposta, []
 

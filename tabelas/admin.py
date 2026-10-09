@@ -1095,59 +1095,77 @@ class TbImpostoRendaDaugtherAdmin(admin.TabularInline):
     '''
 
 
+# ---------------------------------------------------------------------------------------------------------------
+# 🌟 NOVO: cria, para cada cenário que ainda não tem, o registro de Imposto de Renda (32%) e o de Taxa de Desconto
+# (WACC, 10%) -- com as mesmas instruções de antes (verifica_filha + ajustar_sequencia).
+#
+# Antes isso rodava no CORPO das classes TbImpostoRendaAdmin e TbTaxaDescontoAdmin, ou seja, na importação do admin,
+# antes de o Django terminar de iniciar -- era o que gerava o aviso "Accessing the database during app initialization
+# is discouraged". Agora roda UMA vez por processo, na PRIMEIRA requisição que o servidor recebe depois de subir
+# (sinal request_started), já com o sistema todo iniciado. Na prática é o mesmo momento de antes ("a cada vez que o
+# servidor sobe"), só que sem consultar o banco durante a inicialização.
+# ---------------------------------------------------------------------------------------------------------------
+import threading
+from django.core.signals import request_started
+from django.db import connection as _connection_ir_wacc
+from .models import TbImpostoRenda as _TbImpostoRenda, TbTaxaDesconto as _TbTaxaDesconto
+
+_ir_wacc_lock = threading.Lock()
+_ir_wacc_feito = False
+
+
+def _criar_registro_padrao(modelo, tabela, observacao, campo_observacao, valor_inicial_texto):
+    lista_cenarios = list(TbCenarios.objects.values_list('id', flat=True))
+    for id_registro in lista_cenarios:
+        if modelo.objects.filter(tbcenarios_id=id_registro).count() == 0:
+            emp = modelo.objects.create(**{campo_observacao: observacao, 'tbcenarios_id': id_registro})
+            # Vamos atualizar as filhas usando o procedure verifica_filha
+            cursor = _connection_ir_wacc.cursor()
+            sql = ("call public.verifica_filha('" + tabela + "daugther', " + str(emp.id) + ", " + str(id_registro)
+                   + ", '" + valor_inicial_texto + "'" + ")")
+            cursor.execute(sql)
+            cursor.close()
+
+            # Vamos ajustar a sequência da tabela
+            cursor = _connection_ir_wacc.cursor()
+            sql = "call public.ajustar_sequencia('" + tabela + "'" + ")"
+            cursor.execute(sql)
+            cursor.close()
+
+
+def garantir_ir_e_wacc_dos_cenarios():
+    _criar_registro_padrao(_TbImpostoRenda, 'tabelas_tbimpostorenda',
+                           'IMPOSTO DE RENDA. Registro criado pelo sistema. Alterar se necessário.',
+                           'imp_observacao', '32')
+    _criar_registro_padrao(_TbTaxaDesconto, 'tabelas_tbtaxadesconto',
+                           'TAXA DE DESCONTO (WACC). Registro criado pelo sistema. Alterar se necessário.',
+                           'tax_observacao', '10')
+
+
+def _ir_wacc_na_primeira_requisicao(sender, **kwargs):
+    global _ir_wacc_feito
+    if _ir_wacc_feito:
+        return
+    with _ir_wacc_lock:
+        if _ir_wacc_feito:
+            return
+        _ir_wacc_feito = True           # marca antes: se falhar, não tenta de novo a cada requisição
+    try:
+        garantir_ir_e_wacc_dos_cenarios()
+    except Exception as erro:
+        print(f"[tabelas.admin] não consegui criar os registros padrão de IR/WACC dos cenários: {erro!r}")
+
+
+request_started.connect(_ir_wacc_na_primeira_requisicao, dispatch_uid='tabelas_garantir_ir_e_wacc_dos_cenarios')
+
+
 class TbImpostoRendaAdmin(admin.ModelAdmin):
     fields = ('imp_observacao',)
     list_display = ['imp_observacao']
 
-    # Cria os registros de imposto de renda para os cenários se não existir. Assume o valor de 32% como padrão que poderá ser alterado pelo usuário
-    # Temos que primeiro ver se a tabela TbImpostoRenda existe no banco de dados
-    all_tables = connection.introspection.table_names()
-    if 'tabelas_tbimpostorenda' in all_tables:
-        # Existe. Vamos verificar se foi criado o registro do imposto de renda para todos os cenários existentes
-        lista_cenarios = list(TbCenarios.objects.values_list('id', flat=True))
-        for id_registro in lista_cenarios:
-            if TbImpostoRenda.objects.filter(tbcenarios_id=id_registro).count() == 0:
-                emp = TbImpostoRenda.objects.create(imp_observacao='IMPOSTO DE RENDA. Registro criado pelo sistema. Alterar se necessário.',
-                                                    tbcenarios_id=id_registro)
-                # Vamos atualizar as filhas usando o procedure verifica_filha
-                cursor = connection.cursor()
-                # Montando a expressão sql para rodar o Stored Procedure Verifica_Filha
-                sql = "call public.verifica_filha('tabelas_tbimpostorendadaugther', " + str(emp.id) + ", " + str(
-                    id_registro) + ", '32'" + ")"
-                cursor.execute(sql)
-                cursor.close()
-
-                # Vamos ajustar a sequência da tabela tabelas_tbimpostorenda
-                cursor = connection.cursor()
-                # Montando a expressão sql para rodar o Stored Procedure ajustar_sequencia
-                sql = "call public.ajustar_sequencia('tabelas_tbimpostorenda'" + ")"
-                cursor.execute(sql)
-                cursor.close()
-        '''
-        if TbImpostoRenda.objects.filter(id=2).count() == 0:
-            emp = TbImpostoRenda.objects.create(id=2,
-                                                imp_observacao='IMPOSTO DE RENDA. Registro criado pelo sistema. CLICK AQUI para mostrar e ajustar se necessário.',
-                                                tbcenarios_id=2)
-            # Vamos atualizar as filhas usando o procedure verifica_filha
-            cursor = connection.cursor()
-            # Montando a expressão sql para rodar o Stored Procedure Verifica_Filha
-            sql = "call public.verifica_filha('tabelas_tbimpostorendadaugther', " + str(2) + ", " + str(
-                2) + ", '32'" + ")"
-            cursor.execute(sql)
-            cursor.close()
-
-        if TbImpostoRenda.objects.filter(id=3).count() == 0:
-            emp = TbImpostoRenda.objects.create(id=3,
-                                                imp_observacao='IMPOSTO DE RENDA. Registro criado pelo sistema. CLICK AQUI para mostrar e ajustar se necessário.',
-                                                tbcenarios_id=3)
-            # Vamos atualizar as filhas usando o procedure verifica_filha
-            cursor = connection.cursor()
-            # Montando a expressão sql para rodar o Stored Procedure Verifica_Filha
-            sql = "call public.verifica_filha('tabelas_tbimpostorendadaugther', " + str(3) + ", " + str(
-                3) + ", '32'" + ")"
-            cursor.execute(sql)
-            cursor.close()
-        '''
+    # 🌟 CORRIGIDO: a criação automática do registro de Imposto de Renda (32%) de cada cenário saiu daqui (rodava
+    # na importação do admin, consultando o banco antes de o Django terminar de iniciar). Agora fica em
+    # garantir_ir_e_wacc_dos_cenarios(), logo acima desta classe.
 
 
     formfield_overrides = {
@@ -1231,31 +1249,9 @@ class TbTaxaDescontoAdmin(admin.ModelAdmin):
     fields = ('tax_observacao',)
     list_display = ['tax_observacao']
 
-    # Cria os registros de WACC para os cenários se não existir. Assume o valor de 10% como padrão que poderá ser alterado pelo usuário
-    # Temos que primeiro ver se a tabela TbTaxaDesconto existe no banco de dados
-    all_tables = connection.introspection.table_names()
-    if 'tabelas_tbtaxadesconto' in all_tables:
-        # Existe. Vamos verificar se foi criado o registro de WACC para todos os cenários existentes
-        lista_cenarios = list(TbCenarios.objects.values_list('id', flat=True))
-        for id_registro in lista_cenarios:
-            if TbTaxaDesconto.objects.filter(tbcenarios_id=id_registro).count() == 0:
-                emp = TbTaxaDesconto.objects.create(
-                    tax_observacao='TAXA DE DESCONTO (WACC). Registro criado pelo sistema. Alterar se necessário.',
-                    tbcenarios_id=id_registro)
-                # Vamos atualizar as filhas usando o procedure verifica_filha
-                cursor = connection.cursor()
-                # Montando a expressão sql para rodar o Stored Procedure Verifica_Filha
-                sql = "call public.verifica_filha('tabelas_tbtaxadescontodaugther', " + str(emp.id) + ", " + str(
-                    id_registro) + ", '10'" + ")"
-                cursor.execute(sql)
-                cursor.close()
-
-                # Vamos ajustar a sequência da tabela tabelas_tbimpostorenda
-                cursor = connection.cursor()
-                # Montando a expressão sql para rodar o Stored Procedure ajustar_sequencia
-                sql = "call public.ajustar_sequencia('tabelas_tbtaxadesconto'" + ")"
-                cursor.execute(sql)
-                cursor.close()
+    # 🌟 CORRIGIDO: a criação automática do registro de WACC (10%) de cada cenário saiu daqui (rodava na
+    # importação do admin, consultando o banco antes de o Django terminar de iniciar). Agora fica em
+    # garantir_ir_e_wacc_dos_cenarios(), antes da classe TbImpostoRendaAdmin.
 
     '''
     # Cria os registros para os cenários As Is (Mensal, Trimestral e Anual se não existirem)

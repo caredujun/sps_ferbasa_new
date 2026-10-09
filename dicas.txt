@@ -537,6 +537,6 @@ SELECT pg_cancel_backend(9431);
 -----------------------------------------------------------------------------------------
 Para forçar aparecer a virtual env no terminal interno do pycharm
 
-echo "source ~/PycharmProjects/sps_ferbasa/.venv/bin/activate" >> ~/.bashrc
+                echo "source ~/PycharmProjects/sps_ferbasa/.venv/bin/activate" >> ~/.bashrc
 
 -----------------------------------------------------------------------------------------

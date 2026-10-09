@@ -123,6 +123,11 @@ _PADRAO_FORM_CONSUMOS = re.compile(r'\n*\[FORM_CONSUMOS:([A-Za-z0-9_=-]*)\]')
 _PADRAO_COMPARACAO_FLUXOS = re.compile(r'\n*\[COMPARACAO_FLUXOS:([A-Za-z0-9_=-]*)\]')
 # 🌟 NOVO: [LISTA_FLUXOS:<json base64>] -- a lista de fluxos do produto (id e descrição, com rolagem e filtro) da comparação.
 _PADRAO_LISTA_FLUXOS = re.compile(r'\n*\[LISTA_FLUXOS:([A-Za-z0-9_=-]*)\]')
+# 🌟 NOVO: [GRAFICOS_CUSTO_FLUXO:<json base64>] -- os gráficos de custo de um fluxo (distribuição do custo variável e
+# escada por equipamento), da ação "Custo Variável Distribuição / Escada por Equipamento".
+_PADRAO_GRAFICOS_CUSTO_FLUXO = re.compile(r'\n*\[GRAFICOS_CUSTO_FLUXO:([A-Za-z0-9_=-]*)\]')
+# 🌟 NOVO: [FLUXO_PRODUCAO_MENSAL:<json base64>] -- o fluxo montado a partir da Produção Mensal (Custo Ferbasa).
+_PADRAO_FLUXO_PRODUCAO_MENSAL = re.compile(r'\n*\[FLUXO_PRODUCAO_MENSAL:([A-Za-z0-9_=-]*)\]')
 
 
 def _extrair_form_base64(padrao, texto):
@@ -557,6 +562,10 @@ def chat_view(request):
         resposta, _ignorar_comparacao = _extrair_form_base64(_PADRAO_COMPARACAO_FLUXOS, resposta)
         resposta_original, lista_fluxos = _extrair_form_base64(_PADRAO_LISTA_FLUXOS, resposta_original)
         resposta, _ignorar_lista_fluxos = _extrair_form_base64(_PADRAO_LISTA_FLUXOS, resposta)
+        resposta_original, graficos_custo_fluxo = _extrair_form_base64(_PADRAO_GRAFICOS_CUSTO_FLUXO, resposta_original)
+        resposta, _ignorar_graficos = _extrair_form_base64(_PADRAO_GRAFICOS_CUSTO_FLUXO, resposta)
+        resposta_original, fluxo_producao_mensal = _extrair_form_base64(_PADRAO_FLUXO_PRODUCAO_MENSAL, resposta_original)
+        resposta, _ignorar_fpm = _extrair_form_base64(_PADRAO_FLUXO_PRODUCAO_MENSAL, resposta)
         lista_equipamentos = (
             _dados_cartoes_equipamentos(request.user)
             if (tem_lista_equip_original or tem_lista_equip_traduzida) else None
@@ -659,6 +668,8 @@ def chat_view(request):
             "form_consumos": form_consumos,
             "comparacao_fluxos": comparacao_fluxos,
             "lista_fluxos": lista_fluxos,
+            "graficos_custo_fluxo": graficos_custo_fluxo,
+            "fluxo_producao_mensal": fluxo_producao_mensal,
             "nome_empresa": nome_empresa_atual,
             "nome_cenario": nome_cenario_atual,
             "status_cenario": status_cenario_atual,

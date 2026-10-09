@@ -3,8 +3,11 @@ from parameters.contexto_usuario import get_usuario_atual, limit_choices_to_empr
 from custo_ferbasa.models import TbCustoVariavelAdicionado
 from django.utils.translation import gettext_lazy as _
 from django.db import models
-from django.db import connection
+from django.db import connection, transaction
+from django.utils.functional import lazy
+from collections.abc import Sequence
 from decimal import Decimal
+import django
 from django.db.models.signals import post_save, pre_save
 from django.utils.safestring import mark_safe
 from django.core.exceptions import ValidationError
@@ -12,6 +15,94 @@ from django.contrib.auth.models import Group
 
 import locale
 locale.setlocale(locale.LC_ALL, 'pt_BR.utf8')  #  Estou usando esse pois Heroku não aceita pt_BR
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# 🌟 NOVO: moeda da empresa lida SÓ QUANDO FOR USADA (não mais na importação dos models).
+#
+# Antes, TbCambio, TbCustoFixoDaugther, TbDepreAmortiDaugther e TbCapexDaugther consultavam o banco no CORPO da
+# classe (connection.introspection.table_names() + TbEmpresa.objects...). Isso roda no momento em que o Django
+# importa os models, antes de terminar de iniciar -- era o que gerava o aviso "Accessing the database during app
+# initialization is discouraged" no runserver. Agora a consulta só acontece na primeira vez que alguém precisa da
+# moeda (formulário, lista do Admin, get_cam_moeda_display...), e o resultado fica guardado até o processo
+# reiniciar -- o mesmo comportamento de antes, quando o valor era lido uma vez na importação e não mudava mais.
+# ---------------------------------------------------------------------------------------------------------------
+_CACHE_MOEDA_EMPRESA = {}
+
+
+def moeda_empresa():
+    """Moeda da empresa id=1 ('BRL', 'USD', 'EUR') ou '' se a tabela/registro ainda não existir."""
+    if 'valor' in _CACHE_MOEDA_EMPRESA:
+        return _CACHE_MOEDA_EMPRESA['valor']
+    try:
+        # savepoint: se a tabela não existir ou faltar coluna (migration em andamento), a falha não derruba a
+        # transação de quem chamou (no PostgreSQL, um erro dentro de transação invalida o resto dela).
+        with transaction.atomic():
+            moeda = TbEmpresa.objects.filter(id=1).values_list('emp_moeda', flat=True).first()
+    except Exception:
+        return ''          # não guarda: tenta de novo na próxima vez
+    if moeda:
+        _CACHE_MOEDA_EMPRESA['valor'] = moeda
+    return moeda or ''
+
+
+_CHOICES_CAMBIO_POR_MOEDA_EMPRESA = {
+    'BRL': (('USD', 'DÓLAR'), ('EUR', 'EURO')),
+    'USD': (('BRL', 'REAL'), ('EUR', 'EURO')),
+    'EUR': (('BRL', 'REAL'), ('USD', 'DÓLAR')),
+}
+
+
+def choices_moeda_cambio():
+    """
+    Choices de TbCambio.cam_moeda: as moedas DIFERENTES da moeda da empresa (mesma regra de antes), calculadas na
+    hora do uso. No Django 5.0+ o campo recebe esta FUNÇÃO como choices e só a chama quando precisa (formulário,
+    validação, get_cam_moeda_display) -- nunca na importação do model.
+    """
+    return list(_CHOICES_CAMBIO_POR_MOEDA_EMPRESA.get(moeda_empresa(), ()))
+
+
+class _ChoicesMoedaCambio(Sequence):
+    """
+    Mesma coisa que choices_moeda_cambio(), em forma de sequência "preguiçosa" -- usada só se o projeto rodar em
+    Django 4.2, que não aceita função como choices (mas aceita uma sequência e só a percorre quando precisa).
+    No Django 5.0+ NÃO dá pra usar isto: ele percorre a sequência já na criação do campo.
+    """
+    def _lista(self):
+        return _CHOICES_CAMBIO_POR_MOEDA_EMPRESA.get(moeda_empresa(), ())
+
+    def __getitem__(self, indice):
+        return self._lista()[indice]
+
+    def __len__(self):
+        return len(self._lista())
+
+    def __iter__(self):
+        return iter(self._lista())
+
+    def __eq__(self, outro):
+        return list(self) == list(outro) if isinstance(outro, (list, tuple, Sequence)) else NotImplemented
+
+    __hash__ = None
+
+
+class _AtributoChoicesMoedaCambio:
+    """Mantém TbCambio.cam_moeda_choice funcionando (devolve a tupla atual) pra quem ainda usar esse atributo."""
+    def __get__(self, instancia, dono):
+        return tuple(choices_moeda_cambio())
+
+
+# Django 5.0+: passa a função (o próprio Django adia a chamada). Django 4.2: passa a sequência preguiçosa.
+_CHOICES_CAMPO_MOEDA_CAMBIO = choices_moeda_cambio if django.VERSION >= (5, 0) else _ChoicesMoedaCambio()
+
+
+def _rotulo_valor_moeda_empresa():
+    moeda = moeda_empresa()
+    return str(_('Valor (%(moeda)s)') % {'moeda': moeda}) if moeda else ''
+
+
+# Título da coluna "Valor (BRL)" no Admin -- avaliado só quando a tela é desenhada.
+rotulo_valor_moeda_empresa = lazy(_rotulo_valor_moeda_empresa, str)
 
 
 def _atribuir_empresa_se_necessario(instance):
@@ -193,42 +284,12 @@ class TbIndicadoresDaugther(models.Model):
         ordering = ['dau_order']
 
 class TbCambio(models.Model):
-    # Temos que primeiro ver se a tabela TbEmpresa existe no banco de dados
-    all_tables = connection.introspection.table_names()
-    moeda_empresa = ''
-    if 'parameters_tbempresa' in all_tables:
-        # 🌟 CORRIGIDO: além de checar se a TABELA existe, protege também
-        # contra a tabela existir mas faltar alguma COLUNA nova (acontece
-        # durante o "makemigrations" de uma migration que ainda não foi
-        # aplicada -- o Django importa os models ANTES de migrar, e essa
-        # consulta pede TODAS as colunas do model Python, que nesse
-        # momento ainda não bateм com o banco). Sem isso, qualquer
-        # migration futura na TbEmpresa quebra o carregamento do projeto
-        # inteiro (nem dá pra rodar makemigrations pra corrigir).
-        try:
-            if TbEmpresa.objects.filter(id=1).count() == 1:
-                moeda_empresa = TbEmpresa.objects.get(id=1).emp_moeda
-        except Exception:
-            moeda_empresa = ''
+    # 🌟 CORRIGIDO: as opções de moeda (todas menos a moeda da empresa) não são mais calculadas aqui, na importação
+    # do model -- isso consultava o banco antes de o Django terminar de iniciar. Agora são calculadas na hora do
+    # uso (ver _ChoicesMoedaCambio e moeda_empresa() no topo do arquivo). A regra é a mesma de antes.
+    cam_moeda_choice = _AtributoChoicesMoedaCambio()
 
-    cam_moeda_choice = ()
-    if moeda_empresa == 'BRL':
-        cam_moeda_choice = (
-            ('USD', 'DÓLAR'),
-            ('EUR', 'EURO')
-        )
-    if moeda_empresa == 'USD':
-        cam_moeda_choice = (
-            ('BRL', 'REAL'),
-            ('EUR', 'EURO')
-        )
-    if moeda_empresa == 'EUR':
-        cam_moeda_choice = (
-            ('BRL', 'REAL'),
-            ('USD', 'DÓLAR'),
-        )
-
-    cam_moeda = models.CharField(max_length=3, choices=cam_moeda_choice, null=False, blank=False, default='BRL',
+    cam_moeda = models.CharField(max_length=3, choices=_CHOICES_CAMPO_MOEDA_CAMBIO, null=False, blank=False, default='BRL',
                                  verbose_name=_('Moeda'))
     cam_moeda_imagem = models.ImageField(upload_to='tabelas', null=True, blank=True, verbose_name=_('Imagem da Moeda'))
     cam_observacao = models.TextField(verbose_name=_('Observação'), blank=True, null=True)
@@ -630,16 +691,9 @@ class TbCustoFixoDaugther(models.Model):
 
         return valor_retorno
 
-    # Temos que primeiro ver se a tabela TbEmpresa existe no banco de dados
-    all_tables = connection.introspection.table_names()
-    if 'parameters_tbempresa' in all_tables:
-        # 🌟 CORRIGIDO: mesmo motivo do TbCambio -- protege contra a
-        # tabela existir mas faltar coluna nova (migration em andamento).
-        try:
-            if TbEmpresa.objects.filter(id=1).count() > 0:
-                valor_moeda_empresa.short_description = _('Valor (%(moeda)s)') % {'moeda': TbEmpresa.objects.get(id=1).emp_moeda}
-        except Exception:
-            pass
+    # 🌟 CORRIGIDO: título da coluna ("Valor (BRL)") calculado só quando o Admin desenha a tela, não mais na
+    # importação do model (consultava o banco antes de o Django terminar de iniciar).
+    valor_moeda_empresa.short_description = rotulo_valor_moeda_empresa()
 
 
     def save(self, *args, **kwargs):
@@ -817,18 +871,9 @@ class TbDepreAmortiDaugther(models.Model):
 
         return valor_retorno
 
-    # Temos que primeiro ver se a tabela TbEmpresa existe no banco de dados
-    all_tables = connection.introspection.table_names()
-    if 'parameters_tbempresa' in all_tables:
-        # 🌟 CORRIGIDO: mesmo motivo do TbCambio -- protege contra a
-        # tabela existir mas faltar coluna nova (migration em andamento).
-        try:
-            if TbEmpresa.objects.filter(id=1) == 1:
-                valor_moeda_empresa.short_description = _('Valor (%(moeda)s)') % {'moeda': TbEmpresa.objects.get(id=1).emp_moeda}
-            else:
-                valor_moeda_empresa.short_description = _('')
-        except Exception:
-            valor_moeda_empresa.short_description = _('')
+    # 🌟 CORRIGIDO: título da coluna ("Valor (BRL)") calculado só quando o Admin desenha a tela, não mais na
+    # importação do model (consultava o banco antes de o Django terminar de iniciar).
+    valor_moeda_empresa.short_description = rotulo_valor_moeda_empresa()
 
     def save(self, *args, **kwargs):
 
@@ -1003,18 +1048,9 @@ class TbCapexDaugther(models.Model):
 
         return valor_retorno
 
-    # Temos que primeiro ver se a tabela TbEmpresa existe no banco de dados
-    all_tables = connection.introspection.table_names()
-    if 'parameters_tbempresa' in all_tables:
-        # 🌟 CORRIGIDO: mesmo motivo do TbCambio -- protege contra a
-        # tabela existir mas faltar coluna nova (migration em andamento).
-        try:
-            if TbEmpresa.objects.filter(id=1) == 1:
-                valor_moeda_empresa.short_description = _('Valor (%(moeda)s)') % {'moeda': TbEmpresa.objects.get(id=1).emp_moeda}
-            else:
-                valor_moeda_empresa.short_description = _('')
-        except Exception:
-            valor_moeda_empresa.short_description = _('')
+    # 🌟 CORRIGIDO: título da coluna ("Valor (BRL)") calculado só quando o Admin desenha a tela, não mais na
+    # importação do model (consultava o banco antes de o Django terminar de iniciar).
+    valor_moeda_empresa.short_description = rotulo_valor_moeda_empresa()
 
     def save(self, *args, **kwargs):
 

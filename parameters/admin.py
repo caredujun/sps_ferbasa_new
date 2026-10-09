@@ -24,7 +24,36 @@ from django.urls import path, reverse
 from django.shortcuts import redirect, render
 from django.utils.html import format_html, format_html_join
 from django.db.models import Case, When, Value, IntegerField, Q
+from django.db import transaction
+from django.db.models.signals import post_migrate
 from .contexto_usuario import get_usuario_atual, eh_superuser_ou_superuser_empresa
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# 🌟 NOVO: garante que exista pelo menos uma empresa (o resto do sistema usa TbEmpresa id=1 em vários lugares).
+#
+# Antes isso era feito no CORPO da classe TbEmpresaAdmin (connection.introspection.table_names() + count + create),
+# que roda na importação do admin, antes de o Django terminar de iniciar -- era o que gerava o aviso "Accessing the
+# database during app initialization is discouraged". Agora é feito:
+#   1) depois de cada "migrate" (sinal post_migrate -- o lugar indicado pelo Django pra dados iniciais), o que cobre
+#      a instalação de um banco novo;
+#   2) ao abrir a lista de Empresas no Admin (changelist_view), por garantia.
+# ---------------------------------------------------------------------------------------------------------------
+def garantir_empresa_inicial():
+    try:
+        with transaction.atomic():      # savepoint: se a tabela ainda não existir, não derruba a transação de quem chamou
+            if not TbEmpresa.objects.exists():
+                TbEmpresa.objects.create(emp_nome='Favor alterar', emp_descricao='Favor alterar', emp_moeda='BRL')
+    except Exception:
+        pass
+
+
+def _garantir_empresa_inicial_apos_migrate(sender, **kwargs):
+    if getattr(sender, 'name', None) == 'parameters':
+        garantir_empresa_inicial()
+
+
+post_migrate.connect(_garantir_empresa_inicial_apos_migrate, dispatch_uid='parameters_garantir_empresa_inicial')
 
 
 class TbCenariosDaugther1Admin(admin.TabularInline):
@@ -485,16 +514,22 @@ class TbCenariosAdmin(DjangoObjectActions, admin.ModelAdmin):
         # "Escolhidos Igual Fluxos" = Não (é o mesmo campo que aparece na lista e no formulário de Produtos e
         # de Equipamentos). Mostra até 10 de cada; havendo mais, "e outros". Pára de procurar ao achar o 11º
         # de cada tipo, pra não calcular o cenário inteiro à toa.
+        # Só os produtos ATIVOS (pro_ativo=True) entram na verificação: produto inativo não bloqueia a limpeza.
         from itertools import islice
         from produtos.models import TbProdutos
         from equipamentos.models import TbEquipamentos
         produtos_nao = list(islice(
-            (p.pro_codigo for p in TbProdutos.objects.filter(tbcenarios_id=obj.id).order_by('pro_codigo')
+            (p.pro_codigo for p in TbProdutos.objects.filter(tbcenarios_id=obj.id, pro_ativo=True).order_by('pro_codigo')
              if p.escolhidos_igual_fluxos() == 'Não'), 11))
+        # Equipamento/ordem: compara "escolhidos" x "usados nos fluxos" considerando só os produtos ATIVOS
+        # (produto inativo que apareça só de um dos lados não bloqueia a limpeza).
+        ids_produtos_ativos = set(
+            TbProdutos.objects.filter(tbcenarios_id=obj.id, pro_ativo=True).values_list('pk', flat=True))
         equipamentos_nao = list(islice(
             (str(e) for e in TbEquipamentos.objects.filter(tbcenarios_id=obj.id).order_by(
                 'equ_codigo__equ_cad_codigo', 'equ_ordem_codigo')
-             if e.escolhidos_igual_fluxos() == 'Não'), 11))
+             if (e._ids_produtos_escolhidos() & ids_produtos_ativos) != (e._ids_produtos_usados() & ids_produtos_ativos)),
+            11))
         if produtos_nao or equipamentos_nao:
             if produtos_nao:
                 lista = ', '.join(produtos_nao[:10]) + (' e outros' if len(produtos_nao) > 10 else '')
@@ -876,14 +911,12 @@ class TbEmpresaAdmin(admin.ModelAdmin):
         )
         return (ordem_ativa, 'id')
 
-    all_tables = connection.introspection.table_names()
-    if 'parameters_tbempresa' in all_tables:
-        try:
-            qtde = TbEmpresa.objects.count()
-            if qtde == 0:
-                emp = TbEmpresa.objects.create(emp_nome='Favor alterar', emp_descricao='Favor alterar', emp_moeda='BRL')
-        except Exception:
-            pass
+    # 🌟 CORRIGIDO: a criação da empresa inicial saiu daqui (rodava na importação do admin, consultando o banco antes
+    # de o Django terminar de iniciar). Agora fica em garantir_empresa_inicial(), no topo do arquivo, chamada depois
+    # de cada "migrate" e aqui, ao abrir a lista de Empresas.
+    def changelist_view(self, request, extra_context=None):
+        garantir_empresa_inicial()
+        return super().changelist_view(request, extra_context)
 
     def has_delete_permission(self, request, obj=None):
         return False

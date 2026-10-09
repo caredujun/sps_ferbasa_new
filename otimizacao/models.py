@@ -1,4 +1,5 @@
-from django.db import models, connection
+from django.db import models, connection, transaction
+from django.utils.functional import lazy
 from django.db.models.signals import post_save, pre_save
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
@@ -15,6 +16,39 @@ import locale
 
 locale.setlocale(locale.LC_ALL, 'pt_BR.utf8')  # Estou usando esse pois Heroku não aceita pt_BR
 import numpy_financial as npf
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# 🌟 NOVO: títulos de coluna com o período do cenário ativo ("Vendas (2026/01 a 2030/12)") calculados SÓ QUANDO O
+# ADMIN DESENHA A TELA.
+#
+# Antes, 7 classes deste arquivo consultavam o banco no CORPO da classe (connection.introspection.table_names() +
+# TbCenarios.objects...), o que roda na importação dos models, antes de o Django terminar de iniciar -- era o que
+# gerava o aviso "Accessing the database during app initialization is discouraged". Bônus: antes o título ficava
+# congelado no cenário que estava ativo quando o servidor subiu; agora acompanha o cenário ativo de verdade.
+# ---------------------------------------------------------------------------------------------------------------
+def _periodo_cenario_ativo():
+    """(início, fim) do cenário com cen_ativo=True, ou ('', '') se não houver exatamente um (mesma regra de antes)."""
+    try:
+        # savepoint: se a tabela não existir ou faltar coluna (migration em andamento), a falha não derruba a
+        # transação de quem chamou.
+        with transaction.atomic():
+            ativos = list(TbCenarios.objects.filter(cen_ativo=True).values_list('cen_inicio', 'cen_fim')[:2])
+    except Exception:
+        return '', ''
+    if len(ativos) != 1:
+        return '', ''
+    inicio, fim = ativos[0]
+    return inicio or '', fim or ''
+
+
+def _rotulo_periodo_cenario_ativo(prefixo):
+    inicio, fim = _periodo_cenario_ativo()
+    return f'{prefixo} ({inicio} a {fim})'
+
+
+# rotulo_periodo('Vendas') -> "Vendas (2026/01 a 2030/12)", avaliado na hora de mostrar.
+rotulo_periodo = lazy(_rotulo_periodo_cenario_ativo, str)
 
 def verifica_filha_tbotimizacaocomparacaocenarios(sender, instance, **kwargs):
     # Vamos atualizar a filha usando o Stored Procedure verifica_filha_tbotimizacaocomparacaocenario
@@ -72,22 +106,9 @@ class TbOtimizacaoProduto(models.Model):
 
         return retorno
 
-    # Temos que primeiro ver se a tabela TbCenarios existe no banco de dados
-    all_tables = connection.introspection.table_names()
-    inicio_periodo = ''
-    fim_periodo = ''
-    if 'parameters_tbcenarios' in all_tables:
-        # 🌟 CORRIGIDO: protege contra a tabela existir mas faltar
-        # coluna nova (acontece durante makemigrations de uma migration
-        # ainda não aplicada).
-        try:
-            if TbCenarios.objects.filter(cen_ativo=True).count() == 1:
-                inicio_periodo = TbCenarios.objects.get(cen_ativo=True).cen_inicio
-                fim_periodo = TbCenarios.objects.get(cen_ativo=True).cen_fim
-        except Exception:
-            pass
-
-    vendas_periodo.short_description = 'Vendas (' + inicio_periodo + ' a ' + fim_periodo + ')'
+    # 🌟 CORRIGIDO: título com o período do cenário ativo calculado só quando o Admin desenha a tela (antes
+    # consultava o banco aqui, na importação do model -- ver rotulo_periodo no topo do arquivo).
+    vendas_periodo.short_description = rotulo_periodo('Vendas')
 
     # Vamos criar um campo para mostrar o preço médio ponderado do produto para todos os periodos
     def preco_medio_periodo(self):
@@ -393,22 +414,9 @@ class TbProdutoMercadoFluxo(models.Model):
 
         return retorno
 
-    # Temos que primeiro ver se a tabela TbCenarios existe no banco de dados
-    all_tables = connection.introspection.table_names()
-    inicio_periodo = ''
-    fim_periodo = ''
-    if 'parameters_tbcenarios' in all_tables:
-        # 🌟 CORRIGIDO: protege contra a tabela existir mas faltar
-        # coluna nova (acontece durante makemigrations de uma migration
-        # ainda não aplicada).
-        try:
-            if TbCenarios.objects.filter(cen_ativo=True).count() == 1:
-                inicio_periodo = TbCenarios.objects.get(cen_ativo=True).cen_inicio
-                fim_periodo = TbCenarios.objects.get(cen_ativo=True).cen_fim
-        except Exception:
-            pass
-
-    vendas_periodo.short_description = 'Vendas (' + inicio_periodo + ' a ' + fim_periodo + ')'
+    # 🌟 CORRIGIDO: título com o período do cenário ativo calculado só quando o Admin desenha a tela (antes
+    # consultava o banco aqui, na importação do model -- ver rotulo_periodo no topo do arquivo).
+    vendas_periodo.short_description = rotulo_periodo('Vendas')
 
     class Meta:
         verbose_name = _('    Produto / Mercado / Fluxo')
@@ -606,24 +614,11 @@ class TbProdutoMercado(models.Model):
 
         return retorno
 
-    # Temos que primeiro ver se a tabela TbCenarios existe no banco de dados
-    all_tables = connection.introspection.table_names()
-    inicio_periodo = ''
-    fim_periodo = ''
-    if 'parameters_tbcenarios' in all_tables:
-        # 🌟 CORRIGIDO: protege contra a tabela existir mas faltar
-        # coluna nova (acontece durante makemigrations de uma migration
-        # ainda não aplicada).
-        try:
-            if TbCenarios.objects.filter(cen_ativo=True).count() == 1:
-                inicio_periodo = TbCenarios.objects.get(cen_ativo=True).cen_inicio
-                fim_periodo = TbCenarios.objects.get(cen_ativo=True).cen_fim
-        except Exception:
-            pass
-
-    vendas_periodo.short_description = 'Vendas (' + inicio_periodo + ' a ' + fim_periodo + ')'
-    vendas_minimo_periodo.short_description = 'Vendas Mín. (' + inicio_periodo + ' a ' + fim_periodo + ')'
-    vendas_maximo_periodo.short_description = 'Vendas Máx. (' + inicio_periodo + ' a ' + fim_periodo + ')'
+    # 🌟 CORRIGIDO: título com o período do cenário ativo calculado só quando o Admin desenha a tela (antes
+    # consultava o banco aqui, na importação do model -- ver rotulo_periodo no topo do arquivo).
+    vendas_periodo.short_description = rotulo_periodo('Vendas')
+    vendas_minimo_periodo.short_description = rotulo_periodo('Vendas Mín.')
+    vendas_maximo_periodo.short_description = rotulo_periodo('Vendas Máx.')
 
     # Vamos criar um campo para mostrar o preço medio do produto / mercado
     def preco(self):
@@ -913,22 +908,9 @@ class TbOtimizacaoEquipamentos(models.Model):
 
         return retorno
 
-    # Temos que primeiro ver se a tabela TbCenarios existe no banco de dados
-    all_tables = connection.introspection.table_names()
-    inicio_periodo = ''
-    fim_periodo = ''
-    if 'parameters_tbcenarios' in all_tables:
-        # 🌟 CORRIGIDO: protege contra a tabela existir mas faltar
-        # coluna nova (acontece durante makemigrations de uma migration
-        # ainda não aplicada).
-        try:
-            if TbCenarios.objects.filter(cen_ativo=True).count() == 1:
-                inicio_periodo = TbCenarios.objects.get(cen_ativo=True).cen_inicio
-                fim_periodo = TbCenarios.objects.get(cen_ativo=True).cen_fim
-        except Exception:
-            pass
-
-    producao_periodo.short_description = 'Produção (' + inicio_periodo + ' a ' + fim_periodo + ')'
+    # 🌟 CORRIGIDO: título com o período do cenário ativo calculado só quando o Admin desenha a tela (antes
+    # consultava o banco aqui, na importação do model -- ver rotulo_periodo no topo do arquivo).
+    producao_periodo.short_description = rotulo_periodo('Produção')
 
     # Vamos criar um campo para mostrar a média da ocupação mínima especificada para todos os periodos
     def media_ocupacao_minima_periodo(self):
@@ -946,7 +928,7 @@ class TbOtimizacaoEquipamentos(models.Model):
 
         return retorno
 
-    media_ocupacao_minima_periodo.short_description = 'Média Ocup. Mín. % (' + inicio_periodo + ' a ' + fim_periodo + ')'
+    media_ocupacao_minima_periodo.short_description = rotulo_periodo('Média Ocup. Mín. %')
 
     # Vamos criar um campo para mostrar a média da ocupação máxima especificada para todos os periodos
     def media_ocupacao_maxima_periodo(self):
@@ -964,7 +946,7 @@ class TbOtimizacaoEquipamentos(models.Model):
 
         return retorno
 
-    media_ocupacao_maxima_periodo.short_description = 'Média Ocup. Máx. % (' + inicio_periodo + ' a ' + fim_periodo + ')'
+    media_ocupacao_maxima_periodo.short_description = rotulo_periodo('Média Ocup. Máx. %')
 
     # Vamos criar um campo para mostrar a ocupação durante todo o periodo
     def ocupacao_periodo(self):
@@ -998,22 +980,9 @@ class TbOtimizacaoEquipamentos(models.Model):
 
         return retorno
 
-    # Temos que primeiro ver se a tabela TbCenarios existe no banco de dados
-    all_tables = connection.introspection.table_names()
-    inicio_periodo = ''
-    fim_periodo = ''
-    if 'parameters_tbcenarios' in all_tables:
-        # 🌟 CORRIGIDO: protege contra a tabela existir mas faltar
-        # coluna nova (acontece durante makemigrations de uma migration
-        # ainda não aplicada).
-        try:
-            if TbCenarios.objects.filter(cen_ativo=True).count() == 1:
-                inicio_periodo = TbCenarios.objects.get(cen_ativo=True).cen_inicio
-                fim_periodo = TbCenarios.objects.get(cen_ativo=True).cen_fim
-        except Exception:
-            pass
-
-    ocupacao_periodo.short_description = '% Ocupação (' + inicio_periodo + ' a ' + fim_periodo + ')'
+    # 🌟 CORRIGIDO: título com o período do cenário ativo calculado só quando o Admin desenha a tela (antes
+    # consultava o banco aqui, na importação do model -- ver rotulo_periodo no topo do arquivo).
+    ocupacao_periodo.short_description = rotulo_periodo('% Ocupação')
 
     class Meta:
         verbose_name = _('   Equipamento')
@@ -1162,22 +1131,9 @@ class TbOtimizacaoEquipamentosOrdem(models.Model):
 
         return retorno
 
-    # Temos que primeiro ver se a tabela TbCenarios existe no banco de dados
-    all_tables = connection.introspection.table_names()
-    inicio_periodo = ''
-    fim_periodo = ''
-    if 'parameters_tbcenarios' in all_tables:
-        # 🌟 CORRIGIDO: protege contra a tabela existir mas faltar
-        # coluna nova (acontece durante makemigrations de uma migration
-        # ainda não aplicada).
-        try:
-            if TbCenarios.objects.filter(cen_ativo=True).count() == 1:
-                inicio_periodo = TbCenarios.objects.get(cen_ativo=True).cen_inicio
-                fim_periodo = TbCenarios.objects.get(cen_ativo=True).cen_fim
-        except Exception:
-            pass
-
-    producao_periodo.short_description = 'Produção (' + inicio_periodo + ' a ' + fim_periodo + ')'
+    # 🌟 CORRIGIDO: título com o período do cenário ativo calculado só quando o Admin desenha a tela (antes
+    # consultava o banco aqui, na importação do model -- ver rotulo_periodo no topo do arquivo).
+    producao_periodo.short_description = rotulo_periodo('Produção')
 
     # Vamos criar um campo para mostrar o percentual da produção de todos os periodos
     def percentual_periodo(self):
@@ -1217,22 +1173,9 @@ class TbOtimizacaoEquipamentosOrdem(models.Model):
 
         return retorno
 
-    # Temos que primeiro ver se a tabela TbCenarios existe no banco de dados
-    all_tables = connection.introspection.table_names()
-    inicio_periodo = ''
-    fim_periodo = ''
-    if 'parameters_tbcenarios' in all_tables:
-        # 🌟 CORRIGIDO: protege contra a tabela existir mas faltar
-        # coluna nova (acontece durante makemigrations de uma migration
-        # ainda não aplicada).
-        try:
-            if TbCenarios.objects.filter(cen_ativo=True).count() == 1:
-                inicio_periodo = TbCenarios.objects.get(cen_ativo=True).cen_inicio
-                fim_periodo = TbCenarios.objects.get(cen_ativo=True).cen_fim
-        except Exception:
-            pass
-
-    percentual_periodo.short_description = '% Prod. Equipamento (' + inicio_periodo + ' a ' + fim_periodo + ')'
+    # 🌟 CORRIGIDO: título com o período do cenário ativo calculado só quando o Admin desenha a tela (antes
+    # consultava o banco aqui, na importação do model -- ver rotulo_periodo no topo do arquivo).
+    percentual_periodo.short_description = rotulo_periodo('% Prod. Equipamento')
 
     class Meta:
         verbose_name = _('  Equipamento/Ordem de Produção')
