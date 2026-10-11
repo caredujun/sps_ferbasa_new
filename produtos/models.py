@@ -139,7 +139,7 @@ class TbProdutos(models.Model):  # NÃO TEM CAMPO DO CENÁRIO. SERÁ USADO POR T
 
     total_equipamentos_usados.short_description = 'Qtde Equipamentos Usados'
 
-    def _ids_equipamentos_usados(self):
+    def _ids_equipamentos_usados(self, somente_ativos=False):
         # 🌟 Esse conjunto passou a ser usado por vários campos da MESMA
         # tela (total, painel, "Escolhidos Igual Fluxos" e a marcação em
         # vermelho do campo de escolha). Por isso agora:
@@ -151,10 +151,17 @@ class TbProdutos(models.Model):  # NÃO TEM CAMPO DO CENÁRIO. SERÁ USADO POR T
         #    virar um set de poucas dezenas de ids. O order_by() vazio
         #    evita que um Meta.ordering do modelo atrapalhe o DISTINCT.
         # O resultado é exatamente o mesmo conjunto de antes.
-        if getattr(self, '_cache_ids_equipamentos_usados', None) is None:
+        # 🌟 NOVO: somente_ativos=True considera só os fluxos ATIVOS
+        # (flu_pro_ativo=True) -- usado pela trava da limpeza nas Ações
+        # Comuns. O padrão (False) é o de sempre, usado pelo Admin.
+        atributo_cache = '_cache_ids_equipamentos_usados_ativos' if somente_ativos else '_cache_ids_equipamentos_usados'
+        if getattr(self, atributo_cache, None) is None:
             fluxos_ids = fluxos.models.TbFluxoProducao.objects.filter(
                 flu_pro_produto_id=self.id
-            ).values_list('id', flat=True)
+            )
+            if somente_ativos:
+                fluxos_ids = fluxos_ids.filter(flu_pro_ativo=True)
+            fluxos_ids = fluxos_ids.values_list('id', flat=True)
 
             daugthers = fluxos.models.TbFluxoProducaoDaugther.objects.filter(
                 mae_id__in=fluxos_ids
@@ -165,8 +172,8 @@ class TbProdutos(models.Model):  # NÃO TEM CAMPO DO CENÁRIO. SERÁ USADO POR T
             ids_to = daugthers.values_list(
                 'flu_pro_dau_consumo_padrao__flu_con_pad_to_equipamento_id', flat=True
             ).order_by().distinct()
-            self._cache_ids_equipamentos_usados = (set(ids_from) | set(ids_to)) - {None}
-        return set(self._cache_ids_equipamentos_usados)
+            setattr(self, atributo_cache, (set(ids_from) | set(ids_to)) - {None})
+        return set(getattr(self, atributo_cache))
 
     # 🌟 NOVO: ids dos equipamentos/ordens ESCOLHIDOS no cadastro (campo
     # "Equipamentos/Ordens Que Compõem a Produção", que lê/grava o mesmo

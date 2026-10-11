@@ -74,6 +74,7 @@
         .form-periodo-inline label { font-size: 12px; color: #417690; font-weight: bold; display: flex; align-items: center; gap: 6px; }
         .form-periodo-inline input[type="month"] { width: 140px; padding: 5px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; }
         .form-periodo-inline .botao-opcao { margin-left: 4px; }
+        .form-periodo-aviso { flex-basis: 100%; color: #c0392b; font-size: 12px; font-weight: bold; }
         .botao-periodo-rapido { padding: 5px 10px; border: 1px solid #417690; border-radius: 4px; background: #fff; color: #417690; font-size: 12px; cursor: pointer; }
         .botao-periodo-rapido:hover { background: #417690; color: #fff; }
 
@@ -198,7 +199,7 @@
         .fpm-overlay-area.arrastando { cursor: grabbing; }
         .fpm-dica-circulos { color: #555; font-size: 11px; flex: 1; min-width: 220px; }
         .fpm-detalhe { display: none; margin: 0 10px 10px; border: 1px solid #dfe3e6; border-radius: 6px; padding: 8px 10px; background: #fbfcfd; }
-        .fpm-overlay-detalhe { display: none; position: absolute; right: 16px; top: 96px; width: min(560px, calc(100vw - 32px)); max-height: 45vh; overflow: auto;
+        .fpm-overlay-detalhe { display: none; position: absolute; right: 16px; top: 96px; width: min(680px, calc(100vw - 32px)); max-height: 75vh; overflow: auto;
             background: #fff; border: 1px solid #cfd6dc; border-radius: 8px; box-shadow: 0 6px 24px rgba(0,0,0,0.18); padding: 10px 12px; font-size: 12px; }
         .fpm-detalhe-topo { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; color: #003366; }
         .fpm-detalhe-fechar { border: none; background: none; font-size: 18px; line-height: 1; color: #888; cursor: pointer; padding: 0 2px; }
@@ -226,6 +227,23 @@
         .fpm-btn-adicionar { background: #3498db !important; color: #fff !important; border-color: #3498db !important; }
         .fpm-btn-adicionar:disabled { opacity: 0.5; cursor: default; }
         .fpm-overlay-lista { flex: 0 0 auto; max-height: 36vh; overflow: auto; background: #fbfcfd; border-top: 2px solid #cfd6dc; padding: 8px 16px 12px; font-size: 12px; }
+        .fpm-custo-cartoes { display: flex; gap: 8px; margin: 8px 0 10px; flex-wrap: wrap; }
+        .fpm-custo-cartao { flex: 1 1 120px; border: 1px solid #dfe3e6; border-radius: 6px; padding: 6px 10px; background: #fff; }
+        .fpm-custo-cartao span { display: block; font-size: 11px; color: #6b7a86; }
+        .fpm-custo-cartao b { font-size: 16px; color: #1d2f40; }
+        .fpm-custo-principal { border-color: #16a085; background: #e8f6f3; }
+        .fpm-custo-principal b { color: #0e6655; }
+        .fpm-tabela-custo th:first-child { width: 40%; }
+        .fpm-custo-rodape { margin-top: 6px; }
+        .fpm-custo-secao { margin: 12px 0 4px; font-weight: bold; color: #003366; font-size: 12px; }
+        .fpm-escada-botoes { margin-top: 10px; }
+        .fpm-escada-botoes .botao-opcao { margin: 0; }
+        .fpm-escada { margin-top: 8px; }
+        .fpm-escada-abas { display: inline-flex; border: 1px solid #cfd6dc; border-radius: 5px; overflow: hidden; margin-bottom: 6px; }
+        .fpm-escada-aba { border: none; background: #fff; padding: 4px 12px; font-size: 12px; cursor: pointer; color: #34495e; }
+        .fpm-escada-aba + .fpm-escada-aba { border-left: 1px solid #cfd6dc; }
+        .fpm-escada-aba.ativa { background: #16a085; color: #fff; }
+        .fpm-escada-svg { display: block; max-width: 660px; }
         .fpm-com-equip { font-size: 10px; color: #7f8c8d; }
         .fpm-btn-outros { background: #eaf3fb !important; border-color: #3498db !important; color: #1f5f8b !important; }
         .fpm-overlay-lista .fpm-lista-itens { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); max-height: none; }
@@ -628,7 +646,7 @@
                     <option value="">{% trans "Selecione uma ação..." %}</option>
                     {% if acoes_habilitadas.cf_atualizar_producao_ggf_mensal %}<option value="atualizar produção e ggf mensal">{% trans "Atualizar Produção e GGF Mensal" %}</option>{% endif %}
                     {% if acoes_habilitadas.cf_atualizar_consumo_especifico_custo_variavel %}<option value="atualizar consumo específico e custo variável">{% trans "Atualizar Consumo Específico e Custo Variável" %}</option>{% endif %}
-                    {% if acoes_habilitadas.cf_montar_fluxo_producao_mensal %}<option value="montar fluxo de produção pela produção mensal">{% trans "Montar Fluxo de Produção pela Produção Mensal" %}</option>{% endif %}
+                    {% if acoes_habilitadas.cf_montar_fluxo_producao_mensal %}<option value="montar fluxo de produção pela produção mensal">{% trans "Montar Fluxo de Produção Base Produção Mensal" %}</option>{% endif %}
                 </select>
             </div>
             {% endif %}
@@ -801,6 +819,8 @@
         {% trans "mostrando" as ROTULO_LF_MOSTRANDO %}
         {% trans "Produzido" as ROTULO_FPM_BAL_PRODUZIDO %}
         {% trans "Neste fluxo" as ROTULO_FPM_BAL_FLUXO %}
+        {% trans "Consumo Neste Fluxo" as ROTULO_FPM_BAL_FLUXO_LONGO %}
+        {% trans "Consumo Outros Produtos" as ROTULO_FPM_BAL_OUTROS_LONGO %}
         {% trans "Outros produtos" as ROTULO_FPM_BAL_OUTROS %}
         {% trans "Estoque/perdas" as ROTULO_FPM_BAL_SEM %}
         {% trans "Veio de estoque" as ROTULO_FPM_BAL_ACIMA %}
@@ -815,6 +835,24 @@
         {% trans "RC" as ROTULO_FPM_CIRC_RC %}
         {% trans "recirculações no equipamento (material que volta na cadeia)" as ROTULO_FPM_DICA_RC %}
         {% trans "Recirculações em" as ROTULO_FPM_TIT_RC %}
+        {% trans "Contribuição no custo do produto final" as ROTULO_FPM_C_CONTRIB %}
+        {% trans "por" as ROTULO_FPM_C_POR %}
+        {% trans "usa" as ROTULO_FPM_C_USA %}
+        {% trans "Gráfico em escada" as ROTULO_FPM_C_ESCADA %}
+        {% trans "Esconder gráfico" as ROTULO_FPM_C_ESCADA_FECHAR %}
+        {% trans "Custo do produto" as ROTULO_FPM_C_FINAL %}
+        {% trans "Demais equipamentos" as ROTULO_FPM_C_DEMAIS %}
+        {% trans "Custo por" as ROTULO_FPM_C_TITULO %}
+        {% trans "Total" as ROTULO_FPM_C_TOTAL %}
+        {% trans "Variável" as ROTULO_FPM_C_VAR %}
+        {% trans "Fixo/Outros" as ROTULO_FPM_C_FIXO %}
+        {% trans "Materiais consumidos" as ROTULO_FPM_C_MAT %}
+        {% trans "Subprodutos (crédito)" as ROTULO_FPM_C_SUB %}
+        {% trans "GGF distribuído" as ROTULO_FPM_C_GGF %}
+        {% trans "valor contábil (custo médio de estoque)" as ROTULO_FPM_C_BASE %}
+        {% trans "Custo não calculado para este equipamento." as ROTULO_FPM_C_SEM %}
+        {% trans "C" as ROTULO_FPM_CIRC_C %}
+        {% trans "custo por unidade produzida no equipamento (total, variável e fixo/outros)" as ROTULO_FPM_DICA_C %}
         {% trans "Nenhuma recirculação neste equipamento no período." as ROTULO_FPM_SEM_RC %}
         {% trans "Recebe de volta: o equipamento consome um item produzido mais adiante na cadeia. Envia de volta: o item que ele produz volta para um equipamento anterior da cadeia." as ROTULO_FPM_RC_EXPLICA %}
         {% trans "Sentido" as ROTULO_FPM_COL_RECIRC %}
@@ -845,9 +883,12 @@
         {% trans "SP" as ROTULO_FPM_CIRC_SP %}
         {% trans "matérias-primas e subprodutos consumidos no equipamento" as ROTULO_FPM_DICA_MP %}
         {% trans "subprodutos gerados no equipamento" as ROTULO_FPM_DICA_SP %}
-        {% trans "Clique nos círculos MP, SP e RC de cada equipamento para ver as matérias-primas e subprodutos consumidos, os subprodutos gerados e as recirculações (material que volta na cadeia)." as ROTULO_FPM_DICA_CIRCULOS %}
+        {% trans "Clique nos círculos MP, SP, RC e C de cada equipamento para ver as matérias-primas e subprodutos consumidos, os subprodutos gerados, as recirculações (material que volta na cadeia) e o custo do produto no equipamento." as ROTULO_FPM_DICA_CIRCULOS %}
         {% trans "Matérias-primas e subprodutos consumidos em" as ROTULO_FPM_TIT_MP %}
         {% trans "Este ano" as ROTULO_PERIODO_ESTE_ANO %}
+        {% trans "Na Tabela de Produção Mensal só existem dados até" as ROTULO_PERIODO_LIMITE_ATE %}
+        {% trans "Na Tabela de Produção Mensal só existem dados a partir de" as ROTULO_PERIODO_LIMITE_DESDE %}
+        {% trans "O fim não pode ser antes do início." as ROTULO_PERIODO_FIM_ANTES %}
         {% trans "Subprodutos gerados em" as ROTULO_FPM_TIT_SP %}
         {% trans "Nenhuma matéria-prima ou subproduto consumido neste equipamento no período." as ROTULO_FPM_SEM_MP %}
         {% trans "Nenhum subproduto gerado neste equipamento no período." as ROTULO_FPM_SEM_SP %}
@@ -996,6 +1037,8 @@
         var ROTULO_LF_MOSTRANDO = "{{ ROTULO_LF_MOSTRANDO|escapejs }}";
         var ROTULO_FPM_BAL_PRODUZIDO = "{{ ROTULO_FPM_BAL_PRODUZIDO|escapejs }}";
         var ROTULO_FPM_BAL_FLUXO = "{{ ROTULO_FPM_BAL_FLUXO|escapejs }}";
+        var ROTULO_FPM_BAL_FLUXO_LONGO = "{{ ROTULO_FPM_BAL_FLUXO_LONGO|escapejs }}";
+        var ROTULO_FPM_BAL_OUTROS_LONGO = "{{ ROTULO_FPM_BAL_OUTROS_LONGO|escapejs }}";
         var ROTULO_FPM_BAL_OUTROS = "{{ ROTULO_FPM_BAL_OUTROS|escapejs }}";
         var ROTULO_FPM_BAL_SEM = "{{ ROTULO_FPM_BAL_SEM|escapejs }}";
         var ROTULO_FPM_BAL_ACIMA = "{{ ROTULO_FPM_BAL_ACIMA|escapejs }}";
@@ -1010,6 +1053,24 @@
         var ROTULO_FPM_CIRC_RC = "{{ ROTULO_FPM_CIRC_RC|escapejs }}";
         var ROTULO_FPM_DICA_RC = "{{ ROTULO_FPM_DICA_RC|escapejs }}";
         var ROTULO_FPM_TIT_RC = "{{ ROTULO_FPM_TIT_RC|escapejs }}";
+        var ROTULO_FPM_C_CONTRIB = "{{ ROTULO_FPM_C_CONTRIB|escapejs }}";
+        var ROTULO_FPM_C_POR = "{{ ROTULO_FPM_C_POR|escapejs }}";
+        var ROTULO_FPM_C_USA = "{{ ROTULO_FPM_C_USA|escapejs }}";
+        var ROTULO_FPM_C_ESCADA = "{{ ROTULO_FPM_C_ESCADA|escapejs }}";
+        var ROTULO_FPM_C_ESCADA_FECHAR = "{{ ROTULO_FPM_C_ESCADA_FECHAR|escapejs }}";
+        var ROTULO_FPM_C_FINAL = "{{ ROTULO_FPM_C_FINAL|escapejs }}";
+        var ROTULO_FPM_C_DEMAIS = "{{ ROTULO_FPM_C_DEMAIS|escapejs }}";
+        var ROTULO_FPM_C_TITULO = "{{ ROTULO_FPM_C_TITULO|escapejs }}";
+        var ROTULO_FPM_C_TOTAL = "{{ ROTULO_FPM_C_TOTAL|escapejs }}";
+        var ROTULO_FPM_C_VAR = "{{ ROTULO_FPM_C_VAR|escapejs }}";
+        var ROTULO_FPM_C_FIXO = "{{ ROTULO_FPM_C_FIXO|escapejs }}";
+        var ROTULO_FPM_C_MAT = "{{ ROTULO_FPM_C_MAT|escapejs }}";
+        var ROTULO_FPM_C_SUB = "{{ ROTULO_FPM_C_SUB|escapejs }}";
+        var ROTULO_FPM_C_GGF = "{{ ROTULO_FPM_C_GGF|escapejs }}";
+        var ROTULO_FPM_C_BASE = "{{ ROTULO_FPM_C_BASE|escapejs }}";
+        var ROTULO_FPM_C_SEM = "{{ ROTULO_FPM_C_SEM|escapejs }}";
+        var ROTULO_FPM_CIRC_C = "{{ ROTULO_FPM_CIRC_C|escapejs }}";
+        var ROTULO_FPM_DICA_C = "{{ ROTULO_FPM_DICA_C|escapejs }}";
         var ROTULO_FPM_SEM_RC = "{{ ROTULO_FPM_SEM_RC|escapejs }}";
         var ROTULO_FPM_RC_EXPLICA = "{{ ROTULO_FPM_RC_EXPLICA|escapejs }}";
         var ROTULO_FPM_COL_RECIRC = "{{ ROTULO_FPM_COL_RECIRC|escapejs }}";
@@ -1043,6 +1104,9 @@
         var ROTULO_FPM_DICA_CIRCULOS = "{{ ROTULO_FPM_DICA_CIRCULOS|escapejs }}";
         var ROTULO_FPM_TIT_MP = "{{ ROTULO_FPM_TIT_MP|escapejs }}";
         var ROTULO_PERIODO_ESTE_ANO = "{{ ROTULO_PERIODO_ESTE_ANO|escapejs }}";
+        var ROTULO_PERIODO_LIMITE_ATE = "{{ ROTULO_PERIODO_LIMITE_ATE|escapejs }}";
+        var ROTULO_PERIODO_LIMITE_DESDE = "{{ ROTULO_PERIODO_LIMITE_DESDE|escapejs }}";
+        var ROTULO_PERIODO_FIM_ANTES = "{{ ROTULO_PERIODO_FIM_ANTES|escapejs }}";
         var ROTULO_FPM_TIT_SP = "{{ ROTULO_FPM_TIT_SP|escapejs }}";
         var ROTULO_FPM_SEM_MP = "{{ ROTULO_FPM_SEM_MP|escapejs }}";
         var ROTULO_FPM_SEM_SP = "{{ ROTULO_FPM_SEM_SP|escapejs }}";
@@ -1775,7 +1839,7 @@
         var FPM_CORES = {
             consumo: '#5b6b7a', producao: '#8e44ad', ciclo: '#e74c3c'
         };
-        var FPM_COR_MP = '#7f8c8d', FPM_COR_SP = '#e67e22', FPM_COR_RC = '#e74c3c';
+        var FPM_COR_MP = '#7f8c8d', FPM_COR_SP = '#e67e22', FPM_COR_RC = '#e74c3c', FPM_COR_C = '#16a085';
 
         function numFPM(v, casas) {
             return Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: casas });
@@ -1840,7 +1904,9 @@
         }
 
         // Balanço do item no período: produzido = neste fluxo + outros produtos + sem consumo (estoque/perdas).
-        // naCaixa = true: sem o "Neste fluxo" (dentro da caixa ele é o que sai pelas setas).
+        // naCaixa = true: sem o "Neste fluxo" (dentro da caixa ele é o que sai pelas setas) e com o rótulo curto
+        // "Outros produtos" (a caixa é estreita). Fora da caixa (texto ao passar o mouse e painel de detalhe):
+        // "Consumo Neste Fluxo" e "Consumo Outros Produtos".
         function linhasBalancoFPM(n, b, naCaixa) {
             if (!b) return null;
             var u = ' ' + n.unidade;
@@ -1848,8 +1914,9 @@
                 ? ROTULO_FPM_BAL_ACIMA + ': ' + numFPM(-b.sem_consumo, 2) + u
                 : ROTULO_FPM_BAL_SEM + ': ' + numFPM(Math.max(0, b.sem_consumo), 2) + u;
             return [[ROTULO_FPM_BAL_PRODUZIDO + ': ' + numFPM(b.produzido, 2) + u, false]]
-                .concat(naCaixa ? [] : [[ROTULO_FPM_BAL_FLUXO + ': ' + numFPM(b.neste_fluxo, 2) + u, false]])
-                .concat([[ROTULO_FPM_BAL_OUTROS + ': ' + numFPM(b.outros_produtos, 2) + u, false], [resto, false]]);
+                .concat(naCaixa ? [] : [[ROTULO_FPM_BAL_FLUXO_LONGO + ': ' + numFPM(b.neste_fluxo, 2) + u, false]])
+                .concat([[(naCaixa ? ROTULO_FPM_BAL_OUTROS : ROTULO_FPM_BAL_OUTROS_LONGO) + ': ' + numFPM(b.outros_produtos, 2) + u, false],
+                         [resto, false]]);
         }
 
         function layoutFPM(d) {
@@ -1950,16 +2017,17 @@
         }
 
         // Um círculo com a quantidade de itens e o rótulo ao lado. Clicável quando há itens.
+        // 🌟 ALTERADO: tipo 'c' = círculo do CUSTO (mostra a letra C; qtd = 1 quando há custo calculado).
         function circuloFPM(uid, n, tipo, cx, cy, qtd) {
-            var cor = { mp: FPM_COR_MP, sp: FPM_COR_SP, rc: FPM_COR_RC }[tipo];
-            var rotulo = { mp: ROTULO_FPM_CIRC_MP, sp: ROTULO_FPM_CIRC_SP, rc: ROTULO_FPM_CIRC_RC }[tipo];
+            var cor = { mp: FPM_COR_MP, sp: FPM_COR_SP, rc: FPM_COR_RC, c: FPM_COR_C }[tipo];
+            var rotulo = { mp: ROTULO_FPM_CIRC_MP, sp: ROTULO_FPM_CIRC_SP, rc: ROTULO_FPM_CIRC_RC, c: '' }[tipo];
             var ativo = qtd > 0;
-            var dica = { mp: ROTULO_FPM_DICA_MP, sp: ROTULO_FPM_DICA_SP, rc: ROTULO_FPM_DICA_RC }[tipo] + ' (' + qtd + ')';
+            var dica = { mp: ROTULO_FPM_DICA_MP, sp: ROTULO_FPM_DICA_SP, rc: ROTULO_FPM_DICA_RC, c: ROTULO_FPM_DICA_C }[tipo] + (tipo === 'c' ? '' : ' (' + qtd + ')');
             return '<g class="fpm-circulo' + (ativo ? ' fpm-circulo-ativo' : '') + '"' +
                 (ativo ? ' style="cursor: pointer;" onclick="mostrarInsumosFPM(\'' + uid + '\', \'' + escapeAttr(n.id) + '\', \'' + tipo + '\')"' : '') + '>' +
                 '<title>' + escapeHtml(dica) + '</title>' +
                 '<circle cx="' + cx + '" cy="' + cy + '" r="11" fill="' + (ativo ? cor : '#ffffff') + '" stroke="' + cor + '" stroke-width="1.5"' + (ativo ? '' : ' stroke-opacity="0.45"') + '/>' +
-                '<text x="' + cx + '" y="' + (cy + 4) + '" font-size="11" font-weight="bold" text-anchor="middle" fill="' + (ativo ? '#ffffff' : cor) + '"' + (ativo ? '' : ' fill-opacity="0.6"') + '>' + qtd + '</text>' +
+                '<text x="' + cx + '" y="' + (cy + 4) + '" font-size="11" font-weight="bold" text-anchor="middle" fill="' + (ativo ? '#ffffff' : cor) + '"' + (ativo ? '' : ' fill-opacity="0.6"') + '>' + (tipo === 'c' ? escapeHtml(ROTULO_FPM_CIRC_C) : qtd) + '</text>' +
                 '<text x="' + (cx + 15) + '" y="' + (cy + 4) + '" font-size="11" fill="' + (ativo ? '#2c3e50' : '#9aa5ad') + '">' + escapeHtml(rotulo) + '</text></g>';
         }
 
@@ -2091,7 +2159,8 @@
                 var estilo = n.tipo === 'item' ? ['#f4ecf7', '#8e44ad'] : (n.final ? ['#e8f8ef', '#27ae60'] : ['#eaf3fb', '#3498db']);
                 var linhas = linhasNoFPM(n);
                 var dicaCaixa = (n.tipo === 'item' && n.balanco ? linhas.slice(0, 2).concat(linhasBalancoFPM(n, n.balanco)) : linhas).map(function(l) { return l[0]; });
-                if (n.tipo === 'op' && n.balanco) dicaCaixa = dicaCaixa.concat([ROTULO_FPM_BAL_TITULO + ':'], linhasBalancoFPM(n, n.balanco).map(function(l) { return '  ' + l[0]; }));
+                // Equipamento com balanço: a linha "Produção" sai (é o mesmo valor do "Produzido" do balanço).
+                if (n.tipo === 'op' && n.balanco) dicaCaixa = dicaCaixa.slice(0, 2).concat([ROTULO_FPM_BAL_TITULO + ':'], linhasBalancoFPM(n, n.balanco).map(function(l) { return '  ' + l[0]; }));
                 s += '<g data-no="' + escapeAttr(n.id) + '" style="cursor: move;"><g><title>' + escapeHtml(dicaCaixa.join('\n')) + '</title>' +
                     '<rect x="' + n._x + '" y="' + n._y + '" width="' + FPM_LARG + '" height="' + n._h + '" rx="' + (n.tipo === 'op' ? 6 : 14) +
                     '" fill="' + estilo[0] + '" stroke="' + estilo[1] + '" stroke-width="' + (n.final ? 2.5 : 1.4) + '"/>';
@@ -2116,8 +2185,9 @@
                     var reg = insumos[n.id] || { mp: [], sp: [], rc: [] };
                     var yc = n._y + n._h - 16;
                     s += '<line x1="' + (n._x + 6) + '" y1="' + (n._y + 68) + '" x2="' + (n._x + FPM_LARG - 6) + '" y2="' + (n._y + 68) + '" stroke="' + estilo[1] + '" stroke-opacity="0.25"/>';
-                    s += circuloFPM(uid, n, 'mp', n._x + 22, yc, reg.mp.length) + circuloFPM(uid, n, 'sp', n._x + 88, yc, reg.sp.length) +
-                        circuloFPM(uid, n, 'rc', n._x + 154, yc, reg.rc.length);
+                    // 🌟 ALTERADO: 4 círculos -- MP, SP, RC e C (custo).
+                    s += circuloFPM(uid, n, 'mp', n._x + 18, yc, reg.mp.length) + circuloFPM(uid, n, 'sp', n._x + 66, yc, reg.sp.length) +
+                        circuloFPM(uid, n, 'rc', n._x + 114, yc, reg.rc.length) + circuloFPM(uid, n, 'c', n._x + 178, yc, n.custo ? 1 : 0);
                 }
                 s += '</g>';
             });
@@ -2146,7 +2216,7 @@
                 '<button type="button" class="botao-opcao" onclick="abrirTelaCheiaFPM(\'' + uid + '\')">' + escapeHtml(ROTULO_FPM_TELA_CHEIA) + '</button>' +
                 '<button type="button" class="botao-opcao fpm-exportar" onclick="exportarFluxoFPM(\'' + uid + '\', this)">' + escapeHtml(ROTULO_GC_EXPORTAR) + '</button></span></div>' +
                 '<div class="fpm-legenda">' + legenda(FPM_CORES.consumo, ROTULO_FPM_LEG_CONSUMO) + legenda(FPM_CORES.producao, ROTULO_FPM_LEG_PRODUTORES, true) +
-                bolinha(FPM_COR_MP, ROTULO_FPM_DICA_MP) + bolinha(FPM_COR_SP, ROTULO_FPM_DICA_SP) + bolinha(FPM_COR_RC, ROTULO_FPM_DICA_RC) + '</div>' +
+                bolinha(FPM_COR_MP, ROTULO_FPM_DICA_MP) + bolinha(FPM_COR_SP, ROTULO_FPM_DICA_SP) + bolinha(FPM_COR_RC, ROTULO_FPM_DICA_RC) + bolinha(FPM_COR_C, ROTULO_FPM_DICA_C) + '</div>' +
                 '<div class="fpm-corpo"><div class="fpm-area" id="' + uid + '-area">' + svgFPM(vistaFPM(uid), uid) + '</div>' +
                 '<div class="fpm-lista" id="' + uid + '-lista" data-uid="' + uid + '"' + (d._listaAberta ? '' : ' style="display: none;"') + '>' + listaOutrosFPM(uid) + '</div></div>' +
                 '<div class="fpm-detalhe" id="' + uid + '-detalhe"></div></div>';
@@ -2157,6 +2227,7 @@
         function mostrarInsumosFPM(uid, nid, tipo) {
             var d = _dadosFPM[uid];
             if (!d) return;
+            if (tipo === 'c') return mostrarCustoFPM(uid, nid);
             var no = (d.nos || []).filter(function(n) { return n.id === nid; })[0];
             var lista = ((insumosFPM(d)[nid] || {})[tipo]) || [];
             if (!no) return;
@@ -2630,6 +2701,149 @@
         })();
 
 
+        // 🌟 NOVO: CUSTO POR UNIDADE PRODUZIDA de um equipamento (n.custo vem do servidor), pelo valor contábil -- igual
+        // à procedure custo_variavel_adicionado. Quadro enxuto: os 3 números e a composição em 3 linhas, tudo por unidade.
+        function mostrarCustoFPM(uid, nid) {
+            var d = _dadosFPM[uid];
+            var no = d && (d.nos || []).filter(function(n) { return n.id === nid; })[0];
+            if (!no) return;
+            if (d._rcDestaque) { d._rcDestaque = null; redesenharFPM(uid); }
+            var c = no.custo, moeda = d.moeda || '', u = no.unidade || '';
+            var html = '<div class="fpm-detalhe-topo"><b>' + escapeHtml(ROTULO_FPM_C_TITULO + ' ' + u + ' — ' + no.grupo_codigo + ' · ' + no.item_codigo) + '</b>' +
+                '<button type="button" class="fpm-detalhe-fechar" onclick="fecharInsumosFPM(this)" title="' + escapeAttr(ROTULO_FPM_FECHAR) + '">&times;</button></div>' +
+                '<div class="fpm-detalhe-sub">' + escapeHtml((no.item_descricao || '') + (no.grupo_nome ? ' · ' + no.grupo_nome : '')) + '</div>';
+            if (!c || !(c.producao > 0)) {
+                html += '<div class="fpm-detalhe-vazio">' + escapeHtml(ROTULO_FPM_C_SEM) + '</div>';
+            } else {
+                var v = function(x) { return escapeHtml(moeda + numFPM(x, 2)); };
+                html += '<div class="fpm-custo-cartoes">' +
+                    '<div class="fpm-custo-cartao fpm-custo-principal"><span>' + escapeHtml(ROTULO_FPM_C_TOTAL) + '</span><b>' + v(c.unit_total) + '</b></div>' +
+                    '<div class="fpm-custo-cartao"><span>' + escapeHtml(ROTULO_FPM_C_VAR) + '</span><b>' + v(c.unit_variavel) + '</b></div>' +
+                    '<div class="fpm-custo-cartao"><span>' + escapeHtml(ROTULO_FPM_C_FIXO) + '</span><b>' + v(c.unit_total - c.unit_variavel) + '</b></div></div>';
+                var linha = function(rotulo, x) {
+                    return '<tr><td>' + escapeHtml(rotulo) + '</td><td class="num">' + v(x.total) + '</td><td class="num">' + v(x.variavel) +
+                        '</td><td class="num">' + v(x.total - x.variavel) + '</td></tr>';
+                };
+                html += '<table class="fpm-tabela fpm-tabela-custo"><thead><tr><th></th><th class="num">' + escapeHtml(ROTULO_FPM_C_TOTAL) +
+                    '</th><th class="num">' + escapeHtml(ROTULO_FPM_C_VAR) + '</th><th class="num">' + escapeHtml(ROTULO_FPM_C_FIXO) + '</th></tr></thead><tbody>' +
+                    linha(ROTULO_FPM_C_MAT, c.materiais) + linha(ROTULO_FPM_C_SUB, c.sub) + linha(ROTULO_FPM_C_GGF, c.ggf) + '</tbody></table>' +
+                    '<div class="fpm-detalhe-sub fpm-custo-rodape">' + escapeHtml(ROTULO_FPM_PRODUCAO + ': ' + numFPM(c.producao, 2) + ' ' + u + ' · ' +
+                        (d.periodo || '') + ' · ' + ROTULO_FPM_C_BASE) + '</div>';
+                // 🌟 NOVO: contribuição deste equipamento no custo de cada produto final (por unidade do produto final)
+                if ((c.contribuicoes || []).length) {
+                    html += '<div class="fpm-custo-secao">' + escapeHtml(ROTULO_FPM_C_CONTRIB) + '</div>' +
+                        '<table class="fpm-tabela fpm-tabela-custo"><thead><tr><th></th><th class="num">' + escapeHtml(ROTULO_FPM_C_TOTAL) +
+                        '</th><th class="num">' + escapeHtml(ROTULO_FPM_C_VAR) + '</th><th class="num">' + escapeHtml(ROTULO_FPM_C_FIXO) + '</th></tr></thead><tbody>';
+                    c.contribuicoes.forEach(function(k) {
+                        html += '<tr><td>' + escapeHtml(k.final + ' (' + ROTULO_FPM_C_POR + ' ' + k.unidade_final + ')') +
+                            '<div class="fpm-com-equip">' + escapeHtml(ROTULO_FPM_C_USA + ' ' + numFPM(k.necessidade, 4) + ' ' + u + '/' + k.unidade_final) + '</div></td>' +
+                            '<td class="num">' + v(k.total) + '</td><td class="num">' + v(k.variavel) + '</td><td class="num">' + v(k.total - k.variavel) + '</td></tr>';
+                    });
+                    html += '</tbody></table>';
+                }
+                // 🌟 NOVO: no produto final, o gráfico em escada (total / variável / fixo-outros)
+                if (c.escada) {
+                    html += '<div class="fpm-escada-botoes"><button type="button" class="botao-opcao fpm-btn-escada" onclick="alternarEscadaFPM(this, \'' + uid + '\', \'' + escapeAttr(nid) + '\')">' +
+                        escapeHtml(ROTULO_FPM_C_ESCADA) + '</button></div><div class="fpm-escada" style="display: none;"></div>';
+                }
+            }
+            var sobre = document.getElementById('fpm-overlay');
+            var destino = (sobre && sobre.style.display === 'flex' && sobre.getAttribute('data-uid') === uid)
+                ? sobre.querySelector('.fpm-overlay-detalhe') : document.getElementById(uid + '-detalhe');
+            if (!destino) return;
+            destino.innerHTML = html;
+            destino.style.display = 'block';
+            if (destino.classList.contains('fpm-detalhe')) destino.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+
+        // 🌟 NOVO: GRÁFICO EM ESCADA da formação do custo contábil do produto final (por unidade do produto final): uma
+        // barra por equipamento, na ordem do fluxo (do começo da cadeia até o produto final), e a barra do custo do produto.
+        // A soma das barras é exatamente o custo contábil (o servidor já soma o mesmo equipamento/produto numa barra só).
+        // medida: 'total', 'variavel' ou 'fixo'. Com muitos equipamentos, os menores vão juntos em "Demais equipamentos".
+        function alternarEscadaFPM(botao, uid, nid) {
+            var caixa = botao.closest('.fpm-detalhe, .fpm-overlay-detalhe').querySelector('.fpm-escada');
+            var aberto = caixa.style.display !== 'none';
+            caixa.style.display = aberto ? 'none' : 'block';
+            botao.textContent = aberto ? ROTULO_FPM_C_ESCADA : ROTULO_FPM_C_ESCADA_FECHAR;
+            if (!aberto) desenharEscadaFPM(caixa, uid, nid, caixa.getAttribute('data-medida') || 'total');
+        }
+
+        function desenharEscadaFPM(caixa, uid, nid, medida) {
+            var d = _dadosFPM[uid];
+            var no = d && (d.nos || []).filter(function(n) { return n.id === nid; })[0];
+            if (!no || !no.custo || !no.custo.escada) return;
+            caixa.setAttribute('data-medida', medida);
+            var abas = [['total', ROTULO_FPM_C_TOTAL], ['variavel', ROTULO_FPM_C_VAR], ['fixo', ROTULO_FPM_C_FIXO]];
+            caixa.innerHTML = '<div class="fpm-escada-abas">' + abas.map(function(a) {
+                return '<button type="button" class="fpm-escada-aba' + (a[0] === medida ? ' ativa' : '') + '" onclick="desenharEscadaFPM(this.closest(\'.fpm-escada\'), \'' + uid +
+                    '\', \'' + escapeAttr(nid) + '\', \'' + a[0] + '\')">' + escapeHtml(a[1]) + '</button>';
+            }).join('') + '</div>' + escadaSvgFPM(no.custo.escada, medida, d.moeda || '', no.unidade || '');
+        }
+
+        function escadaSvgFPM(escada, medida, moeda, unidade) {
+            var val = function(x) { return medida === 'total' ? x.total : medida === 'variavel' ? x.variavel : x.total - x.variavel; };
+            var barras = escada.barras.slice();
+            var limite = escada.limite || 14;
+            var linhas = [];
+            var dicaB = function(b) { return b.nome + ' — ' + (b.descricao || '') + ' — ' + numFPM(b.necessidade, 4) + ' ' + b.unidade + '/' + unidade; };
+            if (barras.length > limite) {
+                // Mantém os maiores (pelo total) e junta os outros de cada ETAPA do fluxo (mesma distância até o produto
+                // final) numa barra "Demais equipamentos (n)" no lugar daquela etapa -- a ordem do fluxo é preservada.
+                var manter = {};
+                barras.slice().sort(function(a, b) { return Math.abs(b.total) - Math.abs(a.total); }).slice(0, limite)
+                    .forEach(function(b) { manter[b.id] = true; });
+                var niveis = [], porNivel = {};
+                barras.forEach(function(b) {
+                    if (!porNivel[b.distancia]) { porNivel[b.distancia] = { manter: [], resto: { total: 0, variavel: 0, n: 0 } }; niveis.push(b.distancia); }
+                    var nv = porNivel[b.distancia];
+                    if (manter[b.id]) nv.manter.push(b);
+                    else { nv.resto.total += b.total; nv.resto.variavel += b.variavel; nv.resto.n++; }
+                });
+                niveis.forEach(function(dist) {
+                    var nv = porNivel[dist];
+                    nv.manter.forEach(function(b) { linhas.push({ nome: b.nome, descricao: b.descricao, valor: val(b), dica: dicaB(b) }); });
+                    if (nv.resto.n) {
+                        var nome = ROTULO_FPM_C_DEMAIS + ' (' + nv.resto.n + ')';
+                        linhas.push({ nome: nome, valor: val(nv.resto), dica: nome });
+                    }
+                });
+            } else {
+                barras.forEach(function(b) { linhas.push({ nome: b.nome, descricao: b.descricao, valor: val(b), dica: dicaB(b) }); });
+            }
+            var acumulado = 0, minimo = 0, maximo = 0;
+            linhas.forEach(function(l) {
+                l.inicio = acumulado; acumulado += l.valor; l.fim = acumulado;
+                minimo = Math.min(minimo, l.inicio, l.fim); maximo = Math.max(maximo, l.inicio, l.fim);
+            });
+            var final = val(escada.final);
+            linhas.push({ nome: ROTULO_FPM_C_FINAL, valor: final, inicio: 0, fim: final, final: true, dica: ROTULO_FPM_C_FINAL });
+            // 🌟 ALTERADO: rótulo em 2 linhas -- código do equipamento · código do produto, e a descrição do produto embaixo.
+            minimo = Math.min(minimo, final); maximo = Math.max(maximo, final);
+            var L = 620, rotuloL = 250, valorL = 92, area = L - rotuloL - valorL - 8, altLinha = 32, topo = 6;
+            var H = topo + linhas.length * altLinha + 6;
+            var faixa = (maximo - minimo) || 1;
+            var px = function(v) { return rotuloL + (v - minimo) / faixa * area; };
+            var cores = { sobe: '#16a085', desce: '#e67e22', final: '#2c3e50' };
+            var s = '<svg class="fpm-escada-svg" width="100%" viewBox="0 0 ' + L + ' ' + H + '" font-family="Arial, Helvetica, sans-serif">' +
+                '<line x1="' + px(0) + '" y1="' + topo + '" x2="' + px(0) + '" y2="' + (H - 4) + '" stroke="#b0b7bd" stroke-width="1"/>';
+            linhas.forEach(function(l, i) {
+                var y = topo + i * altLinha, x1 = px(Math.min(l.inicio, l.fim)), x2 = px(Math.max(l.inicio, l.fim));
+                var cor = l.final ? cores.final : (l.valor >= 0 ? cores.sobe : cores.desce);
+                if (i > 0 && !l.final) {           // ligação tracejada com a barra anterior
+                    s += '<line x1="' + px(l.inicio) + '" y1="' + (y - altLinha + 23) + '" x2="' + px(l.inicio) + '" y2="' + (y + 9) + '" stroke="#b0b7bd" stroke-dasharray="2 2"/>';
+                }
+                s += '<g><title>' + escapeHtml(l.dica + ': ' + moeda + numFPM(l.valor, 2) + '/' + unidade) + '</title>' +
+                    (l.descricao
+                        ? '<text x="' + (rotuloL - 6) + '" y="' + (y + 13) + '" font-size="11" text-anchor="end" fill="#2c3e50">' + escapeHtml(cortarFPM(l.nome, 40)) + '</text>' +
+                          '<text x="' + (rotuloL - 6) + '" y="' + (y + 26) + '" font-size="10" text-anchor="end" fill="#6b7a86">' + escapeHtml(cortarFPM(l.descricao, 42)) + '</text>'
+                        : '<text x="' + (rotuloL - 6) + '" y="' + (y + 19) + '" font-size="11" text-anchor="end" fill="#2c3e50"' + (l.final ? ' font-weight="bold"' : '') + '>' + escapeHtml(cortarFPM(l.nome, 40)) + '</text>') +
+                    '<rect x="' + x1 + '" y="' + (y + 9) + '" width="' + Math.max(1.5, x2 - x1) + '" height="14" rx="2" fill="' + cor + '"/>' +
+                    '<text x="' + (L - 4) + '" y="' + (y + 19) + '" font-size="11" text-anchor="end" fill="#2c3e50"' + (l.final ? ' font-weight="bold"' : '') + '>' +
+                    escapeHtml(moeda + numFPM(l.valor, 2)) + '</text></g>';
+            });
+            return s + '</svg>';
+        }
+
         // Detalhe do balanço: quais outros produtos consumiram o item no período (fora deste fluxo).
         function mostrarBalancoFPM(uid, nid) {
             var d = _dadosFPM[uid];
@@ -3023,15 +3237,53 @@
         // mecanismo de escolherOpcao, reaproveitado).
         // 🌟 NOVO: "Este ano" ao lado dos campos de mês -- o calendário do navegador só tem "Limpar" e "Este mês" (não dá
         // pra colocar botão dentro dele). Preenche de janeiro do ano atual até o mês atual; o usuário ainda pode ajustar.
+        // 🌟 ALTERADO: quando o formulário tem LIMITES (data-lim-min/data-lim-max -- ex.: Montar Fluxo de Produção Base
+        // Produção Mensal, onde o fim já vem no último mês com dados), "Este ano" só muda o INÍCIO: janeiro do ano do
+        // fim (ou do ano atual, se for antes), nunca antes do limite mínimo. O fim fica como está.
         function periodoEsteAnoForm(idInicio, idFim) {
+            var campoInicio = document.getElementById(idInicio), campoFim = document.getElementById(idFim);
+            var caixa = campoInicio.closest('.form-periodo-inline');
+            var limMin = caixa && caixa.getAttribute('data-lim-min'), limMax = caixa && caixa.getAttribute('data-lim-max');
             var hoje = new Date(), ano = hoje.getFullYear(), mes = ('0' + (hoje.getMonth() + 1)).slice(-2);
-            document.getElementById(idInicio).value = ano + '-01';
-            document.getElementById(idFim).value = ano + '-' + mes;
+            if (limMax) {
+                var anoFim = Number((campoFim.value || limMax).slice(0, 4));
+                var inicio = Math.min(ano, anoFim) + '-01';
+                if (limMin && inicio < limMin) inicio = limMin;
+                campoInicio.value = inicio;
+                avisoFormPeriodo(caixa, '');
+                return;
+            }
+            campoInicio.value = ano + '-01';
+            campoFim.value = ano + '-' + mes;
+        }
+
+        function avisoFormPeriodo(caixa, texto) {
+            var aviso = caixa && caixa.querySelector('.form-periodo-aviso');
+            if (!aviso) return;
+            aviso.textContent = texto;
+            aviso.style.display = texto ? '' : 'none';
         }
 
         function confirmarFormPeriodo(idInicio, idFim) {
-            var inicio = document.getElementById(idInicio).value.trim().replace('-', '/');
+            var campoInicio = document.getElementById(idInicio);
+            var caixa = campoInicio.closest('.form-periodo-inline');
+            var inicio = campoInicio.value.trim().replace('-', '/');
             var fim = document.getElementById(idFim).value.trim().replace('-', '/');
+            // 🌟 NOVO: com limites, não envia período fora deles (o servidor confere de novo).
+            var limMin = caixa && caixa.getAttribute('data-lim-min'), limMax = caixa && caixa.getAttribute('data-lim-max');
+            if (limMax && fim && fim.replace('/', '-') > limMax) {
+                avisoFormPeriodo(caixa, ROTULO_PERIODO_LIMITE_ATE + ' ' + limMax.replace('-', '/') + '.');
+                return;
+            }
+            if (limMin && inicio && inicio.replace('/', '-') < limMin) {
+                avisoFormPeriodo(caixa, ROTULO_PERIODO_LIMITE_DESDE + ' ' + limMin.replace('-', '/') + '.');
+                return;
+            }
+            if (limMax && inicio && fim && fim < inicio) {
+                avisoFormPeriodo(caixa, ROTULO_PERIODO_FIM_ANTES);
+                return;
+            }
+            avisoFormPeriodo(caixa, '');
             escolherOpcao(inicio + ',' + fim);
         }
 
@@ -3827,11 +4079,19 @@
                 // próprio navegador, não tem como forçar via HTML/CSS.
                 var valorInicioMonth = (data.form_periodo.minimo || '').replace('/', '-');
                 var valorFimMonth = (data.form_periodo.maximo || '').replace('/', '-');
-                formPeriodoHtml = '<div class="form-periodo-inline">' +
-                    '<label>Início: <input type="month" id="' + idInicio + '" value="' + escapeHtml(valorInicioMonth) + '"></label>' +
-                    '<label>Fim: <input type="month" id="' + idFim + '" value="' + escapeHtml(valorFimMonth) + '"></label>' +
+                // 🌟 NOVO: limites opcionais (data-lim-min/data-lim-max + min/max dos campos, pro calendário não
+                // oferecer meses fora deles).
+                var limMinMonth = (data.form_periodo.limite_minimo || '').replace('/', '-');
+                var limMaxMonth = (data.form_periodo.limite_maximo || '').replace('/', '-');
+                var atrLimites = (limMinMonth ? ' min="' + escapeHtml(limMinMonth) + '"' : '') + (limMaxMonth ? ' max="' + escapeHtml(limMaxMonth) + '"' : '');
+                formPeriodoHtml = '<div class="form-periodo-inline"' +
+                    (limMinMonth ? ' data-lim-min="' + escapeHtml(limMinMonth) + '"' : '') +
+                    (limMaxMonth ? ' data-lim-max="' + escapeHtml(limMaxMonth) + '"' : '') + '>' +
+                    '<label>Início: <input type="month" id="' + idInicio + '" value="' + escapeHtml(valorInicioMonth) + '"' + atrLimites + '></label>' +
+                    '<label>Fim: <input type="month" id="' + idFim + '" value="' + escapeHtml(valorFimMonth) + '"' + atrLimites + '></label>' +
                     '<button type="button" class="botao-periodo-rapido" onclick="periodoEsteAnoForm(\'' + idInicio + '\', \'' + idFim + '\')">' + escapeHtml(ROTULO_PERIODO_ESTE_ANO) + '</button>' +
                     '<button type="button" class="botao-opcao" onclick="confirmarFormPeriodo(\'' + idInicio + '\', \'' + idFim + '\')">Confirmar</button>' +
+                    '<div class="form-periodo-aviso" style="display: none;"></div>' +
                     '</div>';
             }
 

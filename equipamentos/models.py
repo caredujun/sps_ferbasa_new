@@ -396,13 +396,17 @@ class TbEquipamentos(models.Model):
     # padrão de um fluxo do produto (a mesma definição do qtde_fluxos_usando
     # do Admin e de TbProdutos._ids_equipamentos_usados).
     # ------------------------------------------------------------------
-    def _ids_produtos_usados(self):
+    def _ids_produtos_usados(self, somente_ativos=False):
         # Memorizado por instância: a tela do Admin usa esse conjunto em 3
         # lugares (painel, indicador e marcação em vermelho do seletor) e
         # cada requisição tem a sua própria instância, então não fica velho.
+        # 🌟 NOVO: somente_ativos=True considera só os fluxos ATIVOS
+        # (flu_pro_ativo=True) -- usado pela trava da limpeza nas Ações
+        # Comuns. O padrão (False) é o de sempre, usado pelo Admin.
         if self.pk is None:
             return set()
-        if getattr(self, '_cache_ids_produtos_usados', None) is None:
+        atributo_cache = '_cache_ids_produtos_usados_ativos' if somente_ativos else '_cache_ids_produtos_usados'
+        if getattr(self, atributo_cache, None) is None:
             from django.apps import apps
             from django.db.models import Q
             ConsumoPadrao = apps.get_model('fluxos', 'TbFluxoConsumoPadrao')
@@ -418,13 +422,16 @@ class TbEquipamentos(models.Model):
             fluxos_ids = FluxoDaugther.objects.filter(
                 flu_pro_dau_consumo_padrao_id__in=consumos
             ).values('mae_id')
+            fluxos = Fluxo.objects.filter(pk__in=fluxos_ids)
+            if somente_ativos:
+                fluxos = fluxos.filter(flu_pro_ativo=True)
             produtos = (
-                Fluxo.objects.filter(pk__in=fluxos_ids)
+                fluxos
                 .values_list('flu_pro_produto_id', flat=True)
                 .order_by().distinct()
             )
-            self._cache_ids_produtos_usados = set(produtos) - {None}
-        return set(self._cache_ids_produtos_usados)
+            setattr(self, atributo_cache, set(produtos) - {None})
+        return set(getattr(self, atributo_cache))
 
     def _ids_produtos_escolhidos(self):
         # Produtos marcados no campo "Produtos Que Usam" (equ_produtos).

@@ -2113,9 +2113,11 @@ def iniciar_criar_fluxo_no_editor_cenario_ativo(usuario):
     from fluxos.models import TbFluxoProducao
     from fluxos.tasks import criar_fluxo_no_editor_lista_celery
 
-    lista_id = list(TbFluxoProducao.objects.filter(tbcenarios_id=cenario.id, flu_pro_auto_editor_aut=True).values_list('id', flat=True))
+    # 🌟 ALTERADO: só os fluxos ATIVOS (flu_pro_ativo=True).
+    lista_id = list(TbFluxoProducao.objects.filter(tbcenarios_id=cenario.id, flu_pro_ativo=True,
+                                                   flu_pro_auto_editor_aut=True).values_list('id', flat=True))
     if not lista_id:
-        return f"O cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** não tem nenhum fluxo de produção com atualização automática habilitada."
+        return f"O cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** não tem nenhum fluxo de produção ativo com atualização automática habilitada."
 
     estado = _get_estado(usuario)
     estado.fluxo_ativo = FLUXO_PROCESSAR  # reaproveita o mesmo "namespace" de fluxo simples
@@ -2270,7 +2272,8 @@ def _fp_montar_selecao(estado, dados):
     texto = (
         f"Esta é a situação dos fluxos de cada produto do cenário **{dados.get('cenario_nome', '')}**: "
         "**Cadastrados** são os fluxos que o produto tem hoje, **Corretos** são os cadastrados que batem com o que eu "
-        "calcularia agora, **A gerar** são os que faltam e **A remover** são os cadastrados que estão errados ou sobrando.\n\n"
+        "calcularia agora, **A gerar** são os que faltam e **A remover** são os cadastrados que estão errados ou sobrando. "
+        "Só contam os fluxos **ativos**: os inativos não são removidos, e um fluxo igual a um inativo não é recriado.\n\n"
     )
     if precisam == 0:
         estado.dados_coletados = dados
@@ -2383,7 +2386,7 @@ def _fp_lote_iniciar_proximo(estado):
     task_id = str(uuid.uuid4())
     dados.update({
         'produto_id': atual['id'], 'produto_codigo': atual['codigo'], 'status': 'processando',
-        'produto_antes': TbFluxoProducao.objects.filter(flu_pro_produto_id=atual['id']).count(),
+        'produto_antes': TbFluxoProducao.objects.filter(flu_pro_produto_id=atual['id'], flu_pro_ativo=True).count(),
         'task_ids': [task_id], 'disparado_em': datetime.now(_tz.utc).isoformat(),
     })
     estado.etapa_atual = 'fp_lote_aguardando'
@@ -2406,7 +2409,7 @@ def _etapa_fp_lote_aguardando(estado, texto):
         dados['mensagem'] = ("a atualização parou antes de terminar -- o processo do Celery foi encerrado "
                              "(provavelmente por falta de memória)")
 
-    depois = TbFluxoProducao.objects.filter(flu_pro_produto_id=dados.get('produto_id')).count()
+    depois = TbFluxoProducao.objects.filter(flu_pro_produto_id=dados.get('produto_id'), flu_pro_ativo=True).count()
     resultado = {
         'codigo': dados.get('produto_codigo', ''), 'antes': dados.get('produto_antes', 0), 'depois': depois,
         'criados': dados.get('total_criados', 0), 'removidos': dados.get('total_removidos', 0), 'erro': None,
@@ -2549,11 +2552,12 @@ def _etapa_fp_io_aguardando(estado, texto):
 # ---------------------------------------------------------------------
 def _cmp_produtos_com_fluxos(cenario_id, excluir_fluxo_id=None):
     """[(produto, qtd_de_fluxos)] dos produtos do cenário que têm pelo menos 1 fluxo -- sem contar o fluxo já escolhido
-    (um produto cujo ÚNICO fluxo é o já escolhido não tem com o que ser comparado)."""
+    (um produto cujo ÚNICO fluxo é o já escolhido não tem com o que ser comparado).
+    🌟 ALTERADO: só os fluxos ATIVOS (flu_pro_ativo=True) contam."""
     from produtos.models import TbProdutos
     from fluxos.models import TbFluxoProducao
     from django.db.models import Count
-    fluxos = TbFluxoProducao.objects.filter(tbcenarios_id=cenario_id)
+    fluxos = TbFluxoProducao.objects.filter(tbcenarios_id=cenario_id, flu_pro_ativo=True)
     if excluir_fluxo_id is not None:
         fluxos = fluxos.exclude(id=excluir_fluxo_id)
     contagem = {i['flu_pro_produto_id']: i['qtd'] for i in
@@ -2572,8 +2576,8 @@ def _cmp_texto_pedir_produto(dados):
     else:
         cabecalho = ("De qual produto é o **primeiro** fluxo? A comparação pode ser entre fluxos do mesmo produto ou de "
                      "produtos diferentes. ")
-    return (cabecalho + "O número ao lado do código é a quantidade de fluxos do produto (só aparecem produtos que "
-            "têm fluxos).\n\n" + f"[LISTA_PRODUTOS:{itens_marcador}]")
+    return (cabecalho + "O número ao lado do código é a quantidade de fluxos ativos do produto (só aparecem produtos que "
+            "têm fluxos ativos).\n\n" + f"[LISTA_PRODUTOS:{itens_marcador}]")
 
 
 def iniciar_fluxo_comparar_fluxos(usuario):
@@ -2586,7 +2590,7 @@ def iniciar_fluxo_comparar_fluxos(usuario):
 
     produtos = _cmp_produtos_com_fluxos(cenario.id)
     if sum(qtd for _, qtd in produtos) < 2:
-        return (f"O cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** tem menos de 2 fluxos de produção, "
+        return (f"O cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** tem menos de 2 fluxos de produção ativos, "
                 "então não há o que comparar.")
 
     estado = _get_estado(usuario)
@@ -2601,7 +2605,7 @@ def _cmp_texto_lista_fluxos(dados, filtro='', aviso=''):
     """A lista de fluxos do produto escolhido: a TELA mostra id e descrição, em ordem alfabética, com rolagem e um filtro."""
     from fluxos.comparar_fluxos import listar_fluxos, LIMITE_LISTA_FLUXOS
     excluir = dados.get('fluxo_a_id') if dados.get('alvo') == 'b' else None
-    itens, total = listar_fluxos(dados['cenario_id'], dados['produto_id'], filtro, excluir_id=excluir)
+    itens, total = listar_fluxos(dados['cenario_id'], dados['produto_id'], filtro, excluir_id=excluir, somente_ativos=True)
     produto = dados.get('produto_codigo', '')
     if dados.get('alvo', 'a') == 'a':
         cabecalho = f"Escolha o **primeiro** fluxo do produto **{produto}** na lista abaixo (em ordem alfabética da descrição). "
@@ -2636,13 +2640,14 @@ def _etapa_cmp_fluxo(estado, texto):
     excluir = dados.get('fluxo_a_id') if dados.get('alvo') == 'b' else None
     t = texto.strip()
     if t.isdigit():
-        fluxo = (TbFluxoProducao.objects.filter(id=int(t), tbcenarios_id=dados['cenario_id'], flu_pro_produto_id=dados['produto_id'])
+        fluxo = (TbFluxoProducao.objects.filter(id=int(t), tbcenarios_id=dados['cenario_id'], flu_pro_produto_id=dados['produto_id'],
+                                                flu_pro_ativo=True)
                  .exclude(id=excluir or 0).first())
         if fluxo is not None:
             return _cmp_fluxo_escolhido(estado, dados, {'id': fluxo.id, 'descricao': fluxo.flu_pro_descricao})
-        return _cmp_texto_lista_fluxos(dados, aviso=f"Não há fluxo com o id **{t}** entre os fluxos desse produto. ")
+        return _cmp_texto_lista_fluxos(dados, aviso=f"Não há fluxo ativo com o id **{t}** entre os fluxos desse produto. ")
     from fluxos.comparar_fluxos import listar_fluxos
-    _itens, total = listar_fluxos(dados['cenario_id'], dados['produto_id'], t, excluir_id=excluir)
+    _itens, total = listar_fluxos(dados['cenario_id'], dados['produto_id'], t, excluir_id=excluir, somente_ativos=True)
     if total == 0:
         return _cmp_texto_lista_fluxos(dados, aviso=f"Não achei nenhum fluxo com **{t}**; mostrei a lista completa de novo. ")
     return _cmp_texto_lista_fluxos(dados, filtro=t)
@@ -2715,7 +2720,7 @@ def iniciar_fluxo_custo_variavel_fluxo(usuario):
         return "O cenário que estava ativo pra você não existe mais."
 
     if not _cmp_produtos_com_fluxos(cenario.id):
-        return f"O cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** não tem fluxos de produção."
+        return f"O cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** não tem fluxos de produção ativos."
 
     estado = _get_estado(usuario)
     estado.fluxo_ativo = FLUXO_PROCESSAR
@@ -2728,13 +2733,13 @@ def iniciar_fluxo_custo_variavel_fluxo(usuario):
 def _cvf_texto_pedir_produto(dados):
     produtos = _cmp_produtos_com_fluxos(dados['cenario_id'])
     itens_marcador = "|".join(f"{p.pro_codigo}={qtd}" for p, qtd in produtos)
-    return ("De qual produto é o fluxo que você quer analisar? O número ao lado do código é a quantidade de fluxos do "
-            "produto (só aparecem produtos que têm fluxos).\n\n" + f"[LISTA_PRODUTOS:{itens_marcador}]")
+    return ("De qual produto é o fluxo que você quer analisar? O número ao lado do código é a quantidade de fluxos ativos do "
+            "produto (só aparecem produtos que têm fluxos ativos).\n\n" + f"[LISTA_PRODUTOS:{itens_marcador}]")
 
 
 def _cvf_texto_lista_fluxos(dados, filtro='', aviso=''):
     from fluxos.comparar_fluxos import listar_fluxos, LIMITE_LISTA_FLUXOS
-    itens, total = listar_fluxos(dados['cenario_id'], dados['produto_id'], filtro)
+    itens, total = listar_fluxos(dados['cenario_id'], dados['produto_id'], filtro, somente_ativos=True)
     produto = dados.get('produto_codigo', '')
     return (aviso + f"Escolha o fluxo do produto **{produto}** na lista abaixo (em ordem alfabética da descrição). "
             "Clique no fluxo. Se a lista for grande, use o campo de filtro (palavras da descrição, por exemplo os códigos "
@@ -2765,11 +2770,11 @@ def _etapa_cvf_fluxo(estado, texto):
     t = texto.strip()
     if t.isdigit():
         fluxo = TbFluxoProducao.objects.filter(id=int(t), tbcenarios_id=dados['cenario_id'],
-                                               flu_pro_produto_id=dados['produto_id']).first()
+                                               flu_pro_produto_id=dados['produto_id'], flu_pro_ativo=True).first()
         if fluxo is not None:
             return _cvf_executar(estado, dados, fluxo)
-        return _cvf_texto_lista_fluxos(dados, aviso=f"Não há fluxo com o id **{t}** entre os fluxos desse produto. ")
-    _itens, total = listar_fluxos(dados['cenario_id'], dados['produto_id'], t)
+        return _cvf_texto_lista_fluxos(dados, aviso=f"Não há fluxo ativo com o id **{t}** entre os fluxos desse produto. ")
+    _itens, total = listar_fluxos(dados['cenario_id'], dados['produto_id'], t, somente_ativos=True)
     if total == 0:
         return _cvf_texto_lista_fluxos(dados, aviso=f"Não achei nenhum fluxo com **{t}**; mostrei a lista completa de novo. ")
     return _cvf_texto_lista_fluxos(dados, filtro=t)
@@ -2888,7 +2893,13 @@ def _etapa_cfx_itens(estado, texto):
     estado.save()
     return (f"Itens: **{', '.join(codigos)}**. A Produção Mensal deles vai de **{minimo}** a **{maximo}**. Escolha o período "
             "(ano/mês início e fim) e confirme abaixo, ou clica em \"Cancelar\".\n\n"
-            f"[FORM_PERIODO:{minimo}:{maximo}]")
+            + _cfx_form_periodo(minimo, maximo, estado.dados_coletados))
+
+
+def _cfx_form_periodo(inicio, fim, dados):
+    """🌟 NOVO: o formulário de período com os LIMITES da Produção Mensal dos itens escolhidos (os 2 últimos valores do
+    marcador): a tela não deixa confirmar fora deles e o botão "Este ano" não mexe no fim."""
+    return f"[FORM_PERIODO:{inicio}:{fim}:{dados['ano_mes_minimo']}:{dados['ano_mes_maximo']}]"
 
 
 def _etapa_cfx_periodo(estado, texto):
@@ -2899,15 +2910,26 @@ def _etapa_cfx_periodo(estado, texto):
     if (texto or '').strip().lower() in ('sim', 's'):
         periodos = [minimo, maximo]
     if len(periodos) != 2:
-        return f"Não consegui entender esse período. Ajuste abaixo, ou clica em \"Cancelar\".\n\n[FORM_PERIODO:{minimo}:{maximo}]"
+        return ("Não consegui entender esse período. Ajuste abaixo, ou clica em \"Cancelar\".\n\n"
+                + _cfx_form_periodo(minimo, maximo, dados))
     inicio, fim = periodos
+    # 🌟 NOVO: fora dos limites da Produção Mensal dos itens escolhidos não é aceito (a tela já não deixa confirmar;
+    # isto vale pra quem digitar o período no texto).
+    if fim > maximo:
+        return (f"Na Tabela de Produção Mensal só existem dados até **{maximo}** para esses itens -- o fim ({fim}) não "
+                "pode passar disso. Ajuste abaixo, ou clica em \"Cancelar\".\n\n"
+                + _cfx_form_periodo(max(inicio, minimo), maximo, dados))
+    if inicio < minimo:
+        return (f"Na Tabela de Produção Mensal só existem dados a partir de **{minimo}** para esses itens -- o início "
+                f"({inicio}) não pode ser antes disso. Ajuste abaixo, ou clica em \"Cancelar\".\n\n"
+                + _cfx_form_periodo(minimo, min(fim, maximo), dados))
     if fim < inicio:
         return (f"O fim ({fim}) não pode ser antes do início ({inicio}). Ajuste abaixo, ou clica em \"Cancelar\".\n\n"
-                f"[FORM_PERIODO:{inicio}:{fim}]")
+                + _cfx_form_periodo(inicio, fim, dados))
     try:
         grafo = carregar_grafo(dados['empresa_id'], dados['itens_ids'], inicio, fim)
     except FluxoProducaoMensalError as erro:
-        return f"{erro}\n\n[FORM_PERIODO:{inicio}:{fim}]"
+        return f"{erro}\n\n" + _cfx_form_periodo(inicio, fim, dados)
     _encerrar_fluxo(estado)
 
     codigos = ', '.join(dados.get('itens_codigos', []))
@@ -2931,7 +2953,21 @@ def _etapa_cfx_periodo(estado, texto):
         texto_resposta += (f"\n\nO fluxo tem **{r['operacoes']}** equipamentos. O desenho começa com os **{grafo['equipamentos_iniciais']}** "
                            "mais próximos do produto final; os outros aparecem no botão \"Mostrar outros equipamentos\" -- marque e "
                            "clique em \"Adicionar ao fluxo\", ou arraste para o desenho.")
-    payload = {'titulo': f"Fluxo de produção de {nomes}", 'periodo': f"{inicio} a {fim}", **grafo}
+    # 🌟 NOVO: custo do(s) produto(s) escolhido(s) -- total, variável e fixo/outros por unidade. O detalhe de cada
+    # equipamento fica no círculo "C" das caixas.
+    moeda = _cmp_moeda(estado)
+    br = lambda v: f"{v:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+    if grafo.get('custos_produtos'):
+        linhas_custo = [
+            f"- **{c['codigo']}** ({br(c['producao'])} {c['unidade']} no período): total **{moeda}{br(c['unit_total'])}/{c['unidade']}** · "
+            f"variável {moeda}{br(c['unit_variavel'])} · fixo/outros {moeda}{br(c['unit_total'] - c['unit_variavel'])}"
+            for c in grafo['custos_produtos']]
+        texto_resposta += ("\n\n**Custo do produto por unidade** (valor contábil -- custo médio de estoque -- da Produção "
+                           "Mensal + GGF distribuído, como a procedure de custo variável adicionado):\n" + "\n".join(linhas_custo)
+                           + "\n\nClique no círculo **C** de cada equipamento para ver o custo dele por unidade produzida.")
+    if grafo.get('aviso_custo'):
+        texto_resposta += "\n\n⚠️ " + grafo['aviso_custo']
+    payload = {'titulo': f"Fluxo de produção de {nomes}", 'periodo': f"{inicio} a {fim}", 'moeda': moeda, **grafo}
     return texto_resposta + "\n\n" + _equ_marcador('FLUXO_PRODUCAO_MENSAL', payload)
 
 
@@ -2958,7 +2994,7 @@ def _etapa_fp_criar_fluxos_produto_escolher(estado, texto):
     if comparacao['qtd_existente'] == 0:
         _encerrar_fluxo(estado)
         return (
-            f"O produto **{produto.pro_codigo}** ainda não tem nenhum fluxo de produção cadastrado. "
+            f"O produto **{produto.pro_codigo}** ainda não tem nenhum fluxo de produção ativo cadastrado. "
             "Gerar do zero (sem nada existente pra comparar) é uma etapa que ainda vamos desenvolver "
             "depois -- por enquanto, não fiz nada."
         )
@@ -2966,7 +3002,7 @@ def _etapa_fp_criar_fluxos_produto_escolher(estado, texto):
     if not comparacao['mudou']:
         _encerrar_fluxo(estado)
         return (
-            f"O produto **{produto.pro_codigo}** já tem **{comparacao['qtd_existente']}** fluxo(s), e são "
+            f"O produto **{produto.pro_codigo}** já tem **{comparacao['qtd_existente']}** fluxo(s) ativo(s), e são "
             "exatamente os mesmos que eu geraria agora -- não vale a pena mexer em nada. Não fiz nada."
         )
 
@@ -2981,7 +3017,7 @@ def _etapa_fp_criar_fluxos_produto_escolher(estado, texto):
     estado.save()
 
     return (
-        f"O produto **{produto.pro_codigo}** já tem **{comparacao['qtd_existente']}** fluxo(s) cadastrado(s), "
+        f"O produto **{produto.pro_codigo}** já tem **{comparacao['qtd_existente']}** fluxo(s) ativo(s) cadastrado(s), "
         f"dos quais **{comparacao['qtd_iguais']}** já batem certinho com o que eu calcularia agora.\n\n"
         f"Pra deixar tudo certo, eu precisaria **remover {qtd_remover}** fluxo(s) que estão errados/sobrando "
         f"e **criar {qtd_criar}** que estão faltando -- o resto não seria tocado.\n\n"
@@ -5430,6 +5466,35 @@ def determinar_acao_processar(mensagem):
     return None
 
 
+def _fluxos_divergentes_da_limpeza(cenario):
+    """
+    🌟 NOVO: confere se os fluxos que entram na otimização (TbProdutoMercadoFluxo com flag=True, montados pela
+    limpeza) ainda batem com os fluxos ATIVOS do cenário. Devolve o texto do aviso, ou None se estiver tudo certo.
+      - fluxo INATIVO entre as variáveis: foi desativado depois da limpeza;
+      - fluxo ATIVO de um produto da otimização que não está entre as variáveis: foi ativado (ou criado) depois.
+    """
+    from fluxos.models import TbFluxoProducao
+    from otimizacao.models import TbProdutoMercadoFluxo
+    variaveis = TbProdutoMercadoFluxo.objects.filter(tbcenarios_id=cenario.id, flag=True)
+    qtd_inativos = (variaveis.filter(pro_mer_flu_fluxo_producao__flu_pro_ativo=False)
+                    .values('pro_mer_flu_fluxo_producao_id').distinct().count())
+    qtd_fora = (TbFluxoProducao.objects
+                .filter(tbcenarios_id=cenario.id, flu_pro_ativo=True,
+                        flu_pro_produto_id__in=variaveis.values('pro_mer_flu_produto_id'))
+                .exclude(id__in=variaveis.values('pro_mer_flu_fluxo_producao_id'))
+                .count())
+    if not qtd_inativos and not qtd_fora:
+        return None
+    numero = cenario.numero_sequencial if cenario.numero_sequencial is not None else cenario.id
+    motivos = []
+    if qtd_inativos:
+        motivos.append(f"**{qtd_inativos}** fluxo(s) que entrariam na otimização estão **inativos** hoje")
+    if qtd_fora:
+        motivos.append(f"**{qtd_fora}** fluxo(s) **ativos** ficaram de fora")
+    return (f"Não vou otimizar o cenário **{numero}/{cenario.cen_nome}**: " + " e ".join(motivos) + ". Os fluxos foram "
+            "ativados ou desativados depois da última limpeza. Limpe o cenário de novo e depois otimize.")
+
+
 def iniciar_fluxo_processar(usuario, mensagem):
     perfil = getattr(usuario, 'perfilusuario', None)
     if perfil is None or perfil.cenario_ativo_id is None:
@@ -5465,6 +5530,14 @@ def iniciar_fluxo_processar(usuario, mensagem):
             f"estar **LIMPO** primeiro, e o status atual é **{status_atual}**. Limpa o cenário antes "
             "de otimizar."
         )
+
+    # 🌟 NOVO: a otimização usa os fluxos que a LIMPEZA separou (variáveis em TbProdutoMercadoFluxo). Se depois da
+    # limpeza algum fluxo foi desativado (ou ativado), as variáveis não batem mais com os fluxos ATIVOS: pede pra limpar
+    # de novo em vez de otimizar com fluxo inativo (ou sem um fluxo ativo).
+    if acao == 'otimizar':
+        aviso_fluxos = _fluxos_divergentes_da_limpeza(cenario)
+        if aviso_fluxos:
+            return aviso_fluxos
 
     if acao == 'consolidar' and cenario.flag != 3:
         status_atual = MENSAGENS_FLAG.get(cenario.flag, f'flag={cenario.flag}')
@@ -7822,7 +7895,7 @@ def _equ_iniciar_proximo_produto(estado):
     task_id = str(uuid.uuid4())              # id escolhido aqui: é por ele que dá pra saber depois se a task morreu
     dados.update({
         'produto_id': atual['id'], 'produto_codigo': atual['codigo'], 'status': 'processando',
-        'produto_antes': TbFluxoProducao.objects.filter(flu_pro_produto_id=atual['id']).count(),
+        'produto_antes': TbFluxoProducao.objects.filter(flu_pro_produto_id=atual['id'], flu_pro_ativo=True).count(),
         'task_ids': [task_id], 'disparado_em': datetime.now(_tz.utc).isoformat(),
     })
     estado.etapa_atual = 'equ_criar_fluxos_aguardando'
@@ -7867,7 +7940,7 @@ def _etapa_equ_criar_fluxos_aguardando(estado, texto):
                              "(provavelmente por falta de memória)")
 
     # O produto atual terminou (com sucesso, com erro, ou sem resposta): registra e segue pro próximo.
-    depois = TbFluxoProducao.objects.filter(flu_pro_produto_id=dados.get('produto_id')).count()
+    depois = TbFluxoProducao.objects.filter(flu_pro_produto_id=dados.get('produto_id'), flu_pro_ativo=True).count()
     resultado = {
         'codigo': dados.get('produto_codigo', ''), 'antes': dados.get('produto_antes', 0), 'depois': depois,
         'criados': dados.get('total_criados', 0), 'removidos': dados.get('total_removidos', 0), 'erro': None,

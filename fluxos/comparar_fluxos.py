@@ -657,11 +657,14 @@ def dados_para_tabela_equipamentos(res, moeda=''):
 LIMITE_LISTA_FLUXOS = 300       # um produto pode ter centenas de milhares de fluxos: a lista mostra os primeiros e há um filtro
 
 
-def listar_fluxos(cenario_id, produto_id, filtro='', *, excluir_id=None, limite=LIMITE_LISTA_FLUXOS):
+def listar_fluxos(cenario_id, produto_id, filtro='', *, excluir_id=None, limite=LIMITE_LISTA_FLUXOS, somente_ativos=False):
     """([{'id', 'descricao'}...] em ordem alfabética da descrição, total que atende ao filtro). O filtro são palavras (todas
-    precisam aparecer na descrição, sem diferenciar maiúsculas)."""
+    precisam aparecer na descrição, sem diferenciar maiúsculas).
+    🌟 NOVO: somente_ativos=True lista só os fluxos ATIVOS (flu_pro_ativo=True) -- é o que as Ações Comuns do chat usam."""
     from django.db.models.functions import Lower
     qs = TbFluxoProducao.objects.filter(tbcenarios_id=cenario_id, flu_pro_produto_id=produto_id)
+    if somente_ativos:
+        qs = qs.filter(flu_pro_ativo=True)
     if excluir_id is not None:
         qs = qs.exclude(id=excluir_id)
     for palavra in (filtro or '').split():

@@ -66,7 +66,9 @@ _PALAVRAS_CHAVE_BOTAO = {
     'Concluir', 'Pular', 'Encerrar Ação',
 }
 
-_PADRAO_FORM_PERIODO = re.compile(r'\n*\[FORM_PERIODO:(\d{4}/\d{2}):(\d{4}/\d{2})\]')
+# 🌟 ALTERADO: 2 valores opcionais no fim -- os LIMITES do período ([FORM_PERIODO:inicio:fim:limite_min:limite_max]).
+# Com eles, a tela não deixa confirmar fora dos limites e o "Este ano" não mexe no fim.
+_PADRAO_FORM_PERIODO = re.compile(r'\n*\[FORM_PERIODO:(\d{4}/\d{2}):(\d{4}/\d{2})(?::(\d{4}/\d{2}):(\d{4}/\d{2}))?\]')
 
 
 _PADRAO_LISTA_PRODUTOS = re.compile(r'\n*\[LISTA_PRODUTOS:([^\]]*)\]')
@@ -162,7 +164,10 @@ def _extrair_form_periodo(texto):
     m = _PADRAO_FORM_PERIODO.search(texto)
     if not m:
         return texto, None
-    return _PADRAO_FORM_PERIODO.sub('', texto), {'minimo': m.group(1), 'maximo': m.group(2)}
+    form = {'minimo': m.group(1), 'maximo': m.group(2)}
+    if m.group(3) and m.group(4):
+        form.update({'limite_minimo': m.group(3), 'limite_maximo': m.group(4)})
+    return _PADRAO_FORM_PERIODO.sub('', texto), form
 
 
 def _extrair_opcoes_clicaveis(texto):

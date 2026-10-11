@@ -22,6 +22,9 @@ Como a cadeia é montada (de trás pra frente, a partir dos itens escolhidos):
 
 Ligações de consumo levam a quantidade total consumida no período e o consumo específico (consumo / produção da
 operação que consome, no mesmo período).
+
+🌟 NOVO: CUSTO por unidade de cada operação (equipamento) e dos produtos escolhidos -- total, variável e fixo/outros,
+pelo valor contábil (igual à procedure custo_variavel_adicionado) -- ver calcular_custos() mais abaixo.
 """
 from collections import defaultdict
 
@@ -40,7 +43,7 @@ def _num(v):
     return float(v) if v is not None else 0.0
 
 
-def montar_grafo(linhas, itens_producao, itens_consumo, ids_selecionados):
+def montar_grafo(linhas, itens_producao, itens_consumo, ids_selecionados, ggf_linhas=None, pct_var_ggf=None):
     """
     Função pura (sem banco), pra poder ser testada isoladamente.
 
@@ -51,10 +54,17 @@ def montar_grafo(linhas, itens_producao, itens_consumo, ids_selecionados):
     itens_consumo:  {id: {'codigo', 'descricao', 'unidade', 'tipo'}}   (TbItensConsumo)
     grupos são lidos de linhas[...]['grupo'] -> {'codigo', 'nome'} (preenchido por carregar_grafo).
     ids_selecionados: ids de TbItensProducao escolhidos pelo usuário (os produtos finais do desenho).
+    🌟 NOVO (custos): as linhas podem trazer pro_men_valor_material e pro_men_valor_ggf (valores UNITÁRIOS do item
+    consumido); ggf_linhas = a Distribuição de GGF Mensal do período ([{ano_mes, ordem, item_id, grupo_id, valor,
+    tipo, percentual}]); pct_var_ggf = {código do item: % variável do GGF} (TbItensProducao.ite_pro_percentual_
+    variavel_ggf). Sem eles o custo sai zerado.
     """
     producao = defaultdict(float)               # (item_prod_id, grupo_id) -> qtde produzida no período
     ja_contado = set()
     consumo = defaultdict(lambda: defaultdict(float))   # op -> item_consumo_id -> qtde
+    valores = defaultdict(lambda: defaultdict(lambda: [0.0, 0.0]))   # op -> item_consumo_id -> [total, variável]
+    ordens_com_producao = defaultdict(set)      # op -> {(ano_mes, ordem)} com produção (pra casar o GGF distribuído)
+    pct_var_ggf = pct_var_ggf or {}
     grupos = {}
     for l in linhas:
         op = (l['pro_men_item_producao_id'], l['pro_men_grupo_maquina_id'])
@@ -65,6 +75,16 @@ def montar_grafo(linhas, itens_producao, itens_consumo, ids_selecionados):
             ja_contado.add(chave_prod)
             producao[op] += _num(l['pro_men_qtde_produzida'])
         consumo[op][l['pro_men_item_consumo_id']] += _num(l['pro_men_qtde_consumo'])
+        # Valor da linha, como na procedure custo_variavel_adicionado: total = (material + GGF) x qtde; variável =
+        # material x qtde + a parte variável do GGF (% do item de produção com o mesmo código do item consumido).
+        qtd, material, ggf = _num(l['pro_men_qtde_consumo']), _num(l.get('pro_men_valor_material')), _num(l.get('pro_men_valor_ggf'))
+        pct = pct_var_ggf.get(itens_consumo[l['pro_men_item_consumo_id']]['codigo'], 0.0) if ggf > 0 else 0.0
+        if _num(l['pro_men_qtde_produzida']) > 0:      # como na procedure: só linhas com produção
+            reg = valores[op][l['pro_men_item_consumo_id']]
+            reg[0] += (material + ggf) * qtd
+            reg[1] += material * qtd + ggf * qtd * (pct if pct > 0 else 0.0) / 100.0
+        if _num(l['pro_men_qtde_produzida']) > 0:
+            ordens_com_producao[op].add((l['pro_men_ano_mes'], l['pro_men_ordem_producao']))
 
     operacoes_por_codigo = defaultdict(list)    # código do item produzido -> [op, ...]
     for op in producao:
@@ -207,8 +227,15 @@ def montar_grafo(linhas, itens_producao, itens_consumo, ids_selecionados):
         if n['tipo'] == 'item' or (n['tipo'] == 'op' and len(operacoes_por_codigo.get(n['item_codigo'], [])) == 1):
             n['balanco'] = balancos.get(n['item_codigo'])
 
+    # 🌟 NOVO: custos (total, variável, fixo/outros) de cada operação do desenho e dos produtos escolhidos.
+    custos_produtos, aviso_custo = calcular_custos(
+        nos, producao, consumo, valores, ordens_com_producao, operacoes_por_codigo, itens_producao, itens_consumo,
+        grupos, ggf_linhas or [], ids_selecionados)
+
     return {
         'equipamentos_iniciais': EQUIPAMENTOS_INICIAIS,
+        'custos_produtos': custos_produtos,
+        'aviso_custo': aviso_custo,
         'nos': list(nos.values()),
         'arestas': arestas,
         'resumo': {
@@ -221,6 +248,222 @@ def montar_grafo(linhas, itens_producao, itens_consumo, ids_selecionados):
         },
         'sem_producao': sem_producao,
     }
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# 🌟 NOVO: CUSTOS -- pelo VALOR CONTÁBIL (custo médio ponderado de estoque, que vem do ERP na Produção Mensal), igual à
+# procedure custo_variavel_adicionado (Custo Total / Variável / Fixo-Outros "(P)"):
+#   - cada linha de consumo do equipamento (item x grupo de máquina): total = (valor material + valor GGF) x qtde;
+#     variável = material x qtde + GGF x qtde x %var/100 (%var = ite_pro_percentual_variavel_ggf do item de produção
+#     com o mesmo código do item consumido; só quando > 0). Consumo negativo (subproduto/bonificação) entra negativo;
+#   - mais o GGF lançado no equipamento pela Distribuição de GGF Mensal (mesmo ano/mês, ordem, item e grupo, só nas
+#     ordens com produção): variável = valor x % (V ou A: % da conta/CC; F: 100 - %; O ou sem tipo: 0);
+#   - fixo/outros = total - variável; tudo dividido pela produção do equipamento no período (custo por unidade).
+#   Como na procedure, só entram linhas com produção > 0.
+# ---------------------------------------------------------------------------------------------------------------
+def _parte_variavel_ggf(valor, tipo, percentual):
+    """Parcela variável do GGF distribuído -- mesma regra da procedure custo_variavel_adicionado."""
+    if tipo == 'F':
+        pct = 100.0 - _num(percentual)
+    elif tipo == 'O' or not tipo:
+        pct = 0.0
+    else:                       # 'V' (e 'A', que a procedure trata igual)
+        pct = _num(percentual)
+    return valor * pct / 100.0
+
+
+def calcular_custos(nos, producao, consumo, valores, ordens_com_producao, operacoes_por_codigo, itens_producao,
+                    itens_consumo, grupos, ggf_linhas, ids_selecionados):
+    """Grava n['custo'] (por unidade produzida) em cada operação do desenho. Devolve (custos dos produtos escolhidos,
+    aviso ou '')."""
+    ops = {(int(n['id'].split(':')[1]), int(n['id'].split(':')[2])) for n in nos.values() if n['tipo'] == 'op'}
+    ops |= {op for op in producao if op[0] in ids_selecionados}
+    # 🌟 NOVO: e tudo o que elas consomem da cadeia (mesmo o que o desenho não expandiu) -- entra na CONTRIBUIÇÃO.
+    fila = list(ops)
+    while fila:
+        op = fila.pop()
+        for cons_id, qtd in consumo[op].items():
+            if qtd > 0:
+                for p in operacoes_por_codigo.get(itens_consumo[cons_id]['codigo'], []):
+                    if p not in ops:
+                        ops.add(p)
+                        fila.append(p)
+
+    ggf = defaultdict(lambda: [0.0, 0.0])
+    for g in ggf_linhas:
+        op = (g['item_id'], g['grupo_id'])
+        if op in ops and (g['ano_mes'], g['ordem']) in ordens_com_producao[op]:
+            valor = _num(g['valor'])
+            ggf[op][0] += valor
+            ggf[op][1] += _parte_variavel_ggf(valor, g.get('tipo'), g.get('percentual'))
+
+    totais = {}
+    for op in ops:
+        consumo_mat, sub = [0.0, 0.0], [0.0, 0.0]
+        for cons_id, (total, variavel) in valores[op].items():
+            alvo = sub if consumo[op].get(cons_id, 0.0) < 0 else consumo_mat
+            alvo[0] += total
+            alvo[1] += variavel
+        totais[op] = {'materiais': consumo_mat, 'sub': sub, 'ggf': list(ggf[op])}
+
+    def por_unidade(op):
+        prod = producao[op]
+        t = totais[op]
+        un = lambda par: {'total': par[0] / prod, 'variavel': par[1] / prod} if prod > 0 else {'total': 0.0, 'variavel': 0.0}
+        soma = [t['materiais'][0] + t['sub'][0] + t['ggf'][0], t['materiais'][1] + t['sub'][1] + t['ggf'][1]]
+        return {'producao': prod, 'materiais': un(t['materiais']), 'sub': un(t['sub']), 'ggf': un(t['ggf']),
+                'unit_total': un(soma)['total'], 'unit_variavel': un(soma)['variavel'], '_soma': soma}
+
+    for nid, no in nos.items():
+        if no['tipo'] == 'op':
+            c = por_unidade((int(nid.split(':')[1]), int(nid.split(':')[2])))
+            c.pop('_soma')
+            no['custo'] = c
+
+    aviso = _contribuicoes(nos, ops, producao, consumo, valores, operacoes_por_codigo, itens_producao, itens_consumo,
+                           grupos, por_unidade, ids_selecionados)
+
+    # Custo de cada produto escolhido: soma dos grupos de máquina que o fazem / produção somada.
+    produtos = []
+    for item_id in sorted(ids_selecionados, key=lambda i: itens_producao.get(i, {}).get('codigo', '')):
+        ops_item = [op for op in ops if op[0] == item_id]
+        soma_prod = sum(producao[op] for op in ops_item)
+        if not ops_item or soma_prod <= 0:
+            continue
+        somas = [por_unidade(op)['_soma'] for op in ops_item]
+        item = itens_producao[item_id]
+        produtos.append({
+            'codigo': item['codigo'], 'descricao': item['descricao'], 'unidade': item['unidade'], 'producao': soma_prod,
+            'unit_total': sum(x[0] for x in somas) / soma_prod,
+            'unit_variavel': sum(x[1] for x in somas) / soma_prod,
+        })
+    return produtos, aviso
+
+
+# 🌟 NOVO: CONTRIBUIÇÃO de cada equipamento no custo do produto final (gráfico em escada) -- SÓ COM VALORES CONTÁBEIS.
+#
+# O custo contábil por unidade do equipamento k é:
+#     c_k = acrescentado_k + soma_j( valor contábil do insumo j, vindo de outro equipamento do fluxo, por unidade de k )
+#   acrescentado_k = (materiais que NÃO vêm de outro equipamento do fluxo + subprodutos + GGF distribuído) / produção_k
+# O valor contábil de cada insumo é repartido entre os equipamentos que o produziram NA MESMA PROPORÇÃO do custo
+# contábil deles (o que cada um acrescentou e o que veio de antes) -- e assim por diante, cadeia acima, do produto final
+# para trás. A soma das contribuições é exatamente o custo contábil do produto final.
+# RECIRCULAÇÃO (material que volta a um equipamento já no caminho, inclusive o próprio): o valor contábil dele fica no
+# equipamento que o consome -- não é repartido de novo para trás (senão a conta dá voltas e pode não ter resposta).
+# Total e variável são repartidos cada um com os seus próprios valores; fixo/outros = total - variável.
+LIMITE_BARRAS_ESCADA = 14
+
+
+def _contribuicoes(nos, ops, producao, consumo, valores, operacoes_por_codigo, itens_producao, itens_consumo,
+                   grupos, por_unidade, ids_selecionados):
+    ops = sorted(ops)
+    unit = {op: por_unidade(op) for op in ops}
+    custo = {op: (unit[op]['unit_total'], unit[op]['unit_variavel']) for op in ops}
+
+    acrescentado = {}
+    insumos = {op: [] for op in ops}           # (produtor, qtde por unidade de op, valor total/un, valor variável/un)
+    for op in ops:
+        prod = producao[op]
+        soma = list(unit[op]['_soma'])
+        for cons_id, qtd in consumo[op].items():
+            produtores = operacoes_por_codigo.get(itens_consumo[cons_id]['codigo'], [])
+            soma_prod = sum(producao[p] for p in produtores)
+            if qtd <= 0 or not produtores or soma_prod <= 0 or prod <= 0:
+                continue
+            total, variavel = valores[op][cons_id]
+            soma[0] -= total
+            soma[1] -= variavel
+            for p in produtores:
+                part = producao[p] / soma_prod
+                insumos[op].append((p, qtd / prod * part, total / prod * part, variavel / prod * part))
+        acrescentado[op] = (soma[0] / prod, soma[1] / prod) if prod > 0 else (0.0, 0.0)
+
+    finais = [op for op in ops if op[0] in ids_selecionados and producao[op] > 0]
+    if not finais:
+        return ''
+
+    def cadeia(final):
+        """Percorre a cadeia do produto final pra trás. Devolve (ordem do final pra trás, ligações que seguem -- sem as
+        de recirculação --, distância mais longa de cada equipamento até o final)."""
+        cinza, preto, pos_ordem, segue = set(), set(), [], defaultdict(set)
+        pilha = [(final, iter({p for p, *_r in insumos[final]}))]
+        cinza.add(final)
+        while pilha:
+            k, filhos = pilha[-1]
+            proximo = next(filhos, None)
+            if proximo is None:
+                pilha.pop()
+                cinza.discard(k)
+                preto.add(k)
+                pos_ordem.append(k)
+                continue
+            if proximo == k or proximo in cinza:
+                continue                        # recirculação: fica com quem consome
+            segue[k].add(proximo)
+            if proximo not in preto:
+                cinza.add(proximo)
+                pilha.append((proximo, iter({p for p, *_r in insumos[proximo]})))
+        ordem = list(reversed(pos_ordem))
+        dist = {final: 0}
+        for k in ordem:
+            for p in segue[k]:
+                dist[p] = max(dist.get(p, 0), dist.get(k, 0) + 1)
+        return ordem, segue, dist
+
+    rotulo = lambda op: (grupos[op[1]]['codigo'], itens_producao[op[0]]['codigo'])
+    por_no = defaultdict(list)
+    for final in finais:
+        ordem, segue, dist = cadeia(final)
+        peso = {k: [0.0, 0.0, 0.0] for k in ordem}     # [quantidade física, fração do total, fração do variável]
+        peso[final] = [1.0, 1.0, 1.0]
+        contrib = {k: [0.0, 0.0] for k in ordem}
+        for k in ordem:                                  # do final pra trás: cada um já recebeu tudo o que lhe cabe
+            wq, wt, wv = peso[k]
+            proprio = [acrescentado[k][0], acrescentado[k][1]]
+            for p, q, vt, vv in insumos[k]:
+                if p not in segue[k]:                    # recirculação: o valor do insumo fica com k
+                    proprio[0] += vt
+                    proprio[1] += vv
+                    continue
+                peso[p][0] += wq * q
+                for pos, valor, w in ((1, vt, wt), (2, vv, wv)):
+                    base = custo[p][pos - 1]
+                    if abs(base) > 1e-9:
+                        peso[p][pos] += w * valor / base
+                    else:                                # produtor sem custo: o valor fica com ele mesmo
+                        contrib[p][pos - 1] += w * valor
+            contrib[k][0] += wt * proprio[0]
+            contrib[k][1] += wv * proprio[1]
+
+        barras = {}
+        for op in ordem:
+            if abs(contrib[op][0]) < 1e-12 and abs(contrib[op][1]) < 1e-12 and abs(peso[op][0]) < 1e-12:
+                continue
+            chave = rotulo(op)
+            # Mesmo equipamento produzindo o mesmo produto (mesmo código de grupo e de item) = uma barra só.
+            b = barras.setdefault(chave, {'id': f"op:{op[0]}:{op[1]}", 'nome': f"{chave[0]} · {chave[1]}",
+                                          'descricao': itens_producao[op[0]]['descricao'] or '',
+                                          'distancia': dist.get(op, 0), 'necessidade': 0.0,
+                                          'unidade': itens_producao[op[0]]['unidade'], 'total': 0.0, 'variavel': 0.0})
+            b['distancia'] = max(b['distancia'], dist.get(op, 0))
+            b['necessidade'] += peso[op][0]
+            b['total'] += contrib[op][0]
+            b['variavel'] += contrib[op][1]
+            por_no[f"op:{op[0]}:{op[1]}"].append({
+                'final': f"{rotulo(final)[0]} · {rotulo(final)[1]}", 'final_id': f"op:{final[0]}:{final[1]}",
+                'unidade_final': itens_producao[final[0]]['unidade'], 'necessidade': peso[op][0],
+                'total': contrib[op][0], 'variavel': contrib[op][1]})
+        no_final = nos.get(f"op:{final[0]}:{final[1]}")
+        if no_final is not None:
+            no_final['custo']['escada'] = {
+                'barras': sorted(barras.values(), key=lambda b: (-b['distancia'], b['nome'])),
+                'limite': LIMITE_BARRAS_ESCADA,
+                'final': {'total': custo[final][0], 'variavel': custo[final][1]},
+            }
+    for nid, lista in por_no.items():
+        if nid in nos and nos[nid]['tipo'] == 'op':
+            nos[nid]['custo']['contribuicoes'] = lista
+    return ''
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -248,14 +491,23 @@ def itens_com_producao(empresa_id):
     return [(i, *limites[i.id]) for i in itens]
 
 
+def _da_empresa(modelo, empresa_id):
+    """Registros da empresa; os antigos, sem empresa, só quando a empresa não tem nenhum (mesma regra da Produção Mensal)."""
+    qs = modelo.objects.filter(empresa_id=empresa_id)
+    if not qs.exists():
+        qs = modelo.objects.filter(empresa__isnull=True)
+    return qs
+
+
 def carregar_grafo(empresa_id, ids_selecionados, ano_mes_inicio, ano_mes_fim):
-    from .models import TbItensProducao, TbItensConsumo, TbGruposMaquinas
+    from .models import TbItensProducao, TbItensConsumo, TbGruposMaquinas, TbDistribuicaoGGFMensal
     linhas = list(producao_mensal_da_empresa(empresa_id)
                   .filter(pro_men_ano_mes__gte=ano_mes_inicio, pro_men_ano_mes__lte=ano_mes_fim)
                   .order_by()
                   .values('pro_men_ano_mes', 'pro_men_estabelecimento_id', 'pro_men_grupo_maquina_id',
                           'pro_men_ordem_producao', 'pro_men_item_producao_id', 'pro_men_qtde_produzida',
-                          'pro_men_item_consumo_id', 'pro_men_qtde_consumo'))
+                          'pro_men_item_consumo_id', 'pro_men_qtde_consumo',
+                          'pro_men_valor_material', 'pro_men_valor_ggf'))
     ids_prod = {l['pro_men_item_producao_id'] for l in linhas} | set(ids_selecionados)
     ids_cons = {l['pro_men_item_consumo_id'] for l in linhas}
     ids_grupo = {l['pro_men_grupo_maquina_id'] for l in linhas}
@@ -268,4 +520,26 @@ def carregar_grafo(empresa_id, ids_selecionados, ano_mes_inicio, ano_mes_fim):
               for g in TbGruposMaquinas.objects.filter(id__in=ids_grupo).values('id', 'gru_maq_codigo', 'gru_maq_nome')}
     for l in linhas:
         l['grupo'] = grupos.get(l['pro_men_grupo_maquina_id'])
-    return montar_grafo(linhas, itens_producao, itens_consumo, set(ids_selecionados))
+
+    # 🌟 NOVO (custos): % variável do GGF por código de item e a Distribuição de GGF Mensal do período.
+    codigos_consumidos = {i['codigo'] for i in itens_consumo.values()}
+    pct_var_ggf = {}
+    for codigo, pct in (_da_empresa(TbItensProducao, empresa_id).filter(ite_pro_codigo__in=codigos_consumidos)
+                        .values_list('ite_pro_codigo', 'ite_pro_percentual_variavel_ggf')):
+        pct_var_ggf[codigo] = _num(pct)
+    ggf_linhas = [
+        {'ano_mes': g['dis_ggf_men_ano_mes'], 'ordem': g['dis_ggf_men_ordem_producao'],
+         'item_id': g['dis_ggf_men_item_producao_id'], 'grupo_id': g['dis_ggf_men_grupo_maquina_id'],
+         'valor': g['dis_ggf_men_valor'], 'tipo': g['dis_ggf_men_conta_cc__con_con_cen_cus_tipo'],
+         'percentual': g['dis_ggf_men_conta_cc__con_con_cen_cus_percentual']}
+        for g in (_da_empresa(TbDistribuicaoGGFMensal, empresa_id)
+                  .filter(dis_ggf_men_ano_mes__gte=ano_mes_inicio, dis_ggf_men_ano_mes__lte=ano_mes_fim,
+                          dis_ggf_men_item_producao_id__in=ids_prod, dis_ggf_men_grupo_maquina_id__in=ids_grupo)
+                  .order_by()
+                  .values('dis_ggf_men_ano_mes', 'dis_ggf_men_ordem_producao', 'dis_ggf_men_item_producao_id',
+                          'dis_ggf_men_grupo_maquina_id', 'dis_ggf_men_valor',
+                          'dis_ggf_men_conta_cc__con_con_cen_cus_tipo',
+                          'dis_ggf_men_conta_cc__con_con_cen_cus_percentual'))
+    ]
+    return montar_grafo(linhas, itens_producao, itens_consumo, set(ids_selecionados),
+                        ggf_linhas=ggf_linhas, pct_var_ggf=pct_var_ggf)

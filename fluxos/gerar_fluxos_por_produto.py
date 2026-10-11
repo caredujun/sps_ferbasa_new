@@ -660,9 +660,10 @@ def _assinatura_compacta(pares_coluna_cp) -> bytes:
     return hashlib.blake2b(repr(normalizados).encode('ascii'), digest_size=16).digest()
 
 
-def _assinaturas_dos_fluxos_existentes(produto_id: int, cenario_id: int) -> Dict[bytes, List[int]]:
+def _assinaturas_dos_fluxos_existentes(produto_id: int, cenario_id: int, ativos: bool = True) -> Dict[bytes, List[int]]:
     """{assinatura compacta: [mae_id, ...]} dos fluxos que o produto já tem -- lendo as linhas filhas em
-    fluxo contínuo (ordenadas por mae_id, em blocos), sem carregar a tabela inteira na memória."""
+    fluxo contínuo (ordenadas por mae_id, em blocos), sem carregar a tabela inteira na memória.
+    🌟 NOVO: ativos=True lê só os fluxos ATIVOS (flu_pro_ativo=True); ativos=False, só os INATIVOS."""
     por_assinatura = defaultdict(list)
     vistos = set()
 
@@ -672,7 +673,7 @@ def _assinaturas_dos_fluxos_existentes(produto_id: int, cenario_id: int) -> Dict
 
     linhas = (
         TbFluxoProducaoDaugther.objects
-        .filter(mae__flu_pro_produto_id=produto_id, mae__tbcenarios_id=cenario_id)
+        .filter(mae__flu_pro_produto_id=produto_id, mae__tbcenarios_id=cenario_id, mae__flu_pro_ativo=ativos)
         .order_by('mae_id')
         .values_list('mae_id', 'flu_pro_dau_coluna', 'flu_pro_dau_consumo_padrao_id')
         .iterator(chunk_size=5000)
@@ -688,7 +689,8 @@ def _assinaturas_dos_fluxos_existentes(produto_id: int, cenario_id: int) -> Dict
         fechar(atual, pares)
 
     # Fluxos que existem mas não têm nenhuma linha filha: assinatura vazia.
-    for mae_id in (TbFluxoProducao.objects.filter(flu_pro_produto_id=produto_id, tbcenarios_id=cenario_id)
+    for mae_id in (TbFluxoProducao.objects.filter(flu_pro_produto_id=produto_id, tbcenarios_id=cenario_id,
+                                                  flu_pro_ativo=ativos)
                    .order_by('id').values_list('id', flat=True).iterator(chunk_size=5000)):
         if mae_id not in vistos:
             por_assinatura[b''].append(mae_id)
@@ -715,9 +717,13 @@ def comparar_fluxos_existentes(produto_id: int, *, max_fluxos: int = 200000, gua
     guardar_planos=False: só CONTA o que precisa ser criado (qtd_a_criar) e não guarda os planos --
     planos_a_criar fica vazio. É o que a "situação dos fluxos" usa: não precisa dos planos, só dos números.
 
+    🌟 ALTERADO: só os fluxos ATIVOS (flu_pro_ativo=True) contam como existentes e só eles podem ser removidos. Um
+    fluxo INATIVO nunca é removido; e se um fluxo calculado for igual a um inativo, ele NÃO é recriado (o usuário
+    desativou aquele fluxo -- recriá-lo ativo desfaria isso). qtd_inativos e qtd_iguais_inativos contam esses casos.
+
     Retorna um dicionário com:
         produto_id, cenario_id, qtd_existente, qtd_novo, qtd_iguais, qtd_a_criar, qtd_a_remover,
-        mudou (bool), mae_ids_a_remover, planos_a_criar, cp_para_to
+        qtd_inativos, qtd_iguais_inativos, mudou (bool), mae_ids_a_remover, planos_a_criar, cp_para_to
     """
     cenario_id = _cenario_do_produto(produto_id)
     equipamentos = _equipamentos_do_produto(produto_id, cenario_id)
@@ -731,12 +737,15 @@ def comparar_fluxos_existentes(produto_id: int, *, max_fluxos: int = 200000, gua
         for (_, _, cp_id) in entradas
     }
 
-    existentes = _assinaturas_dos_fluxos_existentes(produto_id, cenario_id)
+    existentes = _assinaturas_dos_fluxos_existentes(produto_id, cenario_id, ativos=True)
     qtd_existente = sum(len(ids) for ids in existentes.values())
+    inativos = _assinaturas_dos_fluxos_existentes(produto_id, cenario_id, ativos=False)
+    qtd_inativos = sum(len(ids) for ids in inativos.values())
 
     planos_a_criar = []
     qtd_novo = 0
     qtd_iguais = 0
+    qtd_iguais_inativos = 0
     qtd_a_criar = 0
     for plano in _iterar_planos_do_produto(terminais, entradas_por_destino, equipamentos, max_fluxos):
         qtd_novo += 1
@@ -745,9 +754,13 @@ def comparar_fluxos_existentes(produto_id: int, *, max_fluxos: int = 200000, gua
             (l["flu_pro_dau_coluna"], l["flu_pro_dau_consumo_padrao_id"]) for l in linhas
         )
         ids = existentes.get(assinatura)
+        ids_inativos = inativos.get(assinatura)
         if ids:
             ids.pop()                    # já existe um fluxo igual no banco: aproveita e não mexe nele
             qtd_iguais += 1
+        elif ids_inativos:
+            ids_inativos.pop()           # igual a um fluxo INATIVO: não recria (foi desativado de propósito)
+            qtd_iguais_inativos += 1
         else:
             qtd_a_criar += 1               # falta no banco: será criado
             if guardar_planos:
@@ -756,7 +769,8 @@ def comparar_fluxos_existentes(produto_id: int, *, max_fluxos: int = 200000, gua
             _log.info("Produto %s: %s planos avaliados (%s já existem, %s a criar).",
                       produto_id, qtd_novo, qtd_iguais, qtd_a_criar)
 
-    # O que sobrou nas listas é o que existe no banco ALÉM do que o cálculo novo pede (errado/a mais).
+    # O que sobrou nas listas é o que existe no banco ALÉM do que o cálculo novo pede (errado/a mais). Só ATIVOS:
+    # os inativos que sobraram ficam como estão.
     mae_ids_a_remover = [mae_id for ids in existentes.values() for mae_id in ids]
 
     return {
@@ -767,6 +781,8 @@ def comparar_fluxos_existentes(produto_id: int, *, max_fluxos: int = 200000, gua
         "qtd_iguais": qtd_iguais,
         "qtd_a_criar": qtd_a_criar,
         "qtd_a_remover": len(mae_ids_a_remover),
+        "qtd_inativos": qtd_inativos,
+        "qtd_iguais_inativos": qtd_iguais_inativos,
         "mudou": bool(mae_ids_a_remover) or qtd_a_criar > 0,
         "mae_ids_a_remover": mae_ids_a_remover,
         "planos_a_criar": planos_a_criar,
@@ -778,11 +794,12 @@ def situacao_fluxos_produto(produto_id: int, *, max_fluxos: int = 200000) -> dic
     """
     Resumo da situação dos fluxos de UM produto, sem gravar nada e sem guardar os planos na memória:
 
-        qtd_existente : fluxos cadastrados hoje
+        qtd_existente : fluxos ATIVOS cadastrados hoje
         qtd_esperada  : fluxos que o cálculo diz que o produto deveria ter
-        qtd_corretos  : cadastrados que batem (por estrutura) com o cálculo
-        qtd_a_gerar   : esperados que ainda não existem  (esperada - corretos)
-        qtd_a_remover : cadastrados que estão errados/sobrando  (existente - corretos)
+        qtd_corretos  : ativos que batem (por estrutura) com o cálculo
+        qtd_a_gerar   : esperados que ainda não existem  (esperada - corretos - iguais a um inativo)
+        qtd_a_remover : ativos que estão errados/sobrando  (existente - corretos)
+        qtd_inativos  : fluxos INATIVOS do produto (nunca removidos nem recriados)
 
     Quando não dá pra calcular (produto sem equipamentos, sem terminal, passou do limite...), devolve
     {'erro': '<motivo>'} em vez de levantar -- o chamador mostra o motivo ao lado do produto.
@@ -797,6 +814,7 @@ def situacao_fluxos_produto(produto_id: int, *, max_fluxos: int = 200000) -> dic
         'qtd_corretos': r['qtd_iguais'],
         'qtd_a_gerar': r['qtd_a_criar'],
         'qtd_a_remover': r['qtd_a_remover'],
+        'qtd_inativos': r['qtd_inativos'],
     }
 
 

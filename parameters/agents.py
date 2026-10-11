@@ -414,10 +414,19 @@ def _bloqueio_consistencia_limpeza(usuario, ciclo=False):
         from itertools import islice
         from produtos.models import TbProdutos
         from equipamentos.models import TbEquipamentos
+        # 🌟 ALTERADO: só os FLUXOS ATIVOS (flu_pro_ativo=True) podem bloquear a limpeza. Há divergência quando:
+        #   - um fluxo ATIVO usa algo que não foi escolhido no cadastro; ou
+        #   - algo foi escolhido no cadastro e NENHUM fluxo (nem inativo) o usa.
+        # Escolhido que só aparece em fluxo INATIVO não bloqueia -- antes bloqueava, porque o campo "Escolhidos Igual
+        # Fluxos" do Admin compara com todos os fluxos, inclusive os inativos.
+        def _diverge(escolhidos, usados_todos, usados_ativos):
+            return bool(usados_ativos - escolhidos) or bool(escolhidos - usados_todos)
+
         # Só os produtos ATIVOS (pro_ativo=True) entram na verificação: produto inativo não bloqueia a limpeza.
         produtos_nao = list(islice(
             (p.pro_codigo for p in TbProdutos.objects.filter(tbcenarios_id=cenario.id, pro_ativo=True).order_by('pro_codigo')
-             if p.escolhidos_igual_fluxos() == 'Não'), 11))
+             if _diverge(p._ids_equipamentos_escolhidos(), p._ids_equipamentos_usados(),
+                         p._ids_equipamentos_usados(somente_ativos=True))), 11))
         # Equipamento/ordem: compara "escolhidos" x "usados nos fluxos" considerando só os produtos ATIVOS
         # (produto inativo que apareça só de um dos lados não bloqueia a limpeza).
         ids_produtos_ativos = set(
@@ -425,7 +434,9 @@ def _bloqueio_consistencia_limpeza(usuario, ciclo=False):
         equipamentos_nao = list(islice(
             (str(e) for e in TbEquipamentos.objects.filter(tbcenarios_id=cenario.id).order_by(
                 'equ_codigo__equ_cad_codigo', 'equ_ordem_codigo')
-             if (e._ids_produtos_escolhidos() & ids_produtos_ativos) != (e._ids_produtos_usados() & ids_produtos_ativos)),
+             if _diverge(e._ids_produtos_escolhidos() & ids_produtos_ativos,
+                         e._ids_produtos_usados() & ids_produtos_ativos,
+                         e._ids_produtos_usados(somente_ativos=True) & ids_produtos_ativos)),
             11))
     except Exception as erro:
         # Melhor parar do que limpar sem conferir.
@@ -445,6 +456,7 @@ def _bloqueio_consistencia_limpeza(usuario, ciclo=False):
     if equipamentos_nao:
         partes.append(f'**Equipamentos/ordens:** {_lista(equipamentos_nao)}')
     partes.append('Abra o cadastro de cada um (no produto ou no equipamento) e veja o que está em vermelho. '
+                  'Só contam os fluxos de produção ativos: o que aparece só em fluxo inativo não bloqueia. '
                   'Depois peça a limpeza de novo.')
     return '\n\n'.join(partes)
 

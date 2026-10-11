@@ -1115,11 +1115,16 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
                 # Vamos montar uma lista do fluxos que estão na queryset
                 lista_in = list(queryset.values_list('id', flat=True))
 
+                # 🌟 CORRIGIDO: sem fluxo na tela não há o que conferir -- e "array[]" vazio dava erro no
+                # PostgreSQL ("cannot determine type of empty array").
+                if not lista_in:
+                    return queryset
+
                 # Vamos passar essa lista para a procedure que verifica se o fluxo tem output zerado
                 # Vamos montar uma lista das sequência que estão com o output real = 0 através de procedure
+                # 🌟 CORRIGIDO: a lista vai como parâmetro (%s::integer[]) em vez de colada no texto do SQL.
                 cursor = connection.cursor()
-                sql = "call public.output_real_zero(array" + str(lista_in) + ", null)"
-                cursor.execute(sql)
+                cursor.execute("call public.output_real_zero(%s::integer[], null)", [lista_in])
                 lista = cursor.fetchone()[0]
                 cursor.close()
 
@@ -1152,10 +1157,16 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
                 # Vamos montar uma lista do fluxos que estão na queryset
                 lista_in = list(queryset.values_list('id', flat=True))
 
+                # 🌟 CORRIGIDO: sem fluxo na tela não há o que conferir -- e "array[]" vazio dava erro no
+                # PostgreSQL ("cannot determine type of empty array").
+                if not lista_in:
+                    return queryset
+
                 # Vamos passar essa lista para a procedure que verifica se o fluxo tem custo variavel zerado
+                # 🌟 CORRIGIDO: a lista vai como parâmetro (%s::integer[]) em vez de colada no texto do SQL. A
+                # procedure agora também só olha os fluxos dessa lista (antes varria a tabela inteira).
                 cursor = connection.cursor()
-                sql = "call public.custo_variavel_zero(array" + str(lista_in) + ", null)"
-                cursor.execute(sql)
+                cursor.execute("call public.custo_variavel_zero(%s::integer[], null)", [lista_in])
                 lista = cursor.fetchone()[0]
                 cursor.close()
 

@@ -1,7 +1,7 @@
 """
 🌟 NOVO: cálculo dos dois gráficos de custo de um fluxo de produção (SÓ LEITURA: não grava nada).
 
-    1) Distribuição de Custo Variável: o custo variável médio (flu_pro_custo_variavel_medio) de TODOS os fluxos do
+    1) Distribuição de Custo Variável: o custo variável médio (flu_pro_custo_variavel_medio) de todos os fluxos ATIVOS do
        mesmo produto/cenário do fluxo escolhido, em faixas (histograma).
     2) Custo por Equipamento (escada / cascata): a contribuição de custo variável de cada equipamento DENTRO do fluxo
        escolhido, consolidada por equipamento (soma as ordens dele), na ordem em que aparece na cadeia.
@@ -30,7 +30,12 @@ def dados_distribuicao_custo_variavel(fluxo):
     if fluxo.flu_pro_produto_id is None:
         return {'erro': 'Este fluxo não tem produto definido.'}
 
+    # 🌟 ALTERADO: só os fluxos ATIVOS (flu_pro_ativo=True) do produto entram na distribuição e na checagem de I/O
+    # desatualizado -- fluxo inativo desatualizado não bloqueia mais. O próprio fluxo analisado sempre entra (mesmo
+    # inativo, quando aberto pelo editor), pra ter onde marcar "este fluxo" no gráfico.
+    from django.db.models import Q
     fluxos_do_produto = TbFluxoProducao.objects.filter(
+        Q(flu_pro_ativo=True) | Q(id=fluxo.id),
         flu_pro_produto_id=fluxo.flu_pro_produto_id,
         tbcenarios_id=fluxo.tbcenarios_id,
     )
@@ -38,7 +43,7 @@ def dados_distribuicao_custo_variavel(fluxo):
     if fluxos_do_produto.filter(flu_pro_input_output_atualizado=False).exists():
         return {
             'atualizado': False,
-            'mensagem': 'Temos fluxo de produção para esse produto desatualizado em I/O. '
+            'mensagem': 'Temos fluxo de produção ativo para esse produto desatualizado em I/O. '
                         'Favor atualizar e repetir o procedimento.',
         }
 
