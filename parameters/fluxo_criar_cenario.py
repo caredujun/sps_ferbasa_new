@@ -2879,8 +2879,12 @@ def _etapa_cfx_itens(estado, texto):
     minimo = min(disponiveis[i][1] for i in ids)
     maximo = max(disponiveis[i][2] for i in ids)
     codigos = [disponiveis[i][0].ite_pro_codigo for i in ids]
+    # 🌟 NOVO: "descrição / código" de cada item, pro título do fluxo
+    nomes = [f"{(disponiveis[i][0].ite_pro_descricao or '').strip() or disponiveis[i][0].ite_pro_codigo} / "
+             f"{disponiveis[i][0].ite_pro_codigo}" for i in ids]
     estado.etapa_atual = 'cfx_periodo'
-    estado.dados_coletados = {**dados, 'itens_ids': ids, 'itens_codigos': codigos, 'ano_mes_minimo': minimo, 'ano_mes_maximo': maximo}
+    estado.dados_coletados = {**dados, 'itens_ids': ids, 'itens_codigos': codigos, 'itens_nomes': nomes,
+                              'ano_mes_minimo': minimo, 'ano_mes_maximo': maximo}
     estado.save()
     return (f"Itens: **{', '.join(codigos)}**. A Produção Mensal deles vai de **{minimo}** a **{maximo}**. Escolha o período "
             "(ano/mês início e fim) e confirme abaixo, ou clica em \"Cancelar\".\n\n"
@@ -2907,21 +2911,27 @@ def _etapa_cfx_periodo(estado, texto):
     _encerrar_fluxo(estado)
 
     codigos = ', '.join(dados.get('itens_codigos', []))
+    # 🌟 ALTERADO: o título mostra "descrição / código" (antes só o código). Conversas antigas sem 'itens_nomes' usam o código.
+    nomes = ', '.join(dados.get('itens_nomes') or dados.get('itens_codigos', []))
     r = grafo['resumo']
     if not r['operacoes']:
         return (f"Não há Produção Mensal de **{codigos}** entre **{inicio}** e **{fim}** -- não tenho o que desenhar. "
                 "Rode a ação de novo com outro período.")
-    texto_resposta = (f"**Fluxo de produção de {codigos}** -- Produção Mensal de **{inicio}** a **{fim}**\n\n"
+    texto_resposta = (f"**Fluxo de produção de {nomes}** -- Produção Mensal de **{inicio}** a **{fim}**\n\n"
                       f"Operações (item × grupo de máquina): **{r['operacoes']}** · matérias-primas: **{r['materias_primas']}** · "
                       f"ligações: **{r['ligacoes']}**")
     if r['subprodutos']:
         texto_resposta += f" · subprodutos/bonificações: **{r['subprodutos']}**"
     if r['ciclos']:
-        texto_resposta += (f"\n\nA cadeia volta a um item que já estava no caminho em **{r['ciclos']}** ponto(s) (reciclagem): "
-                           "essas ligações aparecem tracejadas em vermelho e não são seguidas.")
+        texto_resposta += (f"\n\nHá **{r['ciclos']}** recirculação(ões) -- material que volta a um ponto da cadeia por onde já "
+                           "passou (reciclagem, retrabalho). Elas aparecem no círculo **RC** das caixas dos equipamentos envolvidos.")
     if grafo['sem_producao']:
         texto_resposta += ("\n\nSem produção no período (ficaram de fora): **" + ", ".join(grafo['sem_producao']) + "**.")
-    payload = {'titulo': f"Fluxo de produção de {codigos}", 'periodo': f"{inicio} a {fim}", **grafo}
+    if r['operacoes'] > grafo['equipamentos_iniciais']:
+        texto_resposta += (f"\n\nO fluxo tem **{r['operacoes']}** equipamentos. O desenho começa com os **{grafo['equipamentos_iniciais']}** "
+                           "mais próximos do produto final; os outros aparecem no botão \"Mostrar outros equipamentos\" -- marque e "
+                           "clique em \"Adicionar ao fluxo\", ou arraste para o desenho.")
+    payload = {'titulo': f"Fluxo de produção de {nomes}", 'periodo': f"{inicio} a {fim}", **grafo}
     return texto_resposta + "\n\n" + _equ_marcador('FLUXO_PRODUCAO_MENSAL', payload)
 
 

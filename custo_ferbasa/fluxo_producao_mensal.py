@@ -25,7 +25,11 @@ operação que consome, no mesmo período).
 """
 from collections import defaultdict
 
-LIMITE_NOS = 600        # proteção: um desenho maior que isso não é legível no chat
+# 🌟 ALTERADO: o chat desenha só os EQUIPAMENTOS_INICIAIS equipamentos mais próximos do produto final; os outros ficam numa
+# lista abaixo do desenho, de onde o usuário pode colocá-los no desenho. Por isso o fluxo inteiro vai pro chat e não há
+# mais o limite de 600 caixas -- LIMITE_CAIXAS só protege contra um fluxo absurdo (a resposta inteira vai pro histórico).
+EQUIPAMENTOS_INICIAIS = 30
+LIMITE_CAIXAS = 3000
 
 
 class FluxoProducaoMensalError(RuntimeError):
@@ -139,9 +143,10 @@ def montar_grafo(linhas, itens_producao, itens_consumo, ids_selecionados):
             aresta(origem, destino, 'consumo', qtd, ic['unidade'], esp, u_esp)
             for p in produtoras:
                 expandir(p, caminho | {ic['codigo']})
-            if len(nos) > LIMITE_NOS:
+            if sum(1 for n in nos.values() if n['tipo'] in ('op', 'item')) > LIMITE_CAIXAS:
                 raise FluxoProducaoMensalError(
-                    f"O fluxo ficou grande demais para desenhar (mais de {LIMITE_NOS} caixas). Escolha menos itens.")
+                    f"O fluxo passou de {LIMITE_CAIXAS} caixas -- grande demais para mandar ao chat. Escolha menos itens "
+                    "ou um período menor.")
 
     sem_producao = []
     for item_id in ids_selecionados:
@@ -164,7 +169,46 @@ def montar_grafo(linhas, itens_producao, itens_consumo, ids_selecionados):
         if n and n['tipo'] == 'sub':
             n['total'] = n.get('total', 0.0) + (a['qtd'] or 0.0)
 
+    # 🌟 NOVO: BALANÇO de cada item produzido no desenho -- produzido x consumido neste fluxo x consumido por outros
+    # produtos (o que a Produção Mensal do período registra, mesmo fora da cadeia escolhida) x o que sobra (sem consumo
+    # registrado: estoque, venda direta ou perdas; negativo = consumiu-se mais do que se produziu no período, veio de
+    # estoque). Vai no nó do item de vários grupos de máquina e no equipamento que é o único produtor do item.
+    ops_no_fluxo = {(int(n['id'].split(':')[1]), int(n['id'].split(':')[2])) for n in nos.values() if n['tipo'] == 'op'}
+    codigos_do_desenho = {n['item_codigo'] for n in nos.values() if n['tipo'] in ('op', 'item')}
+    cons_ids_por_codigo = defaultdict(list)
+    for cid, ic in itens_consumo.items():
+        if ic['codigo'] in codigos_do_desenho:
+            cons_ids_por_codigo[ic['codigo']].append(cid)
+    balancos = {}
+    for codigo in codigos_do_desenho:
+        produzido = sum(producao[o] for o in operacoes_por_codigo.get(codigo, []))
+        neste_fluxo, outros = 0.0, {}
+        for op, itens in consumo.items():
+            qtd = sum(itens.get(cid, 0.0) for cid in cons_ids_por_codigo[codigo])
+            if qtd <= 0:
+                continue                    # negativo é geração (subproduto), não consumo
+            if op in ops_no_fluxo:
+                neste_fluxo += qtd
+            else:
+                prod = itens_producao[op[0]]
+                reg = outros.setdefault(prod['codigo'], {'produto': prod['codigo'], 'descricao': prod['descricao'],
+                                                         'grupos': set(), 'qtd': 0.0})
+                reg['grupos'].add(grupos[op[1]]['codigo'])
+                reg['qtd'] += qtd
+        lista = sorted(outros.values(), key=lambda r: -r['qtd'])
+        total_outros = sum(r['qtd'] for r in lista)
+        balancos[codigo] = {
+            'produzido': produzido, 'neste_fluxo': neste_fluxo, 'outros_produtos': total_outros,
+            'sem_consumo': produzido - neste_fluxo - total_outros,
+            'outros': [{**r, 'grupos': ', '.join(sorted(r['grupos']))} for r in lista[:50]],
+            'outros_total_itens': len(lista),
+        }
+    for n in nos.values():
+        if n['tipo'] == 'item' or (n['tipo'] == 'op' and len(operacoes_por_codigo.get(n['item_codigo'], [])) == 1):
+            n['balanco'] = balancos.get(n['item_codigo'])
+
     return {
+        'equipamentos_iniciais': EQUIPAMENTOS_INICIAIS,
         'nos': list(nos.values()),
         'arestas': arestas,
         'resumo': {
@@ -193,13 +237,14 @@ def producao_mensal_da_empresa(empresa_id):
 
 
 def itens_com_producao(empresa_id):
-    """[(TbItensProducao, ano_mes_minimo, ano_mes_maximo)] dos itens que têm Produção Mensal, em ordem de código."""
+    """[(TbItensProducao, ano_mes_minimo, ano_mes_maximo)] dos itens que têm Produção Mensal, em ordem de nome (descrição)."""
     from django.db.models import Min, Max
+    from django.db.models.functions import Lower
     from .models import TbItensProducao
     limites = {r['pro_men_item_producao_id']: (r['minimo'], r['maximo']) for r in
                producao_mensal_da_empresa(empresa_id).order_by().values('pro_men_item_producao_id')
                .annotate(minimo=Min('pro_men_ano_mes'), maximo=Max('pro_men_ano_mes'))}
-    itens = TbItensProducao.objects.filter(id__in=list(limites)).order_by('ite_pro_codigo')
+    itens = TbItensProducao.objects.filter(id__in=list(limites)).order_by(Lower('ite_pro_descricao'), 'ite_pro_codigo')
     return [(i, *limites[i.id]) for i in itens]
 
 

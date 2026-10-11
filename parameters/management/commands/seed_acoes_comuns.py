@@ -32,7 +32,7 @@ ACOES = [
     ('Fluxos de Produção', 'criar_no_editor', 'Fluxos de Produção - Atualizar Visão do Fluxo de Produção'),
     ('Fluxos de Produção', 'criar_fluxos_produto', 'Fluxos de Produção - Atualizar Fluxos de Produção por Produto'),
     ('Fluxos de Produção', 'comparar_fluxos', 'Fluxos de Produção - Comparar Fluxos de Produção'),
-    ('Fluxos de Produção', 'custo_variavel_fluxo', 'Fluxos de Produção - Custo Variável Distribuição / Escada por Equipamento'),
+    ('Fluxos de Produção', 'custo_variavel_fluxo', 'Fluxos de Produção - Custo Variável Distribuição / Equipamento'),
 ]
 
 

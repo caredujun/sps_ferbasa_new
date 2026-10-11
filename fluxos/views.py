@@ -273,7 +273,7 @@ def api_fluxo_custo_variavel_distribuicao(request, fluxo_id):
     fluxo = _fluxo_acessivel_ou_404(request.user, fluxo_id)
 
     # 🌟 CORRIGIDO: o cálculo saiu daqui pra fluxos/graficos_custo.py (também usado pelo chat do Agente IA, na Ação
-    # Comum "Custo Variável Distribuição / Escada por Equipamento"). A resposta continua exatamente a mesma.
+    # Comum "Custo Variável Distribuição / Equipamento"). A resposta continua exatamente a mesma.
     from .graficos_custo import dados_distribuicao_custo_variavel
     dados = dados_distribuicao_custo_variavel(fluxo)
     if 'erro' in dados:

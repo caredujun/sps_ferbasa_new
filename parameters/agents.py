@@ -262,7 +262,7 @@ def _detectar_intencao_comparar_fluxos(mensagem):
     return bool(re.search(r'\bcompar\w*\b.*\bfluxos?\b|\bfluxos?\b.*\bcompar\w*\b', texto, re.IGNORECASE))
 
 
-# 🌟 NOVO: "Fluxos de Produção - Custo Variável Distribuição / Escada por Equipamento" (só consulta). Exige "custo
+# 🌟 NOVO: "Fluxos de Produção - Custo Variável Distribuição / Equipamento" (só consulta). Exige "custo
 # variável" + "distribuição" ou "escada" + "equipamento" -- não confunde com "atualizar consumo específico e custo
 # variável" (Custo Ferbasa), que não tem nenhuma das duas combinações.
 def _detectar_intencao_custo_variavel_fluxo(mensagem):

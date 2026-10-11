@@ -1,0 +1,75 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block content %}
+<div id="content-main">
+    <h1>Fluxos de produção do produto</h1>
+    <p>
+        Produto: <strong>{{ produto }}</strong>
+    </p>
+
+    <form method="get" style="margin: 16px 0; padding: 12px; background: #f8f8f8; border: 1px solid #ddd;">
+        <label for="id_q">Descrição:</label>
+        <input id="id_q" type="search" name="q" value="{{ busca }}" placeholder="Pesquisar descrição" style="min-width: 280px;">
+
+        <label for="id_ativo" style="margin-left: 16px;">Ativo:</label>
+        <select id="id_ativo" name="ativo">
+            <option value="" {% if ativo == '' %}selected{% endif %}>Todos</option>
+            <option value="1" {% if ativo == '1' %}selected{% endif %}>Sim</option>
+            <option value="0" {% if ativo == '0' %}selected{% endif %}>Não</option>
+        </select>
+
+        <button type="submit" class="button">Filtrar</button>
+        <a href="" class="button">Limpar</a>
+    </form>
+
+    <div class="module">
+        <table id="result_list" style="width: 100%;">
+            <thead>
+                <tr>
+                    <th>Descrição</th>
+                    <th>Ativo</th>
+                    <th>Custo variável médio</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for fluxo in page_obj.object_list %}
+                <tr>
+                    <td>{{ fluxo.flu_pro_descricao|default:'—' }}</td>
+                    <td>{% if fluxo.flu_pro_ativo %}Sim{% else %}Não{% endif %}</td>
+                    <td>{{ fluxo.flu_pro_custo_variavel_medio|default:'—' }}</td>
+                    <td>
+                        <a href="{% url fluxo_change_url_name fluxo.pk %}">Abrir fluxo</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4">Nenhum fluxo encontrado.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if page_obj.paginator.num_pages > 1 %}
+    <p class="paginator">
+        {% if page_obj.has_previous %}
+            <a href="?q={{ busca|urlencode }}&amp;ativo={{ ativo|urlencode }}&amp;page={{ page_obj.previous_page_number }}">&lsaquo; Anterior</a>
+        {% endif %}
+
+        <span class="this-page">
+            Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+        </span>
+
+        {% if page_obj.has_next %}
+            <a href="?q={{ busca|urlencode }}&amp;ativo={{ ativo|urlencode }}&amp;page={{ page_obj.next_page_number }}">Próxima &rsaquo;</a>
+        {% endif %}
+    </p>
+    {% endif %}
+
+    <p>
+        <a href="{{ change_url }}">&lsaquo; Voltar para o produto</a>
+    </p>
+</div>
+{% endblock %}

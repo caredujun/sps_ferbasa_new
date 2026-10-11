@@ -15,44 +15,40 @@
         body, html { height: 100%; margin: 0; font-family: sans-serif; overflow: hidden; }
         .wrapper { display: flex; flex-direction: column; height: 100%; }
         .header { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; background-color: #003366; border-bottom: 1px solid #002244; position: relative; }
+        .header .logo { flex: 0 0 auto; }
         .header .logo h1 { margin: 0; font-size: 1.5em; color: #ffffff; }
-        .header .actions { display: flex; align-items: center; gap: 10px; }
+        .header .actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex: 1 1 auto; min-width: 0; }
         .header .actions input[type="text"], .header .actions textarea { padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
         .header .actions textarea { resize: vertical; min-height: 38px; }
         .header .actions #fluxo-nome { display: none; }
         .header .actions #fluxo-descricao {
-            position: absolute;
-            left: 50%;
-            top: 50%;
-            /* 🌟 CORRIGIDO: só tinha translateX -- centralizava na
-            horizontal, mas ficava "solto" verticalmente, seguindo a
-            posição que teria no fluxo normal (não centralizado na barra).
-            Adicionado top:50% + translateY(-50%) junto, pra centralizar
-            nos dois eixos dentro da barra azul escura (que tem
-            position:relative, então essa posição é relativa a ela). */
-            transform: translate(-50%, -50%);
-            /* 🌟 CORRIGIDO: max-width era calc(100vw - 760px) -- espaço
-            estreito demais; ampliado bem, já que tem espaço sobrando na
-            barra (só o título "Editor de Fluxo de Produção" à esquerda e
-            os botões à direita, sem logos aqui -- esses ficam na faixa
-            de cima). */
-            width: max-content;
-            max-width: calc(100vw - 420px);
-            height: 30px;
-            padding: 4px 8px;
+            /* O campo continua sendo um textarea para preservar o contrato
+            com o JavaScript, mas funciona visualmente como uma descrição
+            centralizada entre o título e os botões. */
+            position: static;
+            transform: none;
+            flex: 1 1 auto;
+            min-width: 0;
+            width: auto;
+            max-width: none;
+            height: 24px;
+            min-height: 0;
+            margin: 0;
+            padding: 0 8px;
             border: none;
             outline: none;
             background: transparent;
             color: #ffffff;
             font-weight: 700;
             font-size: 16px;
-            line-height: 1.25;
+            line-height: 24px;
             box-shadow: none;
             white-space: nowrap;
-            overflow-x: visible;
-            overflow-y: hidden;
+            overflow: hidden;
             text-overflow: clip;
             resize: none;
+            text-align: center;
+            box-sizing: border-box;
         }
         .header .actions #fluxo-descricao::placeholder { color: rgba(255, 255, 255, 0.85); opacity: 1; }
         .header .actions button { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
@@ -358,7 +354,7 @@
         </div>
         {% endif %}
         <div class="header">
-            <div class="logo"><h1>Editor de Fluxo de Produção</h1></div>
+            <div class="logo"><h1>Editor Fluxo de Produção</h1></div>
             <div class="actions">
                 <input type="text" id="fluxo-nome" placeholder="Cenário - ID do Fluxo" value="{{ fluxo.nome|default:'' }}" readonly class="readonly-field">
                 <textarea id="fluxo-descricao" placeholder="Descrição (opcional)" readonly wrap="off" class="readonly-field">{{ fluxo.descricao|default:'' }}</textarea>
@@ -555,6 +551,27 @@
             editor.reroute = true;
             editor.start();
 
+            // 🌟 NOVO: zoom com a RODA DO MOUSE (sem precisar segurar Ctrl), centrado no ponto onde está o mouse --
+            // o ponto debaixo do cursor fica parado e o resto aproxima/afasta em volta dele. O Drawflow sozinho só dá
+            // zoom com Ctrl + roda e sempre a partir do canto; este tratamento roda antes (fase de captura) e substitui.
+            const ZOOM_RODA_MIN = 0.1, ZOOM_RODA_MAX = 3, ZOOM_RODA_PASSO = 1.12;
+            document.getElementById('drawflow').addEventListener('wheel', function(event) {
+                if (!event.deltaY) return;
+                event.preventDefault();
+                event.stopPropagation();
+                const container = editor.container.getBoundingClientRect();
+                const zoomAtual = Number(editor.zoom) || 1;
+                const fator = event.deltaY > 0 ? 1 / ZOOM_RODA_PASSO : ZOOM_RODA_PASSO;
+                const zoomNovo = Math.min(ZOOM_RODA_MAX, Math.max(ZOOM_RODA_MIN, zoomAtual * fator));
+                if (zoomNovo === zoomAtual) return;
+                const mx = event.clientX - container.left, my = event.clientY - container.top;
+                editor.canvas_x = mx - (mx - (Number(editor.canvas_x) || 0)) * (zoomNovo / zoomAtual);
+                editor.canvas_y = my - (my - (Number(editor.canvas_y) || 0)) * (zoomNovo / zoomAtual);
+                editor.zoom = zoomNovo;
+                _aplicarTransformDoCanvas();
+                editor.dispatch('zoom', editor.zoom);
+            }, { capture: true, passive: false });
+
             let equipamentos = [];
             const fluxoIdCampo = document.getElementById('fluxo-id').value.trim();
             const fluxoIdNaRota = window.location.pathname.match(/\/fluxo_producao\/editor\/(\d+)\/?$/);
@@ -565,6 +582,23 @@
 
             let ligacoesOriginais = new Set();
             let valoresIniciaisNovasLigacoes = {};
+
+            // Reduz a fonte apenas quando necessário para que a descrição
+            // completa permaneça visível entre o título e os botões, sem
+            // criar uma barra de rolagem horizontal no textarea.
+            function ajustarDescricaoCabecalho() {
+                const campo = document.getElementById('fluxo-descricao');
+                if (!campo) return;
+                const tamanhoOriginal = 16;
+                const tamanhoMinimo = 10;
+                campo.style.fontSize = `${tamanhoOriginal}px`;
+                while (campo.scrollWidth > campo.clientWidth + 1 && parseFloat(getComputedStyle(campo).fontSize) > tamanhoMinimo) {
+                    campo.style.fontSize = `${Math.max(tamanhoMinimo, parseFloat(getComputedStyle(campo).fontSize) - 0.5)}px`;
+                }
+            }
+
+            window.addEventListener('resize', ajustarDescricaoCabecalho);
+            requestAnimationFrame(ajustarDescricaoCabecalho);
 
             function chaveEquipamentosDaLigacao(nodeDeId, nodeParaId) {
                 const nodeDe = editor.getNodeFromId(nodeDeId);
@@ -1641,6 +1675,7 @@
                     .then(data => {
                         document.getElementById('fluxo-nome').value = data.nome;
                         document.getElementById('fluxo-descricao').value = data.descricao || '';
+                        requestAnimationFrame(ajustarDescricaoCabecalho);
                         if (data.dados_fluxo && data.dados_fluxo.drawflow && data.dados_fluxo.drawflow.Home && data.dados_fluxo.drawflow.Home.data && Object.keys(data.dados_fluxo.drawflow.Home.data).length > 0) {
                             const dadosImportar = data.dados_fluxo;
                             editor.import(dadosImportar);

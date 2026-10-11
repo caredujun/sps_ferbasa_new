@@ -8,7 +8,7 @@
 
 Antes esse cálculo ficava dentro das views do editor (fluxos/views.py). Agora fica aqui pra ser usado por dois
 lugares sem duplicar nada: o editor (Assistente IA > Análise do fluxo) e o chat do Agente IA (Ação Comum
-"Fluxos de Produção - Custo Variável Distribuição / Escada por Equipamento").
+"Fluxos de Produção - Custo Variável Distribuição / Equipamento").
 """
 import math
 

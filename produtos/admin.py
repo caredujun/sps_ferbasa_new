@@ -7,25 +7,42 @@ from sps.settings import AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
 from xlrd.book import open_workbook_xls
 from django.contrib import admin
 from django.forms import Textarea
+from django.forms.models import BaseInlineFormSet
+from django.http import HttpResponse
+from django.core.paginator import Paginator
+from django.shortcuts import render
+from django.urls import path, reverse
+from django.utils.html import format_html
 from fluxos.models import TbFluxoProducao
 from .models import *
 from django_object_actions import DjangoObjectActions
-from django.http import HttpResponse
 from django.contrib import messages
 from .forms import TbProdutosFormAdmin, TbProdutoMercadoPrecoDaugtherFormAdmin, TbProdutoMercadoPrecoFormAdmin, \
     TbProdutoFluxoProducaoDaugtherFormAdmin, TbMercadoOutboundFormAdmin, TbMercadoOutboundDaugtherFormAdmin
 from django.contrib.auth.models import User
 
 
+# Quantidade mostrada diretamente na tela de edição do produto. Os demais
+# fluxos ficam disponíveis na tela auxiliar com busca e paginação.
+FLUXOS_INLINE_LIMITE = 20
+
+
+class TbProdutoFluxoProducaoDaugtherFormSet(BaseInlineFormSet):
+    def get_queryset(self):
+        # O Django aplica primeiro o filtro pelo produto no formset e só
+        # depois este limite é aplicado.
+        return super().get_queryset().order_by('-id')[:FLUXOS_INLINE_LIMITE]
+
+
 # Para mostrar os fluxos que o produto está usando
 class TbProdutoFluxoProducaoDaugtherAdmin(admin.TabularInline):
-    # Tiramos pois quando temos muitos fluxos temos erro de timeout devido ao cálculo do custo variável médio
-    #fields = ('flu_pro_descricao', 'flu_pro_ativo', 'custo_variavel_medio')
-    #readonly_fields = ['custo_variavel_medio']
-    fields = ('flu_pro_descricao', 'flu_pro_ativo', )
+    fields = ('flu_pro_descricao', 'flu_pro_ativo', 'flu_pro_custo_variavel_medio')
 
     model = TbFluxoProducao
     form = TbProdutoFluxoProducaoDaugtherFormAdmin
+    formset = TbProdutoFluxoProducaoDaugtherFormSet
+    extra = 0
+    max_num = FLUXOS_INLINE_LIMITE
 
     show_change_link = True
 
@@ -50,14 +67,15 @@ class TbProdutoFluxoProducaoDaugtherAdmin(admin.TabularInline):
 class TbProdutosAdmin(admin.ModelAdmin):
     fields = (('id', 'pro_codigo', 'pro_descricao', 'pro_ativo'), ('total_mercados', 'total_fluxos_ativos', 'total_fluxos', 'total_equipamentos_usados'),
               ('pro_unidade_producao', 'pro_familia'), ('pro_imagem', 'pro_imagem_tag'), 'pro_observacao',
-              'equipamentos_producao', 'escolhidos_igual_fluxos', 'equipamentos_usados_tag')
+              'equipamentos_producao', 'escolhidos_igual_fluxos', 'equipamentos_usados_tag',
+              'fluxos_producao_acesso')
     list_display = ['id', 'pro_codigo', 'pro_descricao', 'pro_ativo', 'pro_unidade_producao', 'pro_imagem',
                     'pro_imagem_tag', 'escolhidos_igual_fluxos', 'total_mercados', 'total_fluxos_ativos', 'total_fluxos',
                     'total_equipamentos_usados']
     list_editable = ['pro_ativo']
     list_filter = ('pro_codigo','pro_ativo')
     list_display_links = ['id', 'pro_codigo']
-    readonly_fields = ['id', 'pro_imagem_tag', 'total_mercados', 'total_fluxos_ativos', 'total_fluxos', 'total_equipamentos_usados', 'escolhidos_igual_fluxos', 'equipamentos_usados_tag']
+    readonly_fields = ['id', 'pro_imagem_tag', 'total_mercados', 'total_fluxos_ativos', 'total_fluxos', 'total_equipamentos_usados', 'escolhidos_igual_fluxos', 'equipamentos_usados_tag', 'fluxos_producao_acesso']
     search_fields = ['pro_codigo', ]
 
     model = TbProdutos
@@ -323,6 +341,93 @@ class TbProdutosAdmin(admin.ModelAdmin):
             tab_obj.save()
 
     desativar_produto.short_description = 'Desativar Produtos Selecionados'
+
+    def fluxos_producao_acesso(self, obj=None):
+        if obj is None or not obj.pk:
+            return 'Salve o produto para consultar os fluxos de produção.'
+
+        url = reverse(
+            'admin:produtos_tbprodutos_fluxos_producao',
+            args=[obj.pk],
+        )
+        return format_html(
+            '<a class="button" href="{}">Ver e filtrar todos os fluxos</a>',
+            url,
+        )
+
+    fluxos_producao_acesso.short_description = 'Consulta de fluxos de produção'
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                '<path:object_id>/fluxos-producao/',
+                self.admin_site.admin_view(self.fluxos_producao_view),
+                name='produtos_tbprodutos_fluxos_producao',
+            ),
+        ]
+        return custom_urls + urls
+
+    def fluxos_producao_view(self, request, object_id):
+        if not self.has_view_or_change_permission(request):
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied
+
+        produto = self.get_object(request, object_id)
+        if produto is None:
+            from django.http import Http404
+            raise Http404
+
+        inline = TbProdutoFluxoProducaoDaugtherAdmin(TbProdutos, self.admin_site)
+        campo_produto = next(
+            (
+                campo for campo in TbFluxoProducao._meta.fields
+                if getattr(campo, 'remote_field', None)
+                and campo.remote_field.model == TbProdutos
+            ),
+            None,
+        )
+        if campo_produto is None:
+            from django.core.exceptions import ImproperlyConfigured
+            raise ImproperlyConfigured(
+                'Não foi encontrada a relação entre fluxo e produto.'
+            )
+
+        # Aqui usamos diretamente o queryset do inline, sem o formset
+        # limitado, para permitir consultar qualquer fluxo na paginação.
+        queryset = inline.get_queryset(request).filter(
+            **{f'{campo_produto.name}_id': produto.pk}
+        ).order_by('-id')
+
+        busca = request.GET.get('q', '').strip()
+        ativo = request.GET.get('ativo', '')
+        if busca:
+            queryset = queryset.filter(flu_pro_descricao__icontains=busca)
+        if ativo in ('0', '1'):
+            queryset = queryset.filter(flu_pro_ativo=(ativo == '1'))
+
+        page_obj = Paginator(queryset, 20).get_page(request.GET.get('page', 1))
+        contexto = {
+            **self.admin_site.each_context(request),
+            'opts': self.model._meta,
+            'title': f'Fluxos de produção do produto {produto}',
+            'produto': produto,
+            'page_obj': page_obj,
+            'busca': busca,
+            'ativo': ativo,
+            'change_url': reverse(
+                'admin:produtos_tbprodutos_change', args=[produto.pk]
+            ),
+            'fluxo_change_url_name': (
+                f'admin:{TbFluxoProducao._meta.app_label}_'
+                f'{TbFluxoProducao._meta.model_name}_change'
+            ),
+        }
+        return render(
+            request,
+            'admin/produtos/fluxos_producao_list.html',
+            contexto,
+        )
 
     # Mostra somente os registros do cenário ativo
     def get_queryset(self, request):

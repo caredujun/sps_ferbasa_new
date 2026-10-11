@@ -124,7 +124,7 @@ _PADRAO_COMPARACAO_FLUXOS = re.compile(r'\n*\[COMPARACAO_FLUXOS:([A-Za-z0-9_=-]*
 # 🌟 NOVO: [LISTA_FLUXOS:<json base64>] -- a lista de fluxos do produto (id e descrição, com rolagem e filtro) da comparação.
 _PADRAO_LISTA_FLUXOS = re.compile(r'\n*\[LISTA_FLUXOS:([A-Za-z0-9_=-]*)\]')
 # 🌟 NOVO: [GRAFICOS_CUSTO_FLUXO:<json base64>] -- os gráficos de custo de um fluxo (distribuição do custo variável e
-# escada por equipamento), da ação "Custo Variável Distribuição / Escada por Equipamento".
+# escada por equipamento), da ação "Custo Variável Distribuição / Equipamento".
 _PADRAO_GRAFICOS_CUSTO_FLUXO = re.compile(r'\n*\[GRAFICOS_CUSTO_FLUXO:([A-Za-z0-9_=-]*)\]')
 # 🌟 NOVO: [FLUXO_PRODUCAO_MENSAL:<json base64>] -- o fluxo montado a partir da Produção Mensal (Custo Ferbasa).
 _PADRAO_FLUXO_PRODUCAO_MENSAL = re.compile(r'\n*\[FLUXO_PRODUCAO_MENSAL:([A-Za-z0-9_=-]*)\]')
