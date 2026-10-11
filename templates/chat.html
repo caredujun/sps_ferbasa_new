@@ -842,6 +842,7 @@
         {% trans "Esconder gráfico" as ROTULO_FPM_C_ESCADA_FECHAR %}
         {% trans "Custo do produto" as ROTULO_FPM_C_FINAL %}
         {% trans "Demais equipamentos" as ROTULO_FPM_C_DEMAIS %}
+        {% trans "cada um com menos de 1% do custo do produto" as ROTULO_FPM_C_DEMAIS_DICA %}
         {% trans "Custo por" as ROTULO_FPM_C_TITULO %}
         {% trans "Total" as ROTULO_FPM_C_TOTAL %}
         {% trans "Variável" as ROTULO_FPM_C_VAR %}
@@ -1060,6 +1061,7 @@
         var ROTULO_FPM_C_ESCADA_FECHAR = "{{ ROTULO_FPM_C_ESCADA_FECHAR|escapejs }}";
         var ROTULO_FPM_C_FINAL = "{{ ROTULO_FPM_C_FINAL|escapejs }}";
         var ROTULO_FPM_C_DEMAIS = "{{ ROTULO_FPM_C_DEMAIS|escapejs }}";
+        var ROTULO_FPM_C_DEMAIS_DICA = "{{ ROTULO_FPM_C_DEMAIS_DICA|escapejs }}";
         var ROTULO_FPM_C_TITULO = "{{ ROTULO_FPM_C_TITULO|escapejs }}";
         var ROTULO_FPM_C_TOTAL = "{{ ROTULO_FPM_C_TOTAL|escapejs }}";
         var ROTULO_FPM_C_VAR = "{{ ROTULO_FPM_C_VAR|escapejs }}";
@@ -2783,33 +2785,30 @@
         function escadaSvgFPM(escada, medida, moeda, unidade) {
             var val = function(x) { return medida === 'total' ? x.total : medida === 'variavel' ? x.variavel : x.total - x.variavel; };
             var barras = escada.barras.slice();
-            var limite = escada.limite || 14;
             var linhas = [];
             var dicaB = function(b) { return b.nome + ' — ' + (b.descricao || '') + ' — ' + numFPM(b.necessidade, 4) + ' ' + b.unidade + '/' + unidade; };
-            if (barras.length > limite) {
-                // Mantém os maiores (pelo total) e junta os outros de cada ETAPA do fluxo (mesma distância até o produto
-                // final) numa barra "Demais equipamentos (n)" no lugar daquela etapa -- a ordem do fluxo é preservada.
-                var manter = {};
-                barras.slice().sort(function(a, b) { return Math.abs(b.total) - Math.abs(a.total); }).slice(0, limite)
-                    .forEach(function(b) { manter[b.id] = true; });
-                var niveis = [], porNivel = {};
-                barras.forEach(function(b) {
-                    if (!porNivel[b.distancia]) { porNivel[b.distancia] = { manter: [], resto: { total: 0, variavel: 0, n: 0 } }; niveis.push(b.distancia); }
-                    var nv = porNivel[b.distancia];
-                    if (manter[b.id]) nv.manter.push(b);
-                    else { nv.resto.total += b.total; nv.resto.variavel += b.variavel; nv.resto.n++; }
-                });
-                niveis.forEach(function(dist) {
-                    var nv = porNivel[dist];
-                    nv.manter.forEach(function(b) { linhas.push({ nome: b.nome, descricao: b.descricao, valor: val(b), dica: dicaB(b) }); });
-                    if (nv.resto.n) {
-                        var nome = ROTULO_FPM_C_DEMAIS + ' (' + nv.resto.n + ')';
-                        linhas.push({ nome: nome, valor: val(nv.resto), dica: nome });
-                    }
-                });
-            } else {
-                barras.forEach(function(b) { linhas.push({ nome: b.nome, descricao: b.descricao, valor: val(b), dica: dicaB(b) }); });
+            // 🌟 ALTERADO: vai para "Demais equipamentos" quem contribui (na medida da aba aberta, em módulo) com menos
+            // de 1% do custo total do produto. Uma barra só, no início da escada, e só se juntar 2 ou mais equipamentos (um sozinho
+            // aparece com o nome). Passar o mouse nela mostra quem está dentro.
+            // base = custo TOTAL do produto (mesmo nas abas Variável e Fixo/Outros, em que o valor final pode ser pequeno)
+            var corte = Math.abs(escada.final.total) * (escada.corte || 0.01);
+            var pequenos = barras.filter(function(b) { return Math.abs(val(b)) < corte; });
+            if (pequenos.length < 2) pequenos = [];
+            var ehPequeno = {};
+            pequenos.forEach(function(b) { ehPequeno[b.id] = true; });
+            if (pequenos.length) {
+                var soma = { total: 0, variavel: 0 };
+                pequenos.forEach(function(b) { soma.total += b.total; soma.variavel += b.variavel; });
+                var lista = pequenos.slice().sort(function(a, b) { return Math.abs(val(b)) - Math.abs(val(a)); });
+                var nomeDemais = ROTULO_FPM_C_DEMAIS + ' (' + pequenos.length + ')';
+                var dicaDemais = nomeDemais + ' — ' + ROTULO_FPM_C_DEMAIS_DICA + '\n' + lista.slice(0, 40).map(function(b) {
+                    return b.nome + ' — ' + (b.descricao || '') + ': ' + moeda + numFPM(val(b), 2);
+                }).join('\n') + (lista.length > 40 ? '\n… +' + (lista.length - 40) : '');
+                linhas.push({ nome: nomeDemais, valor: val(soma), dica: dicaDemais, semUnidade: true });
             }
+            barras.forEach(function(b) {
+                if (!ehPequeno[b.id]) linhas.push({ nome: b.nome, descricao: b.descricao, valor: val(b), dica: dicaB(b) });
+            });
             var acumulado = 0, minimo = 0, maximo = 0;
             linhas.forEach(function(l) {
                 l.inicio = acumulado; acumulado += l.valor; l.fim = acumulado;
@@ -2832,7 +2831,7 @@
                 if (i > 0 && !l.final) {           // ligação tracejada com a barra anterior
                     s += '<line x1="' + px(l.inicio) + '" y1="' + (y - altLinha + 23) + '" x2="' + px(l.inicio) + '" y2="' + (y + 9) + '" stroke="#b0b7bd" stroke-dasharray="2 2"/>';
                 }
-                s += '<g><title>' + escapeHtml(l.dica + ': ' + moeda + numFPM(l.valor, 2) + '/' + unidade) + '</title>' +
+                s += '<g><title>' + escapeHtml(l.semUnidade ? l.dica : l.dica + ': ' + moeda + numFPM(l.valor, 2) + '/' + unidade) + '</title>' +
                     (l.descricao
                         ? '<text x="' + (rotuloL - 6) + '" y="' + (y + 13) + '" font-size="11" text-anchor="end" fill="#2c3e50">' + escapeHtml(cortarFPM(l.nome, 40)) + '</text>' +
                           '<text x="' + (rotuloL - 6) + '" y="' + (y + 26) + '" font-size="10" text-anchor="end" fill="#6b7a86">' + escapeHtml(cortarFPM(l.descricao, 42)) + '</text>'

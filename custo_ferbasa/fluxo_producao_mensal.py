@@ -351,7 +351,7 @@ def calcular_custos(nos, producao, consumo, valores, ordens_com_producao, operac
 # RECIRCULAÇÃO (material que volta a um equipamento já no caminho, inclusive o próprio): o valor contábil dele fica no
 # equipamento que o consome -- não é repartido de novo para trás (senão a conta dá voltas e pode não ter resposta).
 # Total e variável são repartidos cada um com os seus próprios valores; fixo/outros = total - variável.
-LIMITE_BARRAS_ESCADA = 14
+CORTE_ESCADA = 0.01       # no gráfico, quem contribui com menos de 1% do custo do produto vai para "Demais equipamentos"
 
 
 def _contribuicoes(nos, ops, producao, consumo, valores, operacoes_por_codigo, itens_producao, itens_consumo,
@@ -457,7 +457,7 @@ def _contribuicoes(nos, ops, producao, consumo, valores, operacoes_por_codigo, i
         if no_final is not None:
             no_final['custo']['escada'] = {
                 'barras': sorted(barras.values(), key=lambda b: (-b['distancia'], b['nome'])),
-                'limite': LIMITE_BARRAS_ESCADA,
+                'corte': CORTE_ESCADA,
                 'final': {'total': custo[final][0], 'variavel': custo[final][1]},
             }
     for nid, lista in por_no.items():
