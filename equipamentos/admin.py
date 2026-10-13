@@ -273,18 +273,18 @@ class TbEquipamentosAdmin(DjangoObjectActions, admin.ModelAdmin):
 
         if not obj:  # editing an existing object. Se estiver adicionando no indicador, irá aparecer o campo para informar o valor inicial
             # Esta adicionando. Vamos mostrar os campos de valores iniciais
-            self.fields = [('equ_codigo', 'equipamento_imagem_tag_small', 'gargalo', 'expedicao'), ('equ_ordem_codigo', 'equ_ordem_descricao', 'total_itens'), ('equ_tipo_producao', 'equ_e_clone_de', 'equ_wip'), 'equ_observacao', 'equ_fonte', 'valor_inicial_3', 'valor_inicial_1', 'valor_inicial_2', 'equ_produtos']
+            self.fields = [('equ_codigo', 'equipamento_imagem_tag_small', 'gargalo', 'expedicao'), ('equ_ordem_codigo', 'equ_ordem_descricao', 'total_itens'), ('equ_tipo_producao', 'criterio_quebra_fluxo', 'equ_e_clone_de', 'equ_wip'), 'equ_observacao', 'equ_fonte', 'valor_inicial_3', 'valor_inicial_1', 'valor_inicial_2', 'equ_produtos']
         else:
             # Vamos ver se é expedição. Se sim, tira o campo equ_fields
             expedicao = TbEquipamentosCadastro.objects.get(id=obj.equ_codigo_id).equ_cad_expedicao
             if expedicao:
                 self.fields = [('equ_codigo', 'equipamento_imagem_tag_small', 'gargalo', 'expedicao'),
-                               ('equ_ordem_codigo', 'equ_ordem_descricao', 'periodos_ativa', 'total_itens', 'qtde_fluxos_usando'), ('equ_tipo_producao', 'equ_e_clone_de'),
+                               ('equ_ordem_codigo', 'equ_ordem_descricao', 'periodos_ativa', 'total_itens', 'qtde_fluxos_usando'), ('equ_tipo_producao', 'criterio_quebra_fluxo', 'equ_e_clone_de'),
                                'equ_observacao', 'equ_fonte', 'equ_produtos', 'escolhidos_igual_fluxos', 'produtos_usados_tag']
             else:
                 self.fields = [('equ_codigo', 'equipamento_imagem_tag_small', 'gargalo', 'expedicao'),
                                ('equ_ordem_codigo', 'equ_ordem_descricao', 'periodos_ativa', 'total_itens', 'qtde_fluxos_usando'),
-                               ('equ_tipo_producao', 'equ_e_clone_de', 'equ_wip'), 'equ_observacao', 'equ_fonte', 'equ_produtos', 'escolhidos_igual_fluxos', 'produtos_usados_tag']
+                               ('equ_tipo_producao', 'criterio_quebra_fluxo', 'equ_e_clone_de', 'equ_wip'), 'equ_observacao', 'equ_fonte', 'equ_produtos', 'escolhidos_igual_fluxos', 'produtos_usados_tag']
 
         return self.fields
 
@@ -305,10 +305,10 @@ class TbEquipamentosAdmin(DjangoObjectActions, admin.ModelAdmin):
     qtde_fluxos_usando.short_description = 'Qtde Fluxos Usando'
 
     list_display = ['id', 'equ_codigo', 'equ_ordem_codigo', 'equipamento_imagem_tag_small', 'escolhidos_igual_fluxos', 'equ_ordem_descricao', 'periodos_ativa',
-                    'equ_tipo_producao', 'equ_e_clone_de', 'media_paradas_np', 'media_prod', 'media_custo_var_adi', 'total_itens', 'qtde_fluxos_usando']
+                    'equ_tipo_producao', 'criterio_quebra_fluxo', 'equ_e_clone_de', 'media_paradas_np', 'media_prod', 'media_custo_var_adi', 'total_itens', 'qtde_fluxos_usando']
 
     readonly_fields = ('equipamento_imagem_tag_small', 'total_itens', 'gargalo', 'expedicao', 'media_paradas_np', 'media_prod', 'media_custo_var_adi', 'periodos_ativa', 'qtde_fluxos_usando',
-                       'escolhidos_igual_fluxos', 'produtos_usados_tag')
+                       'escolhidos_igual_fluxos', 'produtos_usados_tag', 'criterio_quebra_fluxo')
     list_display_links = ['id', 'equ_codigo']
     filter_horizontal = ('equ_produtos',)
 

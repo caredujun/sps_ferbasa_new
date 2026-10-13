@@ -2844,13 +2844,14 @@ def iniciar_fluxo_montar_fluxo_producao_mensal(usuario):
 
 def _cfx_texto_itens(dados, aviso=''):
     from custo_ferbasa.fluxo_producao_mensal import itens_com_producao
-    itens = [{'id': i.id, 'codigo': i.ite_pro_codigo, 'status': 'escolha', 'motivo': i.ite_pro_descricao,
+    itens = [{'id': i.id, 'codigo': i.ite_pro_codigo, 'nome': i.ite_pro_descricao or '', 'status': 'escolha', 'motivo': i.ite_pro_descricao,
               'marcado': False, 'titulo': f"{i.ite_pro_descricao} -- Produção Mensal de {minimo} a {maximo}"}
              for i, minimo, maximo in itens_com_producao(dados['empresa_id'])]
     return (aviso + "Quais **itens de produção** você quer ver? Marque um ou mais e confirme -- o fluxo é montado de trás "
             "pra frente a partir deles, seguindo os itens de consumo que também são produzidos. Também dá pra digitar "
             "os códigos separados por vírgula (ou \"cancelar\" pra desistir).\n\n"
             + _equ_marcador('SELECAO_PRODUTOS', {'produtos': itens, 'rotulo_confirmar': 'Confirmar itens',
+                                                  'ordem_alternavel': 'nome',   # vem por descrição; o botão troca p/ código
                                                   'rotulo_marcar': 'Marcar todos'}))
 
 
@@ -2939,20 +2940,11 @@ def _etapa_cfx_periodo(estado, texto):
     if not r['operacoes']:
         return (f"Não há Produção Mensal de **{codigos}** entre **{inicio}** e **{fim}** -- não tenho o que desenhar. "
                 "Rode a ação de novo com outro período.")
-    texto_resposta = (f"**Fluxo de produção de {nomes}** -- Produção Mensal de **{inicio}** a **{fim}**\n\n"
-                      f"Operações (item × grupo de máquina): **{r['operacoes']}** · matérias-primas: **{r['materias_primas']}** · "
-                      f"ligações: **{r['ligacoes']}**")
-    if r['subprodutos']:
-        texto_resposta += f" · subprodutos/bonificações: **{r['subprodutos']}**"
-    if r['ciclos']:
-        texto_resposta += (f"\n\nHá **{r['ciclos']}** recirculação(ões) -- material que volta a um ponto da cadeia por onde já "
-                           "passou (reciclagem, retrabalho). Elas aparecem no círculo **RC** das caixas dos equipamentos envolvidos.")
+    # 🌟 ALTERADO: só o título, o aviso de itens sem produção e o custo do produto (os números do desenho, as
+    # recirculações e a explicação da lista de equipamentos saíram do texto).
+    texto_resposta = f"**Fluxo de produção de {nomes}** -- Produção Mensal de **{inicio}** a **{fim}**"
     if grafo['sem_producao']:
         texto_resposta += ("\n\nSem produção no período (ficaram de fora): **" + ", ".join(grafo['sem_producao']) + "**.")
-    if r['operacoes'] > grafo['equipamentos_iniciais']:
-        texto_resposta += (f"\n\nO fluxo tem **{r['operacoes']}** equipamentos. O desenho começa com os **{grafo['equipamentos_iniciais']}** "
-                           "mais próximos do produto final; os outros aparecem no botão \"Mostrar outros equipamentos\" -- marque e "
-                           "clique em \"Adicionar ao fluxo\", ou arraste para o desenho.")
     # 🌟 NOVO: custo do(s) produto(s) escolhido(s) -- total, variável e fixo/outros por unidade. O detalhe de cada
     # equipamento fica no círculo "C" das caixas.
     moeda = _cmp_moeda(estado)
@@ -2962,9 +2954,7 @@ def _etapa_cfx_periodo(estado, texto):
             f"- **{c['codigo']}** ({br(c['producao'])} {c['unidade']} no período): total **{moeda}{br(c['unit_total'])}/{c['unidade']}** · "
             f"variável {moeda}{br(c['unit_variavel'])} · fixo/outros {moeda}{br(c['unit_total'] - c['unit_variavel'])}"
             for c in grafo['custos_produtos']]
-        texto_resposta += ("\n\n**Custo do produto por unidade** (valor contábil -- custo médio de estoque -- da Produção "
-                           "Mensal + GGF distribuído, como a procedure de custo variável adicionado):\n" + "\n".join(linhas_custo)
-                           + "\n\nClique no círculo **C** de cada equipamento para ver o custo dele por unidade produzida.")
+        texto_resposta += "\n\n**Custo do produto:**\n" + "\n".join(linhas_custo)
     if grafo.get('aviso_custo'):
         texto_resposta += "\n\n⚠️ " + grafo['aviso_custo']
     payload = {'titulo': f"Fluxo de produção de {nomes}", 'periodo': f"{inicio} a {fim}", 'moeda': moeda, **grafo}

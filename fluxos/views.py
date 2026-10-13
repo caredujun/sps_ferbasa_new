@@ -308,6 +308,61 @@ def api_fluxo_custo_por_equipamento(request, fluxo_id):
 
 
 @login_required
+@require_GET
+def api_fluxo_indicadores_ligacoes(request, fluxo_id):
+    """
+    🌟 NOVO: indicadores das LIGAÇÕES do editor (botão "Indicadores"), tirados do Input/Output do fluxo
+    (TbFluxoProducaoInputOutput + TbFluxoProducaoInputOutputDaugther), por remetente -> destinatário:
+
+      - media_3: média do dau_valor_3 -- quanto o equipamento que envia tem que produzir para 1 unidade de produção
+        no equipamento que recebe;
+      - media_4: média do dau_valor_4 -- quanto o equipamento que envia tem que mandar para 1 unidade de produção no
+        equipamento final do fluxo.
+
+    A média é só dos períodos com valor > 0 (período zerado = o equipamento não opera; entrar com ele derrubaria a
+    média). Também volta quantos períodos entraram em cada média e o total de períodos.
+
+    Cada linha do I/O é (coluna, linha, equipamento, envia_para); a mesma ligação pode estar em mais de uma linha da
+    mesma coluna -- tudo junto numa média só. A coluna volta também como ORDEM (1, 2, 3...) entre as colunas que
+    enviam, que é como o editor casa a ligação desenhada com a do I/O (a coluna gravada no desenho pode ter outra
+    numeração, mas a ordem é a mesma).
+    """
+    from django.db.models import Avg, Count, Q
+    from .models import TbFluxoProducaoInputOutputDaugther
+
+    fluxo = _fluxo_acessivel_ou_404(request.user, fluxo_id)
+    linhas = (TbFluxoProducaoInputOutputDaugther.objects
+              .filter(mae__mae_id=fluxo.id,
+                      mae__tbcenarios_id=fluxo.tbcenarios_id,
+                      tbcenarios_id=fluxo.tbcenarios_id,
+                      mae__flu_pro_inp_out_envia_para__isnull=False,
+                      dau_order__gte=1)
+              .values('mae__flu_pro_inp_out_coluna', 'mae__flu_pro_inp_out_equipamento_id',
+                      'mae__flu_pro_inp_out_envia_para_id')
+              .annotate(media_3=Avg('dau_valor_3', filter=Q(dau_valor_3__gt=0)),
+                        periodos_3=Count('dau_order', filter=Q(dau_valor_3__gt=0), distinct=True),
+                        media_4=Avg('dau_valor_4', filter=Q(dau_valor_4__gt=0)),
+                        periodos_4=Count('dau_order', filter=Q(dau_valor_4__gt=0), distinct=True),
+                        periodos=Count('dau_order', distinct=True))
+              .order_by())
+
+    colunas = sorted({l['mae__flu_pro_inp_out_coluna'] for l in linhas})
+    ordem_da_coluna = {c: i + 1 for i, c in enumerate(colunas)}
+    ligacoes = [{
+        'coluna': l['mae__flu_pro_inp_out_coluna'],
+        'coluna_ordem': ordem_da_coluna[l['mae__flu_pro_inp_out_coluna']],
+        'de': l['mae__flu_pro_inp_out_equipamento_id'],
+        'para': l['mae__flu_pro_inp_out_envia_para_id'],
+        'media_3': float(l['media_3']) if l['media_3'] is not None else None,
+        'media_4': float(l['media_4']) if l['media_4'] is not None else None,
+        'periodos_3': l['periodos_3'],
+        'periodos_4': l['periodos_4'],
+        'periodos': l['periodos'],
+    } for l in linhas]
+    return JsonResponse({'atualizado': bool(fluxo.flu_pro_input_output_atualizado), 'ligacoes': ligacoes})
+
+
+@login_required
 @require_POST
 def api_fluxo_salvar(request):
     """

@@ -178,6 +178,8 @@
         .cartao-sel .sel-selo { font-size: 12px; font-weight: bold; }
         .cartao-sel .sel-motivo { font-size: 10px; line-height: 1.25; color: #666; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
         .barra-selecao { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px; }
+        .barra-ordem-sel { margin-top: 8px; display: flex; justify-content: flex-end; }
+        .barra-ordem-sel .botao-sel { margin: 0; }
         .botao-sel { padding: 6px 12px; border-radius: 16px; border: 1px solid #417690; background: #fff; color: #417690; font-size: 13px; cursor: pointer; }
         .botao-sel:hover:not(:disabled) { background: #eef5f8; }
         .botao-sel:disabled { opacity: 0.5; cursor: default; }
@@ -192,14 +194,20 @@
         .fpm-area { overflow: auto; max-height: 560px; padding: 4px; }
         .fpm-area .fpm-svg { display: block; }
         .fpm-overlay { position: fixed; inset: 0; z-index: 10000; background: #fff; display: none; flex-direction: column; }
-        .fpm-overlay-barra { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border-bottom: 1px solid #ddd; background: #f7f9fb; }
-        .fpm-overlay-titulo { flex: 1; color: #003366; }
+        /* A barra fica SEMPRE por cima do quadro de detalhe (z-index) -- em tela estreita ela quebra em várias linhas e o
+           quadro, que abria numa altura fixa, cobria o botão Fechar. O quadro agora abre logo abaixo da barra (--fpm-topo). */
+        .fpm-overlay-barra { position: relative; z-index: 3; display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; padding: 10px 14px; border-bottom: 1px solid #ddd; background: #f7f9fb; }
+        .fpm-overlay-titulo { flex: 1 1 200px; min-width: 0; color: #003366; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .fpm-overlay-barra .botao-opcao { margin: 0; }
+        .fpm-overlay-barra .fpm-btn-fechar { background: #417690; color: #fff; }
+        .fpm-overlay-exp-fechar { display: inline-flex; flex-direction: column; align-items: stretch; gap: 6px; margin-left: auto; }
         .fpm-overlay-dica { padding: 4px 14px; font-size: 11px; color: #777; }
         .fpm-overlay-area { flex: 1; min-height: 0; cursor: grab; overflow: hidden; }
         .fpm-overlay-area.arrastando { cursor: grabbing; }
         .fpm-dica-circulos { color: #555; font-size: 11px; flex: 1; min-width: 220px; }
         .fpm-detalhe { display: none; margin: 0 10px 10px; border: 1px solid #dfe3e6; border-radius: 6px; padding: 8px 10px; background: #fbfcfd; }
-        .fpm-overlay-detalhe { display: none; position: absolute; right: 16px; top: 96px; width: min(680px, calc(100vw - 32px)); max-height: 75vh; overflow: auto;
+        .fpm-overlay-detalhe { display: none; position: absolute; z-index: 2; right: 16px; top: calc(var(--fpm-topo, 96px) + 8px); width: min(680px, calc(100vw - 32px));
+            max-height: min(75vh, calc(100vh - var(--fpm-topo, 96px) - 24px)); overflow: auto;
             background: #fff; border: 1px solid #cfd6dc; border-radius: 8px; box-shadow: 0 6px 24px rgba(0,0,0,0.18); padding: 10px 12px; font-size: 12px; }
         .fpm-detalhe-topo { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; color: #003366; }
         .fpm-detalhe-fechar { border: none; background: none; font-size: 18px; line-height: 1; color: #888; cursor: pointer; padding: 0 2px; }
@@ -219,6 +227,11 @@
         .fpm-lista-item { display: flex; gap: 6px; align-items: flex-start; border: 1px solid #dfe3e6; border-radius: 5px; padding: 5px 7px; background: #fbfcfd; cursor: grab; font-size: 11px; color: #3d4b57; }
         .fpm-lista-item:hover { border-color: #3498db; }
         .fpm-lista-item input { margin-top: 2px; }
+        /* Já está no fluxo (desenhado): fundo avermelhado, como no editor; clicar localiza a caixa no desenho. */
+        .fpm-lista-item.fpm-no-fluxo { background: #fdeaea; border-color: #f1b0b7; cursor: pointer; }
+        .fpm-lista-item.fpm-no-fluxo:hover { border-color: #dc3545; }
+        .fpm-lista-item.fpm-localizado { border: 2px solid #ff0000; padding: 4px 6px; box-shadow: 0 0 0 2px rgba(255, 0, 0, 0.25); }
+        .fpm-lista-marca { flex: 0 0 auto; width: 13px; height: 13px; margin-top: 2px; border-radius: 50%; background: rgba(220, 53, 69, 0.95); }
         .fpm-lista-texto { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
         .fpm-lista-texto b { font-size: 12px; color: #1d2f40; }
         .fpm-lista-alimenta { color: #7f8c8d; }
@@ -245,6 +258,15 @@
         .fpm-escada-aba.ativa { background: #16a085; color: #fff; }
         .fpm-escada-svg { display: block; max-width: 660px; }
         .fpm-com-equip { font-size: 10px; color: #7f8c8d; }
+        .fpm-qtd-equip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #34495e; white-space: nowrap; }
+        /* Botões do fluxo no chat em 2 linhas, com espaço entre eles: [quantidade + Montar] [lista de equipamentos] /
+           [Reorganizar] [Tela cheia] [Exportar]. */
+        .fpm-botoes { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+        .fpm-botoes-linha { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px 10px; }
+        .fpm-topo .fpm-botoes .botao-opcao { margin: 0; }
+        .fpm-topo .fpm-qtd-equip { background: #f7f9fb; border: 1px solid #dfe5ea; border-radius: 18px; padding: 3px 4px 3px 12px; }
+        .fpm-qtd-equip input { width: 62px; padding: 3px 4px; border: 1px solid #cfd6dc; border-radius: 4px; font-size: 12px; text-align: right; }
+        .fpm-qtd-equip .botao-opcao { margin: 0; }
         .fpm-btn-outros { background: #eaf3fb !important; border-color: #3498db !important; color: #1f5f8b !important; }
         .fpm-overlay-lista .fpm-lista-itens { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); max-height: none; }
 
@@ -765,6 +787,8 @@
         {% trans "Sem fluxos cadastrados" as ROTULO_SEM_FLUXOS %}
         {% trans "Não foi possível calcular" as ROTULO_NAO_CALCULAVEL %}
         {% trans "Marcar os que precisam de ajuste" as ROTULO_MARCAR_AJUSTE %}
+        {% trans "Ordenar por código" as ROTULO_SEL_ORDEM_CODIGO %}
+        {% trans "Ordenar por descrição" as ROTULO_SEL_ORDEM_NOME %}
         {% trans "Atualizar selecionados" as ROTULO_ATUALIZAR_SEL %}
         {% trans "Produtos selecionados" as ROTULO_PRODUTOS_SEL %}
         {% trans "Origem -> destino" as ROTULO_FC_LIGACAO %}
@@ -825,6 +849,7 @@
         {% trans "Estoque/perdas" as ROTULO_FPM_BAL_SEM %}
         {% trans "Veio de estoque" as ROTULO_FPM_BAL_ACIMA %}
         {% trans "Balanço do item no período" as ROTULO_FPM_BAL_TITULO %}
+        {% trans "todos os grupos de máquina" as ROTULO_FPM_BAL_TODOS %}
         {% trans "Ver quais outros produtos consumiram este item" as ROTULO_FPM_BAL_DICA %}
         {% trans "detalhar outros produtos ›" as ROTULO_FPM_BAL_DETALHAR %}
         {% trans "Outros produtos: consumo do item registrado na Produção Mensal do período por equipamentos que não fazem parte deste fluxo. Estoque/perdas: o que foi produzido e não aparece consumido por ninguém (estoque, venda direta ou perdas). Veio de estoque: consumiu-se mais do que se produziu no período, e a diferença saiu de estoque (ou de produção de outro período)." as ROTULO_FPM_BAL_EXPLICA %}
@@ -862,21 +887,28 @@
         {% trans "Recebe de volta" as ROTULO_FPM_RECEBE %}
         {% trans "Envia de volta" as ROTULO_FPM_ENVIA %}
         {% trans "a própria produção" as ROTULO_FPM_PROPRIA %}
-        {% trans "Outros equipamentos do fluxo" as ROTULO_FPM_OUTROS %}
-        {% trans "No desenho:" as ROTULO_FPM_NO_DESENHO %}
-        {% trans "de" as ROTULO_FPM_DE %}
-        {% trans "Todos os equipamentos do fluxo estão no desenho." as ROTULO_FPM_TODOS_NO_DESENHO %}
-        {% trans "Na ordem da cadeia, do mais próximo do produto final. Marque e clique em “Adicionar ao fluxo”, ou arraste um equipamento para o desenho." as ROTULO_FPM_OUTROS_DICA %}
+        {% trans "Equipamentos do fluxo de produção" as ROTULO_FPM_OUTROS %}
+        {% trans "total" as ROTULO_FPM_CONTA_TOTAL %}
+        {% trans "no fluxo" as ROTULO_FPM_CONTA_NO_FLUXO %}
+        {% trans "fora do fluxo" as ROTULO_FPM_CONTA_FORA %}
+        {% trans "Na ordem da cadeia, do mais próximo do produto final. Fundo vermelho: já está no fluxo — clique para localizar (borda vermelha no desenho); dá para localizar vários ao mesmo tempo, clique de novo para tirar o destaque de um ou numa área vazia do desenho para tirar de todos. Os demais: marque e clique em “Adicionar ao fluxo”, ou arraste para o desenho." as ROTULO_FPM_OUTROS_DICA %}
+        {% trans "Localizar no fluxo" as ROTULO_FPM_LOCALIZAR %}
         {% trans "Filtrar por código ou descrição…" as ROTULO_FPM_FILTRAR %}
         {% trans "entrega para" as ROTULO_FPM_ALIMENTA %}
         {% trans "Adicionar ao fluxo" as ROTULO_FPM_ADICIONAR %}
         {% trans "Voltar aos iniciais" as ROTULO_FPM_INICIO %}
         {% trans "Tirar do desenho (volta para a lista)" as ROTULO_FPM_TIRAR %}
-        {% trans "Mostrar outros equipamentos" as ROTULO_FPM_MOSTRAR_LISTA %}
-        {% trans "Esconder outros equipamentos" as ROTULO_FPM_ESCONDER_LISTA %}
+        {% trans "Mostrar equipamentos" as ROTULO_FPM_MOSTRAR_LISTA %}
+        {% trans "Esconder equipamentos" as ROTULO_FPM_ESCONDER_LISTA %}
         {% trans "fora do desenho" as ROTULO_FPM_FORA %}
         {% trans "A linha vermelha tracejada no desenho liga este equipamento a quem envia ou recebe a recirculação (só aparece se o outro equipamento estiver no desenho)." as ROTULO_FPM_RC_LINHA %}
         {% trans "Reorganizar" as ROTULO_FPM_REORGANIZAR %}
+        {% trans "Esconder valores das ligações" as ROTULO_FPM_ESCONDER_ROTULOS %}
+        {% trans "Mostrar valores das ligações" as ROTULO_FPM_MOSTRAR_ROTULOS %}
+        {% trans "Equipamentos no desenho:" as ROTULO_FPM_QTD_EQUIP %}
+        {% trans "de" as ROTULO_FPM_QTD_DE %}
+        {% trans "Montar" as ROTULO_FPM_QTD_MONTAR %}
+        {% trans "Monta o desenho de novo com os N equipamentos mais próximos do produto final (no empate, quem envia mais). Pode ir até o total de equipamentos do fluxo." as ROTULO_FPM_QTD_DICA %}
         {% trans "Arraste os equipamentos para mudar o desenho; duplo clique numa linha cria um ponto de dobra que pode ser arrastado (duplo clique no ponto o remove)." as ROTULO_FPM_DICA_MOVER %}
         {% trans "Duplo clique: criar um ponto de dobra nesta linha" as ROTULO_FPM_DICA_DOBRA %}
         {% trans "Arraste para mover a linha; duplo clique para remover o ponto" as ROTULO_FPM_DICA_PONTO %}
@@ -984,6 +1016,8 @@
         var ROTULO_SEM_FLUXOS = "{{ ROTULO_SEM_FLUXOS|escapejs }}";
         var ROTULO_NAO_CALCULAVEL = "{{ ROTULO_NAO_CALCULAVEL|escapejs }}";
         var ROTULO_MARCAR_AJUSTE = "{{ ROTULO_MARCAR_AJUSTE|escapejs }}";
+        var ROTULO_SEL_ORDEM_CODIGO = "{{ ROTULO_SEL_ORDEM_CODIGO|escapejs }}";
+        var ROTULO_SEL_ORDEM_NOME = "{{ ROTULO_SEL_ORDEM_NOME|escapejs }}";
         var ROTULO_ATUALIZAR_SEL = "{{ ROTULO_ATUALIZAR_SEL|escapejs }}";
         var ROTULO_PRODUTOS_SEL = "{{ ROTULO_PRODUTOS_SEL|escapejs }}";
         var ROTULO_FC_LIGACAO = "{{ ROTULO_FC_LIGACAO|escapejs }}";
@@ -1044,6 +1078,7 @@
         var ROTULO_FPM_BAL_SEM = "{{ ROTULO_FPM_BAL_SEM|escapejs }}";
         var ROTULO_FPM_BAL_ACIMA = "{{ ROTULO_FPM_BAL_ACIMA|escapejs }}";
         var ROTULO_FPM_BAL_TITULO = "{{ ROTULO_FPM_BAL_TITULO|escapejs }}";
+        var ROTULO_FPM_BAL_TODOS = "{{ ROTULO_FPM_BAL_TODOS|escapejs }}";
         var ROTULO_FPM_BAL_DICA = "{{ ROTULO_FPM_BAL_DICA|escapejs }}";
         var ROTULO_FPM_BAL_DETALHAR = "{{ ROTULO_FPM_BAL_DETALHAR|escapejs }}";
         var ROTULO_FPM_BAL_EXPLICA = "{{ ROTULO_FPM_BAL_EXPLICA|escapejs }}";
@@ -1082,9 +1117,10 @@
         var ROTULO_FPM_ENVIA = "{{ ROTULO_FPM_ENVIA|escapejs }}";
         var ROTULO_FPM_PROPRIA = "{{ ROTULO_FPM_PROPRIA|escapejs }}";
         var ROTULO_FPM_OUTROS = "{{ ROTULO_FPM_OUTROS|escapejs }}";
-        var ROTULO_FPM_NO_DESENHO = "{{ ROTULO_FPM_NO_DESENHO|escapejs }}";
-        var ROTULO_FPM_DE = "{{ ROTULO_FPM_DE|escapejs }}";
-        var ROTULO_FPM_TODOS_NO_DESENHO = "{{ ROTULO_FPM_TODOS_NO_DESENHO|escapejs }}";
+        var ROTULO_FPM_CONTA_TOTAL = "{{ ROTULO_FPM_CONTA_TOTAL|escapejs }}";
+        var ROTULO_FPM_CONTA_NO_FLUXO = "{{ ROTULO_FPM_CONTA_NO_FLUXO|escapejs }}";
+        var ROTULO_FPM_CONTA_FORA = "{{ ROTULO_FPM_CONTA_FORA|escapejs }}";
+        var ROTULO_FPM_LOCALIZAR = "{{ ROTULO_FPM_LOCALIZAR|escapejs }}";
         var ROTULO_FPM_OUTROS_DICA = "{{ ROTULO_FPM_OUTROS_DICA|escapejs }}";
         var ROTULO_FPM_FILTRAR = "{{ ROTULO_FPM_FILTRAR|escapejs }}";
         var ROTULO_FPM_ALIMENTA = "{{ ROTULO_FPM_ALIMENTA|escapejs }}";
@@ -1096,6 +1132,12 @@
         var ROTULO_FPM_FORA = "{{ ROTULO_FPM_FORA|escapejs }}";
         var ROTULO_FPM_RC_LINHA = "{{ ROTULO_FPM_RC_LINHA|escapejs }}";
         var ROTULO_FPM_REORGANIZAR = "{{ ROTULO_FPM_REORGANIZAR|escapejs }}";
+        var ROTULO_FPM_ESCONDER_ROTULOS = "{{ ROTULO_FPM_ESCONDER_ROTULOS|escapejs }}";
+        var ROTULO_FPM_MOSTRAR_ROTULOS = "{{ ROTULO_FPM_MOSTRAR_ROTULOS|escapejs }}";
+        var ROTULO_FPM_QTD_EQUIP = "{{ ROTULO_FPM_QTD_EQUIP|escapejs }}";
+        var ROTULO_FPM_QTD_DE = "{{ ROTULO_FPM_QTD_DE|escapejs }}";
+        var ROTULO_FPM_QTD_MONTAR = "{{ ROTULO_FPM_QTD_MONTAR|escapejs }}";
+        var ROTULO_FPM_QTD_DICA = "{{ ROTULO_FPM_QTD_DICA|escapejs }}";
         var ROTULO_FPM_DICA_MOVER = "{{ ROTULO_FPM_DICA_MOVER|escapejs }}";
         var ROTULO_FPM_DICA_DOBRA = "{{ ROTULO_FPM_DICA_DOBRA|escapejs }}";
         var ROTULO_FPM_DICA_PONTO = "{{ ROTULO_FPM_DICA_PONTO|escapejs }}";
@@ -1386,8 +1428,16 @@
             var itens = sel.produtos || [];
             var algumSelecionavel = false, marcadosIniciais = 0;
             var rotuloConfirmar = sel.rotulo_confirmar || ROTULO_ATUALIZAR_SEL;
-            var html = '<div class="selecao-produtos" id="' + id + '"><div class="grade-selecao">';
-            itens.forEach(function(p) {
+            var html = '<div class="selecao-produtos" id="' + id + '">';
+            // Botão pra alternar a ordem dos cartões entre descrição e código (só quando o servidor pede: ordem_alternavel
+            // diz em que ordem a lista veio -- 'nome' ou 'codigo'). Só reordena na tela; o que está marcado continua marcado.
+            if (sel.ordem_alternavel) {
+                var ordemAtual = sel.ordem_alternavel === 'codigo' ? 'codigo' : 'nome';
+                html += '<div class="barra-ordem-sel"><button type="button" class="botao-sel botao-ordem-sel" data-ordem="' + ordemAtual + '" data-ordem-original="' + ordemAtual + '"' +
+                    ' onclick="alternarOrdemSelecao(\'' + id + '\')">' + escapeHtml(ordemAtual === 'nome' ? ROTULO_SEL_ORDEM_CODIGO : ROTULO_SEL_ORDEM_NOME) + '</button></div>';
+            }
+            html += '<div class="grade-selecao">';
+            itens.forEach(function(p, posicao) {
                 var selecionavel = p.status === 'ajustar' || p.status === 'escolha';
                 if (selecionavel) algumSelecionavel = true;
                 if (selecionavel && p.marcado) marcadosIniciais++;
@@ -1403,7 +1453,8 @@
                 if (p.status === 'sem_fluxos') corpo += '<span class="sel-selo">' + escapeHtml(ROTULO_SEM_FLUXOS) + '</span>';
                 if (p.status === 'indisponivel') corpo += '<span class="sel-selo">' + escapeHtml(ROTULO_NAO_CALCULAVEL) + '</span>';
                 if (p.motivo) corpo += '<span class="sel-motivo">' + escapeHtml(p.motivo) + '</span>';
-                html += '<label class="cartao-sel ' + escapeAttr(p.status) + (selecionavel ? '' : ' desativado') + (selecionavel && p.marcado ? ' marcado' : '') + '" title="' + escapeAttr(p.motivo || p.titulo || '') + '">' +
+                html += '<label class="cartao-sel ' + escapeAttr(p.status) + (selecionavel ? '' : ' desativado') + (selecionavel && p.marcado ? ' marcado' : '') + '" title="' + escapeAttr(p.motivo || p.titulo || '') + '"' +
+                        ' data-codigo="' + escapeAttr(p.codigo || '') + '" data-nome="' + escapeAttr(p.nome || p.motivo || '') + '" data-pos="' + posicao + '">' +
                         '<input type="checkbox" class="caixa-sel" value="' + Number(p.id) + '"' + (selecionavel ? '' : ' disabled') + (selecionavel && p.marcado ? ' checked' : '') +
                             ' onchange="atualizarSelecaoProdutos(\'' + id + '\')">' +
                         '<span class="sel-codigo">' + escapeHtml(p.codigo) + '</span>' + corpo + '</label>';
@@ -1425,6 +1476,28 @@
             f.querySelectorAll('.cartao-sel').forEach(function(c) { c.classList.toggle('marcado', c.querySelector('.caixa-sel').checked); });
             var botao = f.querySelector('.botao-confirmar-sel');
             if (botao) { botao.textContent = (botao.getAttribute('data-rotulo') || ROTULO_ATUALIZAR_SEL) + ' (' + marcados + ')'; botao.disabled = (marcados === 0); }
+        }
+
+        function alternarOrdemSelecao(id) {
+            var f = document.getElementById(id);
+            if (!f) return;
+            var botao = f.querySelector('.botao-ordem-sel'), grade = f.querySelector('.grade-selecao');
+            var nova = botao.getAttribute('data-ordem') === 'nome' ? 'codigo' : 'nome';
+            var outra = nova === 'nome' ? 'codigo' : 'nome';
+            // 🌟 CORRIGIDO: voltar para a ordem em que a lista veio do servidor (ex.: descrição) repõe EXATAMENTE aquela
+            // ordem (posição original de cada cartão) -- reordenar a descrição aqui no navegador dava outro resultado
+            // que o banco (que ignora espaços/sinais no começo do texto), e um item começando com "F" subia pro topo.
+            var original = botao.getAttribute('data-ordem-original');
+            var comparar = function(a, b, campo) {
+                return String(a.getAttribute('data-' + campo) || '').trim().localeCompare(String(b.getAttribute('data-' + campo) || '').trim(), 'pt-BR',
+                    { numeric: true, sensitivity: 'base', ignorePunctuation: true });
+            };
+            var porPosicao = function(a, b) { return Number(a.getAttribute('data-pos')) - Number(b.getAttribute('data-pos')); };
+            Array.prototype.slice.call(grade.querySelectorAll('.cartao-sel'))
+                .sort(function(a, b) { return nova === original ? porPosicao(a, b) : (comparar(a, b, nova) || comparar(a, b, outra) || porPosicao(a, b)); })
+                .forEach(function(c) { grade.appendChild(c); });      // move os mesmos cartões: as marcações ficam
+            botao.setAttribute('data-ordem', nova);
+            botao.textContent = nova === 'nome' ? ROTULO_SEL_ORDEM_CODIGO : ROTULO_SEL_ORDEM_NOME;
         }
 
         function marcarQuePrecisamDeAjuste(id) {
@@ -2035,6 +2108,44 @@
 
         function chaveArestaFPM(a) { return a.de + '|' + a.para + '|' + a.tipo; }
 
+        // 🌟 NOVO: ponto de um trecho cúbico {p0, c1, c2, p3} no parâmetro t (0..1).
+        function bezierFPM(g, t) {
+            var u = 1 - t;
+            return { x: u * u * u * g.p0.x + 3 * u * u * t * g.c1.x + 3 * u * t * t * g.c2.x + t * t * t * g.p3.x,
+                     y: u * u * u * g.p0.y + 3 * u * u * t * g.c1.y + 3 * u * t * t * g.c2.y + t * t * t * g.p3.y };
+        }
+
+        // 🌟 NOVO: duplo clique numa linha de recirculação -- acha o trecho e o ponto da curva mais perto do clique e
+        // divide o trecho ali (de Casteljau): o ponto novo e os vizinhos recebem alças que reproduzem a MESMA curva.
+        function inserirPontoRcFPM(uid, d, k, pt) {
+            var segs = ((_ultimaVistaFPM[uid] || d)._segRc || {})[k];
+            if (!segs || !segs.length) return;
+            var melhor = { i: 0, t: 0.5, dist: Infinity };
+            segs.forEach(function(g, i) {
+                for (var n = 1; n < 200; n++) {
+                    var q = bezierFPM(g, n / 200), dd = Math.hypot(q.x - pt.x, q.y - pt.y);
+                    if (dd < melhor.dist) melhor = { i: i, t: n / 200, dist: dd };
+                }
+            });
+            d._dobras = d._dobras || {};
+            d._alcasRc = d._alcasRc || {};
+            var pontos = d._dobras[k] = d._dobras[k] || [];
+            var menos = function(a, b) { return { x: a.x - b.x, y: a.y - b.y }; };
+            var lerp = function(a, b, t) { return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }; };
+            // guarda as alças atuais de tudo (pontas e pontos), pra a forma da curva ficar fixa
+            var alc = d._alcasRc[k] = { ini: menos(segs[0].c1, segs[0].p0), fim: menos(segs[segs.length - 1].c2, segs[segs.length - 1].p3) };
+            pontos.forEach(function(p, j) {
+                p.hin = menos(segs[j].c2, segs[j].p3);
+                p.hout = menos(segs[j + 1].c1, segs[j + 1].p0);
+            });
+            var g = segs[melhor.i], t = melhor.t;
+            var q0 = lerp(g.p0, g.c1, t), q1 = lerp(g.c1, g.c2, t), q2 = lerp(g.c2, g.p3, t);
+            var r0 = lerp(q0, q1, t), r1 = lerp(q1, q2, t), novo = lerp(r0, r1, t);
+            if (melhor.i === 0) alc.ini = menos(q0, g.p0); else pontos[melhor.i - 1].hout = menos(q0, g.p0);
+            if (melhor.i === segs.length - 1) alc.fim = menos(q2, g.p3); else pontos[melhor.i].hin = menos(q2, g.p3);
+            pontos.splice(melhor.i, 0, { x: novo.x, y: novo.y, hin: menos(r0, novo), hout: menos(r1, novo) });
+        }
+
         // Curva que passa pelos pontos (como o Drawflow: tangentes horizontais em cada ponto).
         function caminhoPorPontosFPM(pts) {
             var c = 'M' + pts[0].x + ',' + pts[0].y;
@@ -2110,7 +2221,7 @@
                 var l1 = numFPM(a.qtd, 2) + ' ' + a.unidade;
                 var l2 = (a.especifico !== null && a.especifico !== undefined) ? numFPM(a.especifico, 4) + ' ' + a.unidade_esp : '';
                 var larg = Math.max(l1.length, l2.length) * 6.1 + 10, alt = l2 ? 30 : 17;
-                caixasRotulo.push({ x: lx, y: ly - alt / 2, w: larg, h: alt, cor: cor, l1: l1, l2: l2 });
+                if (!d._semRotulos) caixasRotulo.push({ x: lx, y: ly - alt / 2, w: larg, h: alt, cor: cor, l1: l1, l2: l2 });   // botão "Esconder valores das ligações"
             });
             // Rótulos que se sobrepõem (na mesma faixa horizontal) são empurrados pra baixo, um a um.
             caixasRotulo.sort(function(a, b) { return a.y - b.y; });
@@ -2129,25 +2240,65 @@
                     var outroNo = null;
                     (x.ids || []).some(function(id) { outroNo = L.porId[id] || null; return !!outroNo; });
                     if (!outroNo) return;
-                    var o = x.sentido === 'recebe' ? outroNo : rcOp, p = x.sentido === 'recebe' ? rcOp : outroNo, caminho, lx, ly;
-                    if (p._x >= o._x + FPM_LARG + 20) {
-                        var x1 = o._x + FPM_LARG, y1 = o._y + o._h / 2, x2 = p._x - 2, y2 = p._y + p._h / 2, meio = (x1 + x2) / 2;
-                        caminho = 'M' + x1 + ',' + y1 + ' C' + meio + ',' + y1 + ' ' + meio + ',' + y2 + ' ' + x2 + ',' + y2;
-                        lx = meio; ly = (y1 + y2) / 2;
-                    } else {                                       // volta pra trás: arco por fora das caixas
+                    var o = x.sentido === 'recebe' ? outroNo : rcOp, p = x.sentido === 'recebe' ? rcOp : outroNo, caminho, lx, ly, ini, fim;
+                    // 🌟 NOVO: a linha de recirculação também aceita pontos de dobra (duplo clique na linha cria; arrastar
+                    // move; duplo clique no ponto remove), como as outras ligações.
+                    var chaveRc = 'rc|' + o.id + '|' + p.id + '|' + x.codigo, pontosRc = dobras[chaveRc] || [];
+                    var paraFrente = p._x >= o._x + FPM_LARG + 20;
+                    if (paraFrente) {
+                        ini = { x: o._x + FPM_LARG, y: o._y + o._h / 2 }; fim = { x: p._x - 2, y: p._y + p._h / 2 };
+                    } else {
                         var porCima = (p._y + p._h / 2) <= (o._y + o._h / 2);
-                        var xa = o._x + FPM_LARG / 2, xb = p._x + FPM_LARG / 2 + 12;
-                        var ya = porCima ? o._y : o._y + o._h, yb = porCima ? p._y - 2 : p._y + p._h + 2;
-                        var extremo = porCima ? Math.min(ya, yb) - 55 : Math.max(ya, yb) + 55;
-                        caminho = 'M' + xa + ',' + ya + ' C' + xa + ',' + extremo + ' ' + xb + ',' + extremo + ' ' + xb + ',' + yb;
-                        lx = (xa + xb) / 2; ly = extremo + (porCima ? 10 : -10);
+                        ini = { x: o._x + FPM_LARG / 2, y: porCima ? o._y : o._y + o._h };
+                        fim = { x: p._x + FPM_LARG / 2 + 12, y: porCima ? p._y - 2 : p._y + p._h + 2 };
                     }
+                    d._pontasArestas[chaveRc] = [ini, fim];
+                    // 🌟 ALTERADO: a curva é feita de trechos cúbicos e cada ponto guarda as suas alças (hin/hout). O ponto
+                    // criado por duplo clique divide o trecho EXATAMENTE onde foi clicado (de Casteljau), então a linha não
+                    // muda de forma ao criar o ponto -- só depois, ao arrastar.
+                    var baseOut, baseIn;
+                    if (paraFrente) {
+                        var meioX = (ini.x + fim.x) / 2;
+                        baseOut = { x: meioX - ini.x, y: 0 }; baseIn = { x: meioX - fim.x, y: 0 };
+                    } else {
+                        var extremoRc = porCima ? Math.min(ini.y, fim.y) - 55 : Math.max(ini.y, fim.y) + 55;
+                        baseOut = { x: 0, y: extremoRc - ini.y }; baseIn = { x: 0, y: extremoRc - fim.y };
+                    }
+                    var alcRc = (d._alcasRc || {})[chaveRc] || {};
+                    var nosRc = [{ x: ini.x, y: ini.y, hout: alcRc.ini || baseOut }];
+                    pontosRc.forEach(function(pt, k) {
+                        var ant = k === 0 ? ini : pontosRc[k - 1], prox = k === pontosRc.length - 1 ? fim : pontosRc[k + 1];
+                        var padrao = { x: (prox.x - ant.x) / 6, y: (prox.y - ant.y) / 6 };
+                        nosRc.push({ x: pt.x, y: pt.y, hin: pt.hin || { x: -padrao.x, y: -padrao.y }, hout: pt.hout || padrao });
+                    });
+                    nosRc.push({ x: fim.x, y: fim.y, hin: pontosRc.length ? (alcRc.fim || baseIn) : (alcRc.fim || baseIn) });
+                    var segRc = [];
+                    for (var sr = 0; sr < nosRc.length - 1; sr++) {
+                        var a0 = nosRc[sr], b0 = nosRc[sr + 1];
+                        segRc.push({ p0: { x: a0.x, y: a0.y }, c1: { x: a0.x + a0.hout.x, y: a0.y + a0.hout.y },
+                                     c2: { x: b0.x + b0.hin.x, y: b0.y + b0.hin.y }, p3: { x: b0.x, y: b0.y } });
+                    }
+                    d._segRc = d._segRc || {};
+                    d._segRc[chaveRc] = segRc;
+                    caminho = 'M' + segRc[0].p0.x + ',' + segRc[0].p0.y + segRc.map(function(g) {
+                        return ' C' + g.c1.x + ',' + g.c1.y + ' ' + g.c2.x + ',' + g.c2.y + ' ' + g.p3.x + ',' + g.p3.y;
+                    }).join('');
+                    var gm = segRc[Math.floor((segRc.length - 1) / 2)], pm = bezierFPM(gm, 0.5);
+                    lx = pm.x; ly = pm.y + (segRc.length === 1 && !paraFrente ? (porCima ? 10 : -10) : 0);
                     var texto = x.codigo + ': ' + numFPM(x.qtd, 2) + ' ' + x.unidade;
                     var larg = texto.length * 6.1 + 10;
                     linhasRc += '<path d="' + caminho + '" fill="none" stroke="' + FPM_COR_RC + '" stroke-width="2.4" stroke-dasharray="7 4"' +
                         ' marker-end="url(#fpm-seta-ciclo)" pointer-events="none"/>' +
                         '<g pointer-events="none"><rect x="' + (lx - larg / 2) + '" y="' + (ly - 9) + '" width="' + larg + '" height="17" rx="3" fill="#ffffff" stroke="' + FPM_COR_RC + '"/>' +
                         '<text x="' + lx + '" y="' + (ly + 4) + '" font-size="11" text-anchor="middle" fill="' + FPM_COR_RC + '">' + escapeHtml(texto) + '</text></g>';
+                    if (!paraExportar) {
+                        linhasRc += '<path class="fpm-hit" data-aresta="' + escapeAttr(chaveRc) + '" d="' + caminho + '" fill="none" stroke="#000" stroke-opacity="0" stroke-width="12"' +
+                            ' style="cursor: copy;"><title>' + escapeHtml(texto + '\n' + ROTULO_FPM_DICA_DOBRA) + '</title></path>';
+                        pontosRc.forEach(function(pt, k) {
+                            alcas += '<circle class="fpm-dobra" data-aresta="' + escapeAttr(chaveRc) + '" data-i="' + k + '" cx="' + pt.x + '" cy="' + pt.y +
+                                '" r="5.5" fill="#ffffff" stroke="' + FPM_COR_RC + '" stroke-width="2" style="cursor: move;"><title>' + escapeHtml(ROTULO_FPM_DICA_PONTO) + '</title></circle>';
+                        });
+                    }
                 });
             }
             var rotulos = '';
@@ -2160,12 +2311,26 @@
             L.nos.forEach(function(n) {
                 var estilo = n.tipo === 'item' ? ['#f4ecf7', '#8e44ad'] : (n.final ? ['#e8f8ef', '#27ae60'] : ['#eaf3fb', '#3498db']);
                 var linhas = linhasNoFPM(n);
-                var dicaCaixa = (n.tipo === 'item' && n.balanco ? linhas.slice(0, 2).concat(linhasBalancoFPM(n, n.balanco)) : linhas).map(function(l) { return l[0]; });
+                // 🌟 ALTERADO: o balanço do item aparece em TODAS as caixas. No equipamento cujo item também sai de outros
+                // grupos de máquina, a produção dele fica e o balanço é o do item inteiro (todos os grupos).
+                var dicaCaixa = linhas.slice(0, 2).map(function(l) { return l[0]; });
+                if (!n.balanco) dicaCaixa = linhas.map(function(l) { return l[0]; });
+                else {
+                    if (n.tipo === 'op' && n.balanco_do_item) dicaCaixa.push(linhas[2][0]);
+                    dicaCaixa = dicaCaixa.concat([ROTULO_FPM_BAL_TITULO + (n.balanco_do_item ? ' (' + ROTULO_FPM_BAL_TODOS + ')' : '') + ':'],
+                        linhasBalancoFPM(n, n.balanco).map(function(l) { return '  ' + l[0]; }));
+                }
                 // Equipamento com balanço: a linha "Produção" sai (é o mesmo valor do "Produzido" do balanço).
-                if (n.tipo === 'op' && n.balanco) dicaCaixa = dicaCaixa.slice(0, 2).concat([ROTULO_FPM_BAL_TITULO + ':'], linhasBalancoFPM(n, n.balanco).map(function(l) { return '  ' + l[0]; }));
                 s += '<g data-no="' + escapeAttr(n.id) + '" style="cursor: move;"><g><title>' + escapeHtml(dicaCaixa.join('\n')) + '</title>' +
                     '<rect x="' + n._x + '" y="' + n._y + '" width="' + FPM_LARG + '" height="' + n._h + '" rx="' + (n.tipo === 'op' ? 6 : 14) +
                     '" fill="' + estilo[0] + '" stroke="' + estilo[1] + '" stroke-width="' + (n.final ? 2.5 : 1.4) + '"/>';
+                // Localizado pela lista de equipamentos: contorno vermelho (como no editor). Não sai na imagem exportada.
+                if (!paraExportar && d._destaques && d._destaques[n.id]) {
+                    s += '<rect class="fpm-localizado" pointer-events="none" x="' + (n._x - 6) + '" y="' + (n._y - 6) + '" width="' + (FPM_LARG + 12) +
+                        '" height="' + (n._h + 12) + '" rx="' + (n.tipo === 'op' ? 9 : 17) + '" fill="none" stroke="rgba(255,0,0,0.35)" stroke-width="12" vector-effect="non-scaling-stroke"/>' +
+                        '<rect pointer-events="none" x="' + (n._x - 6) + '" y="' + (n._y - 6) + '" width="' + (FPM_LARG + 12) +
+                        '" height="' + (n._h + 12) + '" rx="' + (n.tipo === 'op' ? 9 : 17) + '" fill="none" stroke="#ff0000" stroke-width="4" vector-effect="non-scaling-stroke"/>';
+                }
                 var alturaTexto = n.tipo === 'op' ? 66 : n.tipo === 'item' ? n._h - 16 : n._h;   // faixa de baixo: círculos / "detalhar"
                 var passo = (alturaTexto - 10) / linhas.length;
                 linhas.forEach(function(l, i) {
@@ -2202,6 +2367,7 @@
             _dadosFPM[uid] = d;
             d._pos = d._pos || {};
             d._dobras = d._dobras || {};
+            d._alcasRc = d._alcasRc || {};
             prepararEquipamentosFPM(d);
             var legenda = function(cor, texto, tracejado) {
                 return '<span class="fpm-leg"><svg width="26" height="10"><line x1="0" y1="5" x2="26" y2="5" stroke="' + cor + '" stroke-width="2"' +
@@ -2213,10 +2379,12 @@
             instalarInteracaoFPM();
             return '<div class="fluxo-pm" id="' + uid + '"><div class="fpm-topo">' +
                 '<span class="fpm-dica-circulos">' + escapeHtml(ROTULO_FPM_DICA_CIRCULOS) + '<br>' + escapeHtml(ROTULO_FPM_DICA_MOVER) + '</span>' +
-                '<span class="fpm-botoes"><button type="button" class="botao-opcao fpm-btn-outros" data-uid="' + uid + '" onclick="alternarListaFPM(\'' + uid + '\')">' + escapeHtml(textoBotaoListaFPM(d)) + '</button>' +
-                '<button type="button" class="botao-opcao" onclick="reorganizarFPM(\'' + uid + '\')">' + escapeHtml(ROTULO_FPM_REORGANIZAR) + '</button>' +
+                '<span class="fpm-botoes"><span class="fpm-botoes-linha">' + htmlQtdEquipFPM(uid) +
+                '<button type="button" class="botao-opcao fpm-btn-outros" data-uid="' + uid + '" onclick="alternarListaFPM(\'' + uid + '\')">' + escapeHtml(textoBotaoListaFPM(d)) + '</button></span>' +
+                '<span class="fpm-botoes-linha"><button type="button" class="botao-opcao" onclick="reorganizarFPM(\'' + uid + '\')">' + escapeHtml(ROTULO_FPM_REORGANIZAR) + '</button>' +
+                '<button type="button" class="botao-opcao fpm-btn-rotulos" data-uid="' + uid + '" onclick="alternarRotulosFPM(\'' + uid + '\')">' + escapeHtml(textoBotaoRotulosFPM(d)) + '</button>' +
                 '<button type="button" class="botao-opcao" onclick="abrirTelaCheiaFPM(\'' + uid + '\')">' + escapeHtml(ROTULO_FPM_TELA_CHEIA) + '</button>' +
-                '<button type="button" class="botao-opcao fpm-exportar" onclick="exportarFluxoFPM(\'' + uid + '\', this)">' + escapeHtml(ROTULO_GC_EXPORTAR) + '</button></span></div>' +
+                '<button type="button" class="botao-opcao fpm-exportar" onclick="exportarFluxoFPM(\'' + uid + '\', this)">' + escapeHtml(ROTULO_GC_EXPORTAR) + '</button></span></span></div>' +
                 '<div class="fpm-legenda">' + legenda(FPM_CORES.consumo, ROTULO_FPM_LEG_CONSUMO) + legenda(FPM_CORES.producao, ROTULO_FPM_LEG_PRODUTORES, true) +
                 bolinha(FPM_COR_MP, ROTULO_FPM_DICA_MP) + bolinha(FPM_COR_SP, ROTULO_FPM_DICA_SP) + bolinha(FPM_COR_RC, ROTULO_FPM_DICA_RC) + bolinha(FPM_COR_C, ROTULO_FPM_DICA_C) + '</div>' +
                 '<div class="fpm-corpo"><div class="fpm-area" id="' + uid + '-area">' + svgFPM(vistaFPM(uid), uid) + '</div>' +
@@ -2292,18 +2460,27 @@
                 sobre = document.createElement('div');
                 sobre.id = 'fpm-overlay';
                 sobre.className = 'fpm-overlay';
-                sobre.innerHTML = '<div class="fpm-overlay-barra"><b class="fpm-overlay-titulo"></b>' +
+                sobre.innerHTML = '<div class="fpm-overlay-barra"><b class="fpm-overlay-titulo"></b><span class="fpm-overlay-qtd"></span>' +
                     '<button type="button" class="botao-opcao fpm-btn-lista fpm-btn-outros">' + escapeHtml(ROTULO_FPM_MOSTRAR_LISTA) + '</button>' +
                     '<button type="button" class="botao-opcao fpm-btn-reorganizar">' + escapeHtml(ROTULO_FPM_REORGANIZAR) + '</button>' +
+                    '<button type="button" class="botao-opcao fpm-btn-rotulos">' + escapeHtml(ROTULO_FPM_ESCONDER_ROTULOS) + '</button>' +
                     '<button type="button" class="botao-opcao fpm-btn-ajustar">' + escapeHtml(ROTULO_FPM_AJUSTAR) + '</button>' +
+                    '<span class="fpm-overlay-exp-fechar">' +        // Fechar logo abaixo do Exportar
                     '<button type="button" class="botao-opcao fpm-btn-exportar">' + escapeHtml(ROTULO_GC_EXPORTAR) + '</button>' +
-                    '<button type="button" class="botao-opcao fpm-btn-fechar">' + escapeHtml(ROTULO_FPM_FECHAR) + '</button></div>' +
+                    '<button type="button" class="botao-opcao fpm-btn-fechar">' + escapeHtml(ROTULO_FPM_FECHAR) + '</button></span></div>' +
                     '<div class="fpm-overlay-dica">' + escapeHtml(ROTULO_FPM_DICA_ZOOM) + '</div><div class="fpm-overlay-area"></div>' +
                     '<div class="fpm-overlay-detalhe"></div><div class="fpm-lista fpm-overlay-lista"></div>';
                 document.body.appendChild(sobre);
+                // Altura real da barra (muda quando ela quebra em linhas): o quadro de detalhe abre logo abaixo dela.
+                var barraTopo = sobre.querySelector('.fpm-overlay-barra');
+                var ajustarTopo = function() { sobre.style.setProperty('--fpm-topo', barraTopo.getBoundingClientRect().bottom + 'px'); };
+                if (window.ResizeObserver) new ResizeObserver(ajustarTopo).observe(barraTopo);
+                window.addEventListener('resize', ajustarTopo);
+                sobre._ajustarTopo = ajustarTopo;
                 sobre.querySelector('.fpm-btn-fechar').onclick = fecharTelaCheiaFPM;
                 sobre.querySelector('.fpm-btn-ajustar').onclick = function() { desenharTelaCheiaFPM(sobre.getAttribute('data-uid')); };
                 sobre.querySelector('.fpm-btn-reorganizar').onclick = function() { reorganizarFPM(sobre.getAttribute('data-uid')); };
+                sobre.querySelector('.fpm-btn-rotulos').onclick = function() { alternarRotulosFPM(sobre.getAttribute('data-uid')); };
                 sobre.querySelector('.fpm-btn-lista').onclick = function() { alternarListaFPM(sobre.getAttribute('data-uid')); };
                 sobre.querySelector('.fpm-btn-exportar').onclick = function() { exportarFluxoFPM(sobre.getAttribute('data-uid'), this); };
                 document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && sobre.style.display === 'flex') fecharTelaCheiaFPM(); });
@@ -2333,10 +2510,16 @@
                 window.addEventListener('mouseup', function() { arrasto = null; area.classList.remove('arrastando'); });
             }
             sobre.setAttribute('data-uid', uid);
-            sobre.querySelector('.fpm-overlay-titulo').textContent = (_dadosFPM[uid].titulo || '') + ' — ' + (_dadosFPM[uid].periodo || '');
+            var tituloCheio = (_dadosFPM[uid].titulo || '') + ' — ' + (_dadosFPM[uid].periodo || '');
+            sobre.querySelector('.fpm-overlay-titulo').textContent = tituloCheio;
+            sobre.querySelector('.fpm-overlay-titulo').title = tituloCheio;      // título longo é cortado com "…": o texto todo aparece ao parar o mouse
             var painel = sobre.querySelector('.fpm-overlay-detalhe');
             painel.innerHTML = '';
             painel.style.display = 'none';
+            sobre.querySelector('.fpm-overlay-qtd').innerHTML = htmlQtdEquipFPM(uid);
+            var botaoRotulos = sobre.querySelector('.fpm-btn-rotulos');
+            botaoRotulos.setAttribute('data-uid', uid);
+            botaoRotulos.textContent = textoBotaoRotulosFPM(_dadosFPM[uid]);
             var listaCheia = sobre.querySelector('.fpm-overlay-lista');
             listaCheia.setAttribute('data-uid', uid);
             listaCheia.innerHTML = listaOutrosFPM(uid);
@@ -2345,6 +2528,7 @@
             botaoLista.setAttribute('data-uid', uid);
             botaoLista.textContent = textoBotaoListaFPM(_dadosFPM[uid]);
             sobre.style.display = 'flex';
+            if (sobre._ajustarTopo) sobre._ajustarTopo();
             document.body.style.overflow = 'hidden';
             desenharTelaCheiaFPM(uid);
         }
@@ -2435,11 +2619,27 @@
             }
         }
 
+        // 🌟 NOVO: esconder/mostrar as caixinhas de valor sobre as linhas (quantidade e consumo específico). Começa
+        // mostrando; vale no chat, na tela cheia e na imagem exportada (sai como está na tela). A dica ao parar o
+        // mouse na linha continua mostrando os valores.
+        function textoBotaoRotulosFPM(d) {
+            return d._semRotulos ? ROTULO_FPM_MOSTRAR_ROTULOS : ROTULO_FPM_ESCONDER_ROTULOS;
+        }
+
+        function alternarRotulosFPM(uid) {
+            var d = _dadosFPM[uid];
+            if (!d) return;
+            d._semRotulos = !d._semRotulos;
+            redesenharFPM(uid);
+            document.querySelectorAll('.fpm-btn-rotulos[data-uid="' + uid + '"]').forEach(function(b) { b.textContent = textoBotaoRotulosFPM(d); });
+        }
+
         function reorganizarFPM(uid) {
             var d = _dadosFPM[uid];
             if (!d) return;
             Object.keys(d._pos || {}).forEach(function(k) { delete d._pos[k]; });
             Object.keys(d._dobras || {}).forEach(function(k) { delete d._dobras[k]; });
+            Object.keys(d._alcasRc || {}).forEach(function(k) { delete d._alcasRc[k]; });
             redesenharFPM(uid);
         }
 
@@ -2485,7 +2685,7 @@
                 } else {
                     var lista = (d._dobras || {})[a.chave];
                     if (!lista || !lista[a.i]) return;
-                    lista[a.i] = { x: Math.max(4, pt.x), y: Math.max(44, pt.y) };
+                    lista[a.i] = Object.assign({}, lista[a.i], { x: Math.max(4, pt.x), y: Math.max(44, pt.y) });   // mantém as alças
                 }
                 if (_quadroFPM) return;
                 _quadroFPM = requestAnimationFrame(function() { _quadroFPM = null; redesenharFPM(a.uid, a.container); });
@@ -2495,6 +2695,19 @@
                 var a = _arrastoFPM;
                 _arrastoFPM = null;
                 if (a && a.movido) redesenharFPM(a.uid);      // atualiza também a outra vista (chat ou tela cheia)
+            });
+
+            // Clique numa área vazia do desenho (sem arrastar a tela) tira a borda vermelha de "localizar", como no editor.
+            var _cliqueFundoFPM = null;
+            document.addEventListener('mousedown', function(e) {
+                _cliqueFundoFPM = e.button === 0 ? { x: e.clientX, y: e.clientY } : null;
+            }, true);
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest || !_cliqueFundoFPM) return;
+                if (Math.abs(e.clientX - _cliqueFundoFPM.x) + Math.abs(e.clientY - _cliqueFundoFPM.y) > 4) return;
+                var svg = e.target.closest('svg.fpm-svg');
+                if (!svg || e.target.closest('[data-no], .fpm-circulo-ativo, .fpm-tirar, .fpm-dobra, .fpm-hit')) return;
+                limparLocalizacaoFPM(svg.getAttribute('data-uid'));
             });
 
             document.addEventListener('dblclick', function(e) {
@@ -2507,6 +2720,9 @@
                 if (alca) {                                        // duplo clique no ponto: remove
                     var chave = alca.getAttribute('data-aresta');
                     (d._dobras[chave] || []).splice(Number(alca.getAttribute('data-i')), 1);
+                    if (!(d._dobras[chave] || []).length && d._alcasRc) delete d._alcasRc[chave];
+                } else if (linha && linha.getAttribute('data-aresta').indexOf('rc|') === 0) {
+                    inserirPontoRcFPM(uid, d, linha.getAttribute('data-aresta'), pontoSvgFPM(svg, e));
                 } else if (linha) {                                // duplo clique na linha: cria um ponto onde clicou
                     var k = linha.getAttribute('data-aresta'), pt = pontoSvgFPM(svg, e);
                     d._dobras = d._dobras || {};
@@ -2537,11 +2753,32 @@
             var porId = {}, dist = {};
             nos.forEach(function(n) { porId[n.id] = n; dist[n.id] = 0; });
             var frente = (d.arestas || []).filter(function(a) { return porId[a.de] && porId[a.para] && a.tipo !== 'ciclo' && a.de !== a.para; });
-            for (var r = 0; r <= nos.length; r++) {
-                var mudou = false;
-                frente.forEach(function(a) { if (dist[a.de] < dist[a.para] + 1) { dist[a.de] = dist[a.para] + 1; mudou = true; } });
-                if (!mudou) break;
+            // 🌟 CORRIGIDO: a distância era o caminho MAIS LONGO até o produto final -- um equipamento que entrega direto
+            // pro equipamento final, mas que também é usado lá no início do fluxo, ficava "longe" e saía dos 30 iniciais.
+            // Agora é o caminho MAIS CURTO, andando de trás pra frente a partir do equipamento final: conta 1 a cada
+            // equipamento (a caixa de item feito em vários grupos de máquina não conta como passo).
+            var antes = {};      // id -> quem entrega pra ele
+            frente.forEach(function(a) { (antes[a.para] = antes[a.para] || []).push(a.de); });
+            var temSaida = {};
+            frente.forEach(function(a) { temSaida[a.de] = true; });
+            var inicio = nos.filter(function(n) { return n.final; });
+            if (!inicio.length) inicio = nos.filter(function(n) { return !temSaida[n.id]; });
+            nos.forEach(function(n) { dist[n.id] = Infinity; });
+            var fila = [];
+            inicio.forEach(function(n) { dist[n.id] = 0; fila.push(n.id); });
+            while (fila.length) {                     // 0-1 BFS: passo 0 pra caixa de item, 1 pra equipamento
+                var atual = fila.shift();
+                (antes[atual] || []).forEach(function(anterior) {
+                    var passo = porId[anterior].tipo === 'op' ? 1 : 0;
+                    if (dist[atual] + passo < dist[anterior]) {
+                        dist[anterior] = dist[atual] + passo;
+                        if (passo === 0) fila.unshift(anterior); else fila.push(anterior);
+                    }
+                });
             }
+            var maiorDist = 0;
+            nos.forEach(function(n) { if (isFinite(dist[n.id]) && dist[n.id] > maiorDist) maiorDist = dist[n.id]; });
+            nos.forEach(function(n) { if (!isFinite(dist[n.id])) dist[n.id] = maiorDist + 1; });   // sem caminho até o final: por último
             // a quem cada equipamento entrega (código dos itens produzidos pelos destinos) -- mostrado na lista
             var alimenta = {};
             frente.forEach(function(a) {
@@ -2555,13 +2792,49 @@
                     if (lista.indexOf(rot) < 0) lista.push(rot);
                 });
             });
+            // 🌟 NOVO: no empate de distância, quem ENVIA MAIS vem primeiro (soma das quantidades das ligações que saem do
+            // equipamento; sem ligação de saída -- o equipamento final --, a produção dele).
+            var enviada = {};
+            frente.forEach(function(a) { enviada[a.de] = (enviada[a.de] || 0) + Math.abs(Number(a.qtd) || 0); });
+            nos.forEach(function(n) { if (!enviada[n.id]) enviada[n.id] = Math.abs(Number(n.producao) || 0); });
             d._dist = dist;
+            d._enviada = enviada;
             d._alimenta = alimenta;
             d._ordem = nos.filter(function(n) { return n.tipo === 'op'; }).sort(function(a, b) {
-                return (dist[a.id] - dist[b.id]) || String(a.item_codigo).localeCompare(String(b.item_codigo)) ||
+                return (dist[a.id] - dist[b.id]) || (enviada[b.id] - enviada[a.id]) ||
+                       String(a.item_codigo).localeCompare(String(b.item_codigo)) ||
                        String(a.grupo_codigo).localeCompare(String(b.grupo_codigo));
             }).map(function(n) { return n.id; });
             voltarAosIniciaisFPM(d);
+        }
+
+        // 🌟 NOVO: "Equipamentos no desenho: [N] de T [Montar]" -- o usuário escolhe quantos equipamentos (os N mais
+        // próximos do produto final) e o desenho é montado de novo, do zero (posições e dobras refeitas).
+        function htmlQtdEquipFPM(uid) {
+            var d = _dadosFPM[uid], total = (d._ordem || []).length;
+            var atual = Math.min(total, Number(d.equipamentos_iniciais) || 30);
+            return '<span class="fpm-qtd-equip" title="' + escapeAttr(ROTULO_FPM_QTD_DICA) + '">' + escapeHtml(ROTULO_FPM_QTD_EQUIP) +
+                ' <input type="number" class="fpm-input-qtd" data-uid="' + uid + '" min="1" max="' + total + '" step="1" value="' + atual + '"' +
+                ' onkeydown="if (event.key === \'Enter\') { event.preventDefault(); montarComQtdFPM(\'' + uid + '\', this); }"> ' +
+                escapeHtml(ROTULO_FPM_QTD_DE + ' ' + total) +
+                ' <button type="button" class="botao-opcao" onclick="montarComQtdFPM(\'' + uid + '\', this)">' + escapeHtml(ROTULO_FPM_QTD_MONTAR) + '</button></span>';
+        }
+
+        function montarComQtdFPM(uid, origem) {
+            var d = _dadosFPM[uid];
+            if (!d) return;
+            var caixa = origem.closest('.fpm-qtd-equip').querySelector('.fpm-input-qtd');
+            var total = d._ordem.length;
+            var n = Math.round(Number(String(caixa.value).replace(',', '.')));
+            if (!isFinite(n) || n < 1) n = 1;
+            if (n > total) n = total;
+            d.equipamentos_iniciais = n;
+            voltarAosIniciaisFPM(d);               // os N mais próximos do final
+            Object.keys(d._pos || {}).forEach(function(k) { delete d._pos[k]; });
+            Object.keys(d._dobras || {}).forEach(function(k) { delete d._dobras[k]; });
+            Object.keys(d._alcasRc || {}).forEach(function(k) { delete d._alcasRc[k]; });
+            aplicarMudancaFPM(uid);
+            document.querySelectorAll('.fpm-input-qtd[data-uid="' + uid + '"]').forEach(function(c) { c.value = n; });
         }
 
         function voltarAosIniciaisFPM(d) {
@@ -2584,30 +2857,44 @@
             });
             Object.keys(consome).forEach(function(id) { if (produz[id]) visivel[id] = true; });
             return { titulo: d.titulo, periodo: d.periodo, nos: (d.nos || []).filter(function(n) { return visivel[n.id]; }),
-                     arestas: d.arestas, _pos: d._pos, _dobras: d._dobras, _insumos: insumosFPM(d), _rcDestaque: d._rcDestaque };
+                     arestas: d.arestas, _pos: d._pos, _dobras: d._dobras, _alcasRc: d._alcasRc, _insumos: insumosFPM(d), _rcDestaque: d._rcDestaque,
+                     _destaques: d._destaques || {}, _semRotulos: !!d._semRotulos };
+        }
+
+        // Lista de TODOS os equipamentos do fluxo (como a barra do editor): os que já estão no desenho com fundo vermelho
+        // -- clicar põe/tira a borda vermelha na caixa do desenho; os de fora podem ser marcados ou arrastados pro desenho.
+        function contagemListaFPM(d) {
+            var total = (d._ordem || []).length;
+            var noFluxo = (d._ordem || []).filter(function(id) { return d._visiveis[id]; }).length;
+            return ROTULO_FPM_CONTA_TOTAL + ': ' + total + ' / ' + ROTULO_FPM_CONTA_NO_FLUXO + ': ' + noFluxo + ' / ' +
+                   ROTULO_FPM_CONTA_FORA + ': ' + (total - noFluxo);
         }
 
         function listaOutrosFPM(uid) {
             var d = _dadosFPM[uid], porId = {};
             (d.nos || []).forEach(function(n) { porId[n.id] = n; });
-            var fora = d._ordem.filter(function(id) { return !d._visiveis[id]; });
-            var html = '<div class="fpm-lista-topo"><b>' + escapeHtml(ROTULO_FPM_OUTROS) + ' (' + fora.length + ')</b>' +
-                '<span class="fpm-lista-conta">' + escapeHtml(ROTULO_FPM_NO_DESENHO + ' ' + (d._ordem.length - fora.length) + ' ' + ROTULO_FPM_DE + ' ' + d._ordem.length) + '</span></div>';
-            if (!fora.length) return html + '<div class="fpm-lista-vazia">' + escapeHtml(ROTULO_FPM_TODOS_NO_DESENHO) + '</div>' +
-                '<div class="fpm-lista-acoes"><button type="button" class="botao-opcao" onclick="voltarAosIniciaisListaFPM(\'' + uid + '\')">' + escapeHtml(ROTULO_FPM_INICIO) + '</button></div>';
-            html += '<div class="fpm-lista-dica">' + escapeHtml(ROTULO_FPM_OUTROS_DICA) + '</div>' +
+            var html = '<div class="fpm-lista-topo"><b>' + escapeHtml(ROTULO_FPM_OUTROS) + '</b>' +
+                '<span class="fpm-lista-conta">' + escapeHtml(contagemListaFPM(d)) + '</span></div>' +
+                '<div class="fpm-lista-dica">' + escapeHtml(ROTULO_FPM_OUTROS_DICA) + '</div>' +
                 '<input type="text" class="fpm-lista-filtro" placeholder="' + escapeAttr(ROTULO_FPM_FILTRAR) + '" oninput="filtrarListaFPM(this)">' +
                 '<div class="fpm-lista-itens">';
-            fora.forEach(function(id) {
-                var n = porId[id], alim = (d._alimenta[id] || []);
+            d._ordem.forEach(function(id) {
+                var n = porId[id], alim = (d._alimenta[id] || []), noFluxo = !!d._visiveis[id];
                 var busca = (n.grupo_codigo + ' ' + n.grupo_nome + ' ' + n.item_codigo + ' ' + n.item_descricao).toLowerCase();
-                html += '<label class="fpm-lista-item" draggable="true" data-id="' + escapeAttr(id) + '" data-busca="' + escapeAttr(busca) + '"' +
-                    ' ondragstart="event.dataTransfer.setData(\'text/plain\', \'fpm|' + uid + '|\' + this.getAttribute(\'data-id\'))">' +
-                    '<input type="checkbox" value="' + escapeAttr(id) + '" onchange="contarMarcadosFPM(this)">' +
-                    '<span class="fpm-lista-texto"><b>' + escapeHtml(n.grupo_codigo + (n.grupo_nome ? ' — ' + n.grupo_nome : '')) + '</b>' +
+                var texto = '<span class="fpm-lista-texto"><b>' + escapeHtml(n.grupo_codigo + (n.grupo_nome ? ' — ' + n.grupo_nome : '')) + '</b>' +
                     '<span>' + escapeHtml(n.item_codigo + ' — ' + n.item_descricao) + ' · ' + escapeHtml(ROTULO_FPM_PRODUCAO + ': ' + numFPM(n.producao, 2) + ' ' + n.unidade) + '</span>' +
                     (alim.length ? '<span class="fpm-lista-alimenta">→ ' + escapeHtml(ROTULO_FPM_ALIMENTA + ' ' + alim.slice(0, 3).join(', ') + (alim.length > 3 ? ' +' + (alim.length - 3) : '')) + '</span>' : '') +
-                    '</span></label>';
+                    '</span>';
+                if (noFluxo) {
+                    html += '<div class="fpm-lista-item fpm-no-fluxo' + (d._destaques && d._destaques[id] ? ' fpm-localizado' : '') + '" data-id="' + escapeAttr(id) +
+                        '" data-busca="' + escapeAttr(busca) + '" title="' + escapeAttr(ROTULO_FPM_LOCALIZAR) + '"' +
+                        ' onclick="localizarNoFluxoFPM(\'' + uid + '\', this.getAttribute(\'data-id\'))">' +
+                        '<span class="fpm-lista-marca"></span>' + texto + '</div>';
+                } else {
+                    html += '<label class="fpm-lista-item" draggable="true" data-id="' + escapeAttr(id) + '" data-busca="' + escapeAttr(busca) + '"' +
+                        ' ondragstart="event.dataTransfer.setData(\'text/plain\', \'fpm|' + uid + '|\' + this.getAttribute(\'data-id\'))">' +
+                        '<input type="checkbox" value="' + escapeAttr(id) + '" onchange="contarMarcadosFPM(this)">' + texto + '</label>';
+                }
             });
             return html + '</div><div class="fpm-lista-acoes">' +
                 '<button type="button" class="botao-opcao fpm-btn-adicionar" disabled onclick="adicionarMarcadosFPM(this)">' + escapeHtml(ROTULO_FPM_ADICIONAR) + ' (0)</button>' +
@@ -2615,14 +2902,71 @@
         }
 
         function atualizarListasFPM(uid) {
-            document.querySelectorAll('.fpm-lista[data-uid="' + uid + '"]').forEach(function(el) { el.innerHTML = listaOutrosFPM(uid); });
+            document.querySelectorAll('.fpm-lista[data-uid="' + uid + '"]').forEach(function(el) {
+                var filtro = el.querySelector('.fpm-lista-filtro'), termo = filtro ? filtro.value : '';
+                var itens = el.querySelector('.fpm-lista-itens'), rolagem = itens ? itens.scrollTop : 0;
+                el.innerHTML = listaOutrosFPM(uid);
+                var novoFiltro = el.querySelector('.fpm-lista-filtro');      // mantém o filtro digitado e a rolagem
+                if (novoFiltro && termo) { novoFiltro.value = termo; filtrarListaFPM(novoFiltro); }
+                var novosItens = el.querySelector('.fpm-lista-itens');
+                if (novosItens) novosItens.scrollTop = rolagem;
+            });
             document.querySelectorAll('.fpm-btn-outros[data-uid="' + uid + '"]').forEach(function(b) { b.textContent = textoBotaoListaFPM(_dadosFPM[uid]); });
         }
 
-        // Botão "Mostrar/Esconder outros equipamentos (n)" -- no chat e na tela cheia, o mesmo estado.
+        // Botão "Mostrar/Esconder equipamentos (total: x / no fluxo: y / fora do fluxo: z)" -- no chat e na tela cheia, o mesmo estado.
         function textoBotaoListaFPM(d) {
-            var fora = (d._ordem || []).filter(function(id) { return !d._visiveis[id]; }).length;
-            return (d._listaAberta ? ROTULO_FPM_ESCONDER_LISTA : ROTULO_FPM_MOSTRAR_LISTA) + ' (' + fora + ')';
+            return (d._listaAberta ? ROTULO_FPM_ESCONDER_LISTA : ROTULO_FPM_MOSTRAR_LISTA) + ' (' + contagemListaFPM(d) + ')';
+        }
+
+        // Clique num equipamento de fundo vermelho: liga/desliga a borda vermelha na caixa dele no desenho. Vários podem
+        // ficar destacados ao mesmo tempo; clicar numa área vazia do desenho tira todos.
+        // Não muda o zoom; só rola/desloca a vista se a caixa estiver fora da parte visível.
+        function localizarNoFluxoFPM(uid, id) {
+            var d = _dadosFPM[uid];
+            if (!d || !d._visiveis[id]) return;
+            d._destaques = d._destaques || {};
+            if (d._destaques[id]) delete d._destaques[id];      // clicar de novo tira só o destaque deste
+            else d._destaques[id] = true;                       // os outros destacados continuam
+            redesenharFPM(uid);
+            atualizarListasFPM(uid);
+            if (d._destaques[id]) mostrarCaixaFPM(uid, id);
+        }
+
+        function limparLocalizacaoFPM(uid) {
+            var d = _dadosFPM[uid];
+            if (!d || !d._destaques || !Object.keys(d._destaques).length) return;
+            d._destaques = {};
+            redesenharFPM(uid);
+            atualizarListasFPM(uid);
+        }
+
+        function mostrarCaixaFPM(uid, id) {
+            var sobre = document.getElementById('fpm-overlay');
+            var cheia = sobre && sobre.style.display === 'flex' && sobre.getAttribute('data-uid') === uid;
+            var area = cheia ? sobre.querySelector('.fpm-overlay-area') : document.getElementById(uid + '-area');
+            var svg = area && area.querySelector('svg.fpm-svg');
+            var caixa = svg && svg.querySelector('g[data-no="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"] rect');
+            if (!caixa) return;
+            var rA = area.getBoundingClientRect(), rC = caixa.getBoundingClientRect();
+            var dentro = rC.left >= rA.left && rC.right <= rA.right && rC.top >= rA.top && rC.bottom <= rA.bottom;
+            if (!cheia) {
+                if (!dentro) {
+                    area.scrollLeft += (rC.left + rC.width / 2) - (rA.left + rA.width / 2);
+                    area.scrollTop += (rC.top + rC.height / 2) - (rA.top + rA.height / 2);
+                }
+                if (area.getBoundingClientRect().top < 0 || area.getBoundingClientRect().bottom > window.innerHeight)
+                    area.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                return;
+            }
+            if (dentro) return;
+            // Tela cheia: centraliza a caixa mantendo o zoom (só desloca o viewBox).
+            var vb = (svg.getAttribute('viewBox') || '').split(/[\s,]+/).map(Number);
+            if (vb.length !== 4 || vb.some(isNaN)) return;
+            var bb = caixa.getBBox();
+            vb[0] = bb.x + bb.width / 2 - vb[2] / 2;
+            vb[1] = bb.y + bb.height / 2 - vb[3] / 2;
+            svg.setAttribute('viewBox', vb.join(' '));
         }
 
         function alternarListaFPM(uid) {
@@ -2655,6 +2999,8 @@
         }
 
         function aplicarMudancaFPM(uid) {
+            var d = _dadosFPM[uid];
+            if (d && d._destaques) Object.keys(d._destaques).forEach(function(id) { if (!d._visiveis[id]) delete d._destaques[id]; });
             redesenharFPM(uid);
             atualizarListasFPM(uid);
             var sobre = document.getElementById('fpm-overlay');

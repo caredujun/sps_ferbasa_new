@@ -81,6 +81,23 @@ class TbItensProducaoDaugtherAdmin(admin.TabularInline):
         return False
 
 
+class TbItensProducaoDaugther2Admin(admin.TabularInline):
+    # 🌟 NOVO: quadro consolidado da genealogia (um insumo por linha, com tudo o que o item carrega dele)
+    fields = ('item_consumo', 'quantidade', 'ggf_variavel', 'ggf_fixo_outros', 'participacao_ggf')
+    readonly_fields = fields
+    model = TbItensProducaoDaugther2
+    extra = 0
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
 class TbItensProducaoDaugther1Admin(admin.TabularInline):
     fields = ('chave', 'item_consumo', 'indicador')
 
@@ -111,8 +128,23 @@ class TbItensProducaoAdmin(_CustoFerbasaAdminMixin, admin.ModelAdmin):
     actions = ['atualizar_genealogia']
 
     def atualizar_genealogia(self, request, queryset):
-        atualizar_genealogia_celery.delay()
-        messages.success(request, _('Atualizando genealogia dos Itens de Produção em segundo plano. Favor aguardar!'))
+        # 🌟 ALTERADO: calcula só a empresa do usuário (custo_ferbasa/genealogia.py, não mais a procedure) e,
+        # antes de disparar, bloqueia se houver conta com GGF lançado e tipo fora de V/F/O (ex.: A = aguardando).
+        from .genealogia import contas_invalidas_da_empresa, texto_contas_invalidas
+        perfil = getattr(request.user, 'perfilusuario', None)
+        empresa_id = perfil.empresa_efetiva_id() if perfil else None
+        if empresa_id is None:
+            messages.error(request, _('Selecione uma empresa antes de atualizar a genealogia.'))
+            return
+        invalidas = contas_invalidas_da_empresa(empresa_id)
+        if invalidas:
+            messages.error(request, str(_('Genealogia NÃO atualizada: existem contas (Conta Contábil x Centro de Custo) com GGF '
+                                          'lançado e tipo diferente de V, F ou O. Classifique-as e rode de novo. Contas: '))
+                           + texto_contas_invalidas(invalidas))
+            return
+        atualizar_genealogia_celery.delay(empresa_id)
+        messages.success(request, _('Atualizando genealogia dos Itens de Produção em segundo plano. Leva poucos segundos: '
+                                    'atualize a página para ver os novos percentuais.'))
 
     atualizar_genealogia.short_description = _('Atualizar Genealogia Itens de Produção (todos)')
 
@@ -125,7 +157,7 @@ class TbItensProducaoAdmin(_CustoFerbasaAdminMixin, admin.ModelAdmin):
                 request._set_post(post)
         return super(TbItensProducaoAdmin, self).changelist_view(request, extra_context)
 
-    inlines = [TbItensProducaoDaugtherAdmin, TbItensProducaoDaugther1Admin]
+    inlines = [TbItensProducaoDaugtherAdmin, TbItensProducaoDaugther1Admin, TbItensProducaoDaugther2Admin]
 
 
 admin.site.register(TbItensProducao, TbItensProducaoAdmin)

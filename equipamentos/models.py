@@ -386,6 +386,11 @@ class TbEquipamentos(models.Model):
     expedicao.short_description = _('Expedição')
     expedicao.boolean = True
 
+    def criterio_quebra_fluxo(self):
+        return TbTipoProducao.objects.get(id=self.equ_tipo_producao_id).tip_criterio_para_quebra_fluxo
+
+    criterio_quebra_fluxo.short_description = _('Critério Fluxo')
+
     # ------------------------------------------------------------------
     # 🌟 NOVO: consistência entre os PRODUTOS ESCOLHIDOS (equ_produtos) e os
     # produtos que, nos fluxos de produção já cadastrados, USAM este

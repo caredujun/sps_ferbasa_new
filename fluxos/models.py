@@ -493,10 +493,15 @@ class TbFluxoProducaoDaugther(models.Model):
         cursor.close()
 
         # Vamos formatar o valor no padrão brasileiro
+        if output_padrao is None:
+            output_padrao = "-"
+        else:
+            output_padrao = locale.format_string('%.4f', output_padrao, True)
 
-        output_padrao = locale.format_string('%.4f', output_padrao, True)
-        output_real = locale.format_string('%.4f', output_real, True)
-        # print('Passei')
+        if output_real is None:
+            output_real = "-"
+        else:
+            output_real = locale.format_string('%.4f', output_real, True)
 
         return from_descricao + ' (P=' + output_padrao + ' / R=' + output_real + ')' + ' --> ' + to_descricao
 
@@ -863,8 +868,6 @@ class TbFluxoProducaoInputOutput(models.Model):
 
 class TbFluxoProducaoInputOutputDaugther(models.Model):
     dau_order = models.IntegerField(verbose_name=_('Ano/Mês'))
-    # dau_valor_1 = models.DecimalField(max_digits=11, decimal_places=4, default=0, verbose_name=_('Input Padrão'))
-    # dau_valor_2 = models.DecimalField(max_digits=11, decimal_places=4, default=0, verbose_name=_('Input Real'))
     dau_valor_3 = models.DecimalField(max_digits=11, decimal_places=4, default=0, verbose_name=_('Output Padrão'))
     dau_valor_4 = models.DecimalField(max_digits=11, decimal_places=4, default=0, verbose_name=_('Output Real'))
     mae = models.ForeignKey(TbFluxoProducaoInputOutput, on_delete=models.CASCADE, verbose_name=_('Mãe'))
@@ -963,8 +966,11 @@ class TbFluxoProducaoInputOutputDaugther(models.Model):
             cursor.execute(sql)
             retorno = cursor.fetchone()[0]
 
-            retorno = locale.format_string('%.2f', retorno, True)
-        return retorno
+            if retorno is None:
+                return "-"
+
+            #retorno = locale.format_string('%.2f', retorno, True)
+        return locale.format_string('%.2f', retorno, True)
 
     custo_ate_equipamento.short_description = _('Custo Var. Adic.')
 

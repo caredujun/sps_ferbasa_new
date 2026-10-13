@@ -225,6 +225,33 @@ class TbItensProducaoDaugther1(models.Model):
         super().save(*args, **kwargs)
 
 
+class TbItensProducaoDaugther2(models.Model):
+    """
+    🌟 NOVO: quadro consolidado da genealogia -- para cada item de produção (mae), cada item consumido em TODA a
+    cadeia aparece uma vez, com a quantidade total por unidade (todos os caminhos e voltas) e o GGF que vem dele.
+    Gravado por custo_ferbasa/genealogia.py (gravar_genealogia).
+    """
+    item_consumo = models.ForeignKey(TbItensConsumo, on_delete=models.CASCADE, verbose_name=_('Item de Consumo'))
+    quantidade = models.DecimalField(max_digits=24, decimal_places=8, verbose_name=_('Quantidade por unidade'))
+    ggf_variavel = models.DecimalField(max_digits=24, decimal_places=8, default=0, verbose_name=_('GGF Variável por unidade'))
+    ggf_fixo_outros = models.DecimalField(max_digits=24, decimal_places=8, default=0, verbose_name=_('GGF Fixo/Outros por unidade'))
+    participacao_ggf = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True, verbose_name=_('Participação no GGF (%)'))
+    mae = models.ForeignKey(TbItensProducao, on_delete=models.CASCADE, verbose_name=_('Mãe'))
+    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name=_('Empresa'))
+
+    def __str__(self):
+        return ''
+
+    class Meta:
+        verbose_name = _('Participação Consolidada na Cadeia')
+        verbose_name_plural = _('Participação Consolidada na Cadeia')
+        ordering = ['-participacao_ggf', '-quantidade']
+
+    def save(self, *args, **kwargs):
+        _atribuir_empresa_se_necessario(self)
+        super().save(*args, **kwargs)
+
+
 class TbEstabelecimentos(models.Model):
     # 🌟 CORRIGIDO (multi-empresa): unique=True tirado dos dois -- vira
     # constraint no Meta, junto com empresa.

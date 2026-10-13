@@ -223,14 +223,33 @@ def montar_grafo(linhas, itens_producao, itens_consumo, ids_selecionados, ggf_li
             'outros': [{**r, 'grupos': ', '.join(sorted(r['grupos']))} for r in lista[:50]],
             'outros_total_itens': len(lista),
         }
+    # 🌟 ALTERADO: o balanço vai em TODAS as caixas. No equipamento cujo item também é feito em outros grupos de
+    # máquina, o balanço é o do ITEM (todos os grupos juntos) -- o consumo registra o item, não quem o fez --, e o
+    # nó leva balanco_do_item=True pra tela dizer isso.
     for n in nos.values():
-        if n['tipo'] == 'item' or (n['tipo'] == 'op' and len(operacoes_por_codigo.get(n['item_codigo'], [])) == 1):
+        if n['tipo'] in ('item', 'op'):
             n['balanco'] = balancos.get(n['item_codigo'])
+            if n['tipo'] == 'op' and len(operacoes_por_codigo.get(n['item_codigo'], [])) > 1:
+                n['balanco_do_item'] = True
 
     # 🌟 NOVO: custos (total, variável, fixo/outros) de cada operação do desenho e dos produtos escolhidos.
-    custos_produtos, aviso_custo = calcular_custos(
-        nos, producao, consumo, valores, ordens_com_producao, operacoes_por_codigo, itens_producao, itens_consumo,
-        grupos, ggf_linhas or [], ids_selecionados)
+    # 🌟 ALTERADO: conta (Conta Contábil x Centro de Custo) com GGF no período e tipo fora de V/F/O (ex.: A =
+    # aguardando caracterização) BLOQUEIA o custo -- mesma regra da Genealogia (custo_ferbasa/genealogia.py), pra
+    # as duas nunca divergirem. O desenho do fluxo sai normalmente; só os custos (círculo C) não.
+    invalidas = {}
+    for g in ggf_linhas or []:
+        if g.get('tipo') not in ('V', 'F', 'O'):
+            invalidas.setdefault(g.get('conta_cc_id'), '{} (tipo {})'.format(g.get('conta_descricao') or 'conta id %s' % g.get('conta_cc_id'), g.get('tipo')))
+    if invalidas:
+        lista = sorted(invalidas.values())
+        custos_produtos = []
+        aviso_custo = ('Custos NÃO calculados: no período há GGF lançado em conta(s) (Conta Contábil x Centro de Custo) com '
+                       'tipo diferente de V, F ou O. Classifique-as e monte o fluxo de novo. Contas: ' +
+                       '; '.join(lista[:20]) + ('; ... e mais %d' % (len(lista) - 20) if len(lista) > 20 else ''))
+    else:
+        custos_produtos, aviso_custo = calcular_custos(
+            nos, producao, consumo, valores, ordens_com_producao, operacoes_por_codigo, itens_producao, itens_consumo,
+            grupos, ggf_linhas or [], ids_selecionados)
 
     return {
         'equipamentos_iniciais': EQUIPAMENTOS_INICIAIS,
@@ -257,7 +276,8 @@ def montar_grafo(linhas, itens_producao, itens_consumo, ids_selecionados, ggf_li
 #     variável = material x qtde + GGF x qtde x %var/100 (%var = ite_pro_percentual_variavel_ggf do item de produção
 #     com o mesmo código do item consumido; só quando > 0). Consumo negativo (subproduto/bonificação) entra negativo;
 #   - mais o GGF lançado no equipamento pela Distribuição de GGF Mensal (mesmo ano/mês, ordem, item e grupo, só nas
-#     ordens com produção): variável = valor x % (V ou A: % da conta/CC; F: 100 - %; O ou sem tipo: 0);
+#     ordens com produção): variável = valor x % (V: % da conta/CC; F: 100 - %; O: 0). Conta com outro tipo (ex.: A)
+#     bloqueia o cálculo dos custos (ver montar_grafo);
 #   - fixo/outros = total - variável; tudo dividido pela produção do equipamento no período (custo por unidade).
 #   Como na procedure, só entram linhas com produção > 0.
 # ---------------------------------------------------------------------------------------------------------------
@@ -267,7 +287,7 @@ def _parte_variavel_ggf(valor, tipo, percentual):
         pct = 100.0 - _num(percentual)
     elif tipo == 'O' or not tipo:
         pct = 0.0
-    else:                       # 'V' (e 'A', que a procedure trata igual)
+    else:                       # 'V' (tipo fora de V/F/O nem chega aqui: bloqueia antes, em montar_grafo)
         pct = _num(percentual)
     return valor * pct / 100.0
 
@@ -531,7 +551,11 @@ def carregar_grafo(empresa_id, ids_selecionados, ano_mes_inicio, ano_mes_fim):
         {'ano_mes': g['dis_ggf_men_ano_mes'], 'ordem': g['dis_ggf_men_ordem_producao'],
          'item_id': g['dis_ggf_men_item_producao_id'], 'grupo_id': g['dis_ggf_men_grupo_maquina_id'],
          'valor': g['dis_ggf_men_valor'], 'tipo': g['dis_ggf_men_conta_cc__con_con_cen_cus_tipo'],
-         'percentual': g['dis_ggf_men_conta_cc__con_con_cen_cus_percentual']}
+         'percentual': g['dis_ggf_men_conta_cc__con_con_cen_cus_percentual'],
+         'conta_cc_id': g['dis_ggf_men_conta_cc_id'],
+         'conta_descricao': '{} {} / CC {}'.format(g['dis_ggf_men_conta_cc__con_con_cen_cus_conta__con_con_codigo'] or '',
+                                                   g['dis_ggf_men_conta_cc__con_con_cen_cus_conta__con_con_descricao'] or '',
+                                                   g['dis_ggf_men_conta_cc__con_con_cen_cus_cc__cen_cus_codigo'] or '').strip()}
         for g in (_da_empresa(TbDistribuicaoGGFMensal, empresa_id)
                   .filter(dis_ggf_men_ano_mes__gte=ano_mes_inicio, dis_ggf_men_ano_mes__lte=ano_mes_fim,
                           dis_ggf_men_item_producao_id__in=ids_prod, dis_ggf_men_grupo_maquina_id__in=ids_grupo)
@@ -539,7 +563,10 @@ def carregar_grafo(empresa_id, ids_selecionados, ano_mes_inicio, ano_mes_fim):
                   .values('dis_ggf_men_ano_mes', 'dis_ggf_men_ordem_producao', 'dis_ggf_men_item_producao_id',
                           'dis_ggf_men_grupo_maquina_id', 'dis_ggf_men_valor',
                           'dis_ggf_men_conta_cc__con_con_cen_cus_tipo',
-                          'dis_ggf_men_conta_cc__con_con_cen_cus_percentual'))
+                          'dis_ggf_men_conta_cc__con_con_cen_cus_percentual', 'dis_ggf_men_conta_cc_id',
+                          'dis_ggf_men_conta_cc__con_con_cen_cus_conta__con_con_codigo',
+                          'dis_ggf_men_conta_cc__con_con_cen_cus_conta__con_con_descricao',
+                          'dis_ggf_men_conta_cc__con_con_cen_cus_cc__cen_cus_codigo'))
     ]
     return montar_grafo(linhas, itens_producao, itens_consumo, set(ids_selecionados),
                         ggf_linhas=ggf_linhas, pct_var_ggf=pct_var_ggf)

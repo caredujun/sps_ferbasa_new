@@ -461,6 +461,30 @@ def _bloqueio_consistencia_limpeza(usuario, ciclo=False):
     return '\n\n'.join(partes)
 
 
+# 🌟 NOVO: mensagens que só fazem sentido como resposta a uma etapa de uma Ação Comum: os valores fixos dos botões
+# (os mesmos de _PALAVRAS_CHAVE_BOTAO em views.py, menos "Cancelar", que já tem tratamento próprio), o JSON que os
+# formulários do chat mandam (seleção de produtos, ordens, consumos...) e o período "AAAA/MM,AAAA/MM" do formulário.
+_RESPOSTAS_DE_ETAPA = {
+    'sim', 's', 'não', 'nao', 'n', 'manter', 'nenhum', 'nenhuma', 'manual', 'planilha', 'verificar',
+    'já enviei a planilha', 'já enviei o arquivo', 'gráfico de linha', 'gráfico de barra', 'concluir', 'pular',
+    'encerrar ação',
+}
+
+
+def _parece_resposta_de_etapa(mensagem):
+    texto = (mensagem or '').strip()
+    if texto.lower().rstrip('.!') in _RESPOSTAS_DE_ETAPA:
+        return True
+    if re.fullmatch(r'\d{4}/\d{2}\s*,\s*\d{4}/\d{2}', texto):
+        return True
+    if texto.startswith('{'):
+        try:
+            return isinstance(json.loads(texto), dict)
+        except (TypeError, ValueError):
+            return False
+    return False
+
+
 # 🌟 NOVO: "qual o status/situação do cenário [ativo]" -- consulta
 # informativa, mostra o status atual (e já pergunta se quer seguir pro
 # próximo passo, se fizer sentido).
@@ -1323,6 +1347,15 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
         # estado) importa aqui.
         if salvar_historico:
             _salvar_historico(usuario, mensagem_usuario, resposta)
+        return resposta, []
+
+    # 🌟 NOVO: resposta a uma etapa (clique num botão "Sim/Não", seleção de uma lista, período do formulário...) que
+    # chegou SEM etapa ativa -- a etapa expirou (mais de MINUTOS_EXPIRACAO_FLUXO parada) ou já tinha terminado. Antes
+    # isso caía no chat livre e o modelo inventava uma resposta sem sentido. Agora responde direto, sem IA.
+    if salvar_historico and _parece_resposta_de_etapa(mensagem_usuario):
+        resposta = ("Essa resposta era de uma etapa que já foi encerrada (ficou parada mais de 15 minutos ou já tinha "
+                    "terminado). Use a ação de novo nas Ações Comuns.")
+        _salvar_historico(usuario, mensagem_usuario, resposta)
         return resposta, []
 
     # 🌟 NOVO: tool calling -- nenhuma Ação Comum reconhecida bateu, mas

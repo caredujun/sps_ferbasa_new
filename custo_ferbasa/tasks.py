@@ -22,11 +22,19 @@ locale.setlocale(locale.LC_ALL, 'pt_BR.utf8')  # Estou usando esse pois Heroku n
 
 
 @shared_task
-def atualizar_genealogia_celery():
-    cursor = connection.cursor()
-    sql = "call public.atualizar_genealogia()"
-    cursor.execute(sql)
-    cursor.close()
+def atualizar_genealogia_celery(empresa_id=None):
+    """
+    🌟 ALTERADO: a Genealogia dos Itens de Produção agora é calculada em Python (custo_ferbasa/genealogia.py), por
+    empresa -- não chama mais a procedure atualizar_genealogia (lenta: horas, por montar a árvore linha a linha;
+    e com corte/arredondamento que distorciam os percentuais). Sem empresa (tarefa antiga ainda na fila), roda
+    para todas as empresas que têm Produção Mensal.
+    """
+    from .genealogia import gravar_genealogia
+    if empresa_id is None:
+        empresas = (TbProducaoMensal.objects.exclude(empresa__isnull=True).order_by()
+                    .values_list('empresa_id', flat=True).distinct())
+        return {str(e): gravar_genealogia(e) for e in empresas}
+    return gravar_genealogia(empresa_id)
 
 
 @shared_task
@@ -1036,8 +1044,18 @@ def procedure_ainda_rodando_no_banco(padrao_query):
 
 
 def genealogia_ainda_rodando_no_banco():
-    """Caso específico de procedure_ainda_rodando_no_banco, pra Genealogia."""
-    return procedure_ainda_rodando_no_banco('atualizar_genealogia')
+    """
+    🌟 ALTERADO: a genealogia agora é gravada em Python, segurando uma trava do PostgreSQL enquanto grava
+    (genealogia.genealogia_rodando); continua olhando também a procedure antiga, caso alguma ainda esteja rodando.
+    """
+    from .genealogia import genealogia_rodando
+    pela_trava = genealogia_rodando()
+    pela_procedure = procedure_ainda_rodando_no_banco('atualizar_genealogia')
+    if pela_trava or pela_procedure:
+        return True
+    if pela_trava is False and pela_procedure is False:
+        return False
+    return None
 
 
 def celery_task_ainda_ativa(task_id):
@@ -1309,12 +1327,24 @@ def atualizar_genealogia_de_chat_celery(self, usuario_id):
     otimizada da procedure (atualizar_genealogia_v2), validada como
     equivalente à original só que ~3x mais rápida.
     """
-    from django.db import connection
+    # 🌟 ALTERADO: calcula em Python (custo_ferbasa/genealogia.py), só da empresa do usuário, em vez da procedure
+    # atualizar_genealogia_v2. Conta com tipo fora de V/F/O bloqueia (nada é gravado).
+    from django.contrib.auth import get_user_model
+    from .genealogia import gravar_genealogia, texto_contas_invalidas
     try:
-        with connection.cursor() as cursor:
-            cursor.execute("CALL public.atualizar_genealogia_v2();")
+        usuario = get_user_model().objects.get(id=usuario_id)
+        perfil = getattr(usuario, 'perfilusuario', None)
+        empresa_id = perfil.empresa_efetiva_id() if perfil else None
+        if empresa_id is None:
+            _atualizar_status_importacao_cf(usuario_id, 'erro', "Não consegui identificar a empresa do usuário.")
+            return
+        resultado = gravar_genealogia(empresa_id)
     except Exception as e:
         _atualizar_status_importacao_cf(usuario_id, 'erro', f"Erro ao atualizar a Genealogia dos Produtos: {e}")
+        return
+    if 'erro' in resultado:
+        _atualizar_status_importacao_cf(usuario_id, 'erro', resultado['erro'] + ' Contas: ' +
+                                        texto_contas_invalidas(resultado['contas_invalidas']))
         return
 
     _atualizar_status_importacao_cf(usuario_id, 'concluido')

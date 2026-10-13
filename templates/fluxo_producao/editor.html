@@ -327,6 +327,18 @@
             border-color: #ff0000 !important;
         }
         .connection-warning { stroke: #ffa500 !important; stroke-width: 3px !important; }
+        /* 🌟 NOVO: indicadores do Input/Output no meio de cada ligação (botão "Indicadores"; começa escondido). Ficam
+        numa camada própria dentro do canvas do Drawflow -- acompanham zoom e arrasto como os nós. */
+        #camada-indicadores-ligacoes { position: absolute; left: 0; top: 0; width: 0; height: 0; overflow: visible; z-index: 3; }
+        .indicador-ligacao {
+            position: absolute; transform: translate(-50%, -50%); white-space: nowrap;
+            background: rgba(255, 255, 255, 0.95); border: 1px solid #6c757d; border-radius: 4px;
+            padding: 1px 5px; font-size: 11px; line-height: 1.3; color: #333; cursor: help;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+        }
+        .indicador-ligacao b { color: #0C4B33; }
+        .indicador-ligacao.sem-dados { color: #888; border-style: dashed; }
+        #btn-indicadores.ativo { background-color: #0d6efd; color: #fff; }
         .drawflow .connection .main-path { stroke-width: 2px; stroke: #6c757d; marker-end: url(#arrowhead); }
         .drawflow .connection .main-path.selected { stroke: #4ea9ff; marker-end: url(#arrowhead-selected); }
         .connection-error { stroke: #ff0000 !important; stroke-width: 3px !important; marker-end: url(#arrowhead-error) !important; }
@@ -361,6 +373,7 @@
                 <button id="btn-salvar">Salvar Fluxo</button>
                 <button id="btn-assistente-fluxo" class="btn-assistente" title="Inspecionar nós e ligações e levar este fluxo ao Agente IA">Assistente IA</button>
                 <button id="btn-lupa" class="btn-verificar" title="Ativa/desativa a lupa: passe o mouse sobre um trecho do fluxo pra ver ampliado, sem mexer no zoom da tela toda">🔍 Lupa</button>
+                <button id="btn-indicadores" class="btn-verificar" title="Mostra/esconde nas ligações os indicadores do Input/Output do fluxo: Prod. = quanto o equipamento produz para 1 unidade no equipamento seguinte (média do Output Padrão); Final = quanto ele envia para 1 unidade no equipamento final do fluxo (média do Output Real)">Indicadores</button>
                 <button id="btn-verificar" class="btn-verificar">Verificar Fluxo</button>
                 <button id="btn-exportar" class="btn-exportar">Exportar</button>
                 <button id="btn-fechar" class="btn-fechar">Fechar Editor</button>
@@ -751,7 +764,176 @@
                 if (valor !== null && valor.trim() !== '') { valoresIniciaisNovasLigacoes[chave] = valor.trim(); }
             });
             editor.on('connectionRemoved', function(connection) { marcarComoAlterado('connectionRemoved'); });
-            editor.on('nodeMoved', function(id) { marcarComoAlterado('nodeMoved'); });
+            editor.on('nodeMoved', function(id) { marcarComoAlterado('nodeMoved'); agendarIndicadoresLigacoes(); });
+            editor.on('nodeRemoved', function() { agendarIndicadoresLigacoes(); });
+            editor.on('connectionCreated', function() { agendarIndicadoresLigacoes(); });
+            editor.on('connectionRemoved', function() { agendarIndicadoresLigacoes(); });
+
+            // ---------------------------------------------------------------------------------------------
+            // 🌟 NOVO: INDICADORES NAS LIGAÇÕES (botão "Indicadores", começa desligado).
+            // No meio de cada linha de conexão: "Prod." = média do dau_valor_3 (Output Padrão) -- quanto o
+            // equipamento que envia produz para 1 unidade no equipamento que recebe; "Final" = média do dau_valor_4
+            // (Output Real) -- quanto ele envia para 1 unidade no equipamento final do fluxo. Vêm do Input/Output do
+            // fluxo (/fluxo_producao/api/fluxo/<id>/indicadores_ligacoes/), média só dos períodos com valor > 0.
+            // A ligação desenhada é casada com a do I/O por (ordem da coluna de quem envia, equipamento que envia,
+            // equipamento que recebe); sem a coluna (nó novo, ainda não salvo), só pelo par de equipamentos, se ele
+            // aparecer uma vez só no I/O.
+            // ---------------------------------------------------------------------------------------------
+            let indicadoresLigacoesVisiveis = false;
+            let indicadoresLigacoesDados = null;      // {porChave: {}, porPar: {}, atualizado: bool}
+            let indicadoresLigacoesQuadro = null;
+            const btnIndicadores = document.getElementById('btn-indicadores');
+
+            const formatoIndicador = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+            function textoIndicador(valor) { return valor === null || valor === undefined ? '—' : formatoIndicador.format(valor); }
+
+            // Toda vez que o Drawflow redesenha as linhas de um nó (arrastar, importar, espalhar colunas...), os
+            // indicadores vão junto -- no próximo quadro de animação, uma vez só por quadro.
+            if (typeof editor.updateConnectionNodes === 'function' && !editor._indicadoresEnvolvido) {
+                const _updateConnectionNodesOriginal = editor.updateConnectionNodes.bind(editor);
+                editor.updateConnectionNodes = function(id) {
+                    const retorno = _updateConnectionNodesOriginal(id);
+                    agendarIndicadoresLigacoes();
+                    return retorno;
+                };
+                editor._indicadoresEnvolvido = true;
+            }
+
+            function agendarIndicadoresLigacoes() {
+                if (!indicadoresLigacoesVisiveis || indicadoresLigacoesQuadro) return;
+                indicadoresLigacoesQuadro = requestAnimationFrame(function() {
+                    indicadoresLigacoesQuadro = null;
+                    desenharIndicadoresLigacoes();
+                });
+            }
+
+            function camadaIndicadoresLigacoes() {
+                let camada = document.getElementById('camada-indicadores-ligacoes');
+                if (!camada || camada.parentNode !== editor.precanvas) {      // editor.clear()/import apagam o canvas
+                    if (camada) camada.remove();
+                    camada = document.createElement('div');
+                    camada.id = 'camada-indicadores-ligacoes';
+                    editor.precanvas.appendChild(camada);
+                }
+                return camada;
+            }
+
+            function montarIndiceIndicadores(resposta) {
+                const porChave = {}, porPar = {};
+                (resposta.ligacoes || []).forEach(function(l) {
+                    porChave[l.coluna_ordem + '|' + l.de + '|' + l.para] = l;
+                    (porPar[l.de + '|' + l.para] = porPar[l.de + '|' + l.para] || []).push(l);
+                });
+                return { porChave: porChave, porPar: porPar, atualizado: !!resposta.atualizado };
+            }
+
+            // Ordem (1, 2, 3...) da coluna de cada nó que ENVIA alguma coisa -- a mesma ordem das colunas do I/O.
+            function ordemDasColunasRemetentes(nodes) {
+                const colunas = new Set();
+                Object.values(nodes).forEach(function(no) {
+                    const coluna = no.data ? no.data.coluna_ocorrencia : null;
+                    const enviaAlgo = Object.values(no.outputs || {}).some(function(o) { return (o.connections || []).length > 0; });
+                    if (enviaAlgo && coluna !== null && coluna !== undefined && coluna !== '') colunas.add(Number(coluna));
+                });
+                const ordem = {};
+                Array.from(colunas).sort(function(a, b) { return a - b; }).forEach(function(c, i) { ordem[c] = i + 1; });
+                return ordem;
+            }
+
+            function indicadorDaLigacao(nodes, ordemColunas, idDe, idPara) {
+                if (!indicadoresLigacoesDados) return null;
+                const de = nodes[idDe], para = nodes[idPara];
+                if (!de || !para || !de.data || !para.data) return null;
+                const eqDe = de.data.equipamento_id, eqPara = para.data.equipamento_id;
+                const coluna = de.data.coluna_ocorrencia;
+                if (coluna !== null && coluna !== undefined && coluna !== '' && ordemColunas[Number(coluna)] !== undefined) {
+                    const exato = indicadoresLigacoesDados.porChave[ordemColunas[Number(coluna)] + '|' + eqDe + '|' + eqPara];
+                    if (exato) return exato;
+                }
+                const doPar = indicadoresLigacoesDados.porPar[eqDe + '|' + eqPara] || [];
+                return doPar.length === 1 ? doPar[0] : null;
+            }
+
+            function dicaIndicador(l, nomeDe, nomePara) {
+                if (!l) return nomeDe + ' → ' + nomePara + '\nSem dados no Input/Output para esta ligação (ligação nova ou fluxo com o Input/Output desatualizado).';
+                return nomeDe + ' → ' + nomePara +
+                    '\nProd. ' + textoIndicador(l.media_3) + ': quanto ' + nomeDe + ' tem que produzir para 1 unidade de produção em ' + nomePara +
+                    ' (média do Output Padrão, ' + l.periodos_3 + ' de ' + l.periodos + ' períodos com valor)' +
+                    '\nFinal ' + textoIndicador(l.media_4) + ': quanto ' + nomeDe + ' tem que enviar para 1 unidade de produção no equipamento final do fluxo' +
+                    ' (média do Output Real, ' + l.periodos_4 + ' de ' + l.periodos + ' períodos com valor)' +
+                    (indicadoresLigacoesDados && !indicadoresLigacoesDados.atualizado ? '\nAtenção: o Input/Output deste fluxo está marcado como desatualizado.' : '');
+            }
+
+            function escaparIndicador(texto) {
+                return String(texto).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+            }
+
+            function desenharIndicadoresLigacoes() {
+                const camada = camadaIndicadoresLigacoes();
+                if (!indicadoresLigacoesVisiveis || !indicadoresLigacoesDados) { camada.style.display = 'none'; camada.innerHTML = ''; return; }
+                camada.style.display = '';
+                const nodes = (editor.drawflow.drawflow[editor.module] || {}).data || {};
+                const ordemColunas = ordemDasColunasRemetentes(nodes);
+                const escapar = (window.CSS && CSS.escape) ? CSS.escape : function(x) { return x; };
+                let html = '';
+                Object.keys(nodes).forEach(function(idDe) {
+                    Object.values(nodes[idDe].outputs || {}).forEach(function(saida) {
+                        (saida.connections || []).forEach(function(conexao) {
+                            const idPara = conexao.node;
+                            const caminho = editor.precanvas.querySelector('.connection.node_out_node-' + escapar(String(idDe)) +
+                                '.node_in_node-' + escapar(String(idPara)) + ' .main-path');
+                            if (!caminho || !caminho.getTotalLength) return;
+                            let ponto;
+                            try { ponto = caminho.getPointAtLength(caminho.getTotalLength() / 2); } catch (e) { return; }
+                            const l = indicadorDaLigacao(nodes, ordemColunas, idDe, idPara);
+                            const nomeDe = (nodes[idDe].data && nodes[idDe].data.codigo) || nodes[idDe].name || idDe;
+                            const nomePara = (nodes[idPara] && ((nodes[idPara].data && nodes[idPara].data.codigo) || nodes[idPara].name)) || idPara;
+                            const conteudo = l ? '<b>Prod.:</b> ' + textoIndicador(l.media_3) + '<br><b>Final:</b> ' + textoIndicador(l.media_4) : '—';
+                            html += '<div class="indicador-ligacao' + (l ? '' : ' sem-dados') + '" style="left:' + ponto.x.toFixed(1) + 'px;top:' + ponto.y.toFixed(1) +
+                                'px" title="' + escaparIndicador(dicaIndicador(l, nomeDe, nomePara)) + '">' + conteudo + '</div>';
+                        });
+                    });
+                });
+                camada.innerHTML = html;
+            }
+
+            async function carregarIndicadoresLigacoes() {
+                const idAtual = (document.getElementById('fluxo-id').value || '').trim() || fluxoId;
+                if (!idAtual) { alert('Salve o fluxo primeiro: os indicadores vêm do Input/Output do fluxo gravado.'); return false; }
+                const response = await fetch(`/fluxo_producao/api/fluxo/${encodeURIComponent(String(idAtual).replace('.', ''))}/indicadores_ligacoes/`, { credentials: 'same-origin' });
+                const data = await response.json().catch(function() { return {}; });
+                if (!response.ok) throw new Error(data.error || ('Resposta da rede não foi ok: ' + response.status));
+                indicadoresLigacoesDados = montarIndiceIndicadores(data);
+                return true;
+            }
+
+            btnIndicadores.addEventListener('click', async function() {
+                if (indicadoresLigacoesVisiveis) {
+                    indicadoresLigacoesVisiveis = false;
+                    btnIndicadores.classList.remove('ativo');
+                    desenharIndicadoresLigacoes();
+                    return;
+                }
+                const textoOriginal = btnIndicadores.textContent;
+                btnIndicadores.disabled = true;
+                btnIndicadores.textContent = 'Carregando...';
+                try {
+                    // busca de novo a cada vez que liga: o I/O pode ter sido atualizado nesse meio tempo
+                    if (!(await carregarIndicadoresLigacoes())) return;
+                    indicadoresLigacoesVisiveis = true;
+                    btnIndicadores.classList.add('ativo');
+                    desenharIndicadoresLigacoes();
+                    if (!indicadoresLigacoesDados.atualizado) {
+                        alert('Atenção: o Input/Output deste fluxo está marcado como desatualizado -- os indicadores podem não refletir o desenho atual.');
+                    }
+                } catch (erro) {
+                    console.error('[Indicadores] Erro:', erro);
+                    alert('Não consegui carregar os indicadores das ligações: ' + erro.message);
+                } finally {
+                    btnIndicadores.disabled = false;
+                    btnIndicadores.textContent = textoOriginal;
+                }
+            });
 
             function marcarComoAlterado(origem) {
                 fluxoAlterado = true;
@@ -2233,6 +2415,7 @@
                 const nodeWidth = 200 * escala, headerHeight = 30 * escala, padding = 10 * escala;
                 const imgContainerHeight = 80 * escala, detailsHeight = 30 * escala;
                 const nodeHeight = headerHeight + padding + imgContainerHeight + padding + detailsHeight + padding;
+                const ordemColunasExport = ordemDasColunasRemetentes(nodes);
                 Object.values(nodes).forEach(node => {
                     Object.values(node.outputs).forEach(output => {
                         if (output.connections) {
@@ -2249,10 +2432,29 @@
                                 ctx.lineTo(endX - arrowLength * Math.cos(angle - Math.PI / 6), endY - arrowLength * Math.sin(angle - Math.PI / 6));
                                 ctx.lineTo(endX - arrowLength * Math.cos(angle + Math.PI / 6), endY - arrowLength * Math.sin(angle + Math.PI / 6));
                                 ctx.closePath(); ctx.fillStyle = '#6c757d'; ctx.fill();
+                                // 🌟 NOVO: com os indicadores ligados, eles saem também na imagem (no meio da curva)
+                                if (indicadoresLigacoesVisiveis && indicadoresLigacoesDados) {
+                                    const l = indicadorDaLigacao(nodes, ordemColunasExport, node.id, conn.node);
+                                    const meioX = (startX + 3 * ctrlX1 + 3 * ctrlX2 + endX) / 8, meioY = (startY + 3 * ctrlY1 + 3 * ctrlY2 + endY) / 8;
+                                    desenharIndicadorNoCanvas(ctx, meioX, meioY, l, escala);
+                                }
                             });
                         }
                     });
                 });
+            }
+
+            function desenharIndicadorNoCanvas(ctx, x, y, l, escala) {
+                const linhas = l ? ['Prod.: ' + textoIndicador(l.media_3), 'Final: ' + textoIndicador(l.media_4)] : ['—'];
+                ctx.save();
+                ctx.font = (11 * escala) + 'px Arial';
+                const largura = Math.max.apply(null, linhas.map(t => ctx.measureText(t).width)) + 10 * escala;
+                const alturaLinha = 14 * escala, altura = linhas.length * alturaLinha + 4 * escala;
+                ctx.fillStyle = 'rgba(255,255,255,0.95)'; ctx.strokeStyle = '#6c757d'; ctx.lineWidth = 1 * escala;
+                ctx.beginPath(); ctx.roundRect(x - largura / 2, y - altura / 2, largura, altura, 4 * escala); ctx.fill(); ctx.stroke();
+                ctx.fillStyle = l ? '#333' : '#888'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                linhas.forEach((t, i) => ctx.fillText(t, x, y - altura / 2 + 2 * escala + alturaLinha * (i + 0.5)));
+                ctx.restore();
             }
 
             async function gerarCanvasFluxo(escala, incluirGrade, formato) {

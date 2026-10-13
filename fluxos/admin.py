@@ -1702,6 +1702,7 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
         if not fluxo.flu_pro_auto_editor_aut:
             messages.warning(request, 'Este fluxo não permite atualização automática no editor. Marque Permite Atualização Automática para continuar.')
             return redirect(reverse('admin:fluxos_tbfluxoproducao_change', args=[fluxo_id]))
+        ja_montado = self._fluxo_montado_no_editor(fluxo)
         dados = montar_dados_fluxo_a_partir_da_tabela(fluxo, preservar_posicoes_existentes=False)
         total_equipamentos = len(dados.get('drawflow', {}).get('Home', {}).get('data', {}))
         fluxo.flu_pro_dados_fluxo = dados
@@ -1709,7 +1710,7 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
         if total_equipamentos:
             messages.success(
                 request,
-                f'Fluxo montado no editor a partir da tabela ({total_equipamentos} equipamento(s)). '
+                f'Fluxo {"atualizado" if ja_montado else "criado"} no editor a partir do Sequenciamento da Produção ({total_equipamentos} equipamento(s)). '
                 'Abra "Visualizar Fluxo" pra conferir.'
             )
         else:
@@ -1719,17 +1720,43 @@ class TbFluxoProducaoAdmin(DjangoObjectActions, admin.ModelAdmin):
             )
         return redirect(reverse('admin:fluxos_tbfluxoproducao_change', args=[fluxo_id]))
 
+    @staticmethod
+    def _fluxo_montado_no_editor(obj):
+        """🌟 NOVO: o fluxo já tem desenho no editor? (flu_pro_dados_fluxo com pelo menos um equipamento em
+        drawflow.Home.data). Sem isso o editor abre em branco -- aí não faz sentido mostrar "Visualizar Fluxo"."""
+        dados = obj.flu_pro_dados_fluxo
+        if isinstance(dados, str):
+            import json
+            try:
+                dados = json.loads(dados)
+            except (TypeError, ValueError):
+                return False
+        if not isinstance(dados, dict):
+            return False
+        nos = ((dados.get('drawflow') or {}).get('Home') or {}).get('data') or {}
+        return bool(nos)
+
     def visualizar_fluxo(self, obj):
-        if obj.id:
-            from django.utils.html import format_html
+        # 🌟 CORRIGIDO: antes mostrava sempre "Visualizar Fluxo" + "Criar/Atualizar ..." -- e o Visualizar abria uma
+        # tela em branco quando o fluxo ainda não tinha sido montado no editor. Agora:
+        #   - sem desenho no editor: só "Criar Fluxo no Editor (a partir do Sequenciamento da Produção)";
+        #   - com desenho: "Visualizar Fluxo" e depois "Atualizar Fluxo no Editor (a partir do Sequenciamento da Produção)" (com a
+        #     confirmação, porque substitui o desenho atual).
+        if not obj.id:
+            return "Salve o fluxo primeiro para visualizá-lo"
+        from django.utils.html import format_html
+        url_montar = reverse('admin:fluxos_tbfluxoproducao_criar_no_editor', args=[obj.id])
+        if not self._fluxo_montado_no_editor(obj):
             return format_html(
-                _('<a href="/fluxo_producao/editor/{0}/" class="button" target="_blank">Visualizar Fluxo</a>'
-                  '&nbsp;&nbsp;'
-                  '<a href="{1}" class="button" '
-                  'onclick="return confirm(\'Isso substitui o desenho atual do editor pelo que está cadastrado hoje na tabela filha (coluna/linha). Continuar?\');">'
-                  'Criar/Atualizar Fluxo no Editor (a partir da tabela)</a>'),
-                obj.id, reverse('admin:fluxos_tbfluxoproducao_criar_no_editor', args=[obj.id]))
-        return "Salve o fluxo primeiro para visualizá-lo"
+                _('<a href="{0}" class="button">Criar Fluxo no Editor (a partir do Sequenciamento da Produção)</a>'),
+                url_montar)
+        return format_html(
+            _('<a href="/fluxo_producao/editor/{0}/" class="button" target="_blank">Visualizar Fluxo</a>'
+              '&nbsp;&nbsp;'
+              '<a href="{1}" class="button" '
+              'onclick="return confirm(\'Isso substitui o desenho atual do editor pelo que está cadastrado hoje na tabela filha (coluna/linha). Continuar?\');">'
+              'Atualizar Fluxo no Editor (a partir do Sequenciamento da Produção)</a>'),
+            obj.id, url_montar)
 
     visualizar_fluxo.short_description = _("Visualizar Fluxo")
 
