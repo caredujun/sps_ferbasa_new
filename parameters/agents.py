@@ -82,6 +82,21 @@ LIMITE_CARACTERES_CONTEXTO = 5000
 # flag pra False; nenhum outro código precisa mudar pra reverter.
 USAR_BUSCA_WEB = True
 
+# 🌟 NOVO: a última conversa vai junto como memória para a IA. Respostas de fluxos do chat (fluxo de produção
+# mensal, rotas, gráficos, formulários) guardam no texto os dados da tela num marcador [NOME:<base64>] -- um fluxo
+# chega a dezenas de milhares de tokens, e a Groq recusava o pedido (erro 413: limite de tokens por minuto do
+# plano). Na memória enviada à IA esses marcadores saem e cada mensagem é cortada neste tamanho. O histórico
+# gravado no banco não muda.
+MARCADOR_DADOS_TELA = re.compile(r"\[[A-Z][A-Z0-9_]*:[A-Za-z0-9_\-=]{40,}\]")
+LIMITE_CARACTERES_MEMORIA = 1500
+
+
+def _texto_para_memoria(texto):
+    texto = MARCADOR_DADOS_TELA.sub("[dados de tela omitidos]", str(texto or ""))
+    if len(texto) > LIMITE_CARACTERES_MEMORIA:
+        texto = texto[:LIMITE_CARACTERES_MEMORIA] + " [...]"
+    return texto
+
 
 def _gerar_resposta_com_busca_web(system_instruction, mensagem_usuario, historico_langchain):
     """
@@ -1624,8 +1639,8 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
         ultimos_logs = HistoricoAgente.objects.filter(usuario=usuario).order_by('-id')[:1]
         historico_langchain = []
         for log in reversed(ultimos_logs):
-            historico_langchain.append(HumanMessage(content=log.comando_usuario))
-            historico_langchain.append(AIMessage(content=log.resposta_ia))
+            historico_langchain.append(HumanMessage(content=_texto_para_memoria(log.comando_usuario)))
+            historico_langchain.append(AIMessage(content=_texto_para_memoria(log.resposta_ia)))
 
         # 🌟 NOVO: tenta até 2 vezes -- se a primeira resposta vier vazia ou
         # com padrão de repetição em loop (falha momentânea observada do
