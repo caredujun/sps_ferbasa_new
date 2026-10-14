@@ -1044,31 +1044,8 @@ class TbCustoVariavelAdicionadoDaugther1(models.Model):
         ordering = ['codigo']
 
 
-class TbAjusteCusto(models.Model):
-    item_producao_id = models.IntegerField(null=False, blank=False, verbose_name=_('Id Item Produção'))
-    chave = models.TextField(verbose_name=_('Chave'), blank=False, null=False)
-    item_consumo_id = models.IntegerField(null=False, blank=False, verbose_name=_('Id Item Consumo'))
-    indicador = models.DecimalField(max_digits=15, decimal_places=4, verbose_name=_('Indicador'))
-    flag = models.BooleanField(blank=True, null=False, default=False, verbose_name=_('Flag'))
-    ordem_lançamento = models.IntegerField(null=False, blank=False, verbose_name=_('Ordem Lançamento'))
-    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name=_('Empresa'))
-
-    def save(self, *args, **kwargs):
-        _atribuir_empresa_se_necessario(self)
-        super().save(*args, **kwargs)
-
-
-class TbAjusteCustoCopy(models.Model):
-    item_producao_id = models.IntegerField(null=True, blank=True, verbose_name=_('Id Item Produção'))
-    chave = models.TextField(verbose_name=_('Chave'), blank=True, null=True)
-    item_consumo_id = models.IntegerField(null=True, blank=True, verbose_name=_('Id Item Consumo'))
-    indicador = models.DecimalField(max_digits=15, decimal_places=4, verbose_name=_('Indicador'))
-    flag = models.BooleanField(blank=True, null=False, default=False, verbose_name=_('Flag'))
-    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name=_('Empresa'))
-
-    def save(self, *args, **kwargs):
-        _atribuir_empresa_se_necessario(self)
-        super().save(*args, **kwargs)
+# 🌟 REMOVIDO: TbAjusteCusto e TbAjusteCustoCopy -- tabelas de rascunho da procedure atualizar_genealogia, que
+# deixou de ser usada (a genealogia agora é calculada em custo_ferbasa/genealogia.py).
 
 class TbRegressaoLinearMultipla(models.Model):
     # 🌟 CORRIGIDO (multi-empresa): unique=True tirado -- vira constraint

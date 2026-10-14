@@ -189,6 +189,8 @@ def montar_grafo(linhas, itens_producao, itens_consumo, ids_selecionados, ggf_li
         if n and n['tipo'] == 'sub':
             n['total'] = n.get('total', 0.0) + (a['qtd'] or 0.0)
 
+    # 🌟 ALTERADO: + o GERADO COMO SUBPRODUTO (consumo negativo em outros equipamentos), que entra junto com o produzido:
+    #    estoque/perdas = produzido + gerado como subproduto - consumo neste fluxo - consumo de outros produtos.
     # 🌟 NOVO: BALANÇO de cada item produzido no desenho -- produzido x consumido neste fluxo x consumido por outros
     # produtos (o que a Produção Mensal do período registra, mesmo fora da cadeia escolhida) x o que sobra (sem consumo
     # registrado: estoque, venda direta ou perdas; negativo = consumiu-se mais do que se produziu no período, veio de
@@ -202,11 +204,21 @@ def montar_grafo(linhas, itens_producao, itens_consumo, ids_selecionados, ggf_li
     balancos = {}
     for codigo in codigos_do_desenho:
         produzido = sum(producao[o] for o in operacoes_por_codigo.get(codigo, []))
-        neste_fluxo, outros = 0.0, {}
+        neste_fluxo, outros, geradores = 0.0, {}, {}
         for op, itens in consumo.items():
             qtd = sum(itens.get(cid, 0.0) for cid in cons_ids_por_codigo[codigo])
-            if qtd <= 0:
-                continue                    # negativo é geração (subproduto), não consumo
+            if qtd < 0:
+                # 🌟 NOVO: consumo negativo = o item foi GERADO como subproduto nesse equipamento (ex.: parte da produção
+                # de outro produto, fora de especificação, desviada para este item -- o negativo é a bonificação no
+                # custo do equipamento). Entra no balanço como entrada, ao lado do produzido.
+                prod = itens_producao[op[0]]
+                reg = geradores.setdefault(prod['codigo'], {'produto': prod['codigo'], 'descricao': prod['descricao'],
+                                                            'grupos': set(), 'qtd': 0.0})
+                reg['grupos'].add(grupos[op[1]]['codigo'])
+                reg['qtd'] += -qtd
+                continue
+            if qtd == 0:
+                continue
             if op in ops_no_fluxo:
                 neste_fluxo += qtd
             else:
@@ -217,11 +229,15 @@ def montar_grafo(linhas, itens_producao, itens_consumo, ids_selecionados, ggf_li
                 reg['qtd'] += qtd
         lista = sorted(outros.values(), key=lambda r: -r['qtd'])
         total_outros = sum(r['qtd'] for r in lista)
+        lista_ger = sorted(geradores.values(), key=lambda r: -r['qtd'])
+        gerado = sum(r['qtd'] for r in lista_ger)
         balancos[codigo] = {
-            'produzido': produzido, 'neste_fluxo': neste_fluxo, 'outros_produtos': total_outros,
-            'sem_consumo': produzido - neste_fluxo - total_outros,
+            'produzido': produzido, 'gerado_subproduto': gerado, 'neste_fluxo': neste_fluxo, 'outros_produtos': total_outros,
+            'sem_consumo': produzido + gerado - neste_fluxo - total_outros,
             'outros': [{**r, 'grupos': ', '.join(sorted(r['grupos']))} for r in lista[:50]],
             'outros_total_itens': len(lista),
+            'geradores': [{**r, 'grupos': ', '.join(sorted(r['grupos']))} for r in lista_ger[:50]],
+            'geradores_total_itens': len(lista_ger),
         }
     # 🌟 ALTERADO: o balanço vai em TODAS as caixas. No equipamento cujo item também é feito em outros grupos de
     # máquina, o balanço é o do ITEM (todos os grupos juntos) -- o consumo registra o item, não quem o fez --, e o
@@ -520,6 +536,14 @@ def _da_empresa(modelo, empresa_id):
 
 
 def carregar_grafo(empresa_id, ids_selecionados, ano_mes_inicio, ano_mes_fim):
+    linhas, itens_producao, itens_consumo, ggf_linhas, pct_var_ggf = _carregar_periodo(
+        empresa_id, ids_selecionados, ano_mes_inicio, ano_mes_fim)
+    return montar_grafo(linhas, itens_producao, itens_consumo, set(ids_selecionados),
+                        ggf_linhas=ggf_linhas, pct_var_ggf=pct_var_ggf)
+
+
+def _carregar_periodo(empresa_id, ids_selecionados, ano_mes_inicio, ano_mes_fim):
+    """Lê do banco o que montar_grafo precisa (Produção Mensal do período, itens, grupos, GGF distribuído, % variável)."""
     from .models import TbItensProducao, TbItensConsumo, TbGruposMaquinas, TbDistribuicaoGGFMensal
     linhas = list(producao_mensal_da_empresa(empresa_id)
                   .filter(pro_men_ano_mes__gte=ano_mes_inicio, pro_men_ano_mes__lte=ano_mes_fim)
@@ -568,5 +592,443 @@ def carregar_grafo(empresa_id, ids_selecionados, ano_mes_inicio, ano_mes_fim):
                           'dis_ggf_men_conta_cc__con_con_cen_cus_conta__con_con_descricao',
                           'dis_ggf_men_conta_cc__con_con_cen_cus_cc__cen_cus_codigo'))
     ]
-    return montar_grafo(linhas, itens_producao, itens_consumo, set(ids_selecionados),
-                        ggf_linhas=ggf_linhas, pct_var_ggf=pct_var_ggf)
+    return linhas, itens_producao, itens_consumo, ggf_linhas, pct_var_ggf
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# 🌟 NOVO: FLUXO REAL POR ROTA
+#
+# A partir da mesma Produção Mensal, um fluxo para cada ROTA do produto -- cada equipamento real (grupo de máquina)
+# onde o produto final é produzido --, só com equipamentos reais:
+#   - os equipamentos VAZIO (reclassificações manuais de estoque) são DESCONSIDERADOS: as linhas deles saem e a
+#     ligação que passava por eles não é refeita (quem consumiu um item continua ligado só a quem o produziu de
+#     verdade; se o item só existiu por reclassificação, a cadeia para ali) -- decisão de 13/10/2026;
+#   - o consumo entre um equipamento e outro é o consumo específico real do período (quantidade consumida /
+#     produção do equipamento que consome), como no fluxo da Produção Mensal.
+# ---------------------------------------------------------------------------------------------------------------
+GRUPO_VAZIO = 'VAZIO'
+
+
+def remover_vazio(linhas):
+    """As linhas da Produção Mensal sem as dos equipamentos VAZIO (reclassificações)."""
+    return [l for l in linhas if ((l.get('grupo') or {}).get('codigo') or '') != GRUPO_VAZIO]
+
+
+NOME_MOVIMENTACAO = 'Movimentação'
+
+
+def _eh_vazio(l):
+    return ((l.get('grupo') or {}).get('codigo') or '') == GRUPO_VAZIO
+
+
+def filtrar_vazio_rotas(linhas, itens_producao):
+    """
+    🌟 NOVO (13/10/2026): para o fluxo real por rota. A movimentação VAZIO de um item que NÃO tem produção em
+    equipamento real no período é o único caminho até quem o fez de verdade (ex.: 6000130 <- 6000160 da mineração;
+    carvão 7170007 <- 7170005): ela FICA, aparece no desenho como um quadrado "Movimentação" (com o GGF dela, se
+    houver -- frete, por exemplo) e a cadeia segue para trás dela. A movimentação VAZIO de um item que TAMBÉM é
+    produzido em equipamento real continua desconsiderada (é só reclassificação; não vira rota).
+    """
+    producao_real = defaultdict(float)
+    vistos = set()
+    for l in linhas:
+        if _eh_vazio(l):
+            continue
+        chave = (l['pro_men_ano_mes'], l['pro_men_estabelecimento_id'], l['pro_men_grupo_maquina_id'],
+                 l['pro_men_ordem_producao'], l['pro_men_item_producao_id'])
+        if chave not in vistos:
+            vistos.add(chave)
+            producao_real[itens_producao[l['pro_men_item_producao_id']]['codigo']] += _num(l['pro_men_qtde_produzida'])
+    saida = []
+    for l in linhas:
+        if _eh_vazio(l):
+            if producao_real.get(itens_producao[l['pro_men_item_producao_id']]['codigo'], 0.0) > 0:
+                continue
+            l = dict(l)
+            l['grupo'] = dict(l.get('grupo') or {}, codigo=GRUPO_VAZIO, nome=NOME_MOVIMENTACAO)
+        saida.append(l)
+    return saida
+
+
+def _custos_ops(linhas, ggf_linhas):
+    """
+    Custo TOTAL de cada operação (item, grupo) com a mesma conta de montar_grafo/calcular_custos:
+    soma de (material + GGF do item consumido) x qtde das linhas com produção + GGF distribuído das ordens com
+    produção. Devolve ({op: total}, {op: produção}, {op: [linhas da op]}).
+    """
+    producao, vistos = defaultdict(float), set()
+    total = defaultdict(float)
+    ordens = defaultdict(set)
+    por_op = defaultdict(list)
+    for l in linhas:
+        op = (l['pro_men_item_producao_id'], l['pro_men_grupo_maquina_id'])
+        por_op[op].append(l)
+        chave = (l['pro_men_ano_mes'], l['pro_men_estabelecimento_id'], l['pro_men_grupo_maquina_id'],
+                 l['pro_men_ordem_producao'], l['pro_men_item_producao_id'])
+        if chave not in vistos:
+            vistos.add(chave)
+            producao[op] += _num(l['pro_men_qtde_produzida'])
+        if _num(l['pro_men_qtde_produzida']) > 0:
+            total[op] += (_num(l.get('pro_men_valor_material')) + _num(l.get('pro_men_valor_ggf'))) * _num(l['pro_men_qtde_consumo'])
+            ordens[op].add((l['pro_men_ano_mes'], l['pro_men_ordem_producao']))
+    ggf = defaultdict(float)
+    for g in ggf_linhas or []:
+        op = (g['item_id'], g['grupo_id'])
+        if (g['ano_mes'], g['ordem']) in ordens.get(op, ()):
+            ggf[op] += _num(g['valor'])
+    return {op: total[op] + ggf[op] for op in producao}, producao, por_op
+
+
+def _ordem_de_tras_pra_frente(linhas, itens_producao, itens_consumo, codigo_final):
+    """Códigos dos itens da cadeia do produto final, cada um DEPOIS dos que ele consome (recirculação: corta)."""
+    produtores, entradas = defaultdict(set), defaultdict(set)
+    for l in linhas:
+        op = (l['pro_men_item_producao_id'], l['pro_men_grupo_maquina_id'])
+        produtores[itens_producao[op[0]]['codigo']].add(op)
+        if _num(l['pro_men_qtde_consumo']) > 0:
+            entradas[op].add(itens_consumo[l['pro_men_item_consumo_id']]['codigo'])
+    ordem, visitados = [], {codigo_final}
+    pilha = [(codigo_final, iter(sorted({c for op in produtores[codigo_final] for c in entradas[op]})))]
+    while pilha:
+        codigo, filhos = pilha[-1]
+        proximo = next((c for c in filhos if c in produtores and c not in visitados), None)
+        if proximo is None:
+            pilha.pop()
+            ordem.append(codigo)
+        else:
+            visitados.add(proximo)
+            pilha.append((proximo, iter(sorted({c for op in produtores[proximo] for c in entradas[op]}))))
+    return ordem
+
+
+def carregar_rotas_reais(empresa_id, ids_selecionados, ano_mes_inicio, ano_mes_fim):
+    """
+    Um fluxo por rota: para cada produto escolhido, um grafo (no formato de montar_grafo) para cada equipamento real
+    que o produziu no período, do que mais produziu para o que menos produziu. Devolve [{'produto_id', 'grupo_codigo',
+    'grupo_nome', 'producao', 'participacao', 'grafo'}].
+    """
+    linhas, itens_producao, itens_consumo, ggf_linhas, pct_var_ggf = _carregar_periodo(
+        empresa_id, ids_selecionados, ano_mes_inicio, ano_mes_fim)
+    return montar_rotas_reais(linhas, itens_producao, itens_consumo, ids_selecionados, ggf_linhas, pct_var_ggf)
+
+
+MAX_ROTAS = 50
+
+
+def _distancia_ao_final(grafo):
+    """Distância (em ligações) de cada nó até o produto final, andando de trás pra frente."""
+    antes = defaultdict(list)
+    for ar in grafo['arestas']:
+        if ar['tipo'] != 'ciclo':
+            antes[ar['para']].append(ar['de'])
+    dist, fila = {}, [n['id'] for n in grafo['nos'] if n.get('final')]
+    for nid in fila:
+        dist[nid] = 0
+    while fila:
+        atual = fila.pop(0)
+        for anterior in antes[atual]:
+            if anterior not in dist:
+                dist[anterior] = dist[atual] + 1
+                fila.append(anterior)
+    return dist
+
+
+def _rotas_por_agrupamento(linhas, itens_producao, itens_consumo, produto_id):
+    """
+    🌟 ALTERADO (regra de 13/10/2026): cada AGRUPAMENTO -- item produzido por mais de um equipamento real -- divide a
+    cadeia; cada combinação de equipamentos escolhidos nos agrupamentos é uma ROTA. Vindo do produto final para trás:
+      rotas(item)  = uma escolha para cada equipamento que produz o item (se for só um, não divide);
+      rotas(equip) = combinações das rotas de cada item que ele consome (os produzidos na cadeia).
+    Participação da rota = produto das participações (produção no período) de cada equipamento escolhido no seu
+    agrupamento. Devolve [(escolhas {código do item: op escolhida}, participação)], da maior para a menor, no
+    máximo MAX_ROTAS, e o total de rotas encontradas.
+    """
+    producao_op, vistos = defaultdict(float), set()
+    entradas = defaultdict(set)                        # op -> códigos de itens consumidos (consumo > 0)
+    for l in linhas:
+        op = (l['pro_men_item_producao_id'], l['pro_men_grupo_maquina_id'])
+        chave = (l['pro_men_ano_mes'], l['pro_men_estabelecimento_id'], l['pro_men_grupo_maquina_id'],
+                 l['pro_men_ordem_producao'], l['pro_men_item_producao_id'])
+        if chave not in vistos:
+            vistos.add(chave)
+            producao_op[op] += _num(l['pro_men_qtde_produzida'])
+        if _num(l['pro_men_qtde_consumo']) > 0:
+            entradas[op].add(itens_consumo[l['pro_men_item_consumo_id']]['codigo'])
+    produtores = defaultdict(list)                     # código do item -> [(op, produção)]
+    for op, prod in producao_op.items():
+        if prod > 0:
+            produtores[itens_producao[op[0]]['codigo']].append((op, prod))
+
+    contagem = {'total': 0}
+    memo = {}
+
+    def combinar(lista_a, lista_b):
+        saida = []
+        for ca, pa in lista_a:
+            for cb, pb in lista_b:
+                junta = dict(ca)
+                ok = True
+                for k, v in cb.items():
+                    if k in junta and junta[k] != v:     # o mesmo item escolhido diferente em dois ramos: incoerente
+                        ok = False
+                        break
+                    junta[k] = v
+                if ok:
+                    saida.append((junta, pa * pb))
+        saida.sort(key=lambda x: -x[1])
+        return saida[:MAX_ROTAS * 4]
+
+    def rotas_item(codigo, caminho):
+        if codigo in caminho:                          # recirculação: não abre de novo
+            return [({}, 1.0)]
+        chave = (codigo, caminho)
+        if chave in memo:
+            return memo[chave]
+        lista = produtores.get(codigo, [])
+        if not lista:
+            return [({}, 1.0)]                         # comprado (ou só reclassificado): a cadeia para aqui
+        total = sum(p for _op, p in lista)
+        saida = []
+        for op, prod in sorted(lista, key=lambda x: -x[1]):
+            sub = [({}, 1.0)]
+            for c in sorted(entradas[op]):
+                if c in produtores:
+                    sub = combinar(sub, rotas_item(c, caminho | {codigo}))
+            for esc, part in sub:
+                esc = dict(esc)
+                esc[codigo] = op
+                saida.append((esc, part * prod / total))
+        saida.sort(key=lambda x: -x[1])
+        memo[chave] = saida[:MAX_ROTAS * 4]
+        return memo[chave]
+
+    def contar(codigo, caminho, memo_contagem={}):
+        """Número EXATO de rotas (sem montar todas): soma pelos equipamentos, multiplica pelos itens consumidos."""
+        if codigo in caminho or not produtores.get(codigo):
+            return 1
+        chave = (codigo, caminho)
+        if chave not in memo_contagem:
+            n = 0
+            for op, _prod in produtores[codigo]:
+                m = 1
+                for c in entradas[op]:
+                    if c in produtores:
+                        m *= contar(c, caminho | {codigo})
+                n += m
+            memo_contagem[chave] = n
+        return memo_contagem[chave]
+
+    codigo_final = itens_producao[produto_id]['codigo']
+    todas = rotas_item(codigo_final, frozenset())
+    return todas[:MAX_ROTAS], contar(codigo_final, frozenset(), {}), produtores
+
+
+MAX_PRODUTORES_ORIGEM = 15     # por item consumido por uma movimentação: os equipamentos reais que mais produziram
+MAX_FRAGMENTOS_MV = 600        # por rota: quantos equipamentos podem ter o pedaço de fluxo do círculo MV pronto
+
+
+def _fragmentos_vazio(linhas_todas, itens_producao, itens_consumo, ggf_linhas, pct_var_ggf):
+    """
+    🌟 NOVO (13/10/2026): no fluxo real os equipamentos VAZIO (movimentações) ficam de fora -- e com eles os insumos
+    que só existem por movimentação (ex.: 6000130 <- VAZIO <- 6000160 da mineração). O círculo MV de cada equipamento
+    põe no desenho, UM NÍVEL por clique, quem entrega a ele:
+      - equipamento real: as movimentações VAZIO que produziram os insumos dele SEM produção em equipamento real no
+        período;
+      - movimentação VAZIO: quem produziu cada item que ela consumiu (outras movimentações VAZIO e os equipamentos
+        reais que mais produziram o item).
+    Cada caixa que entra tem o seu próprio círculo MV -- o usuário vai clicando até onde quiser. Só desenho: não muda
+    rota nem custo da rota. Devolve (pedaco(op) -> {'n', 'nos', 'arestas'} ou None, qtd_mv(op) -> int).
+    """
+    def vazio_linha(l):
+        return ((l.get('grupo') or {}).get('codigo') or '') == GRUPO_VAZIO
+    linhas_op = defaultdict(list)
+    prod_real_op = defaultdict(float)
+    eh_vazio = set()
+    tem_vazio, tem_real, vistos = set(), set(), set()
+    ops_vazio_codigo, ops_real_codigo = defaultdict(set), defaultdict(set)
+    for l in linhas_todas:
+        op = (l['pro_men_item_producao_id'], l['pro_men_grupo_maquina_id'])
+        codigo = itens_producao[op[0]]['codigo']
+        linhas_op[op].append(l)
+        if vazio_linha(l):
+            eh_vazio.add(op)
+        chave = (l['pro_men_ano_mes'], l['pro_men_estabelecimento_id'], l['pro_men_grupo_maquina_id'],
+                 l['pro_men_ordem_producao'], l['pro_men_item_producao_id'])
+        if chave in vistos:
+            continue
+        vistos.add(chave)
+        if _num(l['pro_men_qtde_produzida']) <= 0:
+            continue
+        if vazio_linha(l):
+            tem_vazio.add(codigo)
+            ops_vazio_codigo[codigo].add(op)
+        else:
+            tem_real.add(codigo)
+            ops_real_codigo[codigo].add(op)
+            prod_real_op[op] += _num(l['pro_men_qtde_produzida'])
+    so_vazio = tem_vazio - tem_real            # itens que só existem por movimentação no período
+
+    def entradas(op):
+        """Códigos que o clique no MV abre e as linhas do equipamento que os consomem."""
+        linhas = [l for l in linhas_op.get(op, []) if _num(l['pro_men_qtde_consumo']) > 0]
+        if op in eh_vazio:
+            linhas = [l for l in linhas if itens_consumo[l['pro_men_item_consumo_id']]['codigo'] in (tem_vazio | tem_real)]
+        else:
+            linhas = [l for l in linhas if itens_consumo[l['pro_men_item_consumo_id']]['codigo'] in so_vazio]
+        return {itens_consumo[l['pro_men_item_consumo_id']]['codigo'] for l in linhas}, linhas
+
+    contagem = {}
+
+    def qtd_mv(op):
+        if op not in contagem:
+            contagem[op] = len(entradas(op)[0])
+        return contagem[op]
+
+    cache = {}
+
+    def pedaco(op):
+        if op in cache:
+            return cache[op]
+        cache[op] = None
+        codigos, linhas = entradas(op)
+        if not codigos:
+            return None
+        frag, incluidas = list(linhas), {op}
+        for codigo in sorted(codigos):
+            produtores = list(ops_vazio_codigo.get(codigo, ()))
+            if op in eh_vazio:
+                produtores += sorted(ops_real_codigo.get(codigo, ()), key=lambda o: -prod_real_op[o])[:MAX_PRODUTORES_ORIGEM]
+            for pr in produtores:
+                if pr not in incluidas:
+                    incluidas.add(pr)
+                    frag.extend(linhas_op[pr])
+        try:
+            g = montar_grafo(frag, itens_producao, itens_consumo, {op[0]}, ggf_linhas=ggf_linhas, pct_var_ggf=pct_var_ggf)
+        except FluxoProducaoMensalError:
+            return None
+        id_op = 'op:%s:%s' % op
+        nos = []
+        for n in g['nos']:
+            if n['id'] == id_op:
+                continue
+            n = dict(n)
+            n['final'] = False
+            if n.get('custo'):
+                n['custo'] = {k: v for k, v in n['custo'].items() if k != 'contribuicoes'}
+            n.pop('balanco', None)     # o pedaço não tem todos os consumidores do período: balanço sairia errado
+            n['mv_origem'] = True
+            if n['tipo'] == 'op':
+                _p, a, b = n['id'].split(':')
+                n['mv_n'] = qtd_mv((int(a), int(b)))
+            nos.append(n)
+        # só as ligações que chegam no equipamento clicado e as que formam o item de vários produtores
+        cache[op] = {'n': len(codigos), 'nos': nos, 'arestas': g['arestas']}
+        return cache[op]
+    return pedaco, qtd_mv
+
+def montar_rotas_reais(linhas, itens_producao, itens_consumo, ids_selecionados, ggf_linhas=None, pct_var_ggf=None):
+    """Parte sem banco de carregar_rotas_reais (pra poder ser testada isoladamente)."""
+    # 🌟 13/10/2026: os equipamentos VAZIO (reclassificações) são DESCONSIDERADOS no fluxo real (decisão do usuário).
+    pedaco_mv, qtd_mv = _fragmentos_vazio(linhas, itens_producao, itens_consumo, ggf_linhas or [], pct_var_ggf or {})
+    linhas = remover_vazio(linhas)
+    ggf_linhas = ggf_linhas or []
+    rotas = []
+    # custo de cada equipamento com TODOS juntos (valor contábil) e o custo médio de cada item (ponderado pela produção)
+    total_base, producao_base, _por_op = _custos_ops(linhas, ggf_linhas)
+    custo_medio_base = defaultdict(lambda: [0.0, 0.0])
+    for op, prod in producao_base.items():
+        if prod > 0:
+            c = custo_medio_base[itens_producao[op[0]]['codigo']]
+            c[0] += total_base[op]
+            c[1] += prod
+    ids_consumo_por_codigo = defaultdict(set)
+    for cid, ic in itens_consumo.items():
+        ids_consumo_por_codigo[ic['codigo']].add(cid)
+    for produto_id in ids_selecionados:
+        codigo_final = itens_producao[produto_id]['codigo']
+        escolhidas, total_rotas, produtores = _rotas_por_agrupamento(linhas, itens_producao, itens_consumo, produto_id)
+        for escolhas, participacao in escolhidas:
+            # tira as linhas (e o GGF) dos equipamentos NÃO escolhidos em cada agrupamento da rota
+            fora = set()
+            for codigo, op in escolhas.items():
+                fora |= {o for o, _p in produtores[codigo] if o != op}
+            linhas_rota = [dict(l) for l in linhas if (l['pro_men_item_producao_id'], l['pro_men_grupo_maquina_id']) not in fora]
+            ggf_rota = [g for g in ggf_linhas if (g['item_id'], g['grupo_id']) not in fora]
+            pct_rota = dict(pct_var_ggf or {})
+            # 🌟 ALTERADO (13/10/2026): custo da rota SEMPRE a partir do VALOR CONTÁBIL. Cada item da cadeia entra no
+            # consumidor pelo valor contábil da linha do consumidor x (custo do item NESTA rota / custo médio do item
+            # com TODOS os equipamentos juntos, ponderado pela produção). De trás pra frente: cada item depois dos
+            # que ele consome -- assim a diferença de uma mina, carvoaria, moinho ou forno escolhido chega até o
+            # produto final. Os fatores têm média 1 (ponderada pela participação), então a média das rotas é
+            # EXATAMENTE o custo com todos os equipamentos juntos (o valor contábil) -- total, variável e fixo.
+            _t, producao_rota, por_op_rota = _custos_ops(linhas_rota, ggf_rota)
+            ggf_op = {op: total_base[op] - sum((_num(l.get('pro_men_valor_material')) + _num(l.get('pro_men_valor_ggf')))
+                                               * _num(l['pro_men_qtde_consumo'])
+                                               for l in _por_op[op] if _num(l['pro_men_qtde_produzida']) > 0)
+                      for op in por_op_rota}
+            ops_por_codigo = defaultdict(list)
+            for op in por_op_rota:
+                if producao_rota[op] > 0:
+                    ops_por_codigo[itens_producao[op[0]]['codigo']].append(op)
+            for codigo in _ordem_de_tras_pra_frente(linhas_rota, itens_producao, itens_consumo, codigo_final):
+                if codigo == codigo_final:
+                    continue
+                base_total, base_prod = custo_medio_base.get(codigo, (0.0, 0.0))
+                if base_prod <= 0 or base_total == 0:
+                    continue
+                total_r = sum(sum((_num(l.get('pro_men_valor_material')) + _num(l.get('pro_men_valor_ggf')))
+                                  * _num(l['pro_men_qtde_consumo'])
+                                  for l in por_op_rota[op] if _num(l['pro_men_qtde_produzida']) > 0) + ggf_op[op]
+                              for op in ops_por_codigo[codigo])
+                prod_r = sum(producao_rota[op] for op in ops_por_codigo[codigo])
+                if prod_r <= 0:
+                    continue
+                fator = (total_r / prod_r) / (base_total / base_prod)
+                if abs(fator - 1.0) < 1e-12:
+                    continue
+                ids_item = ids_consumo_por_codigo[codigo]
+                for l in linhas_rota:
+                    if l['pro_men_item_consumo_id'] in ids_item and _num(l['pro_men_qtde_consumo']) > 0:
+                        l['pro_men_valor_material'] = _num(l.get('pro_men_valor_material')) * fator
+                        l['pro_men_valor_ggf'] = _num(l.get('pro_men_valor_ggf')) * fator
+            grafo = montar_grafo(linhas_rota, itens_producao, itens_consumo, {produto_id},
+                                 ggf_linhas=ggf_rota, pct_var_ggf=pct_rota)
+            # 🌟 NOVO: círculo MV -- em cada equipamento, quantos itens o clique abre (mv_n) e, por equipamento (inclusive os
+            # que entram pelos cliques, nível a nível), o pedaço de fluxo que entra no desenho (mv_fragmentos).
+            grafo['rota_real'] = True
+            fragmentos, fila = {}, []
+            for n in grafo['nos']:
+                if n['tipo'] == 'op':
+                    _p, a, b = n['id'].split(':')
+                    n['mv_n'] = qtd_mv((int(a), int(b)))
+                    if n['mv_n']:
+                        fila.append((int(a), int(b)))
+            while fila and len(fragmentos) < MAX_FRAGMENTOS_MV:
+                op = fila.pop(0)
+                chave = 'op:%s:%s' % op
+                if chave in fragmentos:
+                    continue
+                frag = pedaco_mv(op)
+                if not frag:
+                    continue
+                fragmentos[chave] = frag
+                for x in frag['nos']:
+                    if x['tipo'] == 'op' and x.get('mv_n') and x['id'] not in fragmentos:
+                        _p, a, b = x['id'].split(':')
+                        fila.append((int(a), int(b)))
+            grafo['mv_fragmentos'] = fragmentos
+            # rótulo: os equipamentos escolhidos nos agrupamentos, do produto final para trás
+            grupos_por_op = {}
+            for l in linhas:
+                grupos_por_op[(l['pro_men_item_producao_id'], l['pro_men_grupo_maquina_id'])] = (l.get('grupo') or {}).get('codigo', '')
+            divisoes = [(codigo, op) for codigo, op in escolhas.items() if len(produtores[codigo]) > 1]
+            dist = _distancia_ao_final(grafo)
+            divisoes.sort(key=lambda x: (dist.get('op:%s:%s' % x[1], 999), x[0]))
+            nomes = [grupos_por_op.get(op, str(op[1])) for _c, op in divisoes] or \
+                [grupos_por_op.get(escolhas.get(itens_producao[produto_id]['codigo']), '')]
+            rotulo_completo = ' / '.join(nomes)
+            rotulo = ' / '.join(nomes[:3]) + (' +%d' % (len(nomes) - 3) if len(nomes) > 3 else '')
+            rotas.append({'produto_id': produto_id, 'rotulo': rotulo, 'rotulo_completo': rotulo_completo,
+                          'divisoes': [{'item': c, 'grupo': grupos_por_op.get(op, '')} for c, op in divisoes],
+                          'participacao': 100.0 * participacao, 'total_rotas': total_rotas, 'grafo': grafo})
+    return rotas

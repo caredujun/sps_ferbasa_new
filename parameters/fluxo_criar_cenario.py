@@ -2927,10 +2927,93 @@ def _etapa_cfx_periodo(estado, texto):
     if fim < inicio:
         return (f"O fim ({fim}) não pode ser antes do início ({inicio}). Ajuste abaixo, ou clica em \"Cancelar\".\n\n"
                 + _cfx_form_periodo(inicio, fim, dados))
+    # 🌟 NOVO: antes de montar, o usuário escolhe a visão -- o fluxo completo (como sempre) ou o fluxo REAL por rota
+    # (um fluxo para cada equipamento real onde o produto é produzido, sem os equipamentos VAZIO).
+    dados['periodo_inicio'], dados['periodo_fim'] = inicio, fim
+    estado.dados_coletados = dados
+    estado.etapa_atual = 'cfx_visao'
+    estado.save()
+    return _cfx_texto_visao(inicio, fim)
+
+
+def _cfx_texto_visao(inicio, fim):
+    return (f"Período: **{inicio}** a **{fim}**. Qual fluxo você quer ver? (ou \"cancelar\")\n\n"
+            + _equ_marcador('BOTOES', {'botoes': [
+                {'valor': 'completo', 'rotulo': 'Fluxo Completo Consolidado'},
+                {'valor': 'rotas', 'rotulo': 'Fluxo Real por Rota Sem Movimentações'},
+            ]}))
+
+
+def _etapa_cfx_visao(estado, texto):
+    dados = estado.dados_coletados or {}
+    escolha = (texto or '').strip().lower()
+    inicio, fim = dados.get('periodo_inicio'), dados.get('periodo_fim')
+    if 'rota' in escolha or escolha == 'real':
+        return _cfx_montar_rotas(estado, dados, inicio, fim)
+    if 'complet' in escolha:
+        return _cfx_montar_completo(estado, dados, inicio, fim)
+    return "Não entendi. Escolha uma das opções abaixo.\n\n" + _cfx_texto_visao(inicio, fim).split('\n\n', 1)[1]
+
+
+def _cfx_montar_rotas(estado, dados, inicio, fim):
+    """🌟 NOVO: o fluxo REAL por rota (custo_ferbasa.fluxo_producao_mensal.carregar_rotas_reais), uma aba por rota."""
+    from custo_ferbasa.fluxo_producao_mensal import carregar_rotas_reais, FluxoProducaoMensalError
+    try:
+        rotas = carregar_rotas_reais(dados['empresa_id'], dados['itens_ids'], inicio, fim)
+    except FluxoProducaoMensalError as erro:
+        _encerrar_fluxo(estado)
+        return str(erro)
+    _encerrar_fluxo(estado)
+    nomes = ', '.join(dados.get('itens_nomes') or dados.get('itens_codigos', []))
+    if not rotas:
+        return (f"Não há produção de **{nomes}** em equipamento real (fora do VAZIO) entre **{inicio}** e **{fim}** -- "
+                "não tenho rota para desenhar.")
+    moeda = _cmp_moeda(estado)
+    br = lambda v: f"{v:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+    linhas = []
+    for r in rotas:
+        custo = next(iter(r['grafo'].get('custos_produtos') or []), None)
+        txt = f"- **{r['rotulo_completo']}** ({br(r['participacao'])}% da produção)"
+        if custo:
+            txt += (f" · custo total **{moeda}{br(custo['unit_total'])}/{custo['unidade']}** · variável "
+                    f"{moeda}{br(custo['unit_variavel'])} · fixo/outros {moeda}{br(custo['unit_total'] - custo['unit_variavel'])}")
+        linhas.append(txt)
+    total_rotas = max(r['total_rotas'] for r in rotas)
+    texto_resposta = (f"**Fluxo real de {nomes}** -- Produção Mensal de **{inicio}** a **{fim}**, sem os equipamentos "
+                      f"VAZIO. Cada agrupamento (item feito em mais de um equipamento) divide a cadeia; cada combinação é "
+                      f"uma rota. **{len(rotas)} rota(s)**, uma aba para cada (o nome da aba são os equipamentos "
+                      f"escolhidos nos agrupamentos, do produto final para trás):\n" + "\n".join(linhas))
+    # 🌟 NOVO: média das rotas ponderada pela participação -- é o custo com todos os equipamentos juntos (valor contábil)
+    if total_rotas == len(rotas):
+        soma_part, soma_custo = 0.0, 0.0
+        for r in rotas:
+            custo = next(iter(r['grafo'].get('custos_produtos') or []), None)
+            if custo:
+                soma_part += r['participacao']
+                soma_custo += r['participacao'] * custo['unit_total']
+        if soma_part > 0:
+            texto_resposta += (f"\n\nMédia das rotas ponderada pela participação: **{moeda}{br(soma_custo / soma_part)}** "
+                               f"(igual ao custo com todos os equipamentos juntos -- valor contábil).")
+    if total_rotas > len(rotas):
+        texto_resposta += (f"\n\nℹ️ Existem **{total_rotas:,}** rotas possíveis".replace(',', '.') +
+                           f"; aparecem as {len(rotas)} de maior participação.")
+    avisos = {r['grafo'].get('aviso_custo') for r in rotas if r['grafo'].get('aviso_custo')}
+    for aviso in avisos:
+        texto_resposta += "\n\n⚠️ " + aviso
+    payload = {'titulo': f"Fluxo real de {nomes}", 'periodo': f"{inicio} a {fim}", 'moeda': moeda,
+               'rotas': [{'rotulo': r['rotulo'], 'rotulo_completo': r['rotulo_completo'], 'participacao': r['participacao'],
+                          'titulo': f"Fluxo real de {nomes} — rota {r['rotulo_completo']}", 'periodo': f"{inicio} a {fim}",
+                          'moeda': moeda, **r['grafo']} for r in rotas]}
+    return texto_resposta + "\n\n" + _equ_marcador('FLUXO_PRODUCAO_MENSAL', payload)
+
+
+def _cfx_montar_completo(estado, dados, inicio, fim):
+    from custo_ferbasa.fluxo_producao_mensal import carregar_grafo, FluxoProducaoMensalError
     try:
         grafo = carregar_grafo(dados['empresa_id'], dados['itens_ids'], inicio, fim)
     except FluxoProducaoMensalError as erro:
-        return f"{erro}\n\n" + _cfx_form_periodo(inicio, fim, dados)
+        _encerrar_fluxo(estado)
+        return str(erro)
     _encerrar_fluxo(estado)
 
     codigos = ', '.join(dados.get('itens_codigos', []))
@@ -6274,6 +6357,7 @@ _HANDLERS_PROCESSAR = {
     # 🌟 NOVO: "Custo Ferbasa - Montar Fluxo de Produção pela Produção Mensal" (só consulta)
     'cfx_itens': _etapa_cfx_itens,
     'cfx_periodo': _etapa_cfx_periodo,
+    'cfx_visao': _etapa_cfx_visao,
 }
 
 

@@ -258,6 +258,10 @@
         .fpm-escada-aba.ativa { background: #16a085; color: #fff; }
         .fpm-escada-svg { display: block; max-width: 660px; }
         .fpm-com-equip { font-size: 10px; color: #7f8c8d; }
+        .fpm-abas-rotas { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
+        .fpm-aba-rota { border: 1px solid #417690; background: #eef5f8; color: #417690; border-radius: 6px 6px 0 0; padding: 6px 12px; font-size: 13px; font-weight: bold; cursor: pointer; }
+        .fpm-aba-rota.ativa { background: #417690; color: #fff; }
+        .fpm-aba-pct { font-weight: normal; font-size: 11px; opacity: 0.85; }
         .fpm-qtd-equip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #34495e; white-space: nowrap; }
         /* Botões do fluxo no chat em 2 linhas, com espaço entre eles: [quantidade + Montar] [lista de equipamentos] /
            [Reorganizar] [Tela cheia] [Exportar]. */
@@ -842,6 +846,11 @@
         {% trans "Filtrar por palavras da descrição" as ROTULO_LF_PLACEHOLDER %}
         {% trans "mostrando" as ROTULO_LF_MOSTRANDO %}
         {% trans "Produzido" as ROTULO_FPM_BAL_PRODUZIDO %}
+        {% trans "Gerado como subproduto" as ROTULO_FPM_BAL_GERADO %}
+        {% trans "Subproduto" as ROTULO_FPM_BAL_GERADO_CURTO %}
+        {% trans "Gerado como subproduto por" as ROTULO_FPM_BAL_GERADORES %}
+        {% trans "Consumido por outros produtos" as ROTULO_FPM_BAL_CONSUMIDORES %}
+        {% trans "Qtde gerada no período" as ROTULO_FPM_BAL_COL_QTD_GERADA %}
         {% trans "Neste fluxo" as ROTULO_FPM_BAL_FLUXO %}
         {% trans "Consumo Neste Fluxo" as ROTULO_FPM_BAL_FLUXO_LONGO %}
         {% trans "Consumo Outros Produtos" as ROTULO_FPM_BAL_OUTROS_LONGO %}
@@ -850,14 +859,17 @@
         {% trans "Veio de estoque" as ROTULO_FPM_BAL_ACIMA %}
         {% trans "Balanço do item no período" as ROTULO_FPM_BAL_TITULO %}
         {% trans "todos os grupos de máquina" as ROTULO_FPM_BAL_TODOS %}
-        {% trans "Ver quais outros produtos consumiram este item" as ROTULO_FPM_BAL_DICA %}
-        {% trans "detalhar outros produtos ›" as ROTULO_FPM_BAL_DETALHAR %}
-        {% trans "Outros produtos: consumo do item registrado na Produção Mensal do período por equipamentos que não fazem parte deste fluxo. Estoque/perdas: o que foi produzido e não aparece consumido por ninguém (estoque, venda direta ou perdas). Veio de estoque: consumiu-se mais do que se produziu no período, e a diferença saiu de estoque (ou de produção de outro período)." as ROTULO_FPM_BAL_EXPLICA %}
+        {% trans "Ver quais outros produtos consumiram este item e quais equipamentos o geraram como subproduto" as ROTULO_FPM_BAL_DICA %}
+        {% trans "detalhar balanço ›" as ROTULO_FPM_BAL_DETALHAR %}
+        {% trans "Gerado como subproduto: o item saiu como subproduto de outro equipamento (ex.: produção de outro produto fora de especificação, desviada para este item) -- na Produção Mensal aparece como consumo negativo. Entra no balanço junto com o produzido. Outros produtos: consumo do item registrado na Produção Mensal do período por equipamentos que não fazem parte deste fluxo. Estoque/perdas: o que foi produzido e não aparece consumido por ninguém (estoque, venda direta ou perdas). Veio de estoque: consumiu-se mais do que se produziu no período, e a diferença saiu de estoque (ou de produção de outro período)." as ROTULO_FPM_BAL_EXPLICA %}
         {% trans "Produto" as ROTULO_FPM_BAL_COL_PRODUTO %}
         {% trans "Grupos de máquina" as ROTULO_FPM_BAL_COL_GRUPOS %}
         {% trans "Qtde consumida no período" as ROTULO_FPM_BAL_COL_QTD %}
         {% trans "outros produtos não listados:" as ROTULO_FPM_BAL_MAIS %}
         {% trans "RC" as ROTULO_FPM_CIRC_RC %}
+        {% trans "MV" as ROTULO_FPM_CIRC_MV %}
+        {% trans "movimentações VAZIO que entregam ao equipamento -- clique para pôr no desenho um nível (ou tirar)" as ROTULO_FPM_DICA_MV %}
+        {% trans "No fluxo real, clique no círculo MV de um equipamento para pôr no desenho as movimentações VAZIO que entregam a ele; cada caixa que entra tem o seu MV para continuar abrindo, nível a nível (clique de novo para tirar)." as ROTULO_FPM_DICA_CIRCULOS_MV %}
         {% trans "recirculações no equipamento (material que volta na cadeia)" as ROTULO_FPM_DICA_RC %}
         {% trans "Recirculações em" as ROTULO_FPM_TIT_RC %}
         {% trans "Contribuição no custo do produto final" as ROTULO_FPM_C_CONTRIB %}
@@ -1071,6 +1083,11 @@
         var ROTULO_LF_PLACEHOLDER = "{{ ROTULO_LF_PLACEHOLDER|escapejs }}";
         var ROTULO_LF_MOSTRANDO = "{{ ROTULO_LF_MOSTRANDO|escapejs }}";
         var ROTULO_FPM_BAL_PRODUZIDO = "{{ ROTULO_FPM_BAL_PRODUZIDO|escapejs }}";
+        var ROTULO_FPM_BAL_GERADO = "{{ ROTULO_FPM_BAL_GERADO|escapejs }}";
+        var ROTULO_FPM_BAL_GERADO_CURTO = "{{ ROTULO_FPM_BAL_GERADO_CURTO|escapejs }}";
+        var ROTULO_FPM_BAL_GERADORES = "{{ ROTULO_FPM_BAL_GERADORES|escapejs }}";
+        var ROTULO_FPM_BAL_CONSUMIDORES = "{{ ROTULO_FPM_BAL_CONSUMIDORES|escapejs }}";
+        var ROTULO_FPM_BAL_COL_QTD_GERADA = "{{ ROTULO_FPM_BAL_COL_QTD_GERADA|escapejs }}";
         var ROTULO_FPM_BAL_FLUXO = "{{ ROTULO_FPM_BAL_FLUXO|escapejs }}";
         var ROTULO_FPM_BAL_FLUXO_LONGO = "{{ ROTULO_FPM_BAL_FLUXO_LONGO|escapejs }}";
         var ROTULO_FPM_BAL_OUTROS_LONGO = "{{ ROTULO_FPM_BAL_OUTROS_LONGO|escapejs }}";
@@ -1087,6 +1104,9 @@
         var ROTULO_FPM_BAL_COL_QTD = "{{ ROTULO_FPM_BAL_COL_QTD|escapejs }}";
         var ROTULO_FPM_BAL_MAIS = "{{ ROTULO_FPM_BAL_MAIS|escapejs }}";
         var ROTULO_FPM_CIRC_RC = "{{ ROTULO_FPM_CIRC_RC|escapejs }}";
+        var ROTULO_FPM_CIRC_MV = "{{ ROTULO_FPM_CIRC_MV|escapejs }}";
+        var ROTULO_FPM_DICA_MV = "{{ ROTULO_FPM_DICA_MV|escapejs }}";
+        var ROTULO_FPM_DICA_CIRCULOS_MV = "{{ ROTULO_FPM_DICA_CIRCULOS_MV|escapejs }}";
         var ROTULO_FPM_DICA_RC = "{{ ROTULO_FPM_DICA_RC|escapejs }}";
         var ROTULO_FPM_TIT_RC = "{{ ROTULO_FPM_TIT_RC|escapejs }}";
         var ROTULO_FPM_C_CONTRIB = "{{ ROTULO_FPM_C_CONTRIB|escapejs }}";
@@ -1914,7 +1934,7 @@
         var FPM_CORES = {
             consumo: '#5b6b7a', producao: '#8e44ad', ciclo: '#e74c3c'
         };
-        var FPM_COR_MP = '#7f8c8d', FPM_COR_SP = '#e67e22', FPM_COR_RC = '#e74c3c', FPM_COR_C = '#16a085';
+        var FPM_COR_MP = '#7f8c8d', FPM_COR_SP = '#e67e22', FPM_COR_RC = '#e74c3c', FPM_COR_C = '#16a085', FPM_COR_MV = '#b9770e';
 
         function numFPM(v, casas) {
             return Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: casas });
@@ -1988,7 +2008,12 @@
             var resto = b.sem_consumo < -0.005
                 ? ROTULO_FPM_BAL_ACIMA + ': ' + numFPM(-b.sem_consumo, 2) + u
                 : ROTULO_FPM_BAL_SEM + ': ' + numFPM(Math.max(0, b.sem_consumo), 2) + u;
+            // 🌟 NOVO: o gerado como subproduto (consumo negativo em outros equipamentos) aparece logo abaixo do produzido
+            // -- só quando existe, pra caixa não ficar com uma linha "0,00" à toa.
+            var gerado = (b.gerado_subproduto || 0) > 0.005
+                ? [[(naCaixa ? ROTULO_FPM_BAL_GERADO_CURTO : ROTULO_FPM_BAL_GERADO) + ': ' + numFPM(b.gerado_subproduto, 2) + u, false]] : [];
             return [[ROTULO_FPM_BAL_PRODUZIDO + ': ' + numFPM(b.produzido, 2) + u, false]]
+                .concat(gerado)
                 .concat(naCaixa ? [] : [[ROTULO_FPM_BAL_FLUXO_LONGO + ': ' + numFPM(b.neste_fluxo, 2) + u, false]])
                 .concat([[(naCaixa ? ROTULO_FPM_BAL_OUTROS : ROTULO_FPM_BAL_OUTROS_LONGO) + ': ' + numFPM(b.outros_produtos, 2) + u, false],
                          [resto, false]]);
@@ -2000,6 +2025,33 @@
             nos.forEach(function(n) { porId[n.id] = n; });
             var arestas = (d.arestas || []).filter(function(a) { return porId[a.de] && porId[a.para] && a.tipo !== 'ciclo'; });
             var paraLayout = arestas.filter(function(a) { return a.tipo !== 'ciclo' && a.de !== a.para; });
+            // 🌟 CORRIGIDO: ligações que fecham uma volta (A -> B -> ... -> A) e não vieram marcadas como recirculação (ex.:
+            // caixas que entram pelo círculo MV, que ligam pedaços de fluxo montados separadamente) faziam a conta da coluna
+            // crescer a cada rodada -- o desenho ficava com milhares de pixels de largura. Agora, andando do produto final
+            // para trás, a ligação que volta para uma caixa que ainda está no caminho fica fora da conta das colunas
+            // (continua desenhada). Sem volta, o resultado é o mesmo de antes.
+            (function() {
+                var entram = {}, estado = {}, volta = [];
+                paraLayout.forEach(function(a) { (entram[a.para] = entram[a.para] || []).push(a); });
+                var raizes = nos.filter(function(n) { return n.final; }).concat(nos);
+                raizes.forEach(function(r) {
+                    if (estado[r.id]) return;
+                    estado[r.id] = 1;
+                    var pilha = [[r.id, 0]];
+                    while (pilha.length) {
+                        var topo = pilha[pilha.length - 1], lista = entram[topo[0]] || [];
+                        if (topo[1] < lista.length) {
+                            var a = lista[topo[1]++];
+                            if (estado[a.de] === 1) volta.push(a);
+                            else if (!estado[a.de]) { estado[a.de] = 1; pilha.push([a.de, 0]); }
+                        } else {
+                            estado[topo[0]] = 2;
+                            pilha.pop();
+                        }
+                    }
+                });
+                if (volta.length) paraLayout = paraLayout.filter(function(a) { return volta.indexOf(a) < 0; });
+            })();
 
             // Coluna = distância até a saída (produto final fica à direita). Limitado pra nunca travar.
             var dist = {};
@@ -2094,13 +2146,14 @@
         // Um círculo com a quantidade de itens e o rótulo ao lado. Clicável quando há itens.
         // 🌟 ALTERADO: tipo 'c' = círculo do CUSTO (mostra a letra C; qtd = 1 quando há custo calculado).
         function circuloFPM(uid, n, tipo, cx, cy, qtd) {
-            var cor = { mp: FPM_COR_MP, sp: FPM_COR_SP, rc: FPM_COR_RC, c: FPM_COR_C }[tipo];
-            var rotulo = { mp: ROTULO_FPM_CIRC_MP, sp: ROTULO_FPM_CIRC_SP, rc: ROTULO_FPM_CIRC_RC, c: '' }[tipo];
+            var cor = { mp: FPM_COR_MP, sp: FPM_COR_SP, rc: FPM_COR_RC, c: FPM_COR_C, mv: FPM_COR_MV }[tipo];
+            var rotulo = { mp: ROTULO_FPM_CIRC_MP, sp: ROTULO_FPM_CIRC_SP, rc: ROTULO_FPM_CIRC_RC, c: '', mv: ROTULO_FPM_CIRC_MV }[tipo];
             var ativo = qtd > 0;
-            var dica = { mp: ROTULO_FPM_DICA_MP, sp: ROTULO_FPM_DICA_SP, rc: ROTULO_FPM_DICA_RC, c: ROTULO_FPM_DICA_C }[tipo] + (tipo === 'c' ? '' : ' (' + qtd + ')');
+            var dica = { mp: ROTULO_FPM_DICA_MP, sp: ROTULO_FPM_DICA_SP, rc: ROTULO_FPM_DICA_RC, c: ROTULO_FPM_DICA_C, mv: ROTULO_FPM_DICA_MV }[tipo] + (tipo === 'c' ? '' : ' (' + qtd + ')');
             return '<g class="fpm-circulo' + (ativo ? ' fpm-circulo-ativo' : '') + '"' +
                 (ativo ? ' style="cursor: pointer;" onclick="mostrarInsumosFPM(\'' + uid + '\', \'' + escapeAttr(n.id) + '\', \'' + tipo + '\')"' : '') + '>' +
                 '<title>' + escapeHtml(dica) + '</title>' +
+                (tipo === 'mv' && n._mvAberto ? '<circle cx="' + cx + '" cy="' + cy + '" r="14" fill="none" stroke="' + cor + '" stroke-width="2"/>' : '') +
                 '<circle cx="' + cx + '" cy="' + cy + '" r="11" fill="' + (ativo ? cor : '#ffffff') + '" stroke="' + cor + '" stroke-width="1.5"' + (ativo ? '' : ' stroke-opacity="0.45"') + '/>' +
                 '<text x="' + cx + '" y="' + (cy + 4) + '" font-size="11" font-weight="bold" text-anchor="middle" fill="' + (ativo ? '#ffffff' : cor) + '"' + (ativo ? '' : ' fill-opacity="0.6"') + '>' + (tipo === 'c' ? escapeHtml(ROTULO_FPM_CIRC_C) : qtd) + '</text>' +
                 '<text x="' + (cx + 15) + '" y="' + (cy + 4) + '" font-size="11" fill="' + (ativo ? '#2c3e50' : '#9aa5ad') + '">' + escapeHtml(rotulo) + '</text></g>';
@@ -2309,7 +2362,7 @@
             });
 
             L.nos.forEach(function(n) {
-                var estilo = n.tipo === 'item' ? ['#f4ecf7', '#8e44ad'] : (n.final ? ['#e8f8ef', '#27ae60'] : ['#eaf3fb', '#3498db']);
+                var estilo = n.tipo === 'item' ? ['#f4ecf7', '#8e44ad'] : (n.final ? ['#e8f8ef', '#27ae60'] : n.mv_origem ? ['#fef5e7', FPM_COR_MV] : ['#eaf3fb', '#3498db']);
                 var linhas = linhasNoFPM(n);
                 // 🌟 ALTERADO: o balanço do item aparece em TODAS as caixas. No equipamento cujo item também sai de outros
                 // grupos de máquina, a produção dele fica e o balanço é o do item inteiro (todos os grupos).
@@ -2323,7 +2376,7 @@
                 // Equipamento com balanço: a linha "Produção" sai (é o mesmo valor do "Produzido" do balanço).
                 s += '<g data-no="' + escapeAttr(n.id) + '" style="cursor: move;"><g><title>' + escapeHtml(dicaCaixa.join('\n')) + '</title>' +
                     '<rect x="' + n._x + '" y="' + n._y + '" width="' + FPM_LARG + '" height="' + n._h + '" rx="' + (n.tipo === 'op' ? 6 : 14) +
-                    '" fill="' + estilo[0] + '" stroke="' + estilo[1] + '" stroke-width="' + (n.final ? 2.5 : 1.4) + '"/>';
+                    '" fill="' + estilo[0] + '" stroke="' + estilo[1] + '" stroke-width="' + (n.final ? 2.5 : 1.4) + '"' + (n.mv_origem ? ' stroke-dasharray="6 3"' : '') + '/>';
                 // Localizado pela lista de equipamentos: contorno vermelho (como no editor). Não sai na imagem exportada.
                 if (!paraExportar && d._destaques && d._destaques[n.id]) {
                     s += '<rect class="fpm-localizado" pointer-events="none" x="' + (n._x - 6) + '" y="' + (n._y - 6) + '" width="' + (FPM_LARG + 12) +
@@ -2338,7 +2391,7 @@
                         (l[1] ? ' font-weight="bold"' : '') + ' fill="' + (l[1] ? '#1d2f40' : '#3d4b57') + '">' + escapeHtml(cortarFPM(l[0], l[1] ? 24 : 32)) + '</text>';
                 });
                 s += '</g>';
-                if (n.tipo === 'item' && n.balanco && n.balanco.outros_total_itens > 0 && !paraExportar) {
+                if (n.tipo === 'item' && n.balanco && (n.balanco.outros_total_itens > 0 || n.balanco.geradores_total_itens > 0) && !paraExportar) {
                     s += '<text class="fpm-ver-balanco" x="' + (n._x + FPM_LARG - 8) + '" y="' + (n._y + n._h - 7) + '" font-size="11" text-anchor="end" fill="#8e44ad"' +
                         ' text-decoration="underline" style="cursor: pointer;" onclick="mostrarBalancoFPM(\'' + uid + '\', \'' + escapeAttr(n.id) + '\')"><title>' +
                         escapeHtml(ROTULO_FPM_BAL_DICA) + '</title>' + escapeHtml(ROTULO_FPM_BAL_DETALHAR) + '</text>';
@@ -2352,16 +2405,52 @@
                     var reg = insumos[n.id] || { mp: [], sp: [], rc: [] };
                     var yc = n._y + n._h - 16;
                     s += '<line x1="' + (n._x + 6) + '" y1="' + (n._y + 68) + '" x2="' + (n._x + FPM_LARG - 6) + '" y2="' + (n._y + 68) + '" stroke="' + estilo[1] + '" stroke-opacity="0.25"/>';
-                    // 🌟 ALTERADO: 4 círculos -- MP, SP, RC e C (custo).
-                    s += circuloFPM(uid, n, 'mp', n._x + 18, yc, reg.mp.length) + circuloFPM(uid, n, 'sp', n._x + 66, yc, reg.sp.length) +
-                        circuloFPM(uid, n, 'rc', n._x + 114, yc, reg.rc.length) + circuloFPM(uid, n, 'c', n._x + 178, yc, n.custo ? 1 : 0);
+                    // 🌟 ALTERADO: 4 círculos -- MP, SP, RC e C (custo). No fluxo real por rota, 5: + MV (movimentações VAZIO).
+                    if (n.mv_n !== undefined) {
+                        n._mvAberto = !!(d._mvAbertos && d._mvAbertos[n.id]);
+                        s += circuloFPM(uid, n, 'mp', n._x + 13, yc, reg.mp.length) + circuloFPM(uid, n, 'sp', n._x + 58, yc, reg.sp.length) +
+                            circuloFPM(uid, n, 'rc', n._x + 103, yc, reg.rc.length) + circuloFPM(uid, n, 'mv', n._x + 148, yc, n.mv_n) +
+                            circuloFPM(uid, n, 'c', n._x + 196, yc, n.custo ? 1 : 0);
+                    } else {
+                        s += circuloFPM(uid, n, 'mp', n._x + 18, yc, reg.mp.length) + circuloFPM(uid, n, 'sp', n._x + 66, yc, reg.sp.length) +
+                            circuloFPM(uid, n, 'rc', n._x + 114, yc, reg.rc.length) + circuloFPM(uid, n, 'c', n._x + 178, yc, n.custo ? 1 : 0);
+                    }
                 }
                 s += '</g>';
             });
             return s + rotulos + linhasRc + alcas + '</svg>';
         }
 
+        // 🌟 NOVO: fluxo REAL por rota -- o servidor manda d.rotas (um grafo por equipamento que produz o produto final);
+        // uma aba por rota, desenhada só quando é aberta. Sem d.rotas, é o fluxo de sempre.
+        var _rotasFPM = {}, _contadorRotasFPM = 0;
         function montarFluxoProducaoMensal(d) {
+            if (d && d.rotas && d.rotas.length) {
+                var wid = 'fpmr' + (++_contadorRotasFPM);
+                _rotasFPM[wid] = { rotas: d.rotas, html: {} };
+                var abas = d.rotas.map(function(r, i) {
+                    return '<button type="button" class="fpm-aba-rota' + (i === 0 ? ' ativa' : '') + '" data-i="' + i + '" title="' + escapeAttr(r.rotulo_completo || r.rotulo) + '" onclick="abrirRotaFPM(\'' + wid + '\', ' + i + ')">' +
+                        escapeHtml(r.rotulo) + ' <span class="fpm-aba-pct">' + escapeHtml(numFPM(r.participacao, 1)) + '%</span></button>';
+                }).join('');
+                return '<div class="fpm-rotas" id="' + wid + '"><div class="fpm-abas-rotas">' + abas + '</div>' +
+                    '<div class="fpm-rota-corpo">' + montarFluxoProducaoMensalUm(d.rotas[0]) + '</div></div>';
+            }
+            return montarFluxoProducaoMensalUm(d);
+        }
+
+        function abrirRotaFPM(wid, i) {
+            var caixa = document.getElementById(wid), info = _rotasFPM[wid];
+            if (!caixa || !info) return;
+            var corpo = caixa.querySelector('.fpm-rota-corpo');
+            var atual = caixa.querySelector('.fpm-aba-rota.ativa');
+            if (atual) info.html[atual.getAttribute('data-i')] = corpo.firstChild;      // guarda o desenho (com o que o usuário mexeu)
+            caixa.querySelectorAll('.fpm-aba-rota').forEach(function(b) { b.classList.toggle('ativa', Number(b.getAttribute('data-i')) === i); });
+            corpo.innerHTML = '';
+            if (info.html[i]) corpo.appendChild(info.html[i]);
+            else corpo.innerHTML = montarFluxoProducaoMensalUm(info.rotas[i]);
+        }
+
+        function montarFluxoProducaoMensalUm(d) {
             if (!d || !d.nos) return '';
             var uid = 'fpm' + (++_contadorFPM);
             _dadosFPM[uid] = d;
@@ -2378,7 +2467,7 @@
             };
             instalarInteracaoFPM();
             return '<div class="fluxo-pm" id="' + uid + '"><div class="fpm-topo">' +
-                '<span class="fpm-dica-circulos">' + escapeHtml(ROTULO_FPM_DICA_CIRCULOS) + '<br>' + escapeHtml(ROTULO_FPM_DICA_MOVER) + '</span>' +
+                '<span class="fpm-dica-circulos">' + escapeHtml(ROTULO_FPM_DICA_CIRCULOS) + (d.rota_real ? ' ' + escapeHtml(ROTULO_FPM_DICA_CIRCULOS_MV) : '') + '<br>' + escapeHtml(ROTULO_FPM_DICA_MOVER) + '</span>' +
                 '<span class="fpm-botoes"><span class="fpm-botoes-linha">' + htmlQtdEquipFPM(uid) +
                 '<button type="button" class="botao-opcao fpm-btn-outros" data-uid="' + uid + '" onclick="alternarListaFPM(\'' + uid + '\')">' + escapeHtml(textoBotaoListaFPM(d)) + '</button></span>' +
                 '<span class="fpm-botoes-linha"><button type="button" class="botao-opcao" onclick="reorganizarFPM(\'' + uid + '\')">' + escapeHtml(ROTULO_FPM_REORGANIZAR) + '</button>' +
@@ -2386,7 +2475,7 @@
                 '<button type="button" class="botao-opcao" onclick="abrirTelaCheiaFPM(\'' + uid + '\')">' + escapeHtml(ROTULO_FPM_TELA_CHEIA) + '</button>' +
                 '<button type="button" class="botao-opcao fpm-exportar" onclick="exportarFluxoFPM(\'' + uid + '\', this)">' + escapeHtml(ROTULO_GC_EXPORTAR) + '</button></span></span></div>' +
                 '<div class="fpm-legenda">' + legenda(FPM_CORES.consumo, ROTULO_FPM_LEG_CONSUMO) + legenda(FPM_CORES.producao, ROTULO_FPM_LEG_PRODUTORES, true) +
-                bolinha(FPM_COR_MP, ROTULO_FPM_DICA_MP) + bolinha(FPM_COR_SP, ROTULO_FPM_DICA_SP) + bolinha(FPM_COR_RC, ROTULO_FPM_DICA_RC) + bolinha(FPM_COR_C, ROTULO_FPM_DICA_C) + '</div>' +
+                bolinha(FPM_COR_MP, ROTULO_FPM_DICA_MP) + bolinha(FPM_COR_SP, ROTULO_FPM_DICA_SP) + bolinha(FPM_COR_RC, ROTULO_FPM_DICA_RC) + (d.rota_real ? bolinha(FPM_COR_MV, ROTULO_FPM_DICA_MV) : '') + bolinha(FPM_COR_C, ROTULO_FPM_DICA_C) + '</div>' +
                 '<div class="fpm-corpo"><div class="fpm-area" id="' + uid + '-area">' + svgFPM(vistaFPM(uid), uid) + '</div>' +
                 '<div class="fpm-lista" id="' + uid + '-lista" data-uid="' + uid + '"' + (d._listaAberta ? '' : ' style="display: none;"') + '>' + listaOutrosFPM(uid) + '</div></div>' +
                 '<div class="fpm-detalhe" id="' + uid + '-detalhe"></div></div>';
@@ -2398,6 +2487,7 @@
             var d = _dadosFPM[uid];
             if (!d) return;
             if (tipo === 'c') return mostrarCustoFPM(uid, nid);
+            if (tipo === 'mv') return alternarMovimentacoesFPM(uid, nid);
             var no = (d.nos || []).filter(function(n) { return n.id === nid; })[0];
             var lista = ((insumosFPM(d)[nid] || {})[tipo]) || [];
             if (!no) return;
@@ -2443,6 +2533,63 @@
             destino.innerHTML = html;
             destino.style.display = 'block';
             if (destino.classList.contains('fpm-detalhe')) destino.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+
+        // 🌟 NOVO: fluxo real por rota -- clique no círculo MV: põe no desenho (ou tira) UM NÍVEL de quem entrega ao
+        // equipamento por movimentação VAZIO (d.mv_fragmentos[id], mandado pelo servidor). Cada caixa que entra tem o seu
+        // próprio MV, pra ir abrindo até onde quiser. Fechar um MV fecha também o que foi aberto a partir dele.
+        // Caixas tracejadas. Não muda rota nem custo da rota.
+        function alternarMovimentacoesFPM(uid, nid) {
+            var d = _dadosFPM[uid];
+            if (!d) return;
+            if (!d._baseNos) { d._baseNos = (d.nos || []).slice(); d._baseArestas = (d.arestas || []).slice(); }
+            d._mvAbertos = d._mvAbertos || {};
+            var abrindo = !d._mvAbertos[nid];
+            if (abrindo) d._mvAbertos[nid] = true; else delete d._mvAbertos[nid];
+            var frags = d.mv_fragmentos || {};
+            var ids = {}, chaves = {}, novos = {}, aplicados = {}, nos = d._baseNos.slice(), arestas = d._baseArestas.slice();
+            nos.forEach(function(n) { ids[n.id] = true; });
+            arestas.forEach(function(a) { chaves[chaveArestaFPM(a)] = true; });
+            // só os MV abertos cuja caixa está no desenho (fechar um nível fecha os de trás dele)
+            var mudou = true;
+            while (mudou) {
+                mudou = false;
+                Object.keys(d._mvAbertos).forEach(function(k) {
+                    if (aplicados[k] || !ids[k] || !frags[k]) return;
+                    aplicados[k] = true;
+                    mudou = true;
+                    (frags[k].nos || []).forEach(function(n) {
+                        if (!ids[n.id]) { ids[n.id] = true; nos.push(n); if (n.tipo === 'op' && k === nid) novos[n.id] = true; }
+                    });
+                    (frags[k].arestas || []).forEach(function(a) {
+                        var c = chaveArestaFPM(a);
+                        if (!chaves[c]) { chaves[c] = true; arestas.push(a); }
+                    });
+                });
+            }
+            Object.keys(d._mvAbertos).forEach(function(k) { if (!aplicados[k]) delete d._mvAbertos[k]; });
+            // o item que entrava como matéria-prima e agora tem quem o produza no desenho deixa de contar como matéria-prima
+            var porIdM = {}, alimentado = {};
+            nos.forEach(function(n) { porIdM[n.id] = n; });
+            arestas.forEach(function(a) {
+                var o = porIdM[a.de];
+                if (o && (o.tipo === 'op' || o.tipo === 'item') && a.tipo === 'consumo') alimentado[a.para + '|' + o.item_codigo] = true;
+            });
+            arestas = arestas.filter(function(a) {
+                var o = porIdM[a.de];
+                return !(o && o.tipo === 'mp' && alimentado[a.para + '|' + o.item_codigo]);
+            });
+            var antes = d._visiveis || {};
+            d.nos = nos;
+            d.arestas = arestas;
+            d._insumos = null;
+            prepararEquipamentosFPM(d);
+            var vis = {};
+            Object.keys(antes).forEach(function(id) { if (ids[id]) vis[id] = true; });
+            if (abrindo) Object.keys(novos).forEach(function(id) { vis[id] = true; });
+            d._visiveis = vis;
+            Object.keys(d._pos || {}).forEach(function(id) { if (!ids[id]) delete d._pos[id]; });
+            aplicarMudancaFPM(uid);
         }
 
         function fecharInsumosFPM(botao) {
@@ -2510,6 +2657,10 @@
                 window.addEventListener('mouseup', function() { arrasto = null; area.classList.remove('arrastando'); });
             }
             sobre.setAttribute('data-uid', uid);
+            // 🌟 CORRIGIDO: garante os botões da tela cheia ativos (se algo os travou antes)
+            sobre.querySelectorAll('.fpm-overlay-barra .botao-opcao').forEach(function(b) {
+                b.disabled = false; b.style.opacity = ''; b.style.cursor = '';
+            });
             var tituloCheio = (_dadosFPM[uid].titulo || '') + ' — ' + (_dadosFPM[uid].periodo || '');
             sobre.querySelector('.fpm-overlay-titulo').textContent = tituloCheio;
             sobre.querySelector('.fpm-overlay-titulo').title = tituloCheio;      // título longo é cortado com "…": o texto todo aparece ao parar o mouse
@@ -2858,7 +3009,7 @@
             Object.keys(consome).forEach(function(id) { if (produz[id]) visivel[id] = true; });
             return { titulo: d.titulo, periodo: d.periodo, nos: (d.nos || []).filter(function(n) { return visivel[n.id]; }),
                      arestas: d.arestas, _pos: d._pos, _dobras: d._dobras, _alcasRc: d._alcasRc, _insumos: insumosFPM(d), _rcDestaque: d._rcDestaque,
-                     _destaques: d._destaques || {}, _semRotulos: !!d._semRotulos };
+                     _destaques: d._destaques || {}, _semRotulos: !!d._semRotulos, _mvAbertos: d._mvAbertos || {} };
         }
 
         // Lista de TODOS os equipamentos do fluxo (como a barra do editor): os que já estão no desenho com fundo vermelho
@@ -3200,16 +3351,22 @@
                 '<button type="button" class="fpm-detalhe-fechar" onclick="fecharInsumosFPM(this)" title="' + escapeAttr(ROTULO_FPM_FECHAR) + '">&times;</button></div>' +
                 '<div class="fpm-detalhe-sub">' + escapeHtml((d.periodo || '') + ' · ' + linhasBalancoFPM(no, b).map(function(l) { return l[0]; }).join(' · ')) + '</div>' +
                 '<div class="fpm-detalhe-sub">' + escapeHtml(ROTULO_FPM_BAL_EXPLICA) + '</div>';
-            html += '<table class="fpm-tabela"><thead><tr><th>' + escapeHtml(ROTULO_FPM_BAL_COL_PRODUTO) + '</th><th>' + escapeHtml(ROTULO_FPM_COL_DESC) +
-                '</th><th>' + escapeHtml(ROTULO_FPM_BAL_COL_GRUPOS) + '</th><th class="num">' + escapeHtml(ROTULO_FPM_BAL_COL_QTD) + '</th></tr></thead><tbody>';
-            (b.outros || []).forEach(function(x) {
-                html += '<tr><td>' + escapeHtml(x.produto) + '</td><td>' + escapeHtml(x.descricao || '') + '</td><td>' + escapeHtml(x.grupos) +
-                    '</td><td class="num">' + escapeHtml(numFPM(x.qtd, 2) + ' ' + no.unidade) + '</td></tr>';
-            });
-            html += '</tbody></table>';
-            if (b.outros_total_itens > (b.outros || []).length) {
-                html += '<div class="fpm-detalhe-sub">… ' + escapeHtml(ROTULO_FPM_BAL_MAIS + ' ' + (b.outros_total_itens - b.outros.length)) + '</div>';
-            }
+            // 🌟 ALTERADO: duas tabelas -- quem GEROU o item como subproduto e quem (fora do fluxo) o CONSUMIU.
+            var tabela = function(titulo, lista, total, colQtd) {
+                if (!lista || !lista.length) return '';
+                var t = '<div class="fpm-detalhe-sub" style="margin-top: 8px; color: #003366;"><b>' + escapeHtml(titulo) + '</b></div>' +
+                    '<table class="fpm-tabela"><thead><tr><th>' + escapeHtml(ROTULO_FPM_BAL_COL_PRODUTO) + '</th><th>' + escapeHtml(ROTULO_FPM_COL_DESC) +
+                    '</th><th>' + escapeHtml(ROTULO_FPM_BAL_COL_GRUPOS) + '</th><th class="num">' + escapeHtml(colQtd) + '</th></tr></thead><tbody>';
+                lista.forEach(function(x) {
+                    t += '<tr><td>' + escapeHtml(x.produto) + '</td><td>' + escapeHtml(x.descricao || '') + '</td><td>' + escapeHtml(x.grupos) +
+                        '</td><td class="num">' + escapeHtml(numFPM(x.qtd, 2) + ' ' + no.unidade) + '</td></tr>';
+                });
+                t += '</tbody></table>';
+                if (total > lista.length) t += '<div class="fpm-detalhe-sub">… ' + escapeHtml(ROTULO_FPM_BAL_MAIS + ' ' + (total - lista.length)) + '</div>';
+                return t;
+            };
+            html += tabela(ROTULO_FPM_BAL_GERADORES, b.geradores, b.geradores_total_itens || 0, ROTULO_FPM_BAL_COL_QTD_GERADA) +
+                    tabela(ROTULO_FPM_BAL_CONSUMIDORES, b.outros, b.outros_total_itens || 0, ROTULO_FPM_BAL_COL_QTD);
             var sobre = document.getElementById('fpm-overlay');
             var destino = (sobre && sobre.style.display === 'flex' && sobre.getAttribute('data-uid') === uid)
                 ? sobre.querySelector('.fpm-overlay-detalhe') : document.getElementById(uid + '-detalhe');
@@ -3566,9 +3723,21 @@
             });
         }
 
+        // 🌟 CORRIGIDO: travava TODOS os .botao-opcao da página -- inclusive os botões das ferramentas dos desenhos (Fechar,
+        // Exportar, Reorganizar... da tela cheia, que é criada uma vez só e reaproveitada, e os de cada fluxo no chat).
+        // Por isso, depois de escolher uma opção no chat, a tela cheia abria com os botões mortos. Agora só trava os
+        // botões de escolha da conversa; os das ferramentas (fluxo, tela cheia, exportar gráfico) ficam de fora.
+        var SELETOR_FERRAMENTAS = '#fpm-overlay, .fluxo-pm, .fpm-rotas';
+        function ehFerramenta(b) {
+            return b.classList.contains('gc-exportar') || !!(b.closest && b.closest(SELETOR_FERRAMENTAS));
+        }
+
         function escolherOpcao(opcao) {
             var botoes = document.querySelectorAll('.botao-opcao');
-            botoes.forEach(function(b) { b.disabled = true; b.style.opacity = '0.5'; b.style.cursor = 'default'; });
+            botoes.forEach(function(b) {
+                if (ehFerramenta(b)) return;
+                b.disabled = true; b.style.opacity = '0.5'; b.style.cursor = 'default';
+            });
             var input = document.getElementById('input-box');
             var form = document.getElementById('chat-form');
             input.value = opcao;
