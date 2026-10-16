@@ -178,6 +178,10 @@
         .cartao-sel .sel-selo { font-size: 12px; font-weight: bold; }
         .cartao-sel .sel-motivo { font-size: 10px; line-height: 1.25; color: #666; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
         .barra-selecao { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px; }
+        .barra-selecao-topo { margin: 8px 0; }
+        .barra-pesquisa-sel { margin-top: 8px; display: flex; align-items: center; gap: 10px; }
+        .pesquisa-sel { flex: 1; max-width: 520px; padding: 7px 10px; border: 1px solid #b8c4ce; border-radius: 6px; font-size: 13px; }
+        .pesquisa-sel-conta { font-size: 12px; color: #555; white-space: nowrap; }
         .barra-ordem-sel { margin-top: 8px; display: flex; justify-content: flex-end; }
         .barra-ordem-sel .botao-sel { margin: 0; }
         .botao-sel { padding: 6px 12px; border-radius: 16px; border: 1px solid #417690; background: #fff; color: #417690; font-size: 13px; cursor: pointer; }
@@ -209,6 +213,11 @@
         .fpm-overlay-detalhe { display: none; position: absolute; z-index: 2; right: 16px; top: calc(var(--fpm-topo, 96px) + 8px); width: min(680px, calc(100vw - 32px));
             max-height: min(75vh, calc(100vh - var(--fpm-topo, 96px) - 24px)); overflow: auto;
             background: #fff; border: 1px solid #cfd6dc; border-radius: 8px; box-shadow: 0 6px 24px rgba(0,0,0,0.18); padding: 10px 12px; font-size: 12px; }
+        /* 🌟 NOVO (15/10/2026): balanço de entradas e saídas -- painel da tela cheia mais largo e tabela compacta */
+        .fpm-overlay-detalhe.fpm-detalhe-largo { width: min(1320px, calc(100vw - 32px)); }
+        .fpm-tabela-be { font-size: 11px; }
+        .fpm-tabela-be th, .fpm-tabela-be td { padding: 3px 5px; }
+        .fpm-tabela-be td.num, .fpm-tabela-be th.num { white-space: nowrap; }
         .fpm-detalhe-topo { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; color: #003366; }
         .fpm-detalhe-fechar { border: none; background: none; font-size: 18px; line-height: 1; color: #888; cursor: pointer; padding: 0 2px; }
         .fpm-detalhe-sub { color: #666; font-size: 11px; margin: 2px 0 6px; }
@@ -252,6 +261,13 @@
         .fpm-escada-botoes { margin-top: 10px; }
         .fpm-escada-botoes .botao-opcao { margin: 0; }
         .fpm-escada { margin-top: 8px; }
+        .fpm-link-itens { color: #1f5f8b; text-decoration: underline; cursor: pointer; }
+        .fpm-custo-itens { margin-top: 8px; }
+        .fpm-evolucao { margin-top: 8px; }
+        .fpm-evolucao-svg { display: block; max-width: 660px; }
+        .fpm-evolucao-leg { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11px; color: #3d4b57; margin: 2px 0 4px; }
+        .fpm-evolucao-leg span { display: inline-flex; align-items: center; gap: 5px; }
+        .fpm-escada-botoes .botao-opcao + .botao-opcao { margin-left: 6px; }
         .fpm-escada-abas { display: inline-flex; border: 1px solid #cfd6dc; border-radius: 5px; overflow: hidden; margin-bottom: 6px; }
         .fpm-escada-aba { border: none; background: #fff; padding: 4px 12px; font-size: 12px; cursor: pointer; color: #34495e; }
         .fpm-escada-aba + .fpm-escada-aba { border-left: 1px solid #cfd6dc; }
@@ -792,6 +808,8 @@
         {% trans "Não foi possível calcular" as ROTULO_NAO_CALCULAVEL %}
         {% trans "Marcar os que precisam de ajuste" as ROTULO_MARCAR_AJUSTE %}
         {% trans "Ordenar por código" as ROTULO_SEL_ORDEM_CODIGO %}
+        {% trans "Pesquisar por código ou descrição..." as ROTULO_SEL_PESQUISAR %}
+        {% trans "de" as ROTULO_SEL_DE %}
         {% trans "Ordenar por descrição" as ROTULO_SEL_ORDEM_NOME %}
         {% trans "Atualizar selecionados" as ROTULO_ATUALIZAR_SEL %}
         {% trans "Produtos selecionados" as ROTULO_PRODUTOS_SEL %}
@@ -877,6 +895,24 @@
         {% trans "usa" as ROTULO_FPM_C_USA %}
         {% trans "Gráfico em escada" as ROTULO_FPM_C_ESCADA %}
         {% trans "Esconder gráfico" as ROTULO_FPM_C_ESCADA_FECHAR %}
+        {% trans "Consumo específico = quantidade por unidade consumida no equipamento. Custo por unidade do próprio item (valor contábil médio no período, neste equipamento); nos subprodutos, o crédito por unidade gerada (negativo)." as ROTULO_FPM_C_ITENS_NOTA %}
+        {% trans "Unidade" as ROTULO_FPM_C_UNIDADE %}
+        {% trans "Consumo específico" as ROTULO_FPM_C_CONS_ESP %}
+        {% trans "Custo por unidade de cada matéria-prima / subproduto consumido (valor contábil médio no período, neste equipamento)." as ROTULO_FPM_MP_CUSTO_NOTA %}
+        {% trans "Total das matérias-primas e subprodutos consumidos" as ROTULO_FPM_MP_CUSTO_TOTAL %}
+        {% trans "Crédito por unidade de cada subproduto gerado (valor contábil médio no período, neste equipamento) -- negativo porque reduz o custo." as ROTULO_FPM_SP_CUSTO_NOTA %}
+        {% trans "MOVIMENTAÇÃO (equipamento VAZIO)" as ROTULO_FPM_LEG_VAZIO %}
+        {% trans "equipamento do produto final" as ROTULO_FPM_LEG_FINAL %}
+        {% trans "equipamento" as ROTULO_FPM_LEG_REAL %}
+        {% trans "Exportar evolução (Excel)" as ROTULO_FPM_C_EXPORTAR_EVOL %}
+        {% trans "Planilha com a evolução mensal do custo do produto final e de todos os equipamentos deste fluxo" as ROTULO_FPM_C_EXPORTAR_EVOL_DICA %}
+        {% trans "Gerando planilha..." as ROTULO_FPM_C_EXPORTANDO %}
+        {% trans "Não consegui gerar a planilha (a biblioteca de Excel não carregou). Verifique a internet e tente de novo." as ROTULO_FPM_C_EXPORTAR_ERRO %}
+        {% trans "Evolução mensal do custo" as ROTULO_FPM_C_EVOLUCAO %}
+        {% trans "Esconder evolução mensal" as ROTULO_FPM_C_EVOLUCAO_FECHAR %}
+        {% trans "Sem produção do produto em nenhum mês do período." as ROTULO_FPM_C_EVOLUCAO_SEM %}
+        {% trans "Mês" as ROTULO_FPM_C_MES %}
+        {% trans "Custo por unidade do produto final em cada mês, pelo valor contábil do mês (insumos + GGF distribuído do mês)." as ROTULO_FPM_C_EVOLUCAO_NOTA %}
         {% trans "Custo do produto" as ROTULO_FPM_C_FINAL %}
         {% trans "Demais equipamentos" as ROTULO_FPM_C_DEMAIS %}
         {% trans "cada um com menos de 1% do custo do produto" as ROTULO_FPM_C_DEMAIS_DICA %}
@@ -942,6 +978,30 @@
         {% trans "Qtde no período" as ROTULO_FPM_COL_QTD %}
         {% trans "Por unidade produzida" as ROTULO_FPM_COL_ESP %}
         {% trans "Produção" as ROTULO_FPM_PRODUCAO %}
+        {% trans "Clique para ver o balanço de entradas e saídas do equipamento" as ROTULO_FPM_BE_DICA %}
+        {% trans "Balanço de entradas e saídas" as ROTULO_FPM_BE_TITULO %}
+        {% trans "Entradas (consumos registrados na Produção Mensal)" as ROTULO_FPM_BE_ENTRADAS %}
+        {% trans "Saídas (produção e subprodutos gerados)" as ROTULO_FPM_BE_SAIDAS %}
+        {% trans "Vem de (no desenho)" as ROTULO_FPM_BE_ORIGEM %}
+        {% trans "Vai para (no desenho)" as ROTULO_FPM_BE_DESTINO %}
+        {% trans "Tipo" as ROTULO_FPM_BE_TIPO %}
+        {% trans "Produto" as ROTULO_FPM_BE_PRINCIPAL %}
+        {% trans "Subproduto" as ROTULO_FPM_BE_SUB %}
+        {% trans "MP/SP" as ROTULO_FPM_BE_MP %}
+        {% trans "Recirculação" as ROTULO_FPM_BE_RECIRC %}
+        {% trans "Fora deste desenho (outros produtos, estoque ou perdas)" as ROTULO_FPM_BE_FORA %}
+        {% trans "Produto final (saída do fluxo)" as ROTULO_FPM_BE_FINAL %}
+        {% trans "Exportar para Excel" as ROTULO_FPM_BE_EXPORTAR %}
+        {% trans "Exporta todo este quadro (entradas, saídas e totais) para uma planilha Excel" as ROTULO_FPM_BE_EXPORTAR_DICA %}
+        {% trans "Custo por unidade de cada item (valor contábil médio no período, neste equipamento): entradas = custo do item consumido; produto = custo do equipamento (materiais + subprodutos + GGF), o mesmo do círculo C; subproduto = crédito, negativo porque reduz o custo." as ROTULO_FPM_BE_NOTA_CUSTO %}
+        {% trans "não aparece no desenho" as ROTULO_FPM_BE_NAO_DESENHO %}
+        {% trans "Totais por unidade de medida" as ROTULO_FPM_BE_TOTAIS %}
+        {% trans "Unidade" as ROTULO_FPM_BE_UNIDADE %}
+        {% trans "Entradas" as ROTULO_FPM_BE_COL_ENT %}
+        {% trans "Saídas" as ROTULO_FPM_BE_COL_SAI %}
+        {% trans "Entradas − Saídas" as ROTULO_FPM_BE_COL_DIF %}
+        {% trans "Só são somados itens com a mesma unidade de medida. A diferença é o que entrou e não saiu como produto ou subproduto registrado (ou o contrário, quando negativa)." as ROTULO_FPM_BE_NOTA_TOT %}
+        {% trans "Nenhum consumo registrado neste equipamento no período." as ROTULO_FPM_BE_SEM_ENT %}
         {% trans "vários grupos de máquina" as ROTULO_FPM_VARIOS %}
         {% trans "Tela cheia" as ROTULO_FPM_TELA_CHEIA %}
         {% trans "Ajustar à tela" as ROTULO_FPM_AJUSTAR %}
@@ -1002,6 +1062,8 @@
         var MSG_ERRO_SERVIDOR = "{{ MSG_ERRO_SERVIDOR|escapejs }}";
         var MSG_HISTORICO_LIMPO = "{{ MSG_HISTORICO_LIMPO|escapejs }}";
         var MSG_O_QUE_POSSO_FAZER = "{{ MSG_O_QUE_POSSO_FAZER|escapejs }}";
+        var ROTULO_SEL_PESQUISAR = "{{ ROTULO_SEL_PESQUISAR|escapejs }}";
+        var ROTULO_SEL_DE = "{{ ROTULO_SEL_DE|escapejs }}";
         var ROTULO_VOCE = "{{ ROTULO_VOCE|escapejs }}";
         // 🌟 NOVO: nome do usuário (mesmo usado na saudação inicial) --
         // mostrado no lugar de "Você:" nas mensagens do próprio usuário.
@@ -1114,6 +1176,24 @@
         var ROTULO_FPM_C_USA = "{{ ROTULO_FPM_C_USA|escapejs }}";
         var ROTULO_FPM_C_ESCADA = "{{ ROTULO_FPM_C_ESCADA|escapejs }}";
         var ROTULO_FPM_C_ESCADA_FECHAR = "{{ ROTULO_FPM_C_ESCADA_FECHAR|escapejs }}";
+        var ROTULO_FPM_C_ITENS_NOTA = "{{ ROTULO_FPM_C_ITENS_NOTA|escapejs }}";
+        var ROTULO_FPM_C_UNIDADE = "{{ ROTULO_FPM_C_UNIDADE|escapejs }}";
+        var ROTULO_FPM_C_CONS_ESP = "{{ ROTULO_FPM_C_CONS_ESP|escapejs }}";
+        var ROTULO_FPM_MP_CUSTO_NOTA = "{{ ROTULO_FPM_MP_CUSTO_NOTA|escapejs }}";
+        var ROTULO_FPM_SP_CUSTO_NOTA = "{{ ROTULO_FPM_SP_CUSTO_NOTA|escapejs }}";
+        var ROTULO_FPM_MP_CUSTO_TOTAL = "{{ ROTULO_FPM_MP_CUSTO_TOTAL|escapejs }}";
+        var ROTULO_FPM_LEG_VAZIO = "{{ ROTULO_FPM_LEG_VAZIO|escapejs }}";
+        var ROTULO_FPM_LEG_FINAL = "{{ ROTULO_FPM_LEG_FINAL|escapejs }}";
+        var ROTULO_FPM_LEG_REAL = "{{ ROTULO_FPM_LEG_REAL|escapejs }}";
+        var ROTULO_FPM_C_EXPORTAR_EVOL = "{{ ROTULO_FPM_C_EXPORTAR_EVOL|escapejs }}";
+        var ROTULO_FPM_C_EXPORTAR_EVOL_DICA = "{{ ROTULO_FPM_C_EXPORTAR_EVOL_DICA|escapejs }}";
+        var ROTULO_FPM_C_EXPORTANDO = "{{ ROTULO_FPM_C_EXPORTANDO|escapejs }}";
+        var ROTULO_FPM_C_EXPORTAR_ERRO = "{{ ROTULO_FPM_C_EXPORTAR_ERRO|escapejs }}";
+        var ROTULO_FPM_C_EVOLUCAO = "{{ ROTULO_FPM_C_EVOLUCAO|escapejs }}";
+        var ROTULO_FPM_C_EVOLUCAO_FECHAR = "{{ ROTULO_FPM_C_EVOLUCAO_FECHAR|escapejs }}";
+        var ROTULO_FPM_C_EVOLUCAO_SEM = "{{ ROTULO_FPM_C_EVOLUCAO_SEM|escapejs }}";
+        var ROTULO_FPM_C_MES = "{{ ROTULO_FPM_C_MES|escapejs }}";
+        var ROTULO_FPM_C_EVOLUCAO_NOTA = "{{ ROTULO_FPM_C_EVOLUCAO_NOTA|escapejs }}";
         var ROTULO_FPM_C_FINAL = "{{ ROTULO_FPM_C_FINAL|escapejs }}";
         var ROTULO_FPM_C_DEMAIS = "{{ ROTULO_FPM_C_DEMAIS|escapejs }}";
         var ROTULO_FPM_C_DEMAIS_DICA = "{{ ROTULO_FPM_C_DEMAIS_DICA|escapejs }}";
@@ -1179,6 +1259,30 @@
         var ROTULO_FPM_COL_QTD = "{{ ROTULO_FPM_COL_QTD|escapejs }}";
         var ROTULO_FPM_COL_ESP = "{{ ROTULO_FPM_COL_ESP|escapejs }}";
         var ROTULO_FPM_PRODUCAO = "{{ ROTULO_FPM_PRODUCAO|escapejs }}";
+        var ROTULO_FPM_BE_DICA = "{{ ROTULO_FPM_BE_DICA|escapejs }}";
+        var ROTULO_FPM_BE_TITULO = "{{ ROTULO_FPM_BE_TITULO|escapejs }}";
+        var ROTULO_FPM_BE_ENTRADAS = "{{ ROTULO_FPM_BE_ENTRADAS|escapejs }}";
+        var ROTULO_FPM_BE_SAIDAS = "{{ ROTULO_FPM_BE_SAIDAS|escapejs }}";
+        var ROTULO_FPM_BE_ORIGEM = "{{ ROTULO_FPM_BE_ORIGEM|escapejs }}";
+        var ROTULO_FPM_BE_DESTINO = "{{ ROTULO_FPM_BE_DESTINO|escapejs }}";
+        var ROTULO_FPM_BE_TIPO = "{{ ROTULO_FPM_BE_TIPO|escapejs }}";
+        var ROTULO_FPM_BE_PRINCIPAL = "{{ ROTULO_FPM_BE_PRINCIPAL|escapejs }}";
+        var ROTULO_FPM_BE_SUB = "{{ ROTULO_FPM_BE_SUB|escapejs }}";
+        var ROTULO_FPM_BE_MP = "{{ ROTULO_FPM_BE_MP|escapejs }}";
+        var ROTULO_FPM_BE_RECIRC = "{{ ROTULO_FPM_BE_RECIRC|escapejs }}";
+        var ROTULO_FPM_BE_FORA = "{{ ROTULO_FPM_BE_FORA|escapejs }}";
+        var ROTULO_FPM_BE_FINAL = "{{ ROTULO_FPM_BE_FINAL|escapejs }}";
+        var ROTULO_FPM_BE_EXPORTAR = "{{ ROTULO_FPM_BE_EXPORTAR|escapejs }}";
+        var ROTULO_FPM_BE_EXPORTAR_DICA = "{{ ROTULO_FPM_BE_EXPORTAR_DICA|escapejs }}";
+        var ROTULO_FPM_BE_NOTA_CUSTO = "{{ ROTULO_FPM_BE_NOTA_CUSTO|escapejs }}";
+        var ROTULO_FPM_BE_NAO_DESENHO = "{{ ROTULO_FPM_BE_NAO_DESENHO|escapejs }}";
+        var ROTULO_FPM_BE_TOTAIS = "{{ ROTULO_FPM_BE_TOTAIS|escapejs }}";
+        var ROTULO_FPM_BE_UNIDADE = "{{ ROTULO_FPM_BE_UNIDADE|escapejs }}";
+        var ROTULO_FPM_BE_COL_ENT = "{{ ROTULO_FPM_BE_COL_ENT|escapejs }}";
+        var ROTULO_FPM_BE_COL_SAI = "{{ ROTULO_FPM_BE_COL_SAI|escapejs }}";
+        var ROTULO_FPM_BE_COL_DIF = "{{ ROTULO_FPM_BE_COL_DIF|escapejs }}";
+        var ROTULO_FPM_BE_NOTA_TOT = "{{ ROTULO_FPM_BE_NOTA_TOT|escapejs }}";
+        var ROTULO_FPM_BE_SEM_ENT = "{{ ROTULO_FPM_BE_SEM_ENT|escapejs }}";
         var ROTULO_FPM_VARIOS = "{{ ROTULO_FPM_VARIOS|escapejs }}";
         var ROTULO_FPM_TELA_CHEIA = "{{ ROTULO_FPM_TELA_CHEIA|escapejs }}";
         var ROTULO_FPM_AJUSTAR = "{{ ROTULO_FPM_AJUSTAR|escapejs }}";
@@ -1456,6 +1560,15 @@
                 html += '<div class="barra-ordem-sel"><button type="button" class="botao-sel botao-ordem-sel" data-ordem="' + ordemAtual + '" data-ordem-original="' + ordemAtual + '"' +
                     ' onclick="alternarOrdemSelecao(\'' + id + '\')">' + escapeHtml(ordemAtual === 'nome' ? ROTULO_SEL_ORDEM_CODIGO : ROTULO_SEL_ORDEM_NOME) + '</button></div>';
             }
+            // 🌟 NOVO (15/10/2026): na seleção do "Montar Fluxo de Produção" (a que tem ordem alternável), um campo de pesquisa
+            // (código ou descrição; filtra a cada tecla) e os botões "Marcar todos" / "Confirmar" logo abaixo dele, em cima
+            // dos cartões.
+            var botoesEmCima = !!sel.ordem_alternavel;
+            if (botoesEmCima) {
+                html += '<div class="barra-pesquisa-sel"><input type="search" class="pesquisa-sel" placeholder="' + escapeAttr(ROTULO_SEL_PESQUISAR) + '"' +
+                    ' oninput="filtrarSelecaoProdutos(\'' + id + '\', this.value)"><span class="pesquisa-sel-conta"></span></div>';
+                html += '__BARRA_SELECAO__';
+            }
             html += '<div class="grade-selecao">';
             itens.forEach(function(p, posicao) {
                 var selecionavel = p.status === 'ajustar' || p.status === 'escolha';
@@ -1480,13 +1593,36 @@
                         '<span class="sel-codigo">' + escapeHtml(p.codigo) + '</span>' + corpo + '</label>';
             });
             html += '</div>';
+            var barra = '';
             if (algumSelecionavel) {
-                html += '<div class="barra-selecao">' +
+                barra = '<div class="barra-selecao' + (botoesEmCima ? ' barra-selecao-topo' : '') + '">' +
                     '<button type="button" class="botao-sel" onclick="marcarQuePrecisamDeAjuste(\'' + id + '\')">' + escapeHtml(sel.rotulo_marcar || ROTULO_MARCAR_AJUSTE) + '</button>' +
                     '<button type="button" class="botao-opcao botao-confirmar-sel" data-rotulo="' + escapeAttr(rotuloConfirmar) + '"' + (marcadosIniciais === 0 ? ' disabled' : '') + ' onclick="confirmarSelecaoProdutos(\'' + id + '\')">' + escapeHtml(rotuloConfirmar) + ' (' + marcadosIniciais + ')</button>' +
                     '</div>';
             }
+            if (botoesEmCima) html = html.replace('__BARRA_SELECAO__', barra);
+            else html += barra;
             return html + '</div>';
+        }
+
+        // 🌟 NOVO (15/10/2026): pesquisa nos cartões da seleção (código ou descrição, sem diferenciar maiúsculas e acentos).
+        function normalizarPesquisaSel(t) {
+            return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+        }
+
+        function filtrarSelecaoProdutos(id, termo) {
+            var f = document.getElementById(id);
+            if (!f) return;
+            var partes = normalizarPesquisaSel(termo).split(/\s+/).filter(Boolean), total = 0, visiveis = 0;
+            f.querySelectorAll('.cartao-sel').forEach(function(c) {
+                var texto = normalizarPesquisaSel((c.getAttribute('data-codigo') || '') + ' ' + (c.getAttribute('data-nome') || '') + ' ' + c.textContent);
+                var mostra = partes.every(function(p) { return texto.indexOf(p) >= 0; });
+                c.style.display = mostra ? '' : 'none';
+                total++;
+                if (mostra) visiveis++;
+            });
+            var conta = f.querySelector('.pesquisa-sel-conta');
+            if (conta) conta.textContent = partes.length ? visiveis + ' ' + ROTULO_SEL_DE + ' ' + total : '';
         }
 
         function atualizarSelecaoProdutos(id) {
@@ -1523,7 +1659,11 @@
         function marcarQuePrecisamDeAjuste(id) {
             var f = document.getElementById(id);
             if (!f) return;
-            f.querySelectorAll('.caixa-sel:not(:disabled)').forEach(function(c) { c.checked = true; });
+            // 🌟 com pesquisa ativa, marca só os cartões que estão aparecendo
+            f.querySelectorAll('.caixa-sel:not(:disabled)').forEach(function(c) {
+                var cartao = c.closest('.cartao-sel');
+                if (!cartao || cartao.style.display !== 'none') c.checked = true;
+            });
             atualizarSelecaoProdutos(id);
         }
 
@@ -1934,6 +2074,21 @@
         var FPM_CORES = {
             consumo: '#5b6b7a', producao: '#8e44ad', ciclo: '#e74c3c'
         };
+        var FPM_COR_VAZIO_FUNDO = '#fff3a8', FPM_COR_VAZIO_BORDA = '#c9a400';
+        var FPM_COR_REAL_FUNDO = '#cfe8fc', FPM_COR_REAL_BORDA = '#2e86de';
+        var FPM_COR_FINAL_FUNDO = '#b9f6ca', FPM_COR_FINAL_BORDA = '#00c853';
+        var ROTULO_MOVIMENTACAO_FPM = 'MOVIMENTAÇÃO';
+        function quadradoLegFPM(fundo, borda, texto) {
+            return '<span class="fpm-leg"><svg width="18" height="12"><rect x="1" y="1" width="16" height="10" rx="2" fill="' + fundo + '" stroke="' + borda + '"/></svg>' + escapeHtml(texto) + '</span>';
+        }
+        function ehVazioFPM(n) { return n.tipo === 'op' && (n._vazio || String(n.grupo_codigo || '').toUpperCase() === 'VAZIO'); }
+        // 🌟 NOVO (15/10/2026): o grupo de máquina VAZIO (no cadastro: "VAZIO — NÃO EXISTE") aparece como "MOVIMENTAÇÃO"
+        // em todo lugar (caixa, listas, quadros, escada, Excel).
+        function normalizarVazioFPM(n) {
+            if (n && n.tipo === 'op' && !n._vazio && String(n.grupo_codigo || '').toUpperCase() === 'VAZIO') {
+                n._vazio = true; n.grupo_codigo = ROTULO_MOVIMENTACAO_FPM; n.grupo_nome = '';
+            }
+        }
         var FPM_COR_MP = '#7f8c8d', FPM_COR_SP = '#e67e22', FPM_COR_RC = '#e74c3c', FPM_COR_C = '#16a085', FPM_COR_MV = '#b9770e';
 
         function numFPM(v, casas) {
@@ -2362,7 +2517,10 @@
             });
 
             L.nos.forEach(function(n) {
-                var estilo = n.tipo === 'item' ? ['#f4ecf7', '#8e44ad'] : (n.final ? ['#e8f8ef', '#27ae60'] : n.mv_origem ? ['#fef5e7', FPM_COR_MV] : ['#eaf3fb', '#3498db']);
+                // 🌟 NOVO (15/10/2026): equipamento VAZIO (movimentação) em AMARELO, no fluxo completo e nas caixas do MV
+                // 🌟 ALTERADO (15/10/2026): final = verde-claro brilhante; equipamento com código (real) = azul-claro (também os que
+                // entram pelo MV, com a borda tracejada); VAZIO (movimentação) = amarelo.
+                var estilo = n.tipo === 'item' ? ['#f4ecf7', '#8e44ad'] : (n.final ? [FPM_COR_FINAL_FUNDO, FPM_COR_FINAL_BORDA] : ehVazioFPM(n) ? [FPM_COR_VAZIO_FUNDO, FPM_COR_VAZIO_BORDA] : [FPM_COR_REAL_FUNDO, FPM_COR_REAL_BORDA]);
                 var linhas = linhasNoFPM(n);
                 // 🌟 ALTERADO: o balanço do item aparece em TODAS as caixas. No equipamento cujo item também sai de outros
                 // grupos de máquina, a produção dele fica e o balanço é o do item inteiro (todos os grupos).
@@ -2387,8 +2545,15 @@
                 var alturaTexto = n.tipo === 'op' ? 66 : n.tipo === 'item' ? n._h - 16 : n._h;   // faixa de baixo: círculos / "detalhar"
                 var passo = (alturaTexto - 10) / linhas.length;
                 linhas.forEach(function(l, i) {
+                    var txt = cortarFPM(l[0], l[1] ? 24 : 32), corpo = escapeHtml(txt);
+                    // 🌟 NOVO (15/10/2026): no equipamento, o texto "Produção" é um link -- abre o balanço de entradas e saídas.
+                    if (n.tipo === 'op' && i === 2 && !paraExportar && txt.indexOf(ROTULO_FPM_PRODUCAO) === 0) {
+                        corpo = '<tspan class="fpm-link-prod" fill="#1f5f8b" text-decoration="underline" style="cursor: pointer;"' +
+                            ' onclick="mostrarBalancoEquipFPM(\'' + uid + '\', \'' + escapeAttr(n.id) + '\')"><title>' + escapeHtml(ROTULO_FPM_BE_DICA) + '</title>' +
+                            escapeHtml(ROTULO_FPM_PRODUCAO) + '</tspan>' + escapeHtml(txt.slice(ROTULO_FPM_PRODUCAO.length));
+                    }
                     s += '<text x="' + (n._x + 9) + '" y="' + (n._y + 7 + passo * (i + 0.72)) + '" font-size="' + (l[1] ? 12 : 11) + '"' +
-                        (l[1] ? ' font-weight="bold"' : '') + ' fill="' + (l[1] ? '#1d2f40' : '#3d4b57') + '">' + escapeHtml(cortarFPM(l[0], l[1] ? 24 : 32)) + '</text>';
+                        (l[1] ? ' font-weight="bold"' : '') + ' fill="' + (l[1] ? '#1d2f40' : '#3d4b57') + '">' + corpo + '</text>';
                 });
                 s += '</g>';
                 if (n.tipo === 'item' && n.balanco && (n.balanco.outros_total_itens > 0 || n.balanco.geradores_total_itens > 0) && !paraExportar) {
@@ -2454,6 +2619,14 @@
             if (!d || !d.nos) return '';
             var uid = 'fpm' + (++_contadorFPM);
             _dadosFPM[uid] = d;
+            (d.nos || []).forEach(normalizarVazioFPM);
+            Object.keys(d.mv_fragmentos || {}).forEach(function(k) { (d.mv_fragmentos[k].nos || []).forEach(normalizarVazioFPM); });
+            ((d.nos || []).filter(function(n) { return n.custo && n.custo.escada; })).forEach(function(n) {
+                (n.custo.escada.barras || []).forEach(function(b) { b.nome = String(b.nome).replace(/^VAZIO · /, ROTULO_MOVIMENTACAO_FPM + ' · '); });
+            });
+            (d.nos || []).forEach(function(n) {
+                ((n.custo && n.custo.contribuicoes) || []).forEach(function(k) { k.final = String(k.final).replace(/^VAZIO · /, ROTULO_MOVIMENTACAO_FPM + ' · '); });
+            });
             d._pos = d._pos || {};
             d._dobras = d._dobras || {};
             d._alcasRc = d._alcasRc || {};
@@ -2475,7 +2648,9 @@
                 '<button type="button" class="botao-opcao" onclick="abrirTelaCheiaFPM(\'' + uid + '\')">' + escapeHtml(ROTULO_FPM_TELA_CHEIA) + '</button>' +
                 '<button type="button" class="botao-opcao fpm-exportar" onclick="exportarFluxoFPM(\'' + uid + '\', this)">' + escapeHtml(ROTULO_GC_EXPORTAR) + '</button></span></span></div>' +
                 '<div class="fpm-legenda">' + legenda(FPM_CORES.consumo, ROTULO_FPM_LEG_CONSUMO) + legenda(FPM_CORES.producao, ROTULO_FPM_LEG_PRODUTORES, true) +
-                bolinha(FPM_COR_MP, ROTULO_FPM_DICA_MP) + bolinha(FPM_COR_SP, ROTULO_FPM_DICA_SP) + bolinha(FPM_COR_RC, ROTULO_FPM_DICA_RC) + (d.rota_real ? bolinha(FPM_COR_MV, ROTULO_FPM_DICA_MV) : '') + bolinha(FPM_COR_C, ROTULO_FPM_DICA_C) + '</div>' +
+                bolinha(FPM_COR_MP, ROTULO_FPM_DICA_MP) + bolinha(FPM_COR_SP, ROTULO_FPM_DICA_SP) + bolinha(FPM_COR_RC, ROTULO_FPM_DICA_RC) + (d.rota_real ? bolinha(FPM_COR_MV, ROTULO_FPM_DICA_MV) : '') + bolinha(FPM_COR_C, ROTULO_FPM_DICA_C) +
+                quadradoLegFPM(FPM_COR_FINAL_FUNDO, FPM_COR_FINAL_BORDA, ROTULO_FPM_LEG_FINAL) + quadradoLegFPM(FPM_COR_REAL_FUNDO, FPM_COR_REAL_BORDA, ROTULO_FPM_LEG_REAL) +
+                ((d.rota_real || (d.nos || []).some(ehVazioFPM)) ? quadradoLegFPM(FPM_COR_VAZIO_FUNDO, FPM_COR_VAZIO_BORDA, ROTULO_FPM_LEG_VAZIO) : '') + '</div>' +
                 '<div class="fpm-corpo"><div class="fpm-area" id="' + uid + '-area">' + svgFPM(vistaFPM(uid), uid) + '</div>' +
                 '<div class="fpm-lista" id="' + uid + '-lista" data-uid="' + uid + '"' + (d._listaAberta ? '' : ' style="display: none;"') + '>' + listaOutrosFPM(uid) + '</div></div>' +
                 '<div class="fpm-detalhe" id="' + uid + '-detalhe"></div></div>';
@@ -2517,12 +2692,26 @@
                 });
                 html += '</tbody></table>';
             } else {
+                // 🌟 NOVO (15/10/2026): no MP, o custo de cada matéria-prima / subproduto POR UNIDADE DO PRÓPRIO ITEM -- total,
+                // variável e fixo/outros (valor contábil médio do período no equipamento = valor / quantidade consumida), a
+                // partir de no.cx (servidor).
+                // 🌟 ALTERADO (15/10/2026): também no SP (subprodutos gerados) -- crédito por unidade gerada (negativo).
+                var comCusto = (tipo === 'mp' || tipo === 'sp') && no.cx && no.cx.p > 0, custoItem = {};
+                if (comCusto) ((tipo === 'mp' ? no.cx.i : no.cx.g) || []).forEach(function(x) { if (x[1]) custoItem[x[0]] = [x[2] / x[1], x[3] / x[1]]; });
+                var moedaC = d.moeda || '';
+                if (comCusto) html += '<div class="fpm-detalhe-sub">' + escapeHtml(tipo === 'mp' ? ROTULO_FPM_MP_CUSTO_NOTA : ROTULO_FPM_SP_CUSTO_NOTA) + '</div>';
                 html += '<table class="fpm-tabela"><thead><tr><th>' + escapeHtml(ROTULO_FPM_COL_ITEM) + '</th><th>' + escapeHtml(ROTULO_FPM_COL_DESC) +
-                    '</th><th class="num">' + escapeHtml(ROTULO_FPM_COL_QTD) + '</th><th class="num">' + escapeHtml(ROTULO_FPM_COL_ESP) + '</th></tr></thead><tbody>';
+                    '</th><th class="num">' + escapeHtml(ROTULO_FPM_COL_QTD) + '</th><th class="num">' + escapeHtml(ROTULO_FPM_COL_ESP) + '</th>' +
+                    (comCusto ? '<th class="num">' + escapeHtml(ROTULO_FPM_C_TOTAL) + '</th><th class="num">' + escapeHtml(ROTULO_FPM_C_VAR) +
+                        '</th><th class="num">' + escapeHtml(ROTULO_FPM_C_FIXO) + '</th>' : '') + '</tr></thead><tbody>';
                 lista.forEach(function(x) {
+                    var c = comCusto ? custoItem[x.codigo] : null;
+                    var vC = function(v) { return escapeHtml(moedaC + numFPM(v, 2) + '/' + (x.unidade || '')); };
                     html += '<tr><td>' + escapeHtml(x.codigo) + '</td><td>' + escapeHtml(x.descricao || '') + '</td><td class="num">' +
                         escapeHtml(numFPM(x.qtd, 2) + ' ' + x.unidade) + '</td><td class="num">' +
-                        escapeHtml(x.especifico !== null && x.especifico !== undefined ? numFPM(x.especifico, 4) + ' ' + x.unidade_esp : '—') + '</td></tr>';
+                        escapeHtml(x.especifico !== null && x.especifico !== undefined ? numFPM(x.especifico, 4) + ' ' + x.unidade_esp : '—') + '</td>' +
+                        (comCusto ? (c ? '<td class="num">' + vC(c[0]) + '</td><td class="num">' + vC(c[1]) + '</td><td class="num">' + vC(c[0] - c[1]) + '</td>'
+                                       : '<td class="num">—</td><td class="num">—</td><td class="num">—</td>') : '') + '</tr>';
                 });
                 html += '</tbody></table>';
             }
@@ -2530,6 +2719,7 @@
             var destino = (sobre && sobre.style.display === 'flex' && sobre.getAttribute('data-uid') === uid)
                 ? sobre.querySelector('.fpm-overlay-detalhe') : document.getElementById(uid + '-detalhe');
             if (!destino) return;
+            destino.classList.remove('fpm-detalhe-largo');
             destino.innerHTML = html;
             destino.style.display = 'block';
             if (destino.classList.contains('fpm-detalhe')) destino.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -2583,6 +2773,7 @@
             d.nos = nos;
             d.arestas = arestas;
             d._insumos = null;
+            d._ordem = null;                 // 🌟 CORRIGIDO: refaz a lista de equipamentos com as caixas novas
             prepararEquipamentosFPM(d);
             var vis = {};
             Object.keys(antes).forEach(function(id) { if (ids[id]) vis[id] = true; });
@@ -2643,7 +2834,7 @@
                 }, { passive: false });
                 area.addEventListener('mousedown', function(e) {
                     var svg = area.querySelector('svg'); if (!svg) return;
-                    if (e.target.closest && e.target.closest('.fpm-circulo-ativo, [data-no], .fpm-dobra, .fpm-hit, .fpm-tirar')) return;   // caixa/linha/ponto: não move a tela
+                    if (e.target.closest && e.target.closest('.fpm-circulo-ativo, [data-no], .fpm-dobra, .fpm-hit, .fpm-tirar, .fpm-link-prod')) return;   // caixa/linha/ponto: não move a tela
                     arrasto = { x: e.clientX, y: e.clientY, vx: svg.viewBox.baseVal.x, vy: svg.viewBox.baseVal.y };
                     area.classList.add('arrastando');
                 });
@@ -2803,7 +2994,7 @@
                 var svg = e.target.closest('svg.fpm-svg');
                 if (!svg) return;
                 var uid = svg.getAttribute('data-uid'), d = _dadosFPM[uid];
-                if (!d || e.target.closest('.fpm-circulo-ativo, .fpm-tirar')) return;      // clique no círculo/× não arrasta
+                if (!d || e.target.closest('.fpm-circulo-ativo, .fpm-tirar, .fpm-link-prod')) return;      // clique no círculo/× não arrasta
                 var container = svg.parentNode, pt = pontoSvgFPM(svg, e);
                 var alca = e.target.closest('.fpm-dobra');
                 var caixa = e.target.closest('[data-no]');
@@ -2964,6 +3155,8 @@
         function htmlQtdEquipFPM(uid) {
             var d = _dadosFPM[uid], total = (d._ordem || []).length;
             var atual = Math.min(total, Number(d.equipamentos_iniciais) || 30);
+            // 🌟 CORRIGIDO: mostra quantos estão no desenho agora (mudam com o círculo MV e com a lista de equipamentos)
+            if (d._visiveis) atual = (d._ordem || []).filter(function(id) { return d._visiveis[id]; }).length;
             return '<span class="fpm-qtd-equip" title="' + escapeAttr(ROTULO_FPM_QTD_DICA) + '">' + escapeHtml(ROTULO_FPM_QTD_EQUIP) +
                 ' <input type="number" class="fpm-input-qtd" data-uid="' + uid + '" min="1" max="' + total + '" step="1" value="' + atual + '"' +
                 ' onkeydown="if (event.key === \'Enter\') { event.preventDefault(); montarComQtdFPM(\'' + uid + '\', this); }"> ' +
@@ -3149,11 +3342,20 @@
             botao.textContent = ROTULO_FPM_ADICIONAR + ' (' + n + ')';
         }
 
+        // 🌟 NOVO: atualiza o "Equipamentos no desenho: [N] de T" (no chat e na tela cheia)
+        function atualizarQtdEquipFPM(uid) {
+            document.querySelectorAll('.fpm-input-qtd[data-uid="' + uid + '"]').forEach(function(c) {
+                var span = c.closest('.fpm-qtd-equip');
+                if (span) span.outerHTML = htmlQtdEquipFPM(uid);
+            });
+        }
+
         function aplicarMudancaFPM(uid) {
             var d = _dadosFPM[uid];
             if (d && d._destaques) Object.keys(d._destaques).forEach(function(id) { if (!d._visiveis[id]) delete d._destaques[id]; });
             redesenharFPM(uid);
             atualizarListasFPM(uid);
+            atualizarQtdEquipFPM(uid);
             var sobre = document.getElementById('fpm-overlay');
             if (sobre && sobre.style.display === 'flex' && sobre.getAttribute('data-uid') === uid) desenharTelaCheiaFPM(uid);
         }
@@ -3202,6 +3404,32 @@
 
         // 🌟 NOVO: CUSTO POR UNIDADE PRODUZIDA de um equipamento (n.custo vem do servidor), pelo valor contábil -- igual
         // à procedure custo_variavel_adicionado. Quadro enxuto: os 3 números e a composição em 3 linhas, tudo por unidade.
+        // 🌟 NOVO (15/10/2026): itens de "Materiais consumidos" / "Subprodutos (crédito)" no quadro do círculo C.
+        function alternarItensCustoFPM(link, uid, nid, tipo) {
+            var caixa = link.closest('.fpm-detalhe, .fpm-overlay-detalhe').querySelector('.fpm-custo-itens');
+            if (!caixa) return;
+            if (caixa.style.display !== 'none' && caixa.getAttribute('data-tipo') === tipo) { caixa.style.display = 'none'; return; }
+            var d = _dadosFPM[uid], no = d && (d.nos || []).filter(function(n) { return n.id === nid; })[0];
+            if (!no || !no.cx) return;
+            var lista = ((tipo === 'mat' ? no.cx.i : no.cx.g) || []).slice().sort(function(a, b) { return Math.abs(b[2]) - Math.abs(a[2]); });
+            var moeda = d.moeda || '', p = no.cx.p, un = no.unidade || '';
+            var html = '<div class="fpm-custo-secao">' + escapeHtml(tipo === 'mat' ? ROTULO_FPM_C_MAT : ROTULO_FPM_C_SUB) + '</div>' +
+                '<div class="fpm-detalhe-sub">' + escapeHtml(ROTULO_FPM_C_ITENS_NOTA) + '</div>' +
+                '<table class="fpm-tabela fpm-tabela-custo"><thead><tr><th>' + escapeHtml(ROTULO_FPM_COL_ITEM) + '</th><th>' + escapeHtml(ROTULO_FPM_COL_DESC) +
+                '</th><th>' + escapeHtml(ROTULO_FPM_C_UNIDADE) + '</th><th class="num">' + escapeHtml(ROTULO_FPM_C_CONS_ESP) + '</th><th class="num">' +
+                escapeHtml(ROTULO_FPM_C_TOTAL) + '</th><th class="num">' + escapeHtml(ROTULO_FPM_C_VAR) + '</th><th class="num">' + escapeHtml(ROTULO_FPM_C_FIXO) +
+                '</th></tr></thead><tbody>';
+            lista.forEach(function(x) {
+                var q = x[1], cu = function(val) { return q ? escapeHtml(moeda + numFPM(val / q, 2) + '/' + (x[5] || '')) : '—'; };
+                html += '<tr><td>' + escapeHtml(x[0]) + '</td><td>' + escapeHtml(x[4] || '') + '</td><td>' + escapeHtml(x[5] || '') + '</td><td class="num">' +
+                    escapeHtml(p ? numFPM(q / p, 4) + ' ' + (x[5] || '') + '/' + un : '—') + '</td><td class="num">' + cu(x[2]) + '</td><td class="num">' +
+                    cu(x[3]) + '</td><td class="num">' + cu(x[2] - x[3]) + '</td></tr>';
+            });
+            caixa.innerHTML = html + '</tbody></table>';
+            caixa.setAttribute('data-tipo', tipo);
+            caixa.style.display = 'block';
+        }
+
         function mostrarCustoFPM(uid, nid) {
             var d = _dadosFPM[uid];
             var no = d && (d.nos || []).filter(function(n) { return n.id === nid; })[0];
@@ -3219,21 +3447,29 @@
                     '<div class="fpm-custo-cartao fpm-custo-principal"><span>' + escapeHtml(ROTULO_FPM_C_TOTAL) + '</span><b>' + v(c.unit_total) + '</b></div>' +
                     '<div class="fpm-custo-cartao"><span>' + escapeHtml(ROTULO_FPM_C_VAR) + '</span><b>' + v(c.unit_variavel) + '</b></div>' +
                     '<div class="fpm-custo-cartao"><span>' + escapeHtml(ROTULO_FPM_C_FIXO) + '</span><b>' + v(c.unit_total - c.unit_variavel) + '</b></div></div>';
-                var linha = function(rotulo, x) {
-                    return '<tr><td>' + escapeHtml(rotulo) + '</td><td class="num">' + v(x.total) + '</td><td class="num">' + v(x.variavel) +
+                // 🌟 ALTERADO (15/10/2026): "Materiais consumidos" e "Subprodutos (crédito)" viram link -- mostram os itens
+                // (descrição, unidade, consumo específico e custo por unidade do item: total, variável e fixo/outros).
+                var linha = function(rotulo, x, tipoItens) {
+                    var temItens = tipoItens && no.cx && ((tipoItens === 'mat' ? no.cx.i : no.cx.g) || []).length;
+                    var celRotulo = temItens
+                        ? '<a href="#" class="fpm-link-itens" onclick="alternarItensCustoFPM(this, \'' + uid + '\', \'' + escapeAttr(nid) + '\', \'' + tipoItens + '\'); return false;">' + escapeHtml(rotulo) + ' ›</a>'
+                        : escapeHtml(rotulo);
+                    return '<tr><td>' + celRotulo + '</td><td class="num">' + v(x.total) + '</td><td class="num">' + v(x.variavel) +
                         '</td><td class="num">' + v(x.total - x.variavel) + '</td></tr>';
                 };
                 html += '<table class="fpm-tabela fpm-tabela-custo"><thead><tr><th></th><th class="num">' + escapeHtml(ROTULO_FPM_C_TOTAL) +
                     '</th><th class="num">' + escapeHtml(ROTULO_FPM_C_VAR) + '</th><th class="num">' + escapeHtml(ROTULO_FPM_C_FIXO) + '</th></tr></thead><tbody>' +
-                    linha(ROTULO_FPM_C_MAT, c.materiais) + linha(ROTULO_FPM_C_SUB, c.sub) + linha(ROTULO_FPM_C_GGF, c.ggf) + '</tbody></table>' +
+                    linha(ROTULO_FPM_C_MAT, c.materiais, 'mat') + linha(ROTULO_FPM_C_SUB, c.sub, 'sub') + linha(ROTULO_FPM_C_GGF, c.ggf) + '</tbody></table>' +
+                    '<div class="fpm-custo-itens" style="display: none;"></div>' +
                     '<div class="fpm-detalhe-sub fpm-custo-rodape">' + escapeHtml(ROTULO_FPM_PRODUCAO + ': ' + numFPM(c.producao, 2) + ' ' + u + ' · ' +
                         (d.periodo || '') + ' · ' + ROTULO_FPM_C_BASE) + '</div>';
                 // 🌟 NOVO: contribuição deste equipamento no custo de cada produto final (por unidade do produto final)
-                if ((c.contribuicoes || []).length) {
+                var contribuicoes = mvAbertoFPM(d) && no.cx ? (contribuicoesMVFPM(d).porNo[nid] || []) : (c.contribuicoes || []);
+                if (contribuicoes.length) {
                     html += '<div class="fpm-custo-secao">' + escapeHtml(ROTULO_FPM_C_CONTRIB) + '</div>' +
                         '<table class="fpm-tabela fpm-tabela-custo"><thead><tr><th></th><th class="num">' + escapeHtml(ROTULO_FPM_C_TOTAL) +
                         '</th><th class="num">' + escapeHtml(ROTULO_FPM_C_VAR) + '</th><th class="num">' + escapeHtml(ROTULO_FPM_C_FIXO) + '</th></tr></thead><tbody>';
-                    c.contribuicoes.forEach(function(k) {
+                    contribuicoes.forEach(function(k) {
                         html += '<tr><td>' + escapeHtml(k.final + ' (' + ROTULO_FPM_C_POR + ' ' + k.unidade_final + ')') +
                             '<div class="fpm-com-equip">' + escapeHtml(ROTULO_FPM_C_USA + ' ' + numFPM(k.necessidade, 4) + ' ' + u + '/' + k.unidade_final) + '</div></td>' +
                             '<td class="num">' + v(k.total) + '</td><td class="num">' + v(k.variavel) + '</td><td class="num">' + v(k.total - k.variavel) + '</td></tr>';
@@ -3242,14 +3478,24 @@
                 }
                 // 🌟 NOVO: no produto final, o gráfico em escada (total / variável / fixo-outros)
                 if (c.escada) {
+                    // 🌟 NOVO (14/10/2026): + gráfico de linhas da evolução mensal do custo (total, variável, fixo/outros)
+                    var temMensal = !!(d.custo_mensal && d.custo_mensal[no.item_codigo]);
                     html += '<div class="fpm-escada-botoes"><button type="button" class="botao-opcao fpm-btn-escada" onclick="alternarEscadaFPM(this, \'' + uid + '\', \'' + escapeAttr(nid) + '\')">' +
-                        escapeHtml(ROTULO_FPM_C_ESCADA) + '</button></div><div class="fpm-escada" style="display: none;"></div>';
+                        escapeHtml(ROTULO_FPM_C_ESCADA) + '</button>' +
+                        (temMensal ? '<button type="button" class="botao-opcao fpm-btn-evolucao" onclick="alternarEvolucaoFPM(this, \'' + uid + '\', \'' + escapeAttr(nid) + '\')">' +
+                            escapeHtml(ROTULO_FPM_C_EVOLUCAO) + '</button>' + '<button type="button" class="botao-opcao fpm-btn-exportar-evol" title="' + escapeAttr(ROTULO_FPM_C_EXPORTAR_EVOL_DICA) + '" onclick="exportarEvolucaoFPM(this, \'' + uid + '\')">' + escapeHtml(ROTULO_FPM_C_EXPORTAR_EVOL) + '</button>' : '') +
+                        '</div><div class="fpm-escada" style="display: none;"></div>' + (temMensal ? '<div class="fpm-evolucao" style="display: none;"></div>' : '');
+                } else if (d.custo_mensal_op && d.custo_mensal_op[nid] && d.meses) {
+                    // 🌟 NOVO (15/10/2026): evolução mensal do custo também nos demais equipamentos
+                    html += '<div class="fpm-escada-botoes"><button type="button" class="botao-opcao fpm-btn-evolucao" onclick="alternarEvolucaoFPM(this, \'' + uid + '\', \'' + escapeAttr(nid) + '\')">' +
+                        escapeHtml(ROTULO_FPM_C_EVOLUCAO) + '</button>' + '<button type="button" class="botao-opcao fpm-btn-exportar-evol" title="' + escapeAttr(ROTULO_FPM_C_EXPORTAR_EVOL_DICA) + '" onclick="exportarEvolucaoFPM(this, \'' + uid + '\')">' + escapeHtml(ROTULO_FPM_C_EXPORTAR_EVOL) + '</button>' + '</div><div class="fpm-evolucao" style="display: none;"></div>';
                 }
             }
             var sobre = document.getElementById('fpm-overlay');
             var destino = (sobre && sobre.style.display === 'flex' && sobre.getAttribute('data-uid') === uid)
                 ? sobre.querySelector('.fpm-overlay-detalhe') : document.getElementById(uid + '-detalhe');
             if (!destino) return;
+            destino.classList.remove('fpm-detalhe-largo');
             destino.innerHTML = html;
             destino.style.display = 'block';
             if (destino.classList.contains('fpm-detalhe')) destino.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -3259,6 +3505,191 @@
         // barra por equipamento, na ordem do fluxo (do começo da cadeia até o produto final), e a barra do custo do produto.
         // A soma das barras é exatamente o custo contábil (o servidor já soma o mesmo equipamento/produto numa barra só).
         // medida: 'total', 'variavel' ou 'fixo'. Com muitos equipamentos, os menores vão juntos em "Demais equipamentos".
+        // 🌟 NOVO (14/10/2026): EVOLUÇÃO MENSAL do custo por unidade do produto final -- uma linha para o total, uma
+        // para o variável e uma para o fixo/outros, um ponto por mês do período (d.custo_mensal, do servidor). Passar o
+        // mouse num mês mostra os valores; embaixo, a tabela com os números.
+        var FPM_COR_EVO = { total: '#2c3e50', variavel: '#16a085', fixo: '#e67e22' };
+        function alternarEvolucaoFPM(botao, uid, nid) {
+            var caixa = botao.closest('.fpm-detalhe, .fpm-overlay-detalhe').querySelector('.fpm-evolucao');
+            if (!caixa) return;
+            var aberto = caixa.style.display !== 'none';
+            caixa.style.display = aberto ? 'none' : 'block';
+            botao.textContent = aberto ? ROTULO_FPM_C_EVOLUCAO : ROTULO_FPM_C_EVOLUCAO_FECHAR;
+            if (!aberto) {
+                var d = _dadosFPM[uid], no = d && (d.nos || []).filter(function(n) { return n.id === nid; })[0];
+                caixa.innerHTML = no ? evolucaoHtmlFPM(listaEvolucaoFPM(d, no), d.moeda || '', no.unidade || '') : '';
+            }
+        }
+
+        // produto final: a evolução do produto (todos os equipamentos que o fazem); demais equipamentos: a do equipamento
+        // (d.custo_mensal_op[id] = [[índice do mês, produção, total/un, variável/un], ...] e d.meses).
+        function listaEvolucaoFPM(d, no) {
+            if (no.custo && no.custo.escada && d.custo_mensal && d.custo_mensal[no.item_codigo]) return d.custo_mensal[no.item_codigo];
+            return ((d.custo_mensal_op || {})[no.id] || []).map(function(x) {
+                return { mes: (d.meses || [])[x[0]], producao: x[1], total: x[2], variavel: x[3] };
+            });
+        }
+
+        function evolucaoHtmlFPM(lista, moeda, unidade) {
+            if (!lista.length) return '<div class="fpm-detalhe-vazio">' + escapeHtml(ROTULO_FPM_C_EVOLUCAO_SEM) + '</div>';
+            var series = [['total', ROTULO_FPM_C_TOTAL, function(x) { return x.total; }],
+                          ['variavel', ROTULO_FPM_C_VAR, function(x) { return x.variavel; }],
+                          ['fixo', ROTULO_FPM_C_FIXO, function(x) { return x.total - x.variavel; }]];
+            var L = 620, H = 250, esq = 70, dir = 96, topo = 12, base = 34;
+            var larg = L - esq - dir, alt = H - topo - base;
+            var maximo = 0, minimo = 0;
+            lista.forEach(function(x) { series.forEach(function(sr) { var v = sr[2](x); maximo = Math.max(maximo, v); minimo = Math.min(minimo, v); }); });
+            // escala "redonda" a partir do zero
+            var passoBruto = (maximo - minimo) / 4 || 1, mag = Math.pow(10, Math.floor(Math.log10(Math.abs(passoBruto))));
+            var passo = [1, 2, 2.5, 5, 10].map(function(f) { return f * mag; }).filter(function(p) { return p >= passoBruto; })[0] || passoBruto;
+            var y0 = Math.floor(minimo / passo) * passo, y1 = Math.ceil(maximo / passo) * passo || passo;
+            var py = function(v) { return topo + alt - (v - y0) / (y1 - y0) * alt; };
+            var n = lista.length;
+            var px = function(i) { return esq + (n === 1 ? larg / 2 : i * larg / (n - 1)); };
+            var s = '<svg class="fpm-evolucao-svg" width="100%" viewBox="0 0 ' + L + ' ' + H + '" font-family="Arial, Helvetica, sans-serif">';
+            for (var v = y0; v <= y1 + passo / 2; v += passo) {
+                s += '<line x1="' + esq + '" y1="' + py(v) + '" x2="' + (esq + larg) + '" y2="' + py(v) + '" stroke="#e6e9ec" stroke-width="1"/>' +
+                    '<text x="' + (esq - 6) + '" y="' + (py(v) + 4) + '" font-size="10" text-anchor="end" fill="#6b7a86">' + escapeHtml(numFPM(v, 0)) + '</text>';
+            }
+            var cadaRotulo = Math.max(1, Math.ceil(n / 12));
+            lista.forEach(function(x, i) {
+                if (i % cadaRotulo === 0 || i === n - 1)
+                    s += '<text x="' + px(i) + '" y="' + (H - base + 16) + '" font-size="10" text-anchor="middle" fill="#6b7a86">' + escapeHtml(x.mes) + '</text>';
+            });
+            series.forEach(function(sr) {
+                var cor = FPM_COR_EVO[sr[0]];
+                if (n > 1) s += '<polyline fill="none" stroke="' + cor + '" stroke-width="2" stroke-linejoin="round" points="' +
+                    lista.map(function(x, i) { return px(i) + ',' + py(sr[2](x)); }).join(' ') + '"/>';
+                lista.forEach(function(x, i) {
+                    s += '<circle cx="' + px(i) + '" cy="' + py(sr[2](x)) + '" r="4" fill="' + cor + '" stroke="#ffffff" stroke-width="2"/>';
+                });
+            });
+            // rótulo direto no fim de cada linha (último mês), afastados para não encavalar
+            var fins = series.map(function(sr) { return { t: sr[1], y: py(sr[2](lista[n - 1])) + 4 }; }).sort(function(a, b) { return a.y - b.y; });
+            for (var k = 1; k < fins.length; k++) if (fins[k].y - fins[k - 1].y < 12) fins[k].y = fins[k - 1].y + 12;
+            fins.forEach(function(f) {
+                s += '<text x="' + (px(n - 1) + 8) + '" y="' + f.y + '" font-size="10" fill="#2c3e50">' + escapeHtml(f.t) + '</text>';
+            });
+            // faixas de passar o mouse, uma por mês (dica com os três valores)
+            lista.forEach(function(x, i) {
+                var meia = n === 1 ? larg / 2 : larg / (n - 1) / 2;
+                var dica = x.mes + '\n' + series.map(function(sr) { return sr[1] + ': ' + moeda + numFPM(sr[2](x), 2) + '/' + unidade; }).join('\n') +
+                    '\n' + ROTULO_FPM_PRODUCAO + ': ' + numFPM(x.producao, 2) + ' ' + unidade;
+                s += '<rect x="' + (px(i) - meia) + '" y="' + topo + '" width="' + (2 * meia) + '" height="' + alt + '" fill="transparent"><title>' + escapeHtml(dica) + '</title></rect>';
+            });
+            s += '</svg>';
+            var legenda = '<div class="fpm-evolucao-leg">' + series.map(function(sr) {
+                return '<span><svg width="22" height="10"><line x1="0" y1="5" x2="22" y2="5" stroke="' + FPM_COR_EVO[sr[0]] + '" stroke-width="2"/><circle cx="11" cy="5" r="3.5" fill="' + FPM_COR_EVO[sr[0]] + '"/></svg>' +
+                    escapeHtml(sr[1] + ' (' + moeda.trim() + '/' + unidade + ')') + '</span>';
+            }).join('') + '</div>';
+            var tabela = '<table class="fpm-tabela fpm-tabela-custo"><thead><tr><th>' + escapeHtml(ROTULO_FPM_C_MES) + '</th><th class="num">' + escapeHtml(ROTULO_FPM_PRODUCAO) +
+                '</th>' + series.map(function(sr) { return '<th class="num">' + escapeHtml(sr[1]) + '</th>'; }).join('') + '</tr></thead><tbody>' +
+                lista.map(function(x) {
+                    return '<tr><td>' + escapeHtml(x.mes) + '</td><td class="num">' + escapeHtml(numFPM(x.producao, 2) + ' ' + unidade) + '</td>' +
+                        series.map(function(sr) { return '<td class="num">' + escapeHtml(moeda + numFPM(sr[2](x), 2)) + '</td>'; }).join('') + '</tr>';
+                }).join('') + '</tbody></table>';
+            return '<div class="fpm-detalhe-sub">' + escapeHtml(ROTULO_FPM_C_EVOLUCAO_NOTA) + '</div>' + legenda + s + tabela;
+        }
+
+        // 🌟 NOVO (15/10/2026): EXPORTAR PARA EXCEL a evolução mensal do custo -- do produto final e de todos os
+        // equipamentos do fluxo (o da aba aberta, no fluxo por rota). Gerado no navegador com a biblioteca SheetJS
+        // (carregada só no primeiro clique). Abas: "Produto final", "Equipamentos" (uma linha por equipamento e mês) e
+        // "Custo total por mês" (equipamento x mês).
+        var URLS_XLSX_FPM = ['https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+                             'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'];
+        var _promessaXlsxFPM = null;
+        function carregarXlsxFPM() {
+            if (window.XLSX) return Promise.resolve();
+            if (_promessaXlsxFPM) return _promessaXlsxFPM;
+            _promessaXlsxFPM = new Promise(function(ok, falha) {
+                var tentar = function(i) {
+                    if (i >= URLS_XLSX_FPM.length) { _promessaXlsxFPM = null; falha(new Error('xlsx')); return; }
+                    var sc = document.createElement('script');
+                    sc.src = URLS_XLSX_FPM[i];
+                    sc.onload = function() { if (window.XLSX) ok(); else tentar(i + 1); };
+                    sc.onerror = function() { sc.remove(); tentar(i + 1); };
+                    document.head.appendChild(sc);
+                };
+                tentar(0);
+            });
+            return _promessaXlsxFPM;
+        }
+
+        function dadosEvolucaoExcelFPM(d) {
+            var meses = d.meses || [], nos = (d.nos || []).filter(function(n) { return n.tipo === 'op'; });
+            var ordem = {};
+            (d._ordem || []).forEach(function(id, i) { ordem[id] = i; });
+            nos.sort(function(a, b) {
+                var oa = ordem[a.id] === undefined ? 1e9 : ordem[a.id], ob = ordem[b.id] === undefined ? 1e9 : ordem[b.id];
+                return (oa - ob) || String(a.grupo_codigo).localeCompare(String(b.grupo_codigo));
+            });
+            var finais = [], equip = [], codigosFinais = {};
+            nos.forEach(function(n) {
+                if (n.final && d.custo_mensal && d.custo_mensal[n.item_codigo] && !codigosFinais[n.item_codigo]) {
+                    codigosFinais[n.item_codigo] = true;
+                    d.custo_mensal[n.item_codigo].forEach(function(x) {
+                        finais.push([n.item_codigo, n.item_descricao || '', n.unidade || '', x.mes, x.producao, x.total, x.variavel, x.total - x.variavel]);
+                    });
+                }
+                ((d.custo_mensal_op || {})[n.id] || []).forEach(function(x) {
+                    equip.push([n.grupo_codigo, n.grupo_nome || '', n.item_codigo, n.item_descricao || '', n.unidade || '', n.final ? 'Sim' : '',
+                                meses[x[0]], x[1], x[2], x[3], x[2] - x[3]]);
+                });
+            });
+            return { meses: meses, finais: finais, equip: equip };
+        }
+
+        function exportarEvolucaoFPM(botao, uid) {
+            var d = _dadosFPM[uid];
+            if (!d) return;
+            var texto = botao.textContent;
+            botao.textContent = ROTULO_FPM_C_EXPORTANDO;
+            botao.disabled = true;
+            var fim = function() { botao.textContent = texto; botao.disabled = false; };
+            carregarXlsxFPM().then(function() {
+                var X = window.XLSX, dados = dadosEvolucaoExcelFPM(d), moeda = (d.moeda || '').trim();
+                var un = moeda ? ' (' + moeda + '/un)' : ' (/un)';
+                var wb = X.utils.book_new();
+                var formatar = function(ws, colunasNum, larguras) {
+                    var faixa = X.utils.decode_range(ws['!ref'] || 'A1:A1');
+                    for (var r = 1; r <= faixa.e.r; r++) {
+                        colunasNum.forEach(function(c) {
+                            var cel = ws[X.utils.encode_cell({ r: r, c: c })];
+                            if (cel && cel.t === 'n') cel.z = '#,##0.00';
+                        });
+                    }
+                    ws['!cols'] = larguras.map(function(w) { return { wch: w }; });
+                    return ws;
+                };
+                var cab1 = ['Código', 'Descrição', 'Unidade', 'Mês', 'Produção', 'Custo total' + un, 'Variável' + un, 'Fixo/Outros' + un];
+                X.utils.book_append_sheet(wb, formatar(X.utils.aoa_to_sheet([cab1].concat(dados.finais)), [4, 5, 6, 7], [12, 36, 8, 9, 14, 18, 16, 18]), 'Produto final');
+                var cab2 = ['Equipamento', 'Nome do equipamento', 'Item produzido', 'Descrição do item', 'Unidade', 'Produto final', 'Mês',
+                            'Produção', 'Custo total' + un, 'Variável' + un, 'Fixo/Outros' + un];
+                X.utils.book_append_sheet(wb, formatar(X.utils.aoa_to_sheet([cab2].concat(dados.equip)), [7, 8, 9, 10], [13, 30, 12, 36, 8, 12, 9, 14, 18, 16, 18]), 'Equipamentos');
+                // equipamento x mês (custo total por unidade)
+                var chaves = [], porChave = {};
+                dados.equip.forEach(function(l) {
+                    var k = l[0] + '|' + l[2];
+                    if (!porChave[k]) { porChave[k] = { cab: [l[0], l[1], l[2], l[3]], v: {} }; chaves.push(k); }
+                    porChave[k].v[l[6]] = l[8];
+                });
+                var cab3 = ['Equipamento', 'Nome do equipamento', 'Item produzido', 'Descrição do item'].concat(dados.meses);
+                var linhas3 = chaves.map(function(k) {
+                    return porChave[k].cab.concat(dados.meses.map(function(m) { return porChave[k].v[m] === undefined ? null : porChave[k].v[m]; }));
+                });
+                X.utils.book_append_sheet(wb, formatar(X.utils.aoa_to_sheet([cab3].concat(linhas3)), dados.meses.map(function(_m, i) { return 4 + i; }),
+                    [13, 30, 12, 36].concat(dados.meses.map(function() { return 11; }))), 'Custo total por mês');
+                var nome = 'evolucao_custo_' + String(d.titulo || 'fluxo').replace(/[^0-9A-Za-zÀ-ú]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 80) +
+                    '_' + String(d.periodo || '').replace(/[^0-9]+/g, '_').replace(/^_+|_+$/g, '') + '.xlsx';
+                X.writeFile(wb, nome);
+                fim();
+            }).catch(function(erro) {
+                console.error('[Exportar evolução]', erro);
+                fim();
+                alert(ROTULO_FPM_C_EXPORTAR_ERRO);
+            });
+        }
+
         function alternarEscadaFPM(botao, uid, nid) {
             var caixa = botao.closest('.fpm-detalhe, .fpm-overlay-detalhe').querySelector('.fpm-escada');
             var aberto = caixa.style.display !== 'none';
@@ -3267,16 +3698,106 @@
             if (!aberto) desenharEscadaFPM(caixa, uid, nid, caixa.getAttribute('data-medida') || 'total');
         }
 
+        // 🌟 NOVO (14/10/2026): com caixas abertas pelo círculo MV, a escada e a contribuição de cada equipamento são
+        // refeitas aqui, com as caixas que estão no fluxo agora (inclusive as do MV) -- mesma conta do servidor
+        // (_contribuicoes): o valor contábil de cada insumo vai para quem o produziu, na proporção do custo de cada um,
+        // do produto final para trás; recirculação fica com quem consome. A soma das barras é o custo do produto final.
+        // Sem MV aberto, vale o que veio do servidor.
+        function mvAbertoFPM(d) { return !!(d && d._mvAbertos && Object.keys(d._mvAbertos).length); }
+
+        function contribuicoesMVFPM(d) {
+            if (d._contribMV && d._contribMVChave === d.nos) return d._contribMV;
+            var ops = (d.nos || []).filter(function(n) { return n.tipo === 'op' && n.cx && n.cx.p > 0; });
+            var porId = {}, produtores = {};
+            ops.forEach(function(n) { porId[n.id] = n; (produtores[n.item_codigo] = produtores[n.item_codigo] || []).push(n); });
+            var custo = {}, acres = {}, insumos = {};
+            ops.forEach(function(n) {
+                var p = n.cx.p, soma = [n.cx.s[0], n.cx.s[1]];
+                custo[n.id] = [n.cx.s[0] / p, n.cx.s[1] / p];
+                insumos[n.id] = [];
+                (n.cx.i || []).forEach(function(x) {
+                    var prs = produtores[x[0]] || [], sp = prs.reduce(function(a, q) { return a + q.cx.p; }, 0);
+                    if (!prs.length || sp <= 0) return;
+                    soma[0] -= x[2]; soma[1] -= x[3];
+                    prs.forEach(function(q) {
+                        var part = q.cx.p / sp;
+                        insumos[n.id].push([q.id, x[1] / p * part, x[2] / p * part, x[3] / p * part]);
+                    });
+                });
+                acres[n.id] = [soma[0] / p, soma[1] / p];
+            });
+            var resultado = { escada: {}, porNo: {} };
+            ops.filter(function(n) { return n.final; }).forEach(function(fin) {
+                // cadeia do final pra trás, sem as ligações de recirculação (DFS com "cinza" = no caminho)
+                var cinza = {}, preto = {}, posOrdem = [], segue = {};
+                var filhos = function(k) { var v = {}; insumos[k].forEach(function(x) { v[x[0]] = true; }); return Object.keys(v); };
+                var pilha = [[fin.id, filhos(fin.id), 0]];
+                cinza[fin.id] = true;
+                while (pilha.length) {
+                    var topo = pilha[pilha.length - 1];
+                    if (topo[2] >= topo[1].length) {
+                        pilha.pop(); delete cinza[topo[0]]; preto[topo[0]] = true; posOrdem.push(topo[0]);
+                        continue;
+                    }
+                    var prox = topo[1][topo[2]++];
+                    if (prox === topo[0] || cinza[prox]) continue;
+                    (segue[topo[0]] = segue[topo[0]] || {})[prox] = true;
+                    if (!preto[prox]) { cinza[prox] = true; pilha.push([prox, filhos(prox), 0]); }
+                }
+                var ordem = posOrdem.slice().reverse(), dist = {};
+                dist[fin.id] = 0;
+                ordem.forEach(function(k) { Object.keys(segue[k] || {}).forEach(function(q) { dist[q] = Math.max(dist[q] || 0, (dist[k] || 0) + 1); }); });
+                var peso = {}, contrib = {};
+                ordem.forEach(function(k) { peso[k] = [0, 0, 0]; contrib[k] = [0, 0]; });
+                peso[fin.id] = [1, 1, 1];
+                ordem.forEach(function(k) {
+                    var w = peso[k], proprio = [acres[k][0], acres[k][1]];
+                    insumos[k].forEach(function(x) {
+                        var q = x[0];
+                        if (!(segue[k] && segue[k][q])) { proprio[0] += x[2]; proprio[1] += x[3]; return; }
+                        peso[q][0] += w[0] * x[1];
+                        [[1, x[2], w[1]], [2, x[3], w[2]]].forEach(function(t) {
+                            var base = custo[q][t[0] - 1];
+                            if (Math.abs(base) > 1e-9) peso[q][t[0]] += t[2] * t[1] / base;
+                            else contrib[q][t[0] - 1] += t[2] * t[1];
+                        });
+                    });
+                    contrib[k][0] += w[1] * proprio[0];
+                    contrib[k][1] += w[2] * proprio[1];
+                });
+                var barras = {};
+                ordem.forEach(function(k) {
+                    if (Math.abs(contrib[k][0]) < 1e-12 && Math.abs(contrib[k][1]) < 1e-12 && Math.abs(peso[k][0]) < 1e-12) return;
+                    var n = porId[k], chave = n.grupo_codigo + ' · ' + n.item_codigo;
+                    var b = barras[chave] = barras[chave] || { id: k, nome: chave, descricao: n.item_descricao || '', distancia: dist[k] || 0,
+                                                               necessidade: 0, unidade: n.unidade, total: 0, variavel: 0 };
+                    b.distancia = Math.max(b.distancia, dist[k] || 0);
+                    b.necessidade += peso[k][0]; b.total += contrib[k][0]; b.variavel += contrib[k][1];
+                    (resultado.porNo[k] = resultado.porNo[k] || []).push({ final: fin.grupo_codigo + ' · ' + fin.item_codigo, final_id: fin.id,
+                        unidade_final: fin.unidade, necessidade: peso[k][0], total: contrib[k][0], variavel: contrib[k][1] });
+                });
+                resultado.escada[fin.id] = {
+                    barras: Object.keys(barras).map(function(c) { return barras[c]; }).sort(function(a, b) { return (b.distancia - a.distancia) || a.nome.localeCompare(b.nome); }),
+                    corte: (fin.custo && fin.custo.escada && fin.custo.escada.corte) || 0.01,
+                    final: { total: custo[fin.id][0], variavel: custo[fin.id][1] }
+                };
+            });
+            d._contribMV = resultado;
+            d._contribMVChave = d.nos;
+            return resultado;
+        }
+
         function desenharEscadaFPM(caixa, uid, nid, medida) {
             var d = _dadosFPM[uid];
             var no = d && (d.nos || []).filter(function(n) { return n.id === nid; })[0];
             if (!no || !no.custo || !no.custo.escada) return;
+            var escada = (mvAbertoFPM(d) && contribuicoesMVFPM(d).escada[nid]) || no.custo.escada;
             caixa.setAttribute('data-medida', medida);
             var abas = [['total', ROTULO_FPM_C_TOTAL], ['variavel', ROTULO_FPM_C_VAR], ['fixo', ROTULO_FPM_C_FIXO]];
             caixa.innerHTML = '<div class="fpm-escada-abas">' + abas.map(function(a) {
                 return '<button type="button" class="fpm-escada-aba' + (a[0] === medida ? ' ativa' : '') + '" onclick="desenharEscadaFPM(this.closest(\'.fpm-escada\'), \'' + uid +
                     '\', \'' + escapeAttr(nid) + '\', \'' + a[0] + '\')">' + escapeHtml(a[1]) + '</button>';
-            }).join('') + '</div>' + escadaSvgFPM(no.custo.escada, medida, d.moeda || '', no.unidade || '');
+            }).join('') + '</div>' + escadaSvgFPM(escada, medida, d.moeda || '', no.unidade || '');
         }
 
         function escadaSvgFPM(escada, medida, moeda, unidade) {
@@ -3340,6 +3861,176 @@
             return s + '</svg>';
         }
 
+        // 🌟 NOVO (15/10/2026): link "Produção" na caixa do equipamento -- balanço de ENTRADAS (tudo o que o equipamento
+        // consumiu no período, pela Produção Mensal: no.cx.i) e SAÍDAS (o produto produzido + subprodutos gerados: no.cx.p e
+        // no.cx.g). Ao lado de cada item, de onde vem / para onde vai NO DESENHO (pelas ligações). No fim, totais por unidade.
+        function mostrarBalancoEquipFPM(uid, nid) {
+            var d = _dadosFPM[uid];
+            var no = d && (d.nos || []).filter(function(n) { return n.id === nid; })[0];
+            if (!no) return;
+            if (d._rcDestaque) { d._rcDestaque = null; redesenharFPM(uid); }
+            var porId = {};
+            (d.nos || []).forEach(function(n) { porId[n.id] = n; });
+            var nomeEq = function(n) { return n.tipo === 'op' ? n.grupo_codigo + (n.grupo_nome ? ' — ' + n.grupo_nome : '') : n.item_codigo + ' (' + ROTULO_FPM_VARIOS + ')'; };
+            var origem = {}, destino = [];
+            var junta = function(mapa, k, txt, q, u) { (mapa[k] = mapa[k] || []).push(txt + (q !== undefined && q !== null ? ': ' + numFPM(q, 2) + ' ' + (u || '') : '')); };
+            (d.arestas || []).forEach(function(a) {
+                var o = porId[a.de], p = porId[a.para];
+                if (!o || !p) return;
+                if (a.para === nid && a.de !== nid) {
+                    if (o.tipo === 'mp') junta(origem, o.item_codigo, ROTULO_FPM_BE_MP);
+                    else if (o.tipo === 'op' || o.tipo === 'item') junta(origem, o.item_codigo, (a.tipo === 'ciclo' ? ROTULO_FPM_BE_RECIRC + ' · ' : '') + nomeEq(o));   // sem a qtde: já está na coluna ao lado
+                }
+                if (a.de === nid && a.para !== nid) {
+                    if (p.tipo === 'op' || p.tipo === 'item') // 🌟 ALTERADO (15/10/2026): o que o equipamento destino produz vem antes da quantidade
+                        destino.push({ txt: (a.tipo === 'ciclo' ? ROTULO_FPM_BE_RECIRC + ' · ' : '') + nomeEq(p) +
+                            (p.tipo === 'op' ? ' → ' + p.item_codigo + (p.item_descricao ? ' — ' + p.item_descricao : '') : ''), q: a.qtd || 0, u: a.unidade });
+                }
+            });
+            // Sem no.cx (não deve acontecer): entradas pelas ligações que chegam na caixa.
+            var cx = no.cx;
+            if (!cx) {
+                var ent = {}, sub = {};
+                (d.arestas || []).forEach(function(a) {
+                    var o = porId[a.de], p = porId[a.para];
+                    if (a.para === nid && o && a.de !== nid) { var r = ent[o.item_codigo] = ent[o.item_codigo] || [o.item_codigo, 0, 0, 0, o.item_descricao, a.unidade]; r[1] += a.qtd || 0; }
+                    if (a.de === nid && p && p.tipo === 'sub') { var g = sub[p.item_codigo] = sub[p.item_codigo] || [p.item_codigo, 0, 0, 0, p.item_descricao, a.unidade]; g[1] += a.qtd || 0; }
+                });
+                cx = { p: no.producao, i: Object.keys(ent).map(function(k) { return ent[k]; }), g: Object.keys(sub).map(function(k) { return sub[k]; }) };
+            }
+            var prod = cx.p || no.producao || 0, uProd = no.unidade || '';
+            var esp = function(q, u) { return prod > 0 ? numFPM(q / prod, 4) + ' ' + (u || '') + '/' + uProd : '—'; };
+            var celLista = function(l) { return l && l.length ? l.map(function(t) { return '<div>' + escapeHtml(t) + '</div>'; }).join('') : '<span style="color:#999">—</span>'; };
+            // 🌟 NOVO (15/10/2026): custo por unidade de cada item -- total, variável e fixo/outros.
+            var moeda = d.moeda || '';
+            var cabCusto = '<th class="num">' + escapeHtml(ROTULO_FPM_C_TOTAL) + '</th><th class="num">' + escapeHtml(ROTULO_FPM_C_VAR) + '</th><th class="num">' + escapeHtml(ROTULO_FPM_C_FIXO) + '</th>';
+            var celCusto = function(t, v, u) {
+                if (t === null || t === undefined || !isFinite(t)) return '<td class="num">—</td><td class="num">—</td><td class="num">—</td>';
+                var f = function(x) { return '<td class="num">' + escapeHtml(moeda + numFPM(x, 2) + '/' + (u || '')) + '</td>'; };
+                return f(t) + f(v) + f(t - v);
+            };
+            var porUn = function(x) { return x[1] ? celCusto(x[2] / x[1], x[3] / x[1], x[5]) : celCusto(null); };
+            var cProd = no.custo && no.custo.producao > 0 ? [no.custo.unit_total, no.custo.unit_variavel]
+                      : (no.cx && no.cx.p > 0 && no.cx.s ? [no.cx.s[0] / no.cx.p, no.cx.s[1] / no.cx.p] : [null, null]);
+            var totais = {};
+            var soma = function(u, k, q) { u = u || '?'; totais[u] = totais[u] || [0, 0]; totais[u][k] += q; };
+            // 🌟 NOVO (15/10/2026): as mesmas linhas do quadro, em números, para o "Exportar para Excel".
+            var xls = { ent: [], sai: [], tot: [] };
+            var nCusto = function(t, v) { return (t === null || t === undefined || !isFinite(t)) ? [null, null, null] : [t, v, t - v]; };
+            var nItem = function(x) { return x[1] ? nCusto(x[2] / x[1], x[3] / x[1]) : [null, null, null]; };
+
+            var html = '<div class="fpm-detalhe-topo"><b>' + escapeHtml(ROTULO_FPM_BE_TITULO + ' — ' + no.grupo_codigo + (no.grupo_nome ? ' — ' + no.grupo_nome : '') + ' (' + no.item_codigo + ')') + '</b>' +
+                '<span style="margin-left: auto;"></span><button type="button" class="botao-opcao fpm-btn-exportar-evol" style="margin: 0;" title="' + escapeAttr(ROTULO_FPM_BE_EXPORTAR_DICA) +
+                '" onclick="exportarBalancoEquipFPM(this, \'' + uid + '\', \'' + escapeAttr(nid) + '\')">' + escapeHtml(ROTULO_FPM_BE_EXPORTAR) + '</button>' +
+                '<button type="button" class="fpm-detalhe-fechar" onclick="fecharInsumosFPM(this)" title="' + escapeAttr(ROTULO_FPM_FECHAR) + '">&times;</button></div>' +
+                '<div class="fpm-detalhe-sub">' + escapeHtml(ROTULO_FPM_PRODUCAO + ': ' + numFPM(prod, 2) + ' ' + uProd + ' · ' + (d.periodo || '')) + '</div>' +
+                '<div class="fpm-detalhe-sub">' + escapeHtml(ROTULO_FPM_BE_NOTA_CUSTO) + '</div>';
+
+            // Entradas
+            var ents = (cx.i || []).slice().sort(function(a, b) { return (a[5] || '').localeCompare(b[5] || '') || b[1] - a[1]; });
+            html += '<div class="fpm-detalhe-sub" style="margin-top: 8px; color: #003366;"><b>' + escapeHtml(ROTULO_FPM_BE_ENTRADAS) + '</b></div>';
+            if (!ents.length) html += '<div class="fpm-detalhe-vazio">' + escapeHtml(ROTULO_FPM_BE_SEM_ENT) + '</div>';
+            else {
+                html += '<table class="fpm-tabela fpm-tabela-be"><thead><tr><th>' + escapeHtml(ROTULO_FPM_COL_ITEM) + '</th><th>' + escapeHtml(ROTULO_FPM_COL_DESC) + '</th><th>' +
+                    escapeHtml(ROTULO_FPM_BE_ORIGEM) + '</th><th class="num">' + escapeHtml(ROTULO_FPM_COL_QTD) + '</th><th class="num">' + escapeHtml(ROTULO_FPM_COL_ESP) + '</th>' + cabCusto + '</tr></thead><tbody>';
+                ents.forEach(function(x) {
+                    soma(x[5], 0, x[1]);
+                    xls.ent.push([x[0], x[4] || '', (origem[x[0]] || [ROTULO_FPM_BE_NAO_DESENHO]).join('; '), x[1], x[5] || '', prod > 0 ? x[1] / prod : null].concat(nItem(x)));
+                    html += '<tr><td>' + escapeHtml(x[0]) + '</td><td>' + escapeHtml(x[4] || '') + '</td><td>' +
+                        (origem[x[0]] ? celLista(origem[x[0]]) : '<span style="color:#999">' + escapeHtml(ROTULO_FPM_BE_NAO_DESENHO) + '</span>') +
+                        '</td><td class="num">' + escapeHtml(numFPM(x[1], 2) + ' ' + (x[5] || '')) + '</td><td class="num">' + escapeHtml(esp(x[1], x[5])) + '</td>' + porUn(x) + '</tr>';
+                });
+                html += '</tbody></table>';
+            }
+
+            // Saídas: o produto (com o destino no desenho e o que fica fora dele) + subprodutos
+            var noDesenho = destino.reduce(function(a, x) { return a + (x.u === uProd || !x.u ? x.q : 0); }, 0);
+            var dest = destino.map(function(x) { return x.txt + ': ' + numFPM(x.q, 2) + ' ' + (x.u || uProd); });
+            if (prod - noDesenho > 0.005) dest.push((no.final ? ROTULO_FPM_BE_FINAL : ROTULO_FPM_BE_FORA) + ': ' + numFPM(prod - noDesenho, 2) + ' ' + uProd);
+            soma(uProd, 1, prod);
+            xls.sai.push([ROTULO_FPM_BE_PRINCIPAL, no.item_codigo, no.item_descricao || '', dest.join('; '), prod, uProd, prod > 0 ? 1 : null].concat(nCusto(cProd[0], cProd[1])));
+            html += '<div class="fpm-detalhe-sub" style="margin-top: 8px; color: #003366;"><b>' + escapeHtml(ROTULO_FPM_BE_SAIDAS) + '</b></div>' +
+                '<table class="fpm-tabela fpm-tabela-be"><thead><tr><th>' + escapeHtml(ROTULO_FPM_BE_TIPO) + '</th><th>' + escapeHtml(ROTULO_FPM_COL_ITEM) + '</th><th>' + escapeHtml(ROTULO_FPM_COL_DESC) +
+                '</th><th>' + escapeHtml(ROTULO_FPM_BE_DESTINO) + '</th><th class="num">' + escapeHtml(ROTULO_FPM_COL_QTD) + '</th><th class="num">' + escapeHtml(ROTULO_FPM_COL_ESP) + '</th>' + cabCusto + '</tr></thead><tbody>' +
+                '<tr><td><b>' + escapeHtml(ROTULO_FPM_BE_PRINCIPAL) + '</b></td><td>' + escapeHtml(no.item_codigo) + '</td><td>' + escapeHtml(no.item_descricao || '') + '</td><td>' + celLista(dest) +
+                '</td><td class="num">' + escapeHtml(numFPM(prod, 2) + ' ' + uProd) + '</td><td class="num">' + escapeHtml(esp(prod, uProd)) + '</td>' + celCusto(cProd[0], cProd[1], uProd) + '</tr>';
+            (cx.g || []).slice().sort(function(a, b) { return b[1] - a[1]; }).forEach(function(x) {
+                soma(x[5], 1, x[1]);
+                xls.sai.push([ROTULO_FPM_BE_SUB, x[0], x[4] || '', '', x[1], x[5] || '', prod > 0 ? x[1] / prod : null].concat(nItem(x)));
+                html += '<tr><td>' + escapeHtml(ROTULO_FPM_BE_SUB) + '</td><td>' + escapeHtml(x[0]) + '</td><td>' + escapeHtml(x[4] || '') + '</td><td>' +
+                    '<span style="color:#999">—</span>' + '</td><td class="num">' + escapeHtml(numFPM(x[1], 2) + ' ' + (x[5] || '')) +
+                    '</td><td class="num">' + escapeHtml(esp(x[1], x[5])) + '</td>' + porUn(x) + '</tr>';
+            });
+            html += '</tbody></table>';
+
+            // Totais por unidade
+            html += '<div class="fpm-detalhe-sub" style="margin-top: 8px; color: #003366;"><b>' + escapeHtml(ROTULO_FPM_BE_TOTAIS) + '</b></div>' +
+                '<table class="fpm-tabela"><thead><tr><th>' + escapeHtml(ROTULO_FPM_BE_UNIDADE) + '</th><th class="num">' + escapeHtml(ROTULO_FPM_BE_COL_ENT) +
+                '</th><th class="num">' + escapeHtml(ROTULO_FPM_BE_COL_SAI) + '</th><th class="num">' + escapeHtml(ROTULO_FPM_BE_COL_DIF) + '</th></tr></thead><tbody>';
+            Object.keys(totais).sort().forEach(function(u) {
+                var t = totais[u];
+                xls.tot.push([u, t[0], t[1], t[0] - t[1]]);
+                html += '<tr><td>' + escapeHtml(u) + '</td><td class="num">' + escapeHtml(numFPM(t[0], 2)) + '</td><td class="num">' + escapeHtml(numFPM(t[1], 2)) +
+                    '</td><td class="num">' + escapeHtml(numFPM(t[0] - t[1], 2)) + '</td></tr>';
+            });
+            html += '</tbody></table><div class="fpm-detalhe-sub">' + escapeHtml(ROTULO_FPM_BE_NOTA_TOT) + '</div>';
+
+            var sobre = document.getElementById('fpm-overlay');
+            var alvo = (sobre && sobre.style.display === 'flex' && sobre.getAttribute('data-uid') === uid)
+                ? sobre.querySelector('.fpm-overlay-detalhe') : document.getElementById(uid + '-detalhe');
+            if (!alvo) return;
+            d._xlsBal = d._xlsBal || {};
+            d._xlsBal[nid] = { titulo: ROTULO_FPM_BE_TITULO + ' — ' + no.grupo_codigo + (no.grupo_nome ? ' — ' + no.grupo_nome : '') + ' (' + no.item_codigo + ' — ' + (no.item_descricao || '') + ')',
+                               producao: ROTULO_FPM_PRODUCAO + ': ' + numFPM(prod, 2) + ' ' + uProd + ' · ' + (d.periodo || ''), moeda: moeda.trim(),
+                               grupo: no.grupo_codigo, item: no.item_codigo, periodo: d.periodo || '', uProd: uProd, dados: xls };
+            alvo.classList.add('fpm-detalhe-largo');
+            alvo.innerHTML = html;
+            alvo.style.display = 'block';
+            if (alvo.classList.contains('fpm-detalhe')) alvo.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+
+        // 🌟 NOVO (15/10/2026): exporta o quadro do balanço de entradas e saídas (link "Produção") para Excel -- uma aba,
+        // com as três partes do quadro (entradas, saídas e totais por unidade), números como números.
+        function exportarBalancoEquipFPM(botao, uid, nid) {
+            var d = _dadosFPM[uid], b = d && d._xlsBal && d._xlsBal[nid];
+            if (!b) return;
+            var texto = botao.textContent;
+            botao.textContent = ROTULO_FPM_C_EXPORTANDO;
+            botao.disabled = true;
+            var fim = function() { botao.textContent = texto; botao.disabled = false; };
+            carregarXlsxFPM().then(function() {
+                var X = window.XLSX, un = b.moeda ? ' (' + b.moeda + '/un)' : ' (/un)';
+                var custo = ['Custo total' + un, 'Variável' + un, 'Fixo/Outros' + un];
+                var linhas = [[b.titulo], [b.producao], [ROTULO_FPM_BE_NOTA_CUSTO], [],
+                              [ROTULO_FPM_BE_ENTRADAS]], fmt = [];
+                var bloco = function(cab, rows, cols4, cols2) {
+                    linhas.push(cab);
+                    rows.forEach(function(r) { fmt.push([linhas.length, cols4, cols2]); linhas.push(r); });
+                };
+                bloco(['Item', 'Descrição', 'Vem de (no desenho)', 'Qtde no período', 'Unidade', 'Por unidade produzida (un/' + b.uProd + ')'].concat(custo), b.dados.ent, [5], [3, 6, 7, 8]);
+                linhas.push([], [ROTULO_FPM_BE_SAIDAS]);
+                bloco(['Tipo', 'Item', 'Descrição', 'Vai para (no desenho)', 'Qtde no período', 'Unidade', 'Por unidade produzida (un/' + b.uProd + ')'].concat(custo), b.dados.sai, [6], [4, 7, 8, 9]);
+                linhas.push([], [ROTULO_FPM_BE_TOTAIS]);
+                bloco(['Unidade', 'Entradas', 'Saídas', 'Entradas − Saídas'], b.dados.tot, [], [1, 2, 3]);
+                linhas.push([], [ROTULO_FPM_BE_NOTA_TOT]);
+                var ws = X.utils.aoa_to_sheet(linhas);
+                fmt.forEach(function(f) {
+                    f[1].forEach(function(c) { var cel = ws[X.utils.encode_cell({ r: f[0], c: c })]; if (cel && cel.t === 'n') cel.z = '#,##0.0000'; });
+                    f[2].forEach(function(c) { var cel = ws[X.utils.encode_cell({ r: f[0], c: c })]; if (cel && cel.t === 'n') cel.z = '#,##0.00'; });
+                });
+                ws['!cols'] = [12, 36, 40, 40, 14, 10, 16, 18, 16, 18].map(function(w) { return { wch: w }; });
+                var wb = X.utils.book_new();
+                X.utils.book_append_sheet(wb, ws, 'Balanço');
+                var limpa = function(t) { return String(t || '').replace(/[^0-9A-Za-zÀ-ú]+/g, '_').replace(/^_+|_+$/g, ''); };
+                X.writeFile(wb, ('balanco_' + limpa(b.grupo) + '_' + limpa(b.item) + '_' + limpa(b.periodo)).slice(0, 120) + '.xlsx');
+                fim();
+            }).catch(function(erro) {
+                console.error('[Exportar balanço]', erro);
+                fim();
+                alert(ROTULO_FPM_C_EXPORTAR_ERRO);
+            });
+        }
+
         // Detalhe do balanço: quais outros produtos consumiram o item no período (fora deste fluxo).
         function mostrarBalancoFPM(uid, nid) {
             var d = _dadosFPM[uid];
@@ -3371,6 +4062,7 @@
             var destino = (sobre && sobre.style.display === 'flex' && sobre.getAttribute('data-uid') === uid)
                 ? sobre.querySelector('.fpm-overlay-detalhe') : document.getElementById(uid + '-detalhe');
             if (!destino) return;
+            destino.classList.remove('fpm-detalhe-largo');
             destino.innerHTML = html;
             destino.style.display = 'block';
             if (destino.classList.contains('fpm-detalhe')) destino.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -4696,7 +5388,7 @@
                     // Ainda rodando -- garante a barra de progresso (pra
                     // etapa nova ou a mesma) com o texto mais recente.
                     atualizarBarraProgresso(respostaTexto, data.opcoes);
-                    temporizadorSondagem = setTimeout(sondarAutomaticamente, 5000);
+                    temporizadorSondagem = setTimeout(sondarAutomaticamente, 2500);
                 } else {
                     // Terminou de vez (sucesso, erro, ou avançou pra uma
                     // etapa que não é mais de espera) -- tira a barra e
@@ -4854,7 +5546,7 @@
                 if (data.aguardando_poll) {
                     ultimaEtapaSondagem = data.etapa_atual;
                     atualizarBarraProgresso(data.resposta || data.resposta_ia || '', data.opcoes);
-                    temporizadorSondagem = setTimeout(sondarAutomaticamente, 5000);
+                    temporizadorSondagem = setTimeout(sondarAutomaticamente, 2500);
                 }
             })
             .catch(function(error) {
@@ -4920,7 +5612,7 @@
 
             historico.forEach(function(item) {
                 if (item.comando_usuario) {
-                    adicionarMensagemAoChat('<div class="chat-box-p"><strong>' + ROTULO_VOCE_NOME + ':</strong> ' + escapeHtml(item.comando_usuario) + '</div>', true);
+                    adicionarMensagemAoChat('<div class="chat-box-p"><strong>' + ROTULO_VOCE_NOME + ':</strong> ' + escapeHtml(String(item.comando_usuario).replace(/\s*\[FPM_VISAO:[^\]]*\]/g, '')) + '</div>', true);   // 🌟 sem o marcador do botão "Ver ... (mesmos itens e período)"
                 }
                 if (item.resposta_ia) {
                     var textoLimpoHTML = processarRespostaCompleta(String(item.resposta_ia).replace(/\n*\[LISTA_EQUIPAMENTOS\]/g, '').replace(/\n*\[(FORM_(EQUIPAMENTO|ORDENS|CONSUMOS)|SELECAO_PRODUTOS|BOTOES|COMPARACAO_FLUXOS|LISTA_FLUXOS|GRAFICOS_CUSTO_FLUXO|FLUXO_PRODUCAO_MENSAL):[^\]]*\]/g, ''));

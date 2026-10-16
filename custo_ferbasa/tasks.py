@@ -104,6 +104,12 @@ def importar_excel_producao_mensal_celery():
                          'QTDADE PRODUÇÃO', 'ITEM CONSUMO', 'DESCRIÇÃO ITEM CONSUMO', 'UNIDADE', 'QTDADE CONSUMO',
                          'INDICADOR', 'VALOR MATERIAL', 'VALOR GGF', 'VALOR GGF FIXO', 'VALOR GGF VARIAVEL',
                          'VALOR GGF OUTROS', 'VALOR ULT ENTRADA', 'TIPO', 'SEQUENCIA', 'NIVEL']:
+        # 🌟 NOVO (15/10/2026): só dados de 2026/01 em diante (centros de custo novos) -- senão recusa o arquivo inteiro
+        try:
+            _validar_periodo_minimo(sheet, 'Produção Mensal')
+        except ValueError as erro:
+            print(f"[importar_excel_producao_mensal_celery] {erro}")
+            return str(erro)
         #  Estamos usando o cabeçalho da planilha gerada pela área de TI da Ferbasa para não dar confusão. O arquivo vem em CSV. Temos que abrir no Excel e salvar com o nome
         #  Produção_Mensal.xlsx
         #  Cabeçalho do arquivo está correto.
@@ -301,6 +307,12 @@ def importar_excel_distribuicao_ggf_mensal_celery():
                          'DESCRIÇÃO GRUPO MÁQUINA', 'ITEM PRODUÇÃO', 'DESCRIÇÃO ITEM PRODUÇÃO', 'UNIDADE',
                          'QTDADE PRODUÇÃO', 'ESPECIE GGF', 'CONTA', 'DESCRIÇÃO CONTA CONTÁBIL', 'CENTRO CUSTO',
                          'DESCRIÇÃO CENTRO DE CUSTO', 'VALOR GASTOS']:
+        # 🌟 NOVO (15/10/2026): só dados de 2026/01 em diante (centros de custo novos) -- senão recusa o arquivo inteiro
+        try:
+            _validar_periodo_minimo(sheet, 'Distribuição GGF Mensal')
+        except ValueError as erro:
+            print(f"[importar_excel_distribuicao_ggf_mensal_celery] {erro}")
+            return str(erro)
 
         #  Estamos usando o cabeçalho da planilha gerada pela área de TI da Ferbasa para não dar confusão. O arquivo vem em CSV. Temos que abrir no Excel e salvar com o nome
         #  Distribuição GGF Mensal.xlsx
@@ -653,6 +665,40 @@ CABECALHO_DISTRIBUICAO_GGF_MENSAL = [
 ]
 
 
+# 🌟 NOVO (15/10/2026): a partir de 2026 os centros de custo mudaram (TbCentroCusto.cen_cus_referencia: 1 = '<--2025',
+# 2 = '2026 -->'). Produção Mensal e Distribuição GGF Mensal só aceitam dados de ANO_MES_MINIMO_IMPORTACAO em diante --
+# um arquivo com qualquer linha de ano/mês anterior é RECUSADO inteiro (nada é gravado), tanto pelo Agente IA quanto pela
+# rotina manual (AWS).
+ANO_MES_MINIMO_IMPORTACAO = '2026/01'
+
+
+def _meses_antes_do_minimo(sheet):
+    """Anos/meses (AAAA/MM) da coluna 1 (PERIODO) anteriores a ANO_MES_MINIMO_IMPORTACAO, com a quantidade de linhas."""
+    antigos = {}
+    for i in range(2, sheet.max_row + 1):
+        valor = sheet.cell(row=i, column=1).value
+        if valor is None:
+            continue
+        bruto = str(valor)[0:6]
+        ano_mes = bruto[0:4] + '/' + bruto[4:6]
+        if ano_mes < ANO_MES_MINIMO_IMPORTACAO:
+            antigos[ano_mes] = antigos.get(ano_mes, 0) + 1
+    return antigos
+
+
+def _validar_periodo_minimo(sheet, nome_tabela):
+    """Levanta ValueError (mensagem para o usuário) se houver linha com ano/mês anterior ao mínimo."""
+    antigos = _meses_antes_do_minimo(sheet)
+    if antigos:
+        meses = ', '.join(f"{m} ({q} linha{'s' if q > 1 else ''})" for m, q in sorted(antigos.items())[:24])
+        mais = f" e mais {len(antigos) - 24} mês(es)" if len(antigos) > 24 else ''
+        raise ValueError(
+            f"Arquivo de {nome_tabela} RECUSADO: a partir de 2026 os centros de custo mudaram e só são aceitos dados de "
+            f"{ANO_MES_MINIMO_IMPORTACAO} em diante. O arquivo tem linhas de: {meses}{mais}. Nada foi gravado -- tire "
+            f"essas linhas do arquivo e envie de novo."
+        )
+
+
 def _processar_planilha_producao_mensal(sheet):
     """
     Processa uma planilha (Excel OU CSV, já carregada via
@@ -680,6 +726,7 @@ def _processar_planilha_producao_mensal(sheet):
             "O cabeçalho do arquivo não bate com o esperado pra Produção Mensal.\n"
             f"Esperado: {CABECALHO_PRODUCAO_MENSAL}\nEncontrado: {lista_colunas}"
         )
+    _validar_periodo_minimo(sheet, 'Produção Mensal')      # 🌟 NOVO (15/10/2026)
 
     cache_estabelecimentos = {e.est_codigo: e for e in TbEstabelecimentos.objects.all()}
     cache_grupos_maquina = {g.gru_maq_codigo: g for g in TbGruposMaquinas.objects.all()}
@@ -850,6 +897,7 @@ def _processar_planilha_distribuicao_ggf_mensal(sheet):
             "O cabeçalho do arquivo não bate com o esperado pra Distribuição GGF Mensal.\n"
             f"Esperado: {CABECALHO_DISTRIBUICAO_GGF_MENSAL}\nEncontrado: {lista_colunas}"
         )
+    _validar_periodo_minimo(sheet, 'Distribuição GGF Mensal')      # 🌟 NOVO (15/10/2026)
 
     cache_estabelecimentos = {e.est_codigo: e for e in TbEstabelecimentos.objects.all()}
     cache_grupos_maquina = {g.gru_maq_codigo: g for g in TbGruposMaquinas.objects.all()}
@@ -2134,3 +2182,16 @@ def atualizar_custo_variavel_adicionado_item_preco_de_chat_celery(self, usuario_
         _atualizar_status_importacao_cf(usuario_id, 'erro', f"Erro ao atualizar Preço/Custo Variável Adicionado: {e}")
         return
     _atualizar_status_importacao_cf(usuario_id, 'concluido')
+
+# 🌟 NOVO (14/10/2026): "Montar Fluxo de Produção Base Produção Mensal" (Agente IA) -- o fluxo consolidado ou por rota
+# é montado aqui, em segundo plano (no Heroku uma requisição de mais de 30 s derruba o sistema). O resultado (texto da
+# resposta do chat, com o desenho) fica guardado no resultado da task; o chat sonda a cada 5 s e mostra quando terminar.
+@shared_task(bind=True)
+def montar_fluxo_producao_mensal_chat_celery(self, usuario_id, visao, dados, inicio, fim):
+    import time as _time
+    from parameters.fluxo_criar_cenario import montar_fluxo_pm_em_segundo_plano
+    comeco = _time.time()
+    resposta = montar_fluxo_pm_em_segundo_plano(usuario_id, visao, dados, inicio, fim)
+    print(f"[fluxo_pm][celery] {visao} {inicio} a {fim}: pronto em {_time.time() - comeco:.1f}s "
+          f"({len(resposta or '')} caracteres)")
+    return resposta

@@ -27,6 +27,7 @@ from .fluxo_criar_cenario import (
     iniciar_fluxo_comparar_fluxos,
     iniciar_fluxo_custo_variavel_fluxo,
     iniciar_fluxo_montar_fluxo_producao_mensal,
+    eh_pedido_outra_visao_fpm, abrir_outra_visao_fpm,
     iniciar_fluxo_criar_equipamento,
     iniciar_fluxo_criar_ordem,
     _processar_planilha_indicador, _processar_planilha_cambio,
@@ -556,6 +557,22 @@ def _resposta_suspeita(resposta):
     return any(qtd >= LIMITE_REPETICOES_LINHA for qtd in contagem.values())
 
 
+# 🌟 NOVO (14/10/2026): o desenho do Fluxo de Produção pela Produção Mensal vai no texto da resposta como
+# [FLUXO_PRODUCAO_MENSAL:<dados>] -- com rotas, custos mês a mês e o círculo MV são vários MB por resposta, e o chat
+# demorava muito para abrir (carrega o histórico inteiro). No HISTÓRICO esse marcador não é gravado: fica só o texto
+# (custos, rotas, médias) e um aviso. Na tela, na hora, o desenho continua aparecendo normalmente.
+MARCADOR_DESENHO_FPM = re.compile(r"\n*\[FLUXO_PRODUCAO_MENSAL:[A-Za-z0-9_\-=]*\]")
+AVISO_DESENHO_FORA_DO_HISTORICO = ("\n\n_(O desenho do fluxo não fica guardado no histórico -- para vê-lo de novo, monte o "
+                                   "fluxo outra vez.)_")
+
+
+def _resposta_para_historico(resposta):
+    texto = str(resposta or '')
+    if MARCADOR_DESENHO_FPM.search(texto):
+        texto = MARCADOR_DESENHO_FPM.sub('', texto) + AVISO_DESENHO_FORA_DO_HISTORICO
+    return texto
+
+
 def _salvar_historico(usuario, mensagem_usuario, resposta):
     try:
         # 🌟 NOVO (multi-empresa): grava a empresa EFETIVA do usuário no
@@ -568,6 +585,7 @@ def _salvar_historico(usuario, mensagem_usuario, resposta):
         # superusuário troque de "empresa ativa" depois.
         perfil = getattr(usuario, 'perfilusuario', None)
         empresa_id = perfil.empresa_efetiva_id() if perfil else None
+        resposta = _resposta_para_historico(resposta)
         HistoricoAgente.objects.create(
             usuario=usuario,
             comando_usuario=mensagem_usuario,
@@ -1087,6 +1105,15 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
         resposta = processar_mensagem_fluxo(usuario, mensagem_usuario)
         if salvar_historico:
             _salvar_historico(usuario, mensagem_usuario, resposta)
+        return resposta, []
+
+    # 🌟 NOVO (14/10/2026): botão "Ver Fluxo Completo Consolidado / Fluxo Real por Rota (mesmos itens e período)" que
+    # aparece depois de um fluxo montado pela Produção Mensal -- monta a outra visão direto, sem começar de novo.
+    if eh_pedido_outra_visao_fpm(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Custo Ferbasa', 'montar_fluxo_producao_mensal'):
+        if esta_em_fluxo:
+            cancelar_fluxo_ativo(usuario)
+        resposta = abrir_outra_visao_fpm(usuario, mensagem_usuario)
+        _salvar_historico(usuario, mensagem_usuario, resposta)
         return resposta, []
 
     # 🌟 NOVO: "cancelar" digitado (ou clicado) fora de qualquer fluxo

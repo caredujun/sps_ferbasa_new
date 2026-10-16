@@ -124,6 +124,9 @@ ETAPAS_AGUARDANDO_CELERY = {
     'equ_criar_fluxos_aguardando',
     # 🌟 NOVO: "Atualizar Fluxos de Produção por Produto": cálculo da situação e execução, produto a produto.
     'fp_sit_calculando', 'fp_lote_aguardando', 'fp_io_aguardando',
+    # 🌟 NOVO (14/10/2026): "Montar Fluxo de Produção Base Produção Mensal" -- o fluxo (consolidado ou por rota) é
+    # montado no Celery (no Heroku, uma requisição de mais de 30 s derruba o sistema).
+    'cfx_processando',
 }
 
 # 🌟 NOVO: se um fluxo ficar parado por mais que isso, sem nenhuma
@@ -158,6 +161,7 @@ ETAPAS_SEM_EXPIRACAO = {
     'ce_processando_indicador_fluxo', 'ce_processando_indicador_equipamentos', 'ce_processando_custo_item_preco',
     'equ_criar_fluxos_aguardando',
     'fp_sit_calculando', 'fp_lote_aguardando', 'fp_io_aguardando',
+    'cfx_processando',
 }
 
 
@@ -2949,9 +2953,9 @@ def _etapa_cfx_visao(estado, texto):
     escolha = (texto or '').strip().lower()
     inicio, fim = dados.get('periodo_inicio'), dados.get('periodo_fim')
     if 'rota' in escolha or escolha == 'real':
-        return _cfx_montar_rotas(estado, dados, inicio, fim)
+        return _cfx_disparar(estado, dados, inicio, fim, 'rotas')
     if 'complet' in escolha:
-        return _cfx_montar_completo(estado, dados, inicio, fim)
+        return _cfx_disparar(estado, dados, inicio, fim, 'completo')
     return "Não entendi. Escolha uma das opções abaixo.\n\n" + _cfx_texto_visao(inicio, fim).split('\n\n', 1)[1]
 
 
@@ -2979,10 +2983,16 @@ def _cfx_montar_rotas(estado, dados, inicio, fim):
                     f"{moeda}{br(custo['unit_variavel'])} · fixo/outros {moeda}{br(custo['unit_total'] - custo['unit_variavel'])}")
         linhas.append(txt)
     total_rotas = max(r['total_rotas'] for r in rotas)
+    from custo_ferbasa.fluxo_producao_mensal import PARTICIPACAO_MINIMA_ROTA
+    minimo = f"{PARTICIPACAO_MINIMA_ROTA * 100:.0f}%"
     texto_resposta = (f"**Fluxo real de {nomes}** -- Produção Mensal de **{inicio}** a **{fim}**, sem os equipamentos "
-                      f"VAZIO. Cada agrupamento (item feito em mais de um equipamento) divide a cadeia; cada combinação é "
-                      f"uma rota. **{len(rotas)} rota(s)**, uma aba para cada (o nome da aba são os equipamentos "
-                      f"escolhidos nos agrupamentos, do produto final para trás):\n" + "\n".join(linhas))
+                      f"VAZIO. **Regra das rotas:** um agrupamento (item feito em mais de um equipamento) só divide a "
+                      f"cadeia quando todos os seus equipamentos são da **mesma área** do equipamento que faz o produto "
+                      f"final (3 primeiros caracteres do código, ex.: F01) e cada equipamento com **participação mínima "
+                      f"de {minimo}** na produção do item vira uma rota; os abaixo de {minimo} entram junto com o maior "
+                      f"(\"(+n)\" no nome) e, se só um passar de {minimo}, o item não divide. Cada combinação é uma rota. "
+                      f"**{len(rotas)} rota(s)**, uma aba para cada (o nome da aba são os equipamentos escolhidos nos "
+                      f"agrupamentos, do produto final para trás):\n" + "\n".join(linhas))
     # 🌟 NOVO: média das rotas ponderada pela participação -- é o custo com todos os equipamentos juntos (valor contábil)
     if total_rotas == len(rotas):
         soma_part, soma_custo = 0.0, 0.0
@@ -3004,7 +3014,146 @@ def _cfx_montar_rotas(estado, dados, inicio, fim):
                'rotas': [{'rotulo': r['rotulo'], 'rotulo_completo': r['rotulo_completo'], 'participacao': r['participacao'],
                           'titulo': f"Fluxo real de {nomes} — rota {r['rotulo_completo']}", 'periodo': f"{inicio} a {fim}",
                           'moeda': moeda, **r['grafo']} for r in rotas]}
-    return texto_resposta + "\n\n" + _equ_marcador('FLUXO_PRODUCAO_MENSAL', payload)
+    return (texto_resposta + "\n\n" + _cfx_botao_outra_visao(dados, inicio, fim, 'rotas') + "\n\n"
+            + _equ_marcador('FLUXO_PRODUCAO_MENSAL', payload))
+
+
+# 🌟 NOVO (14/10/2026): depois de mostrar uma visão (Completo Consolidado ou Real por Rota), um botão para ver a OUTRA
+# com os mesmos itens e o mesmo período, sem começar tudo de novo. O botão manda "<rótulo> [FPM_VISAO:<base64>]";
+# agents.py reconhece o marcador e chama abrir_outra_visao_fpm. A empresa é sempre a do usuário (não vem do botão).
+ROTULO_VISAO_FPM = {'completo': 'Fluxo Completo Consolidado', 'rotas': 'Fluxo Real por Rota Sem Movimentações'}
+PADRAO_OUTRA_VISAO_FPM = re.compile(r"\[FPM_VISAO:([A-Za-z0-9_\-=]+)\]")
+
+
+def _cfx_botao_outra_visao(dados, inicio, fim, visao_atual):
+    import base64
+    outra = 'rotas' if visao_atual == 'completo' else 'completo'
+    info = {'v': outra, 'ids': dados.get('itens_ids') or [], 'cod': dados.get('itens_codigos') or [],
+            'nom': dados.get('itens_nomes') or [], 'ini': inicio, 'fim': fim}
+    b64 = base64.urlsafe_b64encode(json.dumps(info, ensure_ascii=False).encode('utf-8')).decode('ascii')
+    rotulo = f"Ver {ROTULO_VISAO_FPM[outra]} (mesmos itens e período)"
+    return _equ_marcador('BOTOES', {'botoes': [{'valor': f"{rotulo} [FPM_VISAO:{b64}]", 'rotulo': rotulo}]})
+
+
+def eh_pedido_outra_visao_fpm(mensagem):
+    return bool(PADRAO_OUTRA_VISAO_FPM.search(mensagem or ''))
+
+
+def abrir_outra_visao_fpm(usuario, mensagem):
+    import base64
+    m = PADRAO_OUTRA_VISAO_FPM.search(mensagem or '')
+    try:
+        bruto = m.group(1)
+        info = json.loads(base64.urlsafe_b64decode(bruto + '=' * (-len(bruto) % 4)).decode('utf-8'))
+        visao, ids, inicio, fim = info['v'], [int(i) for i in info['ids']], str(info['ini']), str(info['fim'])
+    except Exception:
+        return "Não consegui ler o pedido. Monte o fluxo de novo pela ação \"Montar Fluxo de Produção Base Produção Mensal\"."
+    perfil = getattr(usuario, 'perfilusuario', None)
+    empresa_id = perfil.empresa_efetiva_id() if perfil else None
+    if empresa_id is None or not ids:
+        return "Não consegui identificar a sua empresa. Escolha uma empresa ativa antes."
+    estado = _get_estado(usuario)
+    dados = {'empresa_id': empresa_id, 'itens_ids': ids, 'itens_codigos': info.get('cod') or [],
+             'itens_nomes': info.get('nom') or [], 'periodo_inicio': inicio, 'periodo_fim': fim}
+    return _cfx_disparar(estado, dados, inicio, fim, 'rotas' if visao == 'rotas' else 'completo')
+
+
+# ---------------------------------------------------------------------
+# 🌟 NOVO (14/10/2026): o fluxo da Produção Mensal (consolidado ou por rota) é montado EM SEGUNDO PLANO no Celery
+# (custo_ferbasa.tasks.montar_fluxo_producao_mensal_chat_celery). O chat fica na etapa 'cfx_processando' (sondagem
+# automática a cada 5 s, como as outras ações em segundo plano) e, quando a task termina, mostra o texto e o desenho
+# que ela devolveu (guardado no resultado da task). "Cancelar" só encerra o acompanhamento.
+# ---------------------------------------------------------------------
+ROTULO_VISAO_CURTO = {'completo': 'Fluxo Completo Consolidado', 'rotas': 'Fluxo Real por Rota Sem Movimentações'}
+
+
+class _EstadoSegundoPlano:
+    """Estado "de mentira" para montar o texto dentro da task: as funções de montagem leem o usuário (moeda) e
+    encerram o fluxo no fim -- aqui isso não grava nada (quem encerra o fluxo de verdade é a etapa de sondagem)."""
+    def __init__(self, usuario):
+        self.usuario = usuario
+        self.fluxo_ativo = None
+        self.etapa_atual = None
+        self.dados_coletados = {}
+
+    def save(self, *args, **kwargs):
+        pass
+
+
+def montar_fluxo_pm_em_segundo_plano(usuario_id, visao, dados, inicio, fim):
+    """Chamada pela task do Celery. Devolve o texto completo da resposta do chat (com o marcador do desenho)."""
+    from django.contrib.auth import get_user_model
+    usuario = get_user_model().objects.get(id=usuario_id)
+    falso = _EstadoSegundoPlano(usuario)
+    if visao == 'rotas':
+        return _cfx_montar_rotas(falso, dados, inicio, fim)
+    return _cfx_montar_completo(falso, dados, inicio, fim)
+
+
+def _cfx_disparar(estado, dados, inicio, fim, visao):
+    import uuid
+    from datetime import datetime, timezone as _tz
+    task_id = str(uuid.uuid4())
+    dados_task = {k: dados[k] for k in ('empresa_id', 'itens_ids', 'itens_codigos', 'itens_nomes') if k in dados}
+    estado.fluxo_ativo = FLUXO_PROCESSAR
+    estado.etapa_atual = 'cfx_processando'
+    estado.dados_coletados = {**dados_task, 'periodo_inicio': inicio, 'periodo_fim': fim, 'visao': visao,
+                              'task_ids': [task_id], 'disparado_em': datetime.now(_tz.utc).isoformat()}
+    estado.save()
+    from custo_ferbasa.tasks import montar_fluxo_producao_mensal_chat_celery
+    argumentos = (estado.usuario_id, visao, dados_task, inicio, fim)
+    transaction.on_commit(lambda: montar_fluxo_producao_mensal_chat_celery.apply_async(argumentos, task_id=task_id))
+    nomes = ', '.join(dados.get('itens_nomes') or dados.get('itens_codigos') or [])
+    return (f"Montando o **{ROTULO_VISAO_CURTO[visao]}** de **{nomes}** ({inicio} a {fim}) em segundo plano. "
+            "Acompanho por aqui e mostro o fluxo assim que ficar pronto (períodos longos podem levar alguns minutos).")
+
+
+def _cfx_resultado_tarefa(task_ids):
+    """(status, resultado) da task no banco de resultados do Celery, ou (None, None)."""
+    if not task_ids:
+        return None, None
+    try:
+        from django_celery_results.models import TaskResult
+        reg = TaskResult.objects.filter(task_id=task_ids[0]).values_list('status', 'result').first()
+    except Exception:
+        return None, None
+    if not reg:
+        return None, None
+    status, bruto = reg
+    resultado = bruto
+    if isinstance(bruto, str):
+        try:
+            resultado = json.loads(bruto)
+        except Exception:
+            resultado = bruto
+    return status, resultado
+
+
+def _etapa_cfx_processando(estado, texto):
+    from datetime import datetime, timezone as _tz
+    dados = estado.dados_coletados or {}
+    status, resultado = _cfx_resultado_tarefa(dados.get('task_ids'))
+    if status == 'SUCCESS':
+        _encerrar_fluxo(estado)
+        # 🌟 o resultado (vários MB) já foi lido: apaga do banco de resultados do Celery, pra não acumular
+        try:
+            from django_celery_results.models import TaskResult
+            TaskResult.objects.filter(task_id__in=dados.get('task_ids') or []).delete()
+        except Exception:
+            pass
+        return resultado if isinstance(resultado, str) and resultado else "O fluxo terminou, mas veio sem resultado -- monte de novo."
+    if _equ_geracao_morreu(dados):
+        _encerrar_fluxo(estado)
+        return ("A montagem do fluxo parou antes de terminar -- o processo do Celery foi encerrado ou deu erro (veja o log "
+                "do worker). Pode pedir de novo pela ação \"Montar Fluxo de Produção Base Produção Mensal\".")
+    decorrido = ''
+    try:
+        seg = int((datetime.now(_tz.utc) - datetime.fromisoformat(dados.get('disparado_em'))).total_seconds())
+        decorrido = f" ({seg // 60} min {seg % 60:02d} s até agora)"
+    except Exception:
+        pass
+    return (f"Montando o **{ROTULO_VISAO_CURTO.get(dados.get('visao'), 'fluxo')}** em segundo plano{decorrido}... "
+            "mostro o fluxo assim que ficar pronto.")
 
 
 def _cfx_montar_completo(estado, dados, inicio, fim):
@@ -3041,7 +3190,8 @@ def _cfx_montar_completo(estado, dados, inicio, fim):
     if grafo.get('aviso_custo'):
         texto_resposta += "\n\n⚠️ " + grafo['aviso_custo']
     payload = {'titulo': f"Fluxo de produção de {nomes}", 'periodo': f"{inicio} a {fim}", 'moeda': moeda, **grafo}
-    return texto_resposta + "\n\n" + _equ_marcador('FLUXO_PRODUCAO_MENSAL', payload)
+    return (texto_resposta + "\n\n" + _cfx_botao_outra_visao(dados, inicio, fim, 'completo') + "\n\n"
+            + _equ_marcador('FLUXO_PRODUCAO_MENSAL', payload))
 
 
 def _etapa_fp_criar_fluxos_produto_escolher(estado, texto):
@@ -6358,6 +6508,7 @@ _HANDLERS_PROCESSAR = {
     'cfx_itens': _etapa_cfx_itens,
     'cfx_periodo': _etapa_cfx_periodo,
     'cfx_visao': _etapa_cfx_visao,
+    'cfx_processando': _etapa_cfx_processando,
 }
 
 
