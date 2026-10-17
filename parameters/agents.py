@@ -1717,6 +1717,68 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
         return f"Erro no processamento interno do servidor: {str(e)}", []
 
 
+# =======================================================================
+# 🌟 NOVO (16/10/2026): COMENTÁRIO DA IA na "Análise Variação Custo" do fluxo montado pela Produção Mensal. O chat
+# calcula a decomposição EXATA da variação do custo (efeito consumo, preço, GGF, mix) e manda aqui só um resumo
+# pequeno (JSON, poucas centenas de tokens -- longe do limite da Groq) na mensagem "[COMENTARIO_ANALISE_CUSTO:base64]".
+# A IA só INTERPRETA: resumo executivo, causas agrupadas e pontos a investigar, usando somente os números recebidos.
+# Não passa pelos detectores nem pelo histórico (não é conversa do usuário).
+# =======================================================================
+PADRAO_COMENTARIO_ANALISE_CUSTO = re.compile(r'^\[COMENTARIO_ANALISE_CUSTO:([A-Za-z0-9+/=_-]+)\]\s*$', re.DOTALL)
+LIMITE_JSON_COMENTARIO_ANALISE = 12000
+
+INSTRUCAO_COMENTARIO_ANALISE_CUSTO = (
+    "Você é um analista sênior de custos industriais de uma produtora de ferroligas (Ferbasa: minas, carvoarias, "
+    "fornos elétricos, britagem). Você recebe um JSON com a decomposição EXATA da variação do custo por unidade de um "
+    "equipamento/produto entre um período base e um período de comparação, pelo valor contábil: custo total, variável "
+    "e fixo/outros; para os principais itens, o consumo específico e o custo por unidade do item nos dois períodos e os "
+    "efeitos consumo (mudança do consumo específico) e preço (mudança do custo por unidade do item); o GGF distribuído "
+    "(rateio de gastos gerais por conta x centro de custo) com efeito volume (mesmo gasto, produção diferente) e efeito "
+    "gasto; e, quando houver vários equipamentos, o efeito mix (participação) e desempenho (custo de cada um).\n\n"
+    "Escreva em português do Brasil, em no máximo 350 palavras, em markdown simples (parágrafos curtos e listas com '- '):\n"
+    "1. **Resumo executivo**: 2 a 3 frases com a variação do custo total e o que mais explica.\n"
+    "2. **Principais causas**: agrupe itens relacionados (ex.: minérios, redutores, energia, subprodutos, GGF) e diga se "
+    "a causa foi preço ou consumo específico.\n"
+    "3. **Pontos de atenção / o que investigar**: o que parece fora do normal e o que verificar.\n\n"
+    "REGRAS OBRIGATÓRIAS: use SOMENTE os números do JSON, exatamente como estão (não recalcule, não arredonde de outro "
+    "jeito, não invente números). Não afirme causas externas como fato (mercado, câmbio, fornecedor): se sugerir, diga "
+    "que é hipótese a verificar. Itens marcados como 'produzido_no_fluxo' têm o custo vindo de outro equipamento do "
+    "fluxo: diga que a causa do preço deve ser vista na análise desse equipamento. Valores em R$ com vírgula decimal."
+)
+
+
+def _comentario_analise_custo(mensagem_usuario, usuario):
+    """Devolve o texto do comentário da IA (ou uma mensagem de erro curta). Ver PADRAO_COMENTARIO_ANALISE_CUSTO."""
+    import base64
+    m = PADRAO_COMENTARIO_ANALISE_CUSTO.match(mensagem_usuario or '')
+    try:
+        bruto = m.group(1)
+        bruto += '=' * (-len(bruto) % 4)
+        dados = json.loads(base64.b64decode(bruto.replace('-', '+').replace('_', '/')).decode('utf-8'))
+        texto_json = json.dumps(dados, ensure_ascii=False, separators=(',', ':'))
+    except Exception:
+        return "Não consegui ler os dados da análise para comentar."
+    if len(texto_json) > LIMITE_JSON_COMENTARIO_ANALISE:
+        texto_json = texto_json[:LIMITE_JSON_COMENTARIO_ANALISE]
+    try:
+        from groq import Groq
+        client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+        response = client.chat.completions.create(
+            model="openai/gpt-oss-120b",
+            messages=[
+                {"role": "system", "content": INSTRUCAO_COMENTARIO_ANALISE_CUSTO},
+                {"role": "user", "content": texto_json},
+            ],
+            temperature=0.2,
+            timeout=60,
+        )
+        texto = (response.choices[0].message.content or '').strip()
+        return texto or "A IA não devolveu comentário. Tente de novo."
+    except Exception as erro:
+        print(f"[comentario_analise_custo] {type(erro).__name__}: {erro}")
+        return "Não foi possível gerar o comentário da IA agora (serviço indisponível ou limite de uso). Tente de novo em instantes."
+
+
 def executar_agente_com_prompt_do_admin(mensagem_usuario: str, pdf_ids: list, usuario, salvar_historico=True, eh_sondagem_automatica=False) -> tuple:
     """
     🌟 NOVO: camada fina por cima de `_executar_agente_interno` -- essa é a
@@ -1740,6 +1802,13 @@ def executar_agente_com_prompt_do_admin(mensagem_usuario: str, pdf_ids: list, us
     essa função precisa usar o texto ORIGINAL pra extrair as opções, e o
     texto TRADUZIDO só pra mostrar na tela.
     """
+    # 🌟 NOVO (16/10/2026): comentário da IA na análise da variação do custo -- direto, sem histórico nem detectores
+    if PADRAO_COMENTARIO_ANALISE_CUSTO.match(mensagem_usuario or ''):
+        texto = _comentario_analise_custo(mensagem_usuario, usuario)
+        perfil_c = getattr(usuario, 'perfilusuario', None)
+        idioma_c = perfil_c.idioma_efetivo() if perfil_c else None
+        return _traduzir_resposta_se_necessario(texto, idioma_c), [], texto
+
     sinalizador_falha = {}
     resposta_original, fontes = _executar_agente_interno(
         mensagem_usuario, pdf_ids, usuario, _sinalizador_falha=sinalizador_falha, salvar_historico=salvar_historico
