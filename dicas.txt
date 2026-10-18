@@ -540,3 +540,5 @@ Para forçar aparecer a virtual env no terminal interno do pycharm
                 echo "source ~/PycharmProjects/sps_ferbasa/.venv/bin/activate" >> ~/.bashrc
 
 -----------------------------------------------------------------------------------------
+URL para upgrade do groq: https://console.groq.com/settings/billing.
+-----------------------------------------------------------------------------------------

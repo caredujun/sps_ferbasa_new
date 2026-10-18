@@ -27,6 +27,7 @@ from .fluxo_criar_cenario import (
     iniciar_fluxo_comparar_fluxos,
     iniciar_fluxo_custo_variavel_fluxo,
     iniciar_fluxo_montar_fluxo_producao_mensal,
+    iniciar_fluxo_balanco_subprodutos,
     eh_pedido_outra_visao_fpm, abrir_outra_visao_fpm,
     iniciar_fluxo_criar_equipamento,
     iniciar_fluxo_criar_ordem,
@@ -318,6 +319,11 @@ def _detectar_intencao_criar_equipamento(mensagem):
 # e ggf mencionados juntos, em qualquer ordem, ou o nome da categoria).
 # 🌟 NOVO: "Custo Ferbasa - Montar Fluxo de Produção pela Produção Mensal" (só consulta). Exige "montar" + "fluxo" +
 # "produção mensal" -- checado ANTES dos outros detectores de Custo Ferbasa.
+def _detectar_intencao_balanco_subprodutos(mensagem):
+    """🌟 NOVO (17/10/2026): "Custo Ferbasa - Fluxo/Balanço de Subprodutos" (texto do menu ou variações)."""
+    return bool(re.search(r'(fluxo|balan[cç]o)\W{0,3}(/\W{0,3}balan[cç]o\W+)?(dos?|de)\s+subprodutos?', mensagem or "", re.IGNORECASE))
+
+
 def _detectar_intencao_montar_fluxo_producao_mensal(mensagem):
     return bool(re.search(r'mont\w*.*fluxo.*produ[cç][aã]o\s+mensal', mensagem or "", re.IGNORECASE))
 
@@ -821,6 +827,10 @@ def _forcar_traducao_palavras_chave(texto: str, codigo_idioma: str) -> str:
     return texto
 
 
+# 🌟 NOVO (17/10/2026): marcadores técnicos da tela ([NOME:dados] ou [NOME]) -- nunca vão para a tradução
+PADRAO_MARCADOR_TECNICO = re.compile(r'(?<!\[)\[[A-Z][A-Z0-9_]{2,}(?::[^\]\s]*)?\](?!\])')
+
+
 def _traduzir_resposta_se_necessario(texto: str, codigo_idioma: str) -> str:
     """
     🌟 NOVO: traduz a resposta FINAL do Agente IA pro idioma ativo do
@@ -852,6 +862,41 @@ def _traduzir_resposta_se_necessario(texto: str, codigo_idioma: str) -> str:
     for indice, bloco in enumerate(blocos_grafico):
         texto_protegido = texto_protegido.replace(bloco, f'[[[GRAFICO_{indice}]]]', 1)
 
+    # 🌟 NOVO (17/10/2026): protege também os MARCADORES técnicos que a tela usa ([SELECAO_PRODUTOS:base64...],
+    # [FLUXO_PRODUCAO_MENSAL:...], [BOTOES:...], [FORM_PERIODO:...], [LISTA_EQUIPAMENTOS] etc.). Antes eles iam junto
+    # para a tradução: o base64 de uma lista de produtos passava de 58 mil tokens e a Groq recusava (erro 413, limite
+    # de 8 mil tokens por minuto) -- a resposta ficava em português. Agora só o texto de verdade vai para a IA.
+    marcadores = []
+
+    def _guardar_marcador(m):
+        marcadores.append(m.group(0))
+        return f'[[[MARCADOR_{len(marcadores) - 1}]]]'
+    texto_protegido = PADRAO_MARCADOR_TECNICO.sub(_guardar_marcador, texto_protegido)
+
+    def _recolocar(traduzido):
+        for indice, bloco in enumerate(blocos_grafico):
+            traduzido = traduzido.replace(f'[[[GRAFICO_{indice}]]]', bloco, 1)
+        for indice, bloco in enumerate(marcadores):
+            alvo = f'[[[MARCADOR_{indice}]]]'
+            traduzido = traduzido.replace(alvo, bloco, 1) if alvo in traduzido else traduzido + '\n\n' + bloco
+        return traduzido
+
+    # 🌟 NOVO (17/10/2026): só marcadores (nada para traduzir) -> devolve como está
+    if not re.sub(r'\[\[\[(?:GRAFICO|MARCADOR)_\d+\]\]\]', '', texto_protegido).strip():
+        return texto
+
+    # 🌟 NOVO (17/10/2026): CACHE das traduções -- as perguntas dos assistentes se repetem sempre iguais; cada texto é
+    # traduzido pela IA uma vez por idioma e depois vem do cache (sem gastar o limite da Groq).
+    import hashlib
+    from django.core.cache import cache
+    chave_cache = 'trad_agente:%s:%s' % (codigo_idioma, hashlib.sha1(texto_protegido.encode('utf-8')).hexdigest())
+    try:
+        em_cache = cache.get(chave_cache)
+    except Exception:
+        em_cache = None
+    if em_cache:
+        return _recolocar(em_cache)
+
     try:
         from groq import Groq
         client = Groq(api_key=os.getenv("GROQ_API_KEY"))
@@ -868,7 +913,7 @@ def _traduzir_resposta_se_necessario(texto: str, codigo_idioma: str) -> str:
                         "percentuais, nomes próprios, siglas técnicas (como EBITDA, "
                         "CAPEX, WIP) e a formatação (markdown, listas, quebras de "
                         "linha) do texto original. Se aparecer um marcador como "
-                        "[[[GRAFICO_0]]], copie ele EXATAMENTE igual, sem traduzir "
+                        "[[[GRAFICO_0]]] ou [[[MARCADOR_0]]], copie ele EXATAMENTE igual, sem traduzir "
                         "nem alterar nada dentro dos colchetes. Responda APENAS com "
                         "o texto traduzido, sem nenhum comentário adicional, sem "
                         "repetir o texto original e sem explicar o que você fez."
@@ -881,15 +926,15 @@ def _traduzir_resposta_se_necessario(texto: str, codigo_idioma: str) -> str:
         )
         traduzido = response.choices[0].message.content
         traduzido = traduzido.strip() if traduzido else texto_protegido
+        if traduzido and traduzido != texto_protegido:
+            try:
+                cache.set(chave_cache, traduzido, 60 * 60 * 24 * 30)     # 30 dias
+            except Exception:
+                pass
 
-        # Recoloca os blocos de gráfico originais, intactos, no lugar dos
-        # placeholders -- não importa o que a IA de tradução tenha feito
-        # com o marcador (traduziu, manteve, alterou), o resultado final
-        # sempre tem o JSON original, sem risco de quebrar.
-        for indice, bloco in enumerate(blocos_grafico):
-            traduzido = traduzido.replace(f'[[[GRAFICO_{indice}]]]', bloco, 1)
-
-        return traduzido
+        # Recoloca os blocos de gráfico e os marcadores originais, intactos, no lugar dos placeholders -- não importa o
+        # que a IA de tradução tenha feito com eles, o resultado final sempre tem o original, sem risco de quebrar.
+        return _recolocar(traduzido)
     except Exception as erro_traducao:
         print(f"[agente_ia][traducao] falhou, devolvendo original: {erro_traducao}")
         return texto
@@ -1219,6 +1264,14 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
         if esta_em_fluxo:
             cancelar_fluxo_ativo(usuario)
         resposta = iniciar_fluxo_criar_equipamento(usuario)
+        _salvar_historico(usuario, mensagem_usuario, resposta)
+        return resposta, []
+
+    # 🌟 NOVO (17/10/2026): Fluxo/Balanço de Subprodutos (Custo Ferbasa) -- só consulta.
+    if _detectar_intencao_balanco_subprodutos(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Custo Ferbasa', 'fluxo_balanco_subprodutos'):
+        if esta_em_fluxo:
+            cancelar_fluxo_ativo(usuario)
+        resposta = iniciar_fluxo_balanco_subprodutos(usuario)
         _salvar_historico(usuario, mensagem_usuario, resposta)
         return resposta, []
 
@@ -1734,7 +1787,7 @@ INSTRUCAO_COMENTARIO_ANALISE_CUSTO = (
     "e fixo/outros; para os principais itens, o consumo específico e o custo por unidade do item nos dois períodos e os "
     "efeitos consumo (mudança do consumo específico) e preço (mudança do custo por unidade do item); o GGF distribuído "
     "(rateio de gastos gerais por conta x centro de custo) com efeito volume (mesmo gasto, produção diferente) e efeito "
-    "gasto; e, quando houver vários equipamentos, o efeito mix (participação) e desempenho (custo de cada um).\n\n"
+    "preço/recursos (variação do R$ lançado por mês, que mistura preço e quantidade de recursos -- não há quantidades no GGF); e, quando houver vários equipamentos, o efeito mix (participação) e desempenho (custo de cada um).\n\n"
     "Escreva em português do Brasil, em no máximo 350 palavras, em markdown simples (parágrafos curtos e listas com '- '):\n"
     "1. **Resumo executivo**: 2 a 3 frases com a variação do custo total e o que mais explica.\n"
     "2. **Principais causas**: agrupe itens relacionados (ex.: minérios, redutores, energia, subprodutos, GGF) e diga se "

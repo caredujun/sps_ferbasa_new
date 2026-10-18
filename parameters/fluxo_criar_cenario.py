@@ -3064,7 +3064,8 @@ def abrir_outra_visao_fpm(usuario, mensagem):
 # automática a cada 5 s, como as outras ações em segundo plano) e, quando a task termina, mostra o texto e o desenho
 # que ela devolveu (guardado no resultado da task). "Cancelar" só encerra o acompanhamento.
 # ---------------------------------------------------------------------
-ROTULO_VISAO_CURTO = {'completo': 'Fluxo Completo Consolidado', 'rotas': 'Fluxo Real por Rota Sem Movimentações'}
+ROTULO_VISAO_CURTO = {'completo': 'Fluxo Completo Consolidado', 'rotas': 'Fluxo Real por Rota Sem Movimentações',
+                      'subprodutos': 'Fluxo/Balanço de Subprodutos'}
 
 
 class _EstadoSegundoPlano:
@@ -3087,6 +3088,8 @@ def montar_fluxo_pm_em_segundo_plano(usuario_id, visao, dados, inicio, fim):
     falso = _EstadoSegundoPlano(usuario)
     if visao == 'rotas':
         return _cfx_montar_rotas(falso, dados, inicio, fim)
+    if visao == 'subprodutos':       # 🌟 NOVO (17/10/2026): Fluxo/Balanço de Subprodutos (mesma task do Celery)
+        return _cbs_montar(falso, dados, inicio, fim)
     return _cfx_montar_completo(falso, dados, inicio, fim)
 
 
@@ -3145,7 +3148,8 @@ def _etapa_cfx_processando(estado, texto):
     if _equ_geracao_morreu(dados):
         _encerrar_fluxo(estado)
         return ("A montagem do fluxo parou antes de terminar -- o processo do Celery foi encerrado ou deu erro (veja o log "
-                "do worker). Pode pedir de novo pela ação \"Montar Fluxo de Produção Base Produção Mensal\".")
+                "do worker). Pode pedir de novo pela ação \"" + ("Fluxo/Balanço de Subprodutos" if dados.get('visao') == 'subprodutos'
+                                                                 else "Montar Fluxo de Produção Base Produção Mensal") + "\".")
     decorrido = ''
     try:
         seg = int((datetime.now(_tz.utc) - datetime.fromisoformat(dados.get('disparado_em'))).total_seconds())
@@ -3192,6 +3196,122 @@ def _cfx_montar_completo(estado, dados, inicio, fim):
     payload = {'titulo': f"Fluxo de produção de {nomes}", 'periodo': f"{inicio} a {fim}", 'moeda': moeda, **grafo}
     return (texto_resposta + "\n\n" + _cfx_botao_outra_visao(dados, inicio, fim, 'completo') + "\n\n"
             + _equ_marcador('FLUXO_PRODUCAO_MENSAL', payload))
+
+
+
+# ---------------------------------------------------------------------
+# 🌟 NOVO (17/10/2026): "Custo Ferbasa - Fluxo/Balanço de Subprodutos" -- escolhe os subprodutos (itens gerados com
+# consumo negativo na Produção Mensal) e o período; o fluxo (quem gerou / produziu -> subproduto -> quem consumiu) e o
+# balanço da empresa inteira são montados no Celery (mesma task e mesma sondagem do Montar Fluxo, visão 'subprodutos').
+# ---------------------------------------------------------------------
+def iniciar_fluxo_balanco_subprodutos(usuario):
+    from custo_ferbasa.fluxo_producao_mensal import subprodutos_com_geracao
+    perfil = getattr(usuario, 'perfilusuario', None)
+    empresa_id = perfil.empresa_efetiva_id() if perfil else None
+    if empresa_id is None:
+        return "Não consegui identificar a sua empresa. Escolha uma empresa ativa antes."
+    if not subprodutos_com_geracao(empresa_id):
+        return ("Não encontrei nenhum subproduto (consumo negativo) na Produção Mensal. Atualize a Produção Mensal "
+                "(Custo Ferbasa) antes.")
+    estado = _get_estado(usuario)
+    estado.fluxo_ativo = FLUXO_PROCESSAR
+    estado.etapa_atual = 'cbs_itens'
+    estado.dados_coletados = {'empresa_id': empresa_id}
+    estado.save()
+    return _cbs_texto_itens(estado.dados_coletados)
+
+
+def _cbs_texto_itens(dados, aviso=''):
+    from custo_ferbasa.fluxo_producao_mensal import subprodutos_com_geracao
+    itens = [{'id': r['id'], 'codigo': r['codigo'], 'nome': r['descricao'], 'status': 'escolha', 'motivo': r['descricao'],
+              'marcado': False, 'titulo': f"{r['descricao']} -- gerado como subproduto de {r['minimo']} a {r['maximo']}"}
+             for r in subprodutos_com_geracao(dados['empresa_id'])]
+    return (aviso + "Quais **subprodutos** você quer ver? Marque um ou mais e confirme -- para cada um mostro quem gerou, "
+            "quem produziu e quem consumiu, na empresa inteira, e o balanço do período. Também dá pra digitar os códigos "
+            "separados por vírgula (ou \"cancelar\" pra desistir).\n\n"
+            + _equ_marcador('SELECAO_PRODUTOS', {'produtos': itens, 'rotulo_confirmar': 'Confirmar subprodutos',
+                                                  'ordem_alternavel': 'nome',
+                                                  'rotulo_marcar': 'Marcar todos'}))
+
+
+def _etapa_cbs_itens(estado, texto):
+    from custo_ferbasa.fluxo_producao_mensal import subprodutos_com_geracao
+    dados = estado.dados_coletados or {}
+    disponiveis = {r['id']: r for r in subprodutos_com_geracao(dados['empresa_id'])}
+    entrada = _equ_json(texto)
+    ids = []
+    if entrada is not None and isinstance(entrada.get('produtos'), list):
+        for valor in entrada['produtos']:
+            try:
+                ids.append(int(valor))
+            except (TypeError, ValueError):
+                pass
+    else:       # códigos digitados
+        por_codigo = {str(r['codigo']).upper(): r['id'] for r in disponiveis.values()}
+        desconhecidos = []
+        for parte in re.split(r'[,;\s]+', (texto or '').strip()):
+            if not parte:
+                continue
+            if parte.upper() in por_codigo:
+                ids.append(por_codigo[parte.upper()])
+            else:
+                desconhecidos.append(parte)
+        if desconhecidos:
+            return _cbs_texto_itens(dados, aviso="Não encontrei como subproduto: **" + ", ".join(desconhecidos) + "**.\n\n")
+    ids = [i for i in dict.fromkeys(ids) if i in disponiveis]
+    if not ids:
+        return _cbs_texto_itens(dados, aviso="Marque pelo menos um subproduto.\n\n")
+    escolhidos = [disponiveis[i] for i in ids]
+    minimo = min(r['minimo'] for r in escolhidos)
+    maximo = max(r['maximo'] for r in escolhidos)
+    codigos = [r['codigo'] for r in escolhidos]
+    nomes = [f"{(r['descricao'] or '').strip() or r['codigo']} / {r['codigo']}" for r in escolhidos]
+    estado.etapa_atual = 'cbs_periodo'
+    estado.dados_coletados = {**dados, 'itens_ids': ids, 'itens_codigos': codigos, 'itens_nomes': nomes,
+                              'ano_mes_minimo': minimo, 'ano_mes_maximo': maximo}
+    estado.save()
+    resumo = ', '.join(codigos) if len(codigos) <= 12 else ', '.join(codigos[:12]) + f" e mais {len(codigos) - 12}"
+    return (f"Subprodutos: **{resumo}**. Eles aparecem como subproduto de **{minimo}** a **{maximo}**. Escolha o período "
+            "(ano/mês início e fim) e confirme abaixo, ou clica em \"Cancelar\".\n\n"
+            + _cfx_form_periodo(minimo, maximo, estado.dados_coletados))
+
+
+def _etapa_cbs_periodo(estado, texto):
+    dados = estado.dados_coletados or {}
+    minimo, maximo = dados['ano_mes_minimo'], dados['ano_mes_maximo']
+    periodos = re.findall(r'\d{4}/\d{2}', texto or '')
+    if (texto or '').strip().lower() in ('sim', 's'):
+        periodos = [minimo, maximo]
+    if len(periodos) != 2:
+        return ("Não consegui entender esse período. Ajuste abaixo, ou clica em \"Cancelar\".\n\n"
+                + _cfx_form_periodo(minimo, maximo, dados))
+    inicio, fim = periodos
+    if fim > maximo:
+        return (f"Esses subprodutos só aparecem até **{maximo}** -- o fim ({fim}) não pode passar disso. Ajuste abaixo, "
+                "ou clica em \"Cancelar\".\n\n" + _cfx_form_periodo(max(inicio, minimo), maximo, dados))
+    if inicio < minimo:
+        return (f"Esses subprodutos só aparecem a partir de **{minimo}** -- o início ({inicio}) não pode ser antes disso. "
+                "Ajuste abaixo, ou clica em \"Cancelar\".\n\n" + _cfx_form_periodo(minimo, min(fim, maximo), dados))
+    if fim < inicio:
+        return (f"O fim ({fim}) não pode ser antes do início ({inicio}). Ajuste abaixo, ou clica em \"Cancelar\".\n\n"
+                + _cfx_form_periodo(inicio, fim, dados))
+    return _cfx_disparar(estado, dados, inicio, fim, 'subprodutos')
+
+
+def _cbs_montar(estado, dados, inicio, fim):
+    from custo_ferbasa.fluxo_producao_mensal import carregar_fluxo_subprodutos
+    resultado = carregar_fluxo_subprodutos(dados['empresa_id'], dados.get('itens_codigos') or [], inicio, fim)
+    _encerrar_fluxo(estado)
+    itens = resultado.get('itens') or []
+    if not itens or not any(r['gerado'] or r['consumido'] or r['produzido'] for r in itens):
+        return (f"Não há geração nem consumo desses subprodutos entre **{inicio}** e **{fim}**. Rode a ação de novo com "
+                "outro período.")
+    moeda = _cmp_moeda(estado)
+    br = lambda v: f"{v:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+    titulo = "Fluxo/Balanço de Subprodutos"
+    texto_resposta = f"**{titulo}** -- Produção Mensal de **{inicio}** a **{fim}** ({len(itens)} subproduto(s), empresa inteira)"
+    payload = {'titulo': titulo, 'periodo': f"{inicio} a {fim}", 'moeda': moeda, **resultado}
+    return texto_resposta + "\n\n" + _equ_marcador('FLUXO_PRODUCAO_MENSAL', payload)
 
 
 def _etapa_fp_criar_fluxos_produto_escolher(estado, texto):
@@ -6509,6 +6629,8 @@ _HANDLERS_PROCESSAR = {
     'cfx_periodo': _etapa_cfx_periodo,
     'cfx_visao': _etapa_cfx_visao,
     'cfx_processando': _etapa_cfx_processando,
+    'cbs_itens': _etapa_cbs_itens,
+    'cbs_periodo': _etapa_cbs_periodo,
 }
 
 
