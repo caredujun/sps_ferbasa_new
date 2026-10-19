@@ -3065,7 +3065,7 @@ def abrir_outra_visao_fpm(usuario, mensagem):
 # que ela devolveu (guardado no resultado da task). "Cancelar" só encerra o acompanhamento.
 # ---------------------------------------------------------------------
 ROTULO_VISAO_CURTO = {'completo': 'Fluxo Completo Consolidado', 'rotas': 'Fluxo Real por Rota Sem Movimentações',
-                      'subprodutos': 'Fluxo/Balanço de Subprodutos', 'analise_resultados': 'Análise de Resultados',
+                      'subprodutos': 'Fluxo/Balanço de Subprodutos', 'analise_resultados': 'Análise dos Resultados',
                       'sensibilidade': 'Sensibilidade Custo x Produtividade'}
 
 
@@ -3109,7 +3109,7 @@ def _cfx_disparar(estado, dados, inicio, fim, visao):
     import uuid
     from datetime import datetime, timezone as _tz
     task_id = str(uuid.uuid4())
-    dados_task = {k: dados[k] for k in ('empresa_id', 'itens_ids', 'itens_codigos', 'itens_nomes') if k in dados}
+    dados_task = {k: dados[k] for k in ('empresa_id', 'itens_ids', 'itens_codigos', 'itens_nomes', 'opcoes') if k in dados}
     estado.fluxo_ativo = FLUXO_PROCESSAR
     estado.etapa_atual = 'cfx_processando'
     estado.dados_coletados = {**dados_task, 'periodo_inicio': inicio, 'periodo_fim': fim, 'visao': visao,
@@ -3168,7 +3168,7 @@ def _etapa_cfx_processando(estado, texto):
         _encerrar_fluxo(estado)
         return ("A montagem do fluxo parou antes de terminar -- o processo do Celery foi encerrado ou deu erro (veja o log "
                 "do worker). Pode pedir de novo pela ação \"" + ({'subprodutos': "Fluxo/Balanço de Subprodutos",
-                                                                  'analise_resultados': "Análise de Resultados",
+                                                                  'analise_resultados': "Análise dos Resultados",
                                                                   'sensibilidade': "Sensibilidade Custo x Produtividade"}.get(dados.get('visao'))
                                                                  or "Montar Fluxo de Produção Base Produção Mensal") + "\".")
     decorrido = ''
@@ -3353,16 +3353,93 @@ def iniciar_fluxo_analise_resultados(usuario):
     filhas = TbCenariosDaugther.objects.filter(mae_id=cenario.id)
     if not filhas.filter(otimizar=1, flag=1).exists():
         return (f"O cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** ainda não tem período otimizado. Rode Limpar, "
-                "Otimizar e Consolidar antes da Análise de Resultados.")
+                "Otimizar e Consolidar antes da Análise dos Resultados.")
     if not filhas.filter(otimizar=1, flag=1).exclude(dau_valor_6=0).exists():
         return (f"O cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** foi otimizado mas ainda não foi consolidado "
-                "(a margem de contribuição total está zerada). Rode o Consolidar antes da Análise de Resultados.")
+                "(a margem de contribuição total está zerada). Rode o Consolidar antes da Análise dos Resultados.")
     estado = _get_estado(usuario)
     dados = {'empresa_id': perfil.empresa_efetiva_id(), 'itens_ids': [cenario.id],
              'itens_nomes': [f"{cenario.numero_sequencial}/{cenario.cen_nome}"]}
-    _cfx_disparar(estado, dados, None, None, 'analise_resultados')
-    return (f"Montando a **Análise de Resultados** do cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** em segundo "
-            "plano. Acompanho por aqui e mostro assim que ficar pronta.")
+    # 🌟 19/10/2026: equipamentos gargalo com ocupação mínima > 0 (ex.: 100% / 100%) -- pergunta ANTES se o usuário quer
+    # simular o resultado sem essa restrição (faixa 0 a máximo); só simula se ele quiser
+    forcados = _car_equipamentos_forcados(cenario)
+    if forcados:
+        estado.fluxo_ativo = FLUXO_PROCESSAR
+        estado.etapa_atual = 'car_minimos'
+        estado.dados_coletados = {**dados, 'forcados': forcados}
+        estado.save()
+        return _car_texto_minimos(cenario, forcados)
+    return _car_disparar(estado, cenario, dados, False)
+
+
+def _car_disparar(estado, cenario, dados, simular):
+    _cfx_disparar(estado, {**dados, 'opcoes': {'simular_minimos': bool(simular)}}, None, None, 'analise_resultados')
+    return (f"Montando a **Análise dos Resultados** do cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** em segundo "
+            "plano" + (" (com a simulação sem a ocupação mínima)" if simular else "") +
+            ". Acompanho por aqui e mostro assim que ficar pronta.")
+
+
+def _car_equipamentos_forcados(cenario):
+    """[[equipamento, [[período, mín %, máx %], ...]], ...] -- equipamentos GARGALO (só esses têm a restrição de ocupação no
+    modelo) com ocupação mínima > 0 nos períodos otimizados."""
+    from django.db import connection
+    from otimizacao.models import TbOtimizacaoEquipamentos
+    with connection.cursor() as cur:
+        cur.execute("""select d.mae_id, d.dau_order, d.dau_valor_5, d.dau_valor_7
+                       from otimizacao_tbotimizacaoequipamentosdaugther d
+                       join otimizacao_tbotimizacaoequipamentos o on o.id = d.mae_id
+                       join equipamentos_tbequipamentoscadastro c on c.id = o.oti_equ_equipamento_id
+                       join parameters_tbcenariosdaugther p on p.mae_id = d.tbcenarios_id and p.dau_order = d.dau_order
+                       where d.tbcenarios_id = %s and d.flag = true and o.flag = true and c.equ_cad_gargalo = true
+                             and coalesce(d.dau_valor_5, 0) > 0 and p.otimizar::int = 1 and p.flag::int = 1
+                       order by d.mae_id, d.dau_order""", [cenario.id])
+        linhas = cur.fetchall()
+    if not linhas:
+        return []
+    nomes = {o.id: str(o.oti_equ_equipamento) for o in
+             TbOtimizacaoEquipamentos.objects.filter(id__in={l[0] for l in linhas}).select_related('oti_equ_equipamento')}
+    por_eq = {}
+    for mid, ordem, omin, omax in linhas:
+        por_eq.setdefault(mid, []).append([_dau_order_para_periodo(cenario, ordem), float(omin or 0), float(omax or 0)])
+    return sorted([[nomes.get(mid, str(mid)), per] for mid, per in por_eq.items()], key=lambda x: x[0].lower())
+
+
+def _car_texto_minimos(cenario, forcados, aviso=''):
+    def pct(v):
+        return f"{v:.0f}%" if abs(v - round(v)) < 1e-9 else f"{v:.1f}%".replace('.', ',')
+    linhas = []
+    for nome, per in forcados:
+        grupos = {}
+        for rot, omin, omax in per:
+            grupos.setdefault((omin, omax), []).append(rot)
+        partes = [f"mínimo {pct(mn)} / máximo {pct(mx)} em {', '.join(rots)}" for (mn, mx), rots in grupos.items()]
+        linhas.append(f"- **{nome}**: " + '; '.join(partes))
+    return (aviso + f"Cenário **{cenario.numero_sequencial}/{cenario.cen_nome}**: estes equipamentos estão OBRIGADOS a rodar "
+            "com ocupação mínima (a otimização não pode reduzir a ocupação deles):\n\n" + "\n".join(linhas) +
+            "\n\nQuer que eu **simule o resultado sem essa restrição** (ocupação mínima 0%, mantendo o máximo)? A otimização é "
+            "refeita para cada equipamento e para todos juntos, e a análise mostra quanto a margem de contribuição mudaria. "
+            "Leva um pouco mais de tempo. (ou \"cancelar\")\n\n"
+            + _equ_marcador('BOTOES', {'botoes': [
+                {'valor': 'sim', 'rotulo': 'Sim, simular sem a ocupação mínima'},
+                {'valor': 'nao', 'rotulo': 'Não, só a análise dos resultados'},
+            ]}))
+
+
+def _etapa_car_minimos(estado, texto):
+    dados = estado.dados_coletados or {}
+    cenario = TbCenarios.objects_real.filter(id=(dados.get('itens_ids') or [None])[0]).first()
+    if cenario is None:
+        _encerrar_fluxo(estado)
+        return "O cenário não existe mais."
+    t = (texto or '').strip().lower()
+    if t.startswith('sim') or t in ('s', 'yes', 'y'):
+        simular = True
+    elif t.startswith('n') or t in ('no',):
+        simular = False
+    else:
+        return _car_texto_minimos(cenario, dados.get('forcados') or [], aviso="Responda **sim** ou **não**.\n\n")
+    base = {k: dados[k] for k in ('empresa_id', 'itens_ids', 'itens_nomes') if k in dados}
+    return _car_disparar(estado, cenario, base, simular)
 
 
 def _car_montar(estado, dados):
@@ -3371,18 +3448,19 @@ def _car_montar(estado, dados):
     _encerrar_fluxo(estado)
     if cenario is None:
         return "O cenário da análise não existe mais."
-    analise = montar_analise(cenario, lambda o: _dau_order_para_periodo(cenario, o))
+    analise = montar_analise(cenario, lambda o: _dau_order_para_periodo(cenario, o),
+                             simular_minimos=bool((dados.get('opcoes') or {}).get('simular_minimos')))
     r = analise['resumo']
     if analise.get('vazio'):
         return "O cenário não tem período otimizado -- não há o que analisar."
     moeda = _cmp_moeda(estado)
     br = lambda v: f"{v:,.0f}".replace(',', '.')
-    texto = (f"**Análise de Resultados — cenário {cenario.numero_sequencial}/{cenario.cen_nome}** · {r['inicio']} a {r['fim']} "
+    texto = (f"**Análise dos Resultados — cenário {cenario.numero_sequencial}/{cenario.cen_nome}** · {r['inicio']} a {r['fim']} "
              f"({r['periodos']} período(s))\n\nMargem de contribuição total: **{moeda}{br(r['mct'])}** · receita "
              f"{moeda}{br(r['receita'])} · EBITDA {moeda}{br(r['ebitda'])}")
     if r.get('nao_otimizados'):
         texto += "\n\n⚠️ Períodos sem otimização (fora da análise): " + ", ".join(r['nao_otimizados'])
-    titulo = f"Análise de Resultados — {cenario.numero_sequencial}/{cenario.cen_nome}"
+    titulo = f"Análise dos Resultados — {cenario.numero_sequencial}/{cenario.cen_nome}"
     payload = {'titulo': titulo, 'periodo': f"{r['inicio']} a {r['fim']}", 'moeda': moeda, **analise}
     return texto + "\n\n" + _equ_marcador('FLUXO_PRODUCAO_MENSAL', payload)
 
@@ -6890,6 +6968,7 @@ _HANDLERS_PROCESSAR = {
     'cfx_processando': _etapa_cfx_processando,
     'cbs_itens': _etapa_cbs_itens,
     'sen_equip': _etapa_sen_equip,
+    'car_minimos': _etapa_car_minimos,
     'sen_fluxos': _etapa_sen_fluxos,
     'cbs_periodo': _etapa_cbs_periodo,
 }

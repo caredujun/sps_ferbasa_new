@@ -758,11 +758,11 @@
                     {% if acoes_habilitadas.cen_otimizar %}<option value="otimizar cenário">{% trans "Otimizar" %}</option>{% endif %}
                     {% if acoes_habilitadas.cen_consolidar %}<option value="consolidar cenário">{% trans "Consolidar" %}</option>{% endif %}
                     {% if acoes_habilitadas.cen_ciclo_completo %}<option value="limpar, otimizar e consolidar o cenário">{% trans "Ciclo completo (limpar, otimizar e consolidar)" %}</option>{% endif %}
+                    {% if acoes_habilitadas.cen_analise_resultados %}<option value="análise dos resultados">{% trans "Análise dos Resultados" %}</option>{% endif %}
+                    {% if acoes_habilitadas.cen_sensibilidade_custo_produtividade %}<option value="sensibilidade custo x produtividade">{% trans "Sensibilidade Custo x Produtividade" %}</option>{% endif %}
                     {% if acoes_habilitadas.cen_excluir %}<option value="excluir um cenário">{% trans "Excluir Cenário" %}</option>{% endif %}
                     {% if acoes_habilitadas.cen_exportar_excel %}<option value="exportar o cenário ativo em excel">{% trans "Exportar Excel Resultados Financeiros do Cenário Ativo" %}</option>{% endif %}
                     {% if acoes_habilitadas.cen_exportar_dados_otimizacao %}<option value="exportar dados de otimização do cenário ativo">{% trans "Exportar Dados de Otimização do Cenário Ativo" %}</option>{% endif %}
-                    {% if acoes_habilitadas.cen_analise_resultados %}<option value="análise de resultados">{% trans "Análise de Resultados" %}</option>{% endif %}
-                    {% if acoes_habilitadas.cen_sensibilidade_custo_produtividade %}<option value="sensibilidade custo x produtividade">{% trans "Sensibilidade Custo x Produtividade" %}</option>{% endif %}
                 </select>
             </div>
 
@@ -1256,13 +1256,42 @@
         {% trans "No mínimo" as ROTULO_AR_COL_NO_MIN %}
         {% trans "Produto / mercado" as ROTULO_AR_TAB_PM %}
         {% trans "Produto" as ROTULO_AR_TAB_P %}
-        {% trans "Cada linha é uma variável do Simplex (produto / mercado / fluxo de produção). Períodos disp.: em quantos períodos o fluxo estava disponível (equipamentos em operação)." as ROTULO_AR_NOTA_FLUXOS %}
+        {% trans "Cada linha é uma variável da Rotina de Otimização (produto / mercado / fluxo de produção). Períodos disp.: em quantos períodos o fluxo estava disponível (equipamentos em operação)." as ROTULO_AR_NOTA_FLUXOS %}
         {% trans "Períodos disp." as ROTULO_AR_COL_PER_DISP %}
         {% trans "Vendidos com margem negativa" as ROTULO_AR_NEGATIVOS %}
-        {% trans "O Simplex só vende com margem negativa quando é obrigado (venda mínima de produto ou produto/mercado, ou produção mínima): são contratos ou mercados a rever." as ROTULO_AR_NOTA_NEGATIVOS %}
+        {% trans "A Rotina de Otimização só vende com margem negativa quando é obrigado (venda mínima de produto ou produto/mercado, ou produção mínima): são contratos ou mercados a rever." as ROTULO_AR_NOTA_NEGATIVOS %}
         {% trans "Produto / mercado / fluxo" as ROTULO_AR_TAB_FLUXOS %}
         {% trans "Horas disponíveis = loading time; ocupação = horas usadas / disponíveis. Preço sombra da hora = quanto a margem total aumentaria com 1 hora a mais no equipamento (média dos períodos em que ele foi gargalo; entre parênteses, quantos). Ganho potencial = preço sombra × horas a mais até o limite da faixa de validade, somado nos períodos (estimativa). Margem que passa = margem dos fluxos que usam o equipamento (entre parênteses, quantos fluxos) — não é somável entre equipamentos. MCT/h = margem que passa / horas usadas." as ROTULO_AR_NOTA_EQUIP %}
         {% trans "Gargalos: valor de 1 hora a mais" as ROTULO_AR_TOP_GARGALOS %}
+        {% trans "Ocupação mínima forçada: margem com a faixa 0 a 100" as ROTULO_AR_TAB_OMIN %}
+        {% trans "Equipamentos com ocupação mínima maior que zero (obrigados a rodar). Para cada um, a Rotina de Otimização foi refeita em todos os períodos com a ocupação mínima em 0 (o máximo continua o mesmo): é o valor exato, não a estimativa do preço sombra. Ganho zero = a obrigação não custa nada, o ótimo já usaria essa ocupação." as ROTULO_AR_NOTA_OMIN %}
+        {% trans "Faixa atual (mín. / máx.)" as ROTULO_AR_COL_FAIXA %}
+        {% trans "Ocupação atual" as ROTULO_AR_COL_OCUP_ATUAL %}
+        {% trans "Ocupação com 0 a 100" as ROTULO_AR_COL_OCUP_LIVRE %}
+        {% trans "MCT atual" as ROTULO_AR_COL_MCT_ATUAL %}
+        {% trans "MCT com 0 a 100" as ROTULO_AR_COL_MCT_LIVRE %}
+        {% trans "Ganho na MCT" as ROTULO_AR_COL_GANHO_EXATO %}
+        {% trans "Todos esses equipamentos juntos" as ROTULO_AR_TODOS_LIVRES %}
+        {% trans "Nenhum equipamento com ocupação mínima maior que zero." as ROTULO_AR_SEM_OMIN %}
+        {% trans "sem solução em" as ROTULO_AR_SEM_SOLUCAO_P %}
+        {% trans "calculado refazendo a otimização" as ROTULO_AR_EXATO %}
+        {% trans "gargalo" as ROTULO_AR_E_GARGALO %}
+        {% trans "não gargalo" as ROTULO_AR_NAO_GARGALO %}
+        {% trans "Gargalo (cadastro)" as ROTULO_AR_COL_GARGALO_CAD %}
+        {% trans "sim" as ROTULO_AR_SIM %}
+        {% trans "não" as ROTULO_AR_NAO %}
+        {% trans "Azul: equipamento gargalo (tem limite de capacidade na Rotina de Otimização). Cinza: não gargalo (sem limite de horas no modelo; por isso a ocupação pode passar de 100 por cento)." as ROTULO_AR_LEG_GARGALO %}
+        {% trans "Equipamentos/Conjunto" as ROTULO_AR_TAB_EQ_CONJ %}
+        {% trans "Limite de PRODUÇÃO do conjunto (soma do output real dos equipamentos que fazem parte dele). Utilização = produção / máximo. Abaixo de cada conjunto, a ocupação de cada equipamento do conjunto." as ROTULO_AR_NOTA_EQ_CONJ %}
+        {% trans "Conjunto" as ROTULO_AR_COL_CONJUNTO %}
+        {% trans "Produção" as ROTULO_AR_COL_PRODUCAO %}
+        {% trans "Máximo" as ROTULO_AR_COL_MAXIMO %}
+        {% trans "Utilização" as ROTULO_AR_COL_UTILIZACAO %}
+        {% trans "Equipamentos do conjunto (ocupação)" as ROTULO_AR_COL_MEMBROS %}
+        {% trans "Nenhum conjunto de equipamentos ativo no cenário." as ROTULO_AR_SEM_CONJUNTOS %}
+        {% trans "fluxo(s) sem produção no período não aparecem." as ROTULO_AR_FLUXOS_SEM_PROD %}
+        {% trans "preso no mínimo" as ROTULO_AR_PRESO_MIN %}
+        {% trans "no máximo" as ROTULO_AR_NO_MAXIMO_TAG %}
         {% trans "Ocupação média no período" as ROTULO_AR_OCUPACAO %}
         {% trans "Equipamento" as ROTULO_AR_COL_EQUIP %}
         {% trans "Horas disponíveis" as ROTULO_AR_COL_HORAS_DISP %}
@@ -1288,7 +1317,7 @@
         {% trans "Consumo" as ROTULO_AR_COL_CONSUMO %}
         {% trans "Mínimo" as ROTULO_AR_COL_CMIN %}
         {% trans "Máximo" as ROTULO_AR_COL_CMAX %}
-        {% trans "Todas as restrições que seguraram a margem em algum período, em ordem de ganho potencial (preço sombra × folga até o limite da faixa de validade, somado nos períodos). É uma estimativa marginal: o preço sombra vale só dentro da faixa e mudar um limite muda o mix e os outros preços sombra — use para priorizar o que analisar. Próxima restrição = a que passa a limitar quando este limite é relaxado (ranging do Simplex)." as ROTULO_AR_NOTA_ANALISAR %}
+        {% trans "Todas as restrições que seguraram a margem em algum período, em ordem de ganho potencial (preço sombra × folga até o limite da faixa de validade, somado nos períodos). É uma estimativa marginal: o preço sombra vale só dentro da faixa e mudar um limite muda o mix e os outros preços sombra — use para priorizar o que analisar. Próxima restrição = a que passa a limitar quando este limite é relaxado (faixas de validade da Rotina de Otimização)." as ROTULO_AR_NOTA_ANALISAR %}
         {% trans "Períodos sem limite na faixa" as ROTULO_AR_COL_SEM_LIMITE %}
         {% trans "Resumo" as ROTULO_AR_ABA_RESUMO %}
         {% trans "Produtos e mercados" as ROTULO_AR_ABA_PRODUTOS %}
@@ -1812,6 +1841,35 @@
         var ROTULO_AR_NOTA_NEGATIVOS = "{{ ROTULO_AR_NOTA_NEGATIVOS|escapejs }}";
         var ROTULO_AR_TAB_FLUXOS = "{{ ROTULO_AR_TAB_FLUXOS|escapejs }}";
         var ROTULO_AR_NOTA_EQUIP = "{{ ROTULO_AR_NOTA_EQUIP|escapejs }}";
+        var ROTULO_AR_E_GARGALO = "{{ ROTULO_AR_E_GARGALO|escapejs }}";
+        var ROTULO_AR_NAO_GARGALO = "{{ ROTULO_AR_NAO_GARGALO|escapejs }}";
+        var ROTULO_AR_COL_GARGALO_CAD = "{{ ROTULO_AR_COL_GARGALO_CAD|escapejs }}";
+        var ROTULO_AR_SIM = "{{ ROTULO_AR_SIM|escapejs }}";
+        var ROTULO_AR_NAO = "{{ ROTULO_AR_NAO|escapejs }}";
+        var ROTULO_AR_LEG_GARGALO = "{{ ROTULO_AR_LEG_GARGALO|escapejs }}";
+        var ROTULO_AR_TAB_EQ_CONJ = "{{ ROTULO_AR_TAB_EQ_CONJ|escapejs }}";
+        var ROTULO_AR_NOTA_EQ_CONJ = "{{ ROTULO_AR_NOTA_EQ_CONJ|escapejs }}";
+        var ROTULO_AR_COL_CONJUNTO = "{{ ROTULO_AR_COL_CONJUNTO|escapejs }}";
+        var ROTULO_AR_COL_PRODUCAO = "{{ ROTULO_AR_COL_PRODUCAO|escapejs }}";
+        var ROTULO_AR_COL_MAXIMO = "{{ ROTULO_AR_COL_MAXIMO|escapejs }}";
+        var ROTULO_AR_COL_UTILIZACAO = "{{ ROTULO_AR_COL_UTILIZACAO|escapejs }}";
+        var ROTULO_AR_COL_MEMBROS = "{{ ROTULO_AR_COL_MEMBROS|escapejs }}";
+        var ROTULO_AR_SEM_CONJUNTOS = "{{ ROTULO_AR_SEM_CONJUNTOS|escapejs }}";
+        var ROTULO_AR_FLUXOS_SEM_PROD = "{{ ROTULO_AR_FLUXOS_SEM_PROD|escapejs }}";
+        var ROTULO_AR_PRESO_MIN = "{{ ROTULO_AR_PRESO_MIN|escapejs }}";
+        var ROTULO_AR_NO_MAXIMO_TAG = "{{ ROTULO_AR_NO_MAXIMO_TAG|escapejs }}";
+        var ROTULO_AR_TAB_OMIN = "{{ ROTULO_AR_TAB_OMIN|escapejs }}";
+        var ROTULO_AR_NOTA_OMIN = "{{ ROTULO_AR_NOTA_OMIN|escapejs }}";
+        var ROTULO_AR_COL_FAIXA = "{{ ROTULO_AR_COL_FAIXA|escapejs }}";
+        var ROTULO_AR_COL_OCUP_ATUAL = "{{ ROTULO_AR_COL_OCUP_ATUAL|escapejs }}";
+        var ROTULO_AR_COL_OCUP_LIVRE = "{{ ROTULO_AR_COL_OCUP_LIVRE|escapejs }}";
+        var ROTULO_AR_COL_MCT_ATUAL = "{{ ROTULO_AR_COL_MCT_ATUAL|escapejs }}";
+        var ROTULO_AR_COL_MCT_LIVRE = "{{ ROTULO_AR_COL_MCT_LIVRE|escapejs }}";
+        var ROTULO_AR_COL_GANHO_EXATO = "{{ ROTULO_AR_COL_GANHO_EXATO|escapejs }}";
+        var ROTULO_AR_TODOS_LIVRES = "{{ ROTULO_AR_TODOS_LIVRES|escapejs }}";
+        var ROTULO_AR_SEM_OMIN = "{{ ROTULO_AR_SEM_OMIN|escapejs }}";
+        var ROTULO_AR_SEM_SOLUCAO_P = "{{ ROTULO_AR_SEM_SOLUCAO_P|escapejs }}";
+        var ROTULO_AR_EXATO = "{{ ROTULO_AR_EXATO|escapejs }}";
         var ROTULO_AR_TOP_GARGALOS = "{{ ROTULO_AR_TOP_GARGALOS|escapejs }}";
         var ROTULO_AR_OCUPACAO = "{{ ROTULO_AR_OCUPACAO|escapejs }}";
         var ROTULO_AR_COL_EQUIP = "{{ ROTULO_AR_COL_EQUIP|escapejs }}";
@@ -3889,7 +3947,7 @@
         // otimizacao/analise_resultados.py). Quadro no chat (resumo + o que analisar primeiro) e a análise completa numa
         // tela própria (abas), com Excel e comentário da IA.
         var _dadosAR = {}, _contadorAR = 0;
-        var AR_ABAS = ['resumo', 'ia', 'produtos', 'fluxos', 'equipamentos', 'comerciais', 'insumos', 'conjuntos', 'analisar'];
+        var AR_ABAS = ['resumo', 'ia', 'produtos', 'fluxos', 'equipamentos', 'comerciais', 'insumos', 'analisar'];   // 🌟 19/10/2026: conjuntos dentro de Equipamentos
 
         function moedaAR(d, v) { return (d.moeda || '') + numFPM(v, 0); }
         function numAR(v, c) { return v === null || v === undefined ? '—' : numFPM(v, c === undefined ? 2 : c); }
@@ -3947,8 +4005,8 @@
                 lista.map(function(a) {
                     return [escapeHtml(a.tipo), escapeHtml(a.nome) + (a.concorrentes && a.concorrentes.length ? '<div class="fpm-bs-tag">' + escapeHtml(ROTULO_AR_CONCORRE + ': ' + a.concorrentes.join('; ')) + '</div>' : ''),
                             escapeHtml(a.lado === 'max' ? ROTULO_AR_MAXIMO : ROTULO_AR_MINIMO) + (a.gargalo ? '<div class="fpm-bs-tag">' + escapeHtml(a.gargalo) + '</div>' : ''),
-                            escapeHtml(a.acao), escapeHtml(String(a.periodos)),
-                            escapeHtml((d.moeda || '') + numFPM(a.sombra_media, 2) + '/' + (a.unidade || ROTULO_AR_UN)), ganhoTextoAR(d, a)];
+                            escapeHtml(a.o_que_fazer || a.acao), escapeHtml(String(a.periodos)),
+                            escapeHtml(a.exato ? '(' + ROTULO_AR_EXATO + ')' : (d.moeda || '') + numFPM(a.sombra_media, 2) + '/' + (a.unidade || ROTULO_AR_UN)), ganhoTextoAR(d, a)];
                 }));
         }
 
@@ -3962,13 +4020,34 @@
             lista.forEach(function(x, i) {
                 var y = 6 + i * (h + 6), w = Math.abs(x.v) * esc, x0 = x.v >= 0 ? zero : zero - w;
                 s += '<text x="' + (rotL - 6) + '" y="' + (y + 14) + '" font-size="11" text-anchor="end" fill="#2c3e50">' + escapeHtml(cortarFPM(x.rot, 62)) + '<title>' + escapeHtml(x.rot) + '</title></text>' +
-                    '<rect x="' + x0 + '" y="' + y + '" width="' + Math.max(w, 1) + '" height="' + h + '" rx="3" fill="' + (x.v < 0 ? '#c0392b' : cor) + '"/>' +
+                    '<rect x="' + x0 + '" y="' + y + '" width="' + Math.max(w, 1) + '" height="' + h + '" rx="3" fill="' + (x.v < 0 ? '#c0392b' : (x.cor || cor)) + '"/>' +
                     '<text x="' + (L - valL + 4) + '" y="' + (y + 14) + '" font-size="11" fill="#2c3e50">' + escapeHtml(fmt(x.v)) + '</text>';
             });
             if (temNeg) s += '<line x1="' + zero + '" y1="0" x2="' + zero + '" y2="' + (lista.length * (h + 6) + 6) + '" stroke="#90a4ae"/>';
             return s + '</svg>';
         }
 
+        // 🌟 19/10/2026: ocupação mínima forçada (ex.: 100% / 100%) -> MCT refeita com a faixa 0-100%
+        function secaoOcupMinAR(d) {
+            var mo = d.minimos_equipamentos || {}, lista = mo.equipamentos || [], m = d.moeda || '';
+            if (mo.simulado === false) return '';          // o usuário não pediu a simulação
+            var h = '<div class="fpm-custo-secao">' + escapeHtml(ROTULO_AR_TAB_OMIN + '%') + '</div><div class="fpm-detalhe-sub">' + escapeHtml(ROTULO_AR_NOTA_OMIN) + '</div>';
+            if (mo.erro) h += '<div class="fpm-bs-tag">' + escapeHtml(mo.erro) + '</div>';
+            if (!lista.length) return h + '<div class="fpm-detalhe-vazio">' + escapeHtml(ROTULO_AR_SEM_OMIN) + '</div>';
+            var pct = function(v) { return v === null || v === undefined ? '—' : numFPM(v, 1) + '%'; };
+            var ganho = function(v) { return '<span class="' + (v > 0.5 ? 'fpm-bs-pos' : '') + '" style="font-weight: bold;">' + escapeHtml((v > 0.5 ? '+' : '') + m + numFPM(v, 0)) + '</span>'; };
+            h += tabelaAR([[ROTULO_AR_COL_EQUIP], [ROTULO_AR_COL_FAIXA, 1], [ROTULO_AR_COL_PERIODOS, 1], [ROTULO_AR_COL_OCUP_ATUAL, 1], [ROTULO_AR_COL_OCUP_LIVRE + '%', 1],
+                           [ROTULO_AR_COL_MCT_ATUAL, 1], [ROTULO_AR_COL_MCT_LIVRE + '%', 1], [ROTULO_AR_COL_GANHO_EXATO, 1]],
+                lista.map(function(x) {
+                    var dica = (x.por_periodo || []).map(function(p) { return p.periodo + ': ' + pct(p.ocup_base) + ' → ' + pct(p.ocup_relax) + ' · ' + (p.ganho > 0.5 ? '+' : '') + m + numFPM(p.ganho, 0); }).join('\n');
+                    return ['<span title="' + escapeAttr(dica) + '">' + escapeHtml(x.nome) + '</span>' + (x.e_gargalo === false ? '<div class="fpm-bs-tag">' + escapeHtml(ROTULO_AR_NAO_GARGALO) + '</div>' : '') +
+                                (x.falhou ? '<div class="fpm-bs-tag">' + escapeHtml(ROTULO_AR_SEM_SOLUCAO_P + ' ' + x.falhou) + '</div>' : ''),
+                            escapeHtml(numFPM(x.omin, 0) + '% / ' + numFPM(x.omax, 0) + '%'), escapeHtml(x.periodos + '/' + x.periodos_forcados),
+                            escapeHtml(pct(x.ocup_base)), escapeHtml(pct(x.ocup_relax)), escapeHtml(m + numFPM(x.mct_base, 0)), escapeHtml(m + numFPM(x.mct_relax, 0)), ganho(x.ganho)];
+                }).concat(mo.todos && lista.length > 1 ? [['<b>' + escapeHtml(ROTULO_AR_TODOS_LIVRES + ' (0-100%)') + '</b>', '', escapeHtml(String(mo.todos.periodos)), '', '',
+                    escapeHtml(m + numFPM(mo.todos.mct_base, 0)), escapeHtml(m + numFPM(mo.todos.mct_relax, 0)), ganho(mo.todos.ganho)]] : []));
+            return h;
+        }
         function abaAR(d, aba) {
             var m = d.moeda || '', r = d.resumo || {}, html = '';
             var nota = function(t) { return '<div class="fpm-detalhe-sub">' + escapeHtml(t) + '</div>'; };
@@ -4006,20 +4085,44 @@
                             '<span class="' + (x.margem < 0 ? 'fpm-bs-neg' : '') + '">' + escapeHtml(m + numFPM(x.margem, 0)) + '</span>', escapeHtml(x.cmh === null ? '—' : m + numFPM(x.cmh, 0) + '/h'), escapeHtml(String(x.periodos_disp))];
                 };
                 if (neg.length) html += '<div class="fpm-custo-secao" style="color: #c0392b;">' + escapeHtml(ROTULO_AR_NEGATIVOS) + '</div>' + nota(ROTULO_AR_NOTA_NEGATIVOS) + tabelaAR(colsF, neg.map(linhaF));
-                html += '<div class="fpm-custo-secao">' + escapeHtml(ROTULO_AR_TAB_FLUXOS) + '</div>' + tabelaAR(colsF, fl.map(linhaF)) + mais(fl.length, d.fluxos_n);
+                html += '<div class="fpm-custo-secao">' + escapeHtml(ROTULO_AR_TAB_FLUXOS) + '</div>' + (d.fluxos_sem_producao ? nota(d.fluxos_sem_producao + ' ' + ROTULO_AR_FLUXOS_SEM_PROD) : '') +
+                    tabelaAR(colsF, fl.map(linhaF)) + mais(fl.length, d.fluxos_n);
             } else if (aba === 'equipamentos') {
                 var eq = d.equipamentos || [];
+                var rotG = function(x) { return x.nome + ' · ' + (x.e_gargalo ? ROTULO_AR_E_GARGALO : ROTULO_AR_NAO_GARGALO); };
+                var corG = function(x) { return x.e_gargalo ? '#e67e22' : '#95a5a6'; };
                 html += nota(ROTULO_AR_NOTA_EQUIP);
                 var garg = eq.filter(function(x) { return x.p_gargalo > 0; });
                 if (garg.length) html += '<div class="fpm-custo-secao">' + escapeHtml(ROTULO_AR_TOP_GARGALOS) + '</div>' +
-                    barrasAR(garg.slice(0, 15).map(function(x) { return { rot: x.nome, v: x.sombra_hora }; }), function(v) { return m + numFPM(v, 0) + '/h'; }, '#e67e22');
+                    barrasAR(garg.slice(0, 15).map(function(x) { return { rot: rotG(x), v: x.sombra_hora, cor: corG(x) }; }), function(v) { return m + numFPM(v, 0) + '/h'; }, '#e67e22');
                 html += '<div class="fpm-custo-secao">' + escapeHtml(ROTULO_AR_OCUPACAO) + '</div>' +
                     barrasAR(eq.filter(function(x) { return x.ocupacao !== null; }).slice().sort(function(a, b) { return b.ocupacao - a.ocupacao; }).slice(0, 20)
-                        .map(function(x) { return { rot: x.nome, v: x.ocupacao }; }), function(v) { return numFPM(v, 1) + '%'; }, '#2e86de');
-                html += tabelaAR([[ROTULO_AR_COL_EQUIP], [ROTULO_AR_COL_HORAS_DISP, 1], [ROTULO_AR_COL_HORAS_USO, 1], [ROTULO_AR_COL_OCUP, 1], [ROTULO_AR_COL_PER_100, 1],
+                        .map(function(x) { return { rot: rotG(x), v: x.ocupacao, cor: x.e_gargalo ? '#2e86de' : '#95a5a6' }; }), function(v) { return numFPM(v, 1) + '%'; }, '#2e86de') +
+                    nota(ROTULO_AR_LEG_GARGALO);
+                // Equipamentos/Conjunto: limite de produção e, dentro, a ocupação de cada equipamento
+                var cj = d.conjuntos || [];
+                html += '<div class="fpm-custo-secao">' + escapeHtml(ROTULO_AR_TAB_EQ_CONJ) + '</div>' + nota(ROTULO_AR_NOTA_EQ_CONJ);
+                if (!cj.length) html += '<div class="fpm-detalhe-vazio">' + escapeHtml(ROTULO_AR_SEM_CONJUNTOS) + '</div>';
+                else html += tabelaAR([[ROTULO_AR_COL_CONJUNTO], [ROTULO_AR_COL_PRODUCAO, 1], [ROTULO_AR_COL_MAXIMO, 1], [ROTULO_AR_COL_UTILIZACAO, 1], [ROTULO_AR_COL_NO_MAX, 1],
+                                       [ROTULO_AR_COL_SOMBRA_MAX, 1], [ROTULO_AR_COL_GANHO_MAX, 1], [ROTULO_AR_COL_NO_MIN, 1], [ROTULO_AR_COL_MEMBROS]],
+                    cj.map(function(c) {
+                        var membros = (c.membros || []).map(function(e) {
+                            return '<div style="white-space: nowrap;">' + escapeHtml(e.nome) + ': <b>' + escapeHtml(e.ocupacao === null || e.ocupacao === undefined ? '—' : numFPM(e.ocupacao, 1) + '%') + '</b> ' +
+                                '<span class="fpm-bs-tag" style="display: inline;">' + escapeHtml(e.e_gargalo ? ROTULO_AR_E_GARGALO + (e.p_gargalo ? ' · ' + m + numFPM(e.sombra_hora, 0) + '/h' : '') : ROTULO_AR_NAO_GARGALO) + '</span></div>';
+                        }).join('');
+                        return [escapeHtml(c.nome) + (c.concorrentes && c.concorrentes.length ? '<div class="fpm-bs-tag">' + escapeHtml(ROTULO_AR_CONCORRE + ': ' + c.concorrentes.join('; ')) + '</div>' : ''),
+                                escapeHtml(numAR(c.producao, 0)), escapeHtml(numAR(c.maximo, 0)), escapeHtml(c.utilizacao === null || c.utilizacao === undefined ? '—' : numFPM(c.utilizacao, 1) + '%'),
+                                escapeHtml(c.p_max + '/' + c.periodos), escapeHtml(c.p_max ? m + numFPM(c.s_max_medio, 2) + '/' + ROTULO_AR_UN : '—'),
+                                ganhoTextoAR(d, { ganho: c.ganho_max, sem_limite: c.ganho_max_sem_limite }), escapeHtml(c.p_min + '/' + c.periodos), membros || '—'];
+                    }));
+                html += secaoOcupMinAR(d);
+                html += '<div class="fpm-custo-secao">' + escapeHtml(ROTULO_AR_COL_EQUIP) + '</div>' +
+                    tabelaAR([[ROTULO_AR_COL_EQUIP], [ROTULO_AR_COL_GARGALO_CAD], [ROTULO_AR_COL_HORAS_DISP, 1], [ROTULO_AR_COL_HORAS_USO, 1], [ROTULO_AR_COL_OCUP, 1], [ROTULO_AR_COL_PER_100, 1],
                                   [ROTULO_AR_COL_SOMBRA_H, 1], [ROTULO_AR_COL_GANHO, 1], [ROTULO_AR_COL_MARGEM_PASSA, 1], [ROTULO_AR_COL_MCT_H, 1]],
                     eq.map(function(x) {
-                        return [escapeHtml(x.nome) + (x.gargalo ? '<div class="fpm-bs-tag">' + escapeHtml(x.gargalo + (x.concorrentes.length ? ' · ' + ROTULO_AR_CONCORRE + ': ' + x.concorrentes.join('; ') : '')) + '</div>' : ''),
+                        return [escapeHtml(x.nome) + (x.gargalo ? '<div class="fpm-bs-tag">' + escapeHtml(x.gargalo + (x.concorrentes.length ? ' · ' + ROTULO_AR_CONCORRE + ': ' + x.concorrentes.join('; ') : '')) + '</div>' : '') +
+                                    ((x.conjuntos || []).length ? '<div class="fpm-bs-tag">' + escapeHtml(ROTULO_AR_COL_CONJUNTO + ': ' + x.conjuntos.join('; ')) + '</div>' : ''),
+                                escapeHtml(x.e_gargalo ? ROTULO_AR_SIM : ROTULO_AR_NAO),
                                 escapeHtml(numAR(x.loading, 0)), escapeHtml(numAR(x.horas, 0)), escapeHtml(x.ocupacao === null ? '—' : numFPM(x.ocupacao, 1) + '%'),
                                 escapeHtml(x.periodos_100 + '/' + x.periodos), escapeHtml(x.p_gargalo ? m + numFPM(x.sombra_hora, 0) + '/h (' + x.p_gargalo + ')' : '—'),
                                 ganhoTextoAR(d, { ganho: x.ganho_max, sem_limite: x.ganho_max_sem_limite }), escapeHtml(m + numFPM(x.margem_passa, 0) + ' (' + x.n_fluxos + ')'),
@@ -4045,7 +4148,9 @@
                 else html += tabelaAR([[ROTULO_AR_COL_INSUMO], [ROTULO_AR_COL_CONSUMO, 1], [ROTULO_AR_COL_CMIN, 1], [ROTULO_AR_COL_CMAX, 1], [ROTULO_AR_COL_NO_MAX, 1], [ROTULO_AR_COL_SOMBRA_MAX, 1], [ROTULO_AR_COL_GANHO_MAX, 1],
                                        [ROTULO_AR_COL_NO_MIN, 1], [ROTULO_AR_COL_SOMBRA_MIN, 1], [ROTULO_AR_COL_GANHO_MIN, 1]],
                     ins.map(function(x) {
-                        return [escapeHtml(x.nome) + (x.concorrentes.length ? '<div class="fpm-bs-tag">' + escapeHtml(ROTULO_AR_CONCORRE + ': ' + x.concorrentes.join('; ')) + '</div>' : ''),
+                        return [escapeHtml(x.nome) + (x.concorrentes.length ? '<div class="fpm-bs-tag">' + escapeHtml(ROTULO_AR_CONCORRE + ': ' + x.concorrentes.join('; ')) + '</div>' : '') +
+                                    ((x.minimos_presos || []).length ? '<div class="fpm-bs-tag">' + escapeHtml(ROTULO_AR_PRESO_MIN + ': ' + x.minimos_presos.map(function(q) { return q.periodo + ' (' + ROTULO_AR_MINIMO + ' ' + numFPM(q.minimo, 0) + ')'; }).join(', ')) + '</div>' : '') +
+                                    ((x.maximos_atingidos || []).length ? '<div class="fpm-bs-tag">' + escapeHtml(ROTULO_AR_NO_MAXIMO_TAG + ': ' + x.maximos_atingidos.map(function(q) { return q.periodo + ' (' + numFPM(q.maximo, 0) + ')'; }).join(', ')) + '</div>' : ''),
                                 escapeHtml(numAR(x.consumo, 0)), escapeHtml(numAR(x.cmin, 0)), escapeHtml(numAR(x.cmax, 0)), escapeHtml(String(x.p_max)),
                                 escapeHtml(x.p_max ? m + numFPM(x.s_max_medio, 2) + '/' + ROTULO_AR_UN : '—'), ganhoTextoAR(d, { ganho: x.ganho_max, sem_limite: x.ganho_max_sem_limite }),
                                 escapeHtml(String(x.p_min)), escapeHtml(x.p_min ? m + numFPM(x.s_min_medio, 2) + '/' + ROTULO_AR_UN : '—'), ganhoTextoAR(d, { ganho: x.ganho_min, sem_limite: x.ganho_min_sem_limite })];
@@ -4083,6 +4188,24 @@
         }
 
         // Resumo pequeno (JSON) para a IA -- só o principal, para caber no limite da Groq
+        // 🌟 19/10/2026: o servidor corta o JSON em 12.000 caracteres (limite de tokens da IA); aqui as listas menos
+        // importantes encolhem antes, para o JSON nunca chegar cortado no meio
+        function cortarResumoIAAR(o) {
+            var LIM = 11500, ordem = ['o_que_analisar', 'produtos_mercados_mais_margem', 'equipamentos', 'equipamentos_conjunto', 'insumos', 'vendidos_com_margem_negativa'];
+            var tam = function() { return JSON.stringify(o).length; }, guarda = 0;
+            while (tam() > LIM && guarda++ < 200) {
+                var maior = null;
+                ordem.forEach(function(k) { if (o[k] && o[k].length > 3 && (!maior || o[k].length > o[maior].length)) maior = k; });
+                if (!maior) {
+                    (o.equipamentos_conjunto || []).forEach(function(c) { if (c.equipamentos && c.equipamentos.length > 4) c.equipamentos = c.equipamentos.slice(0, 4).concat(['...']); });
+                    if (tam() > LIM) ordem.forEach(function(k) { if (o[k] && o[k].length > 1) o[k] = o[k].slice(0, o[k].length - 1); });
+                    if (ordem.every(function(k) { return !o[k] || o[k].length <= 1; })) break;
+                    continue;
+                }
+                o[maior] = o[maior].slice(0, o[maior].length - 1);
+            }
+            return o;
+        }
         function resumoIAAR(d) {
             // 🌟 ALTERADO (18/10/2026): valores JÁ FORMATADOS (padrão brasileiro, com a moeda) -- a IA copia como estão
             var r = d.resumo || {}, md = d.moeda || '';
@@ -4094,16 +4217,47 @@
                 produtos_mercados_mais_margem: (d.produtos_mercados || []).slice(0, 10).map(function(x) {
                     return { nome: x.nome, vendas: n(x.vendas) + ' ' + (x.unidade || ''), margem_total: $(x.margem), margem_un: $(x.margem_un, 2), cmh: x.cmh === null ? null : $(x.cmh) + '/h', periodos_no_maximo: x.no_max, periodos_no_minimo: x.no_min, periodos: x.periodos };
                 }),
+                ocupacao_minima_forcada: ((d.minimos_equipamentos || {}).equipamentos || []).slice(0, 8).map(function(x) {
+                    return { equipamento: x.nome, faixa_atual: numFPM(x.omin, 0) + '% a ' + numFPM(x.omax, 0) + '%', periodos: x.periodos,
+                             ocupacao_atual: x.ocup_base === null ? null : n(x.ocup_base, 1) + '%', ocupacao_com_0_a_100: x.ocup_relax === null ? null : n(x.ocup_relax, 1) + '%',
+                             mct_atual: $(x.mct_base), mct_com_0_a_100: $(x.mct_relax), ganho_exato: $(x.ganho),
+                             leitura: x.ganho > 0.5 ? 'Obrigar o equipamento a rodar com ocupação mínima de ' + numFPM(x.omin, 0) + '% CUSTA ' + $(x.ganho) + ' de MCT: com a faixa 0-' + numFPM(x.omax, 0) + '% a Rotina de Otimização reduziria a ocupação para ' + n(x.ocup_relax, 1) + '% (valor exato, otimização refeita).'
+                                                    : 'A ocupação mínima de ' + numFPM(x.omin, 0) + '% não custa margem: mesmo com a faixa 0-' + numFPM(x.omax, 0) + '% o ótimo usaria ' + n(x.ocup_relax, 1) + '%.' };
+                }),
+                ocupacao_minima_todos_juntos: (d.minimos_equipamentos || {}).todos ? { mct_atual: $(d.minimos_equipamentos.todos.mct_base), mct_com_0_a_100: $(d.minimos_equipamentos.todos.mct_relax), ganho_exato: $(d.minimos_equipamentos.todos.ganho) } : null,
+                equipamentos_conjunto: (d.conjuntos || []).filter(function(c) { return c.p_max || c.p_min; }).slice(0, 6).map(function(c) {
+                    return { conjunto: c.nome, producao: n(c.producao), maximo: c.maximo === null ? 'sem limite' : n(c.maximo), utilizacao: c.utilizacao === null ? null : n(c.utilizacao, 1) + '%',
+                             periodos_no_maximo: c.periodos_max || [], sombra_max: $(c.s_max_medio, 2) + '/un a mais', ganho_max: $(c.ganho_max),
+                             equipamentos: (c.membros || []).map(function(e) { return e.nome + ' ' + (e.ocupacao === null ? '—' : n(e.ocupacao, 1) + '%') + (e.e_gargalo ? ' (gargalo)' : ' (não gargalo)'); }) };
+                }),
                 vendidos_com_margem_negativa: (d.vendidos_negativos || []).slice(0, 6).map(function(x) { return { nome: x.nome, vendas: n(x.vendas) + ' ' + (x.unidade || ''), margem_total: $(x.margem) }; }),
                 equipamentos: (d.equipamentos || []).slice(0, 10).map(function(x) {
-                    return { nome: x.nome, ocupacao: x.ocupacao === null ? null : n(x.ocupacao, 1) + '%', periodos_gargalo: x.p_gargalo, periodos: x.periodos, sombra_hora: $(x.sombra_hora) + '/h', ganho_potencial: $(x.ganho_max),
+                    return { nome: x.nome, gargalo_no_cadastro: x.e_gargalo ? 'sim (tem limite de capacidade)' : 'não (sem limite de horas no modelo; ocupação acima de 100% não é problema do modelo)',
+                             conjuntos: x.conjuntos || [], ocupacao: x.ocupacao === null ? null : n(x.ocupacao, 1) + '%', periodos_gargalo: x.p_gargalo, periodos: x.periodos, sombra_hora: $(x.sombra_hora) + '/h', ganho_potencial: $(x.ganho_max),
                              margem_que_passa: $(x.margem_passa), tipo_gargalo: x.gargalo, concorrentes: x.concorrentes };
                 }),
-                insumos: (d.insumos || []).slice(0, 8).map(function(x) {
-                    return { nome: x.nome, periodos_no_maximo: x.p_max, sombra_max: $(x.s_max_medio, 2) + '/un', ganho_max: $(x.ganho_max), periodos_no_minimo: x.p_min, sombra_min: $(x.s_min_medio, 2) + '/un', ganho_min: $(x.ganho_min) };
+                // 🌟 19/10/2026: insumos e limites com a LEITURA já pronta (sentido sem ambiguidade): mínimo ativo = o modelo
+                // consome porque é obrigado -> reduzir o mínimo; máximo ativo = falta insumo -> aumentar o máximo.
+                insumos: (d.insumos || []).filter(function(x) { return x.p_max || x.p_min; }).slice(0, 8).map(function(x) {
+                    var pmin = x.periodos_no_minimo || [], pmax = x.periodos_no_maximo || [], leitura = [];
+                    var presos = x.minimos_presos || [];
+                    var somaPresos = presos.reduce(function(t, q) { return t + (q.minimo || 0); }, 0);
+                    if (presos.length) leitura.push('Consumo PRESO NO MÍNIMO obrigatório em ' + presos.map(function(q) { return q.periodo + ' (mínimo ' + n(q.minimo) + ', consumido ' + n(q.consumo) + ')'; }).join(' e ') +
+                        (presos.length > 1 ? ' -- soma dos mínimos desses períodos: ' + n(somaPresos) : '') +
+                        ': nesses períodos o modelo consumiria MENOS se pudesse; REDUZIR o consumo mínimo desses períodos aumentaria a MCT em até ' + $(x.ganho_min) + ' (estimativa pelo preço sombra de ' + $(x.s_min_medio, 2) + ' por unidade a menos). Nos outros períodos o consumo ficou acima do mínimo por escolha do modelo.');
+                    else if (pmin.length) leitura.push('Consumo PRESO NO MÍNIMO obrigatório em ' + pmin.join(', ') + ': REDUZIR o consumo mínimo aumentaria a MCT em até ' + $(x.ganho_min) + '.');
+                    if (pmax.length) leitura.push('Consumo NO MÁXIMO em ' + (x.maximos_atingidos || []).map(function(q) { return q.periodo + ' (máximo ' + n(q.maximo) + ')'; }).join(' e ') + ': falta insumo; AUMENTAR a disponibilidade aumentaria a MCT em até ' + $(x.ganho_max) + ' (preço sombra ' + $(x.s_max_medio, 2) + ' por unidade a mais).');
+                    if (!pmax.length) leitura.push(x.sem_maximo ? 'Não tem limite máximo prático (máximo cadastrado muito alto): NÃO recomendar aumentar a disponibilidade.' : 'Nunca atingiu o máximo: aumentar a disponibilidade NÃO traz ganho.');
+                    return { nome: x.nome, consumo_total_no_periodo_analisado: n(x.consumo),
+                             minimos_nos_periodos_presos: presos.map(function(q) { return { periodo: q.periodo, minimo: n(q.minimo), consumido: n(q.consumo) }; }),
+                             periodos_preso_no_minimo: pmin, periodos_no_maximo: pmax, leitura: leitura.join(' ') };
                 }),
                 o_que_analisar: (d.analisar || []).slice(0, 15).map(function(a) {
-                    return { tipo: a.tipo, restricao: a.nome, limite: a.lado === 'max' ? 'máximo' : 'mínimo', periodos: a.periodos, sombra_media: $(a.sombra_media, 2) + '/' + (a.unidade || 'un'), ganho_potencial: $(a.ganho), periodos_sem_limite_na_faixa: a.sem_limite };
+                    return { tipo: a.tipo, restricao: a.nome, limite_ativo: a.lado === 'max' ? 'máximo' : 'mínimo',
+                             o_que_fazer: a.o_que_fazer || (a.lado === 'max' ? 'AUMENTAR o limite máximo' : 'REDUZIR o limite mínimo'),
+                             periodos: a.periodos, quais_periodos: a.periodos_lista || [],
+                             sombra_media: a.exato ? 'não se aplica: ganho exato, otimização refeita com o mínimo em 0%' : $(a.sombra_media, 2) + '/' + (a.unidade || 'un') + (a.lado === 'max' ? ' a mais no máximo' : ' a menos no mínimo'),
+                             ganho_potencial: $(a.ganho), periodos_sem_limite_na_faixa: a.sem_limite };
                 })
             };
         }
@@ -4114,7 +4268,7 @@
             var texto = botao.textContent;
             botao.textContent = ROTULO_FPM_AV_IA_GERANDO; botao.disabled = true;
             var fim = function() { botao.textContent = texto; botao.disabled = false; };
-            var b64 = btoa(unescape(encodeURIComponent(JSON.stringify(resumoIAAR(d)))));
+            var b64 = btoa(unescape(encodeURIComponent(JSON.stringify(cortarResumoIAAR(resumoIAAR(d))))));
             var formData = new FormData();
             formData.append('mensagem', '[COMENTARIO_ANALISE_RESULTADOS:' + b64 + ']');
             var csrf = document.querySelector('[name=csrfmiddlewaretoken]');
@@ -4150,21 +4304,40 @@
             vend(ROTULO_AR_ABA_VENDAS + ' ' + ROTULO_AR_TAB_P, d.produtos || []);
             abas.push({ nome: ROTULO_AR_ABA_FLUXOS, linhas: cab.concat([[], [ROTULO_AR_COL_NOME, 'Un', ROTULO_AR_COL_VENDAS, ROTULO_AR_COL_MARGEM_UN, ROTULO_AR_COL_MARGEM, ROTULO_AR_COL_CMH, ROTULO_AR_COL_PER_DISP]])
                 .concat((d.fluxos || []).map(function(x) { return [x.nome, x.unidade, x.vendas, x.margem_un, x.margem, x.cmh, x.periodos_disp]; })), larguras: [50, 6, 14, 12, 16, 12, 10] });
-            abas.push({ nome: ROTULO_AR_ABA_EQUIP, linhas: cab.concat([[], [ROTULO_AR_COL_EQUIP, ROTULO_AR_COL_HORAS_DISP, ROTULO_AR_COL_HORAS_USO, ROTULO_AR_COL_OCUP, ROTULO_AR_COL_PER_100, ROTULO_AR_COL_PERIODOS,
+            abas.push({ nome: ROTULO_AR_ABA_EQUIP, linhas: cab.concat([[], [ROTULO_AR_COL_EQUIP, ROTULO_AR_COL_GARGALO_CAD, ROTULO_AR_COL_CONJUNTO, ROTULO_AR_COL_HORAS_DISP, ROTULO_AR_COL_HORAS_USO, ROTULO_AR_COL_OCUP, ROTULO_AR_COL_PER_100, ROTULO_AR_COL_PERIODOS,
                                                                      ROTULO_AR_COL_SOMBRA_H, ROTULO_AR_COL_PER_GARGALO, ROTULO_AR_COL_GANHO, ROTULO_AR_COL_MARGEM_PASSA, ROTULO_AR_COL_MCT_H, ROTULO_AR_COL_TIPO_GARGALO, ROTULO_AR_CONCORRE]])
-                .concat((d.equipamentos || []).map(function(x) { return [x.nome, x.loading, x.horas, x.ocupacao, x.periodos_100, x.periodos, x.sombra_hora, x.p_gargalo, x.ganho_max, x.margem_passa, x.mct_hora, x.gargalo, x.concorrentes.join('; ')]; })),
-                larguras: [36, 14, 14, 10, 10, 10, 14, 10, 16, 16, 14, 16, 40] });
+                .concat((d.equipamentos || []).map(function(x) { return [x.nome, x.e_gargalo ? ROTULO_AR_SIM : ROTULO_AR_NAO, (x.conjuntos || []).join('; '), x.loading, x.horas, x.ocupacao, x.periodos_100, x.periodos, x.sombra_hora, x.p_gargalo, x.ganho_max, x.margem_passa, x.mct_hora, x.gargalo, x.concorrentes.join('; ')]; })),
+                larguras: [36, 12, 30, 14, 14, 10, 10, 10, 14, 10, 16, 16, 14, 16, 40] });
             var lim = function(nome, lista) {
                 abas.push({ nome: nome, linhas: cab.concat([[], [ROTULO_AR_COL_NOME, ROTULO_AR_COL_PERIODOS, ROTULO_AR_COL_NO_MAX, ROTULO_AR_COL_SOMBRA_MAX, ROTULO_AR_COL_GANHO_MAX, ROTULO_AR_COL_NO_MIN, ROTULO_AR_COL_SOMBRA_MIN, ROTULO_AR_COL_GANHO_MIN, ROTULO_AR_CONCORRE]])
                     .concat(lista.map(function(x) { return [x.nome, x.periodos, x.p_max, x.s_max_medio, x.ganho_max, x.p_min, x.s_min_medio, x.ganho_min, (x.concorrentes || []).join('; ')]; })), larguras: [40, 10, 10, 14, 16, 10, 14, 16, 40] });
             };
             lim(ROTULO_AR_ABA_LIMITES + ' ' + ROTULO_AR_TAB_LIM_PM, d.limites_pm || []);
             lim(ROTULO_AR_ABA_LIMITES + ' ' + ROTULO_AR_TAB_LIM_P, d.limites_p || []);
-            lim(ROTULO_AR_TAB_LIM_CE, d.limites_ce || []);
+            var linhasCj = [];
+            (d.conjuntos || []).forEach(function(c) {
+                linhasCj.push([c.nome, '', c.producao, c.maximo, c.utilizacao, c.p_max, c.periodos, c.s_max_medio, c.ganho_max, c.p_min, '', '']);
+                (c.membros || []).forEach(function(e) { linhasCj.push(['', e.nome, '', '', '', '', '', '', '', '', e.ocupacao, e.e_gargalo ? ROTULO_AR_SIM : ROTULO_AR_NAO]); });
+            });
+            abas.push({ nome: ROTULO_AR_TAB_EQ_CONJ, linhas: cab.concat([[ROTULO_AR_NOTA_EQ_CONJ], [], [ROTULO_AR_COL_CONJUNTO, ROTULO_AR_COL_EQUIP, ROTULO_AR_COL_PRODUCAO, ROTULO_AR_COL_MAXIMO, ROTULO_AR_COL_UTILIZACAO + ' (%)',
+                ROTULO_AR_COL_NO_MAX, ROTULO_AR_COL_PERIODOS, ROTULO_AR_COL_SOMBRA_MAX, ROTULO_AR_COL_GANHO_MAX, ROTULO_AR_COL_NO_MIN, ROTULO_AR_COL_OCUP + ' (%)', ROTULO_AR_COL_GARGALO_CAD]]).concat(linhasCj),
+                larguras: [34, 30, 14, 14, 12, 10, 10, 14, 16, 10, 12, 14] });
+            var mo = d.minimos_equipamentos || {};
+            if ((mo.equipamentos || []).length) {
+                var lo = [];
+                mo.equipamentos.forEach(function(x) {
+                    lo.push([x.nome, '', x.omin, x.omax, x.ocup_base, x.ocup_relax, x.mct_base, x.mct_relax, x.ganho]);
+                    (x.por_periodo || []).forEach(function(p) { lo.push(['', p.periodo, '', '', p.ocup_base, p.ocup_relax, '', '', p.ganho]); });
+                });
+                if (mo.todos) lo.push([ROTULO_AR_TODOS_LIVRES, '', '', '', '', '', mo.todos.mct_base, mo.todos.mct_relax, mo.todos.ganho]);
+                abas.push({ nome: 'Ocupação mínima', linhas: cab.concat([[ROTULO_AR_NOTA_OMIN], [], [ROTULO_AR_COL_EQUIP, 'Período', 'Ocupação mín. (%)', 'Ocupação máx. (%)', ROTULO_AR_COL_OCUP_ATUAL + ' (%)',
+                    ROTULO_AR_COL_OCUP_LIVRE + '% (%)', ROTULO_AR_COL_MCT_ATUAL + ' (' + m + ')', ROTULO_AR_COL_MCT_LIVRE + '% (' + m + ')', ROTULO_AR_COL_GANHO_EXATO + ' (' + m + ')']]).concat(lo),
+                    larguras: [34, 12, 14, 14, 14, 18, 18, 20, 16] });
+            }
             abas.push({ nome: ROTULO_AR_ABA_INSUMOS, linhas: cab.concat([[], [ROTULO_AR_COL_INSUMO, ROTULO_AR_COL_CONSUMO, ROTULO_AR_COL_CMIN, ROTULO_AR_COL_CMAX, ROTULO_AR_COL_NO_MAX, ROTULO_AR_COL_SOMBRA_MAX, ROTULO_AR_COL_GANHO_MAX, ROTULO_AR_COL_NO_MIN, ROTULO_AR_COL_SOMBRA_MIN, ROTULO_AR_COL_GANHO_MIN]])
                 .concat((d.insumos || []).map(function(x) { return [x.nome, x.consumo, x.cmin, x.cmax, x.p_max, x.s_max_medio, x.ganho_max, x.p_min, x.s_min_medio, x.ganho_min]; })), larguras: [36, 14, 14, 14, 10, 14, 16, 10, 14, 16] });
             abas.push({ nome: ROTULO_AR_ABA_ANALISAR, linhas: cab.concat([[ROTULO_AR_NOTA_ANALISAR], [], [ROTULO_AR_COL_TIPO, ROTULO_AR_COL_RESTRICAO, ROTULO_AR_COL_LIMITE, ROTULO_AR_COL_O_QUE, ROTULO_AR_COL_PERIODOS, ROTULO_AR_COL_SOMBRA, 'Un', ROTULO_AR_COL_GANHO, ROTULO_AR_COL_SEM_LIMITE, ROTULO_AR_CONCORRE]])
-                .concat((d.analisar || []).map(function(a) { return [a.tipo, a.nome, a.lado === 'max' ? ROTULO_AR_MAXIMO : ROTULO_AR_MINIMO, a.acao, a.periodos, a.sombra_media, a.unidade || ROTULO_AR_UN, a.ganho, a.sem_limite, (a.concorrentes || []).join('; ')]; })),
+                .concat((d.analisar || []).map(function(a) { return [a.tipo, a.nome, a.lado === 'max' ? ROTULO_AR_MAXIMO : ROTULO_AR_MINIMO, a.o_que_fazer || a.acao, a.periodos, a.sombra_media, a.unidade || ROTULO_AR_UN, a.ganho, a.sem_limite, (a.concorrentes || []).join('; ')]; })),
                 larguras: [18, 40, 10, 50, 10, 14, 6, 16, 12, 40] });
             if (d._ia) abas.push({ nome: ROTULO_FPM_AV_IA, linhas: [[d.titulo || ''], []].concat(d._ia.split('\n').map(function(l) { return [l]; })), larguras: [140] });
             // nome de aba do Excel: sem : \ / ? * [ ], até 31 caracteres e sem repetir

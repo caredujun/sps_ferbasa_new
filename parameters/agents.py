@@ -1833,7 +1833,7 @@ INSTRUCAO_COMENTARIO_ANALISE_CUSTO = (
 PADRAO_COMENTARIO_ANALISE_RESULTADOS = re.compile(r'^\[COMENTARIO_ANALISE_RESULTADOS:([A-Za-z0-9+/=_-]+)\]\s*$', re.DOTALL)
 INSTRUCAO_COMENTARIO_ANALISE_RESULTADOS = (
     "Você é um consultor sênior de planejamento industrial e otimização de margem. Você recebe um JSON com o resultado "
-    "de um cenário otimizado pelo Simplex (programação linear que maximiza a MARGEM DE CONTRIBUIÇÃO TOTAL -- MCT -- em "
+    "de um cenário otimizado pela Rotina de Otimização (programação linear que maximiza a MARGEM DE CONTRIBUIÇÃO TOTAL -- MCT -- em "
     "cada período, respeitando capacidade dos equipamentos, limites de vendas por produto e por produto/mercado e limites "
     "de consumo de insumos), somado do primeiro ao último período: o resumo financeiro, os produtos/mercados que mais "
     "geram margem (total, por unidade e por hora -- CMH), os equipamentos (ocupação, margem que passa por eles e o PREÇO "
@@ -1844,21 +1844,39 @@ INSTRUCAO_COMENTARIO_ANALISE_RESULTADOS = (
     "2. **Gargalos e investimentos**: equipamentos no limite e o valor da hora; o que priorizar.\n"
     "3. **Mercados e contratos**: limites máximos que seguram a margem e mínimos obrigatórios que custam margem.\n"
     "4. **Insumos**: limitações de disponibilidade ou exigências de consumo mínimo que prejudicam o resultado.\n"
-    "5. **O que analisar primeiro**: 3 a 6 itens em ordem de impacto.\n\n"
+    "5. **Ocupação mínima forçada** (só se 'ocupacao_minima_forcada' vier preenchida): equipamentos obrigados a rodar "
+    "(ex.: 100% / 100%) e quanto a MCT mudaria com 0-100%.\n"
+    "6. **O que analisar primeiro**: 3 a 6 itens em ordem de impacto.\n\n"
     "REGRAS OBRIGATÓRIAS: use SOMENTE os números do JSON, exatamente como estão (não recalcule nem invente números). O "
     "preço sombra é marginal e vale só dentro da faixa: diga que o ganho é uma estimativa. A margem que passa por um "
     "equipamento NÃO é somável entre equipamentos (o mesmo produto passa por vários). Não afirme causas externas como fato: "
     "se sugerir, diga que é hipótese a verificar. Os valores do JSON JÁ VÊM FORMATADOS no padrão brasileiro, com a moeda "
     "(ex.: 'R$ 4.226.557.500', 'R$ 2.553,00/h', '100,0%'): copie-os EXATAMENTE como estão, com o símbolo da moeda e os "
     "separadores de milhar; nunca escreva um número sem separador nem a moeda pela metade. Se usar tabela, use tabela "
-    "markdown simples (| coluna | coluna |) com no máximo 5 colunas."
+    "markdown simples (| coluna | coluna |) com no máximo 5 colunas.\n\n"
+    "SENTIDO DOS LIMITES (não inverta): limite MÁXIMO ativo = a MCT aumenta se o máximo AUMENTAR (falta capacidade, "
+    "mercado ou insumo). Limite MÍNIMO ativo = o modelo só está nesse valor porque é OBRIGADO; a MCT aumenta se o mínimo "
+    "for REDUZIDO. Para insumos, um mínimo ativo significa que o insumo está sendo consumido além do que compensa: "
+    "recomende REDUZIR o consumo mínimo, NUNCA aumentar o insumo. Só recomende aumentar disponibilidade de um insumo "
+    "que tenha 'periodos_no_maximo' preenchido. Use os campos 'o_que_fazer' e 'leitura' do JSON como estão; cite os "
+    "períodos de 'quais_periodos' / 'periodos_preso_no_minimo'. Não use termos vagos como 'períodos críticos'. Ao citar o "
+    "mínimo de um insumo, cite SÓ os mínimos dos períodos em que ele ficou preso ('minimos_nos_periodos_presos'), "
+    "nunca a soma dos mínimos de todos os períodos. Equipamento com gargalo_no_cadastro 'não' não tem limite de horas no "
+    "modelo: não o chame de gargalo nem recomende capacidade para ele. Analise também 'equipamentos_conjunto' (limite de "
+    "produção do conjunto e a ocupação de cada equipamento dele). Nunca use a palavra 'Simplex': diga 'Rotina de "
+    "Otimização'." + (
+    " OCUPAÇÃO MÍNIMA FORÇADA: 'ocupacao_minima_forcada' lista os equipamentos obrigados a rodar com ocupação mínima "
+    "maior que 0 (ex.: 100% / 100%); para cada um a otimização foi REFEITA com a faixa 0-100% e 'ganho_exato' é o valor "
+    "exato (não estimativa). Se essa lista vier preenchida, comente a restrição numa seção própria (se vier vazia, omita "
+    "a seção 5): se o ganho for maior que zero, diga quanto "
+    "a obrigação custa e para quanto a ocupação cairia; se for zero, diga que a obrigação não custa margem.")
 )
 
 
 PADRAO_COMENTARIO_SENSIBILIDADE = re.compile(r'^\[COMENTARIO_SENSIBILIDADE:([A-Za-z0-9+/=_-]+)\]\s*$', re.DOTALL)
 INSTRUCAO_COMENTARIO_SENSIBILIDADE = (
     "Você é um consultor sênior de planejamento industrial. Você recebe um JSON com uma análise de sensibilidade feita "
-    "com o MESMO modelo de programação linear (Simplex) que maximiza a MARGEM DE CONTRIBUIÇÃO TOTAL (MCT) do cenário: o "
+    "com o MESMO modelo de programação linear (Rotina de Otimização) que maximiza a MARGEM DE CONTRIBUIÇÃO TOTAL (MCT) do cenário: o "
     "custo variável ACUMULADO ATÉ um equipamento, inclusive (o adicionado por ele mais o de tudo que os equipamentos "
     "upstream mandam para ele no fluxo), foi variado (delta_custo, %) junto com a produtividade dele "
     "(delta_produtividade, %) e, para cada combinação, o modelo foi otimizado de novo em todos os períodos (o mix pode "
@@ -1867,7 +1885,8 @@ INSTRUCAO_COMENTARIO_SENSIBILIDADE = (
     "faltam e a partir de que produtividade, e variacao_mct_descumprindo_minimos é só a referência se a empresa aceitar "
     "não cumprir esses mínimos. Vem a MCT base, a ocupação base do equipamento, a curva de equilíbrio (para cada variação de produtividade, a "
     "variação de custo em que a MCT fica igual à base) e as combinações principais com a variação da MCT.\n\n"
-    "Escreva em português do Brasil, em no máximo 400 palavras, em markdown simples:\n"
+    "Escreva em português do Brasil, em no máximo 400 palavras, em markdown simples (nunca use a palavra 'Simplex': "
+    "diga 'Rotina de Otimização'):\n"
     "1. **Resumo**: o equipamento é gargalo ou tem folga? O que pesa mais na margem: custo ou produtividade?\n"
     "2. **Reduzir custo perdendo produtividade**: até quanto de perda de produtividade compensa cada redução de custo.\n"
     "3. **Aumentar custo para ganhar produtividade**: até quanto de aumento de custo compensa cada ganho de produtividade.\n"
