@@ -3065,7 +3065,8 @@ def abrir_outra_visao_fpm(usuario, mensagem):
 # que ela devolveu (guardado no resultado da task). "Cancelar" só encerra o acompanhamento.
 # ---------------------------------------------------------------------
 ROTULO_VISAO_CURTO = {'completo': 'Fluxo Completo Consolidado', 'rotas': 'Fluxo Real por Rota Sem Movimentações',
-                      'subprodutos': 'Fluxo/Balanço de Subprodutos'}
+                      'subprodutos': 'Fluxo/Balanço de Subprodutos', 'analise_resultados': 'Análise de Resultados',
+                      'sensibilidade': 'Sensibilidade Custo x Produtividade'}
 
 
 class _EstadoSegundoPlano:
@@ -3093,6 +3094,17 @@ def montar_fluxo_pm_em_segundo_plano(usuario_id, visao, dados, inicio, fim):
     return _cfx_montar_completo(falso, dados, inicio, fim)
 
 
+def montar_analise_otimizacao_em_segundo_plano(usuario_id, visao, dados):
+    """🌟 NOVO (18/10/2026): chamada pelas tarefas do Celery de otimizacao/tasks.py (Análise de Resultados e
+    Sensibilidade Custo x Produtividade). Devolve o texto completo da resposta do chat (com o marcador do quadro)."""
+    from django.contrib.auth import get_user_model
+    usuario = get_user_model().objects.get(id=usuario_id)
+    falso = _EstadoSegundoPlano(usuario)
+    if visao == 'sensibilidade':
+        return _sen_montar(falso, dados)
+    return _car_montar(falso, dados)
+
+
 def _cfx_disparar(estado, dados, inicio, fim, visao):
     import uuid
     from datetime import datetime, timezone as _tz
@@ -3103,9 +3115,16 @@ def _cfx_disparar(estado, dados, inicio, fim, visao):
     estado.dados_coletados = {**dados_task, 'periodo_inicio': inicio, 'periodo_fim': fim, 'visao': visao,
                               'task_ids': [task_id], 'disparado_em': datetime.now(_tz.utc).isoformat()}
     estado.save()
-    from custo_ferbasa.tasks import montar_fluxo_producao_mensal_chat_celery
-    argumentos = (estado.usuario_id, visao, dados_task, inicio, fim)
-    transaction.on_commit(lambda: montar_fluxo_producao_mensal_chat_celery.apply_async(argumentos, task_id=task_id))
+    # 🌟 ALTERADO (18/10/2026): a Análise de Resultados e a Sensibilidade (app otimizacao) têm as SUAS tarefas em
+    # otimizacao/tasks.py; o Montar Fluxo e o Fluxo/Balanço de Subprodutos continuam na tarefa da custo_ferbasa.
+    if visao in ('analise_resultados', 'sensibilidade'):
+        from otimizacao.tasks import analise_resultados_chat_celery, sensibilidade_custo_produtividade_chat_celery
+        tarefa = analise_resultados_chat_celery if visao == 'analise_resultados' else sensibilidade_custo_produtividade_chat_celery
+        argumentos = (estado.usuario_id, dados_task)
+    else:
+        from custo_ferbasa.tasks import montar_fluxo_producao_mensal_chat_celery as tarefa
+        argumentos = (estado.usuario_id, visao, dados_task, inicio, fim)
+    transaction.on_commit(lambda: tarefa.apply_async(argumentos, task_id=task_id))
     nomes = ', '.join(dados.get('itens_nomes') or dados.get('itens_codigos') or [])
     return (f"Montando o **{ROTULO_VISAO_CURTO[visao]}** de **{nomes}** ({inicio} a {fim}) em segundo plano. "
             "Acompanho por aqui e mostro o fluxo assim que ficar pronto (períodos longos podem levar alguns minutos).")
@@ -3148,8 +3167,10 @@ def _etapa_cfx_processando(estado, texto):
     if _equ_geracao_morreu(dados):
         _encerrar_fluxo(estado)
         return ("A montagem do fluxo parou antes de terminar -- o processo do Celery foi encerrado ou deu erro (veja o log "
-                "do worker). Pode pedir de novo pela ação \"" + ("Fluxo/Balanço de Subprodutos" if dados.get('visao') == 'subprodutos'
-                                                                 else "Montar Fluxo de Produção Base Produção Mensal") + "\".")
+                "do worker). Pode pedir de novo pela ação \"" + ({'subprodutos': "Fluxo/Balanço de Subprodutos",
+                                                                  'analise_resultados': "Análise de Resultados",
+                                                                  'sensibilidade': "Sensibilidade Custo x Produtividade"}.get(dados.get('visao'))
+                                                                 or "Montar Fluxo de Produção Base Produção Mensal") + "\".")
     decorrido = ''
     try:
         seg = int((datetime.now(_tz.utc) - datetime.fromisoformat(dados.get('disparado_em'))).total_seconds())
@@ -3312,6 +3333,244 @@ def _cbs_montar(estado, dados, inicio, fim):
     texto_resposta = f"**{titulo}** -- Produção Mensal de **{inicio}** a **{fim}** ({len(itens)} subproduto(s), empresa inteira)"
     payload = {'titulo': titulo, 'periodo': f"{inicio} a {fim}", 'moeda': moeda, **resultado}
     return texto_resposta + "\n\n" + _equ_marcador('FLUXO_PRODUCAO_MENSAL', payload)
+
+
+
+# ---------------------------------------------------------------------
+# 🌟 NOVO (18/10/2026): "Cenário - Análise de Resultados" -- análise GLOBAL (do primeiro ao último período otimizado) do
+# cenário ativo depois de Limpar / Otimizar / Consolidar: produtos e mercados mais rentáveis, equipamentos, gargalos,
+# limites comerciais e de insumos (preços sombra) e o que analisar, sempre em relação à margem de contribuição total.
+# Montada no Celery (mesma task e mesma sondagem do Montar Fluxo, visão 'analise_resultados'); o resultado vai no
+# marcador do desenho ([FLUXO_PRODUCAO_MENSAL:...], com tipo_fluxo = 'analise_resultados').
+# ---------------------------------------------------------------------
+def iniciar_fluxo_analise_resultados(usuario):
+    perfil = getattr(usuario, 'perfilusuario', None)
+    if perfil is None or perfil.cenario_ativo_id is None:
+        return "Você ainda não tem um cenário ativo escolhido. Acesse a tela de Cenários e ative um antes."
+    cenario = TbCenarios.objects_real.filter(id=perfil.cenario_ativo_id).first()
+    if cenario is None:
+        return "O cenário que estava ativo pra você não existe mais."
+    filhas = TbCenariosDaugther.objects.filter(mae_id=cenario.id)
+    if not filhas.filter(otimizar=1, flag=1).exists():
+        return (f"O cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** ainda não tem período otimizado. Rode Limpar, "
+                "Otimizar e Consolidar antes da Análise de Resultados.")
+    if not filhas.filter(otimizar=1, flag=1).exclude(dau_valor_6=0).exists():
+        return (f"O cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** foi otimizado mas ainda não foi consolidado "
+                "(a margem de contribuição total está zerada). Rode o Consolidar antes da Análise de Resultados.")
+    estado = _get_estado(usuario)
+    dados = {'empresa_id': perfil.empresa_efetiva_id(), 'itens_ids': [cenario.id],
+             'itens_nomes': [f"{cenario.numero_sequencial}/{cenario.cen_nome}"]}
+    _cfx_disparar(estado, dados, None, None, 'analise_resultados')
+    return (f"Montando a **Análise de Resultados** do cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** em segundo "
+            "plano. Acompanho por aqui e mostro assim que ficar pronta.")
+
+
+def _car_montar(estado, dados):
+    from otimizacao.analise_resultados import montar_analise
+    cenario = TbCenarios.objects_real.filter(id=(dados.get('itens_ids') or [None])[0]).first()
+    _encerrar_fluxo(estado)
+    if cenario is None:
+        return "O cenário da análise não existe mais."
+    analise = montar_analise(cenario, lambda o: _dau_order_para_periodo(cenario, o))
+    r = analise['resumo']
+    if analise.get('vazio'):
+        return "O cenário não tem período otimizado -- não há o que analisar."
+    moeda = _cmp_moeda(estado)
+    br = lambda v: f"{v:,.0f}".replace(',', '.')
+    texto = (f"**Análise de Resultados — cenário {cenario.numero_sequencial}/{cenario.cen_nome}** · {r['inicio']} a {r['fim']} "
+             f"({r['periodos']} período(s))\n\nMargem de contribuição total: **{moeda}{br(r['mct'])}** · receita "
+             f"{moeda}{br(r['receita'])} · EBITDA {moeda}{br(r['ebitda'])}")
+    if r.get('nao_otimizados'):
+        texto += "\n\n⚠️ Períodos sem otimização (fora da análise): " + ", ".join(r['nao_otimizados'])
+    titulo = f"Análise de Resultados — {cenario.numero_sequencial}/{cenario.cen_nome}"
+    payload = {'titulo': titulo, 'periodo': f"{r['inicio']} a {r['fim']}", 'moeda': moeda, **analise}
+    return texto + "\n\n" + _equ_marcador('FLUXO_PRODUCAO_MENSAL', payload)
+
+
+
+# ---------------------------------------------------------------------
+# 🌟 NOVO (18/10/2026): "Cenário - Sensibilidade Custo x Produtividade" -- escolhe o equipamento e os fluxos; o mesmo
+# modelo do Otimizar é resolvido de novo para uma grade de variações do custo variável do equipamento e da produtividade
+# dele (otimizacao/sensibilidade.py), em todos os períodos otimizados. No Celery (visão 'sensibilidade').
+# ---------------------------------------------------------------------
+def _sen_cenario(usuario):
+    perfil = getattr(usuario, 'perfilusuario', None)
+    if perfil is None or perfil.cenario_ativo_id is None:
+        return None, "Você ainda não tem um cenário ativo escolhido. Acesse a tela de Cenários e ative um antes."
+    cenario = TbCenarios.objects_real.filter(id=perfil.cenario_ativo_id).first()
+    if cenario is None:
+        return None, "O cenário que estava ativo pra você não existe mais."
+    if not TbCenariosDaugther.objects.filter(mae_id=cenario.id, otimizar=1, flag=1).exists():
+        return None, (f"O cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** ainda não tem período otimizado. Rode "
+                      "Limpar, Otimizar e Consolidar antes.")
+    return cenario, None
+
+
+def _sen_equipamentos(cenario):
+    """🌟 18/10/2026: só os equipamentos GARGALO (equ_cad_gargalo = true) do Otimizar, com a ocupação de cada período
+    otimizado (horas usadas / horas disponíveis = dau_valor_6 / dau_valor_3; sem horas disponíveis, dau_valor_4), a média
+    simples dos períodos com carga e a imagem do cadastro (a mesma dos cartões do editor)."""
+    from django.db import connection
+    from otimizacao.models import TbOtimizacaoEquipamentos
+    por_equip = {}
+    with connection.cursor() as cur:
+        cur.execute("""select d.mae_id, d.dau_order, d.dau_valor_6, d.dau_valor_3, d.dau_valor_4
+                       from otimizacao_tbotimizacaoequipamentosdaugther d
+                       join parameters_tbcenariosdaugther p on p.mae_id = d.tbcenarios_id and p.dau_order = d.dau_order
+                       where d.tbcenarios_id = %s and p.otimizar::int = 1 and p.flag::int = 1
+                       order by d.mae_id, d.dau_order""", [cenario.id])
+        for mid, ordem, horas, loading, ocup in cur.fetchall():
+            horas, loading = float(horas or 0), float(loading or 0)
+            if loading > 0:
+                oc = 100.0 * horas / loading
+            elif ocup is not None and float(ocup) > 0:
+                oc = float(ocup)
+            else:
+                oc = None          # sem horas disponíveis no período (parado / sem carga)
+            por_equip.setdefault(mid, []).append([_dau_order_para_periodo(cenario, ordem), None if oc is None else round(oc, 2),
+                                                   round(horas, 2), round(loading, 2)])
+    lista = []
+    qs = (TbOtimizacaoEquipamentos.objects.filter(tbcenarios_id=cenario.id, flag=True, oti_equ_equipamento__equ_cad_gargalo=True)
+          .select_related('oti_equ_equipamento'))
+    for o in qs:
+        cad = o.oti_equ_equipamento
+        nome = str(cad)
+        try:
+            imagem = cad.equ_cad_imagem.url if cad.equ_cad_imagem else None
+        except Exception:
+            imagem = None       # arquivo/armazenamento indisponível: o cartão mostra "Sem imagem"
+        periodos = por_equip.get(o.id, [])
+        validos = [p[1] for p in periodos if p[1] is not None]
+        media = round(sum(validos) / len(validos), 2) if validos else None
+        lista.append({'id': o.id, 'codigo': getattr(cad, 'equ_cad_codigo', '') or nome,
+                      'descricao': getattr(cad, 'equ_cad_descricao', '') or '', 'nome': nome, 'imagem': imagem,
+                      'ocupacao_media': media, 'periodos': periodos})
+    lista.sort(key=lambda r: str(r['codigo']).lower())
+    return lista
+
+
+def iniciar_fluxo_sensibilidade(usuario):
+    cenario, erro = _sen_cenario(usuario)
+    if erro:
+        return erro
+    estado = _get_estado(usuario)
+    estado.fluxo_ativo = FLUXO_PROCESSAR
+    estado.etapa_atual = 'sen_equip'
+    estado.dados_coletados = {'cenario_id': cenario.id, 'empresa_id': getattr(usuario.perfilusuario, 'empresa_efetiva_id', lambda: None)()}
+    estado.save()
+    return _sen_texto_equip(cenario)
+
+
+def _sen_texto_equip(cenario, aviso=''):
+    lista = _sen_equipamentos(cenario)
+    if not lista:
+        return (aviso + f"O cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** não tem nenhum equipamento marcado como "
+                "**gargalo** no Otimizar. Marque o(s) equipamento(s) gargalo no cadastro de equipamentos, rode Limpar, "
+                "Otimizar e Consolidar e tente de novo (ou \"cancelar\" pra desistir).")
+    return (aviso + f"Cenário **{cenario.numero_sequencial}/{cenario.cen_nome}**. Qual **equipamento gargalo** você quer analisar? "
+            "Clique no cartão -- vou variar o custo variável acumulado até ele (o dele mais o que chega dos equipamentos upstream) e a produtividade dele (de -30% a +30%, de 5 em 5) e otimizar "
+            "de novo cada combinação. O número em cada cartão é a ocupação média dos períodos otimizados (passe o cursor "
+            "para ver período a período); vermelho = 100% ocupado, verde = abaixo de 100% (ou \"cancelar\" pra desistir).\n\n"
+            + _equ_marcador('FLUXO_PRODUCAO_MENSAL', {'tipo_fluxo': 'sen_escolha', 'equipamentos': lista}))
+
+
+def _etapa_sen_equip(estado, texto):
+    dados = estado.dados_coletados or {}
+    cenario = TbCenarios.objects_real.filter(id=dados.get('cenario_id')).first()
+    if cenario is None:
+        _encerrar_fluxo(estado)
+        return "O cenário não existe mais."
+    entrada = _equ_json(texto)
+    ids = []
+    if entrada is not None and isinstance(entrada.get('produtos'), list):
+        for v in entrada['produtos']:
+            try:
+                ids.append(int(v))
+            except (TypeError, ValueError):
+                pass
+    disp = {r['id']: r for r in _sen_equipamentos(cenario)}
+    ids = [i for i in ids if i in disp]
+    if len(ids) != 1:
+        return _sen_texto_equip(cenario, aviso="Marque **um** equipamento (só um).\n\n")
+    from django.db import connection
+    with connection.cursor() as cur:
+        cur.execute("""select distinct f.id, f.flu_pro_descricao from fluxos_tbfluxoproducaoinputoutput io
+                       join equipamentos_tbequipamentos e on e.id = io.flu_pro_inp_out_equipamento_id
+                       join otimizacao_tbotimizacaoequipamentos o on o.oti_equ_equipamento_id = e.equ_codigo_id
+                       join fluxos_tbfluxoproducao f on f.id = io.mae_id
+                       where o.id = %s and io.tbcenarios_id = %s and io.flag = true order by f.flu_pro_descricao""",
+                    [ids[0], cenario.id])
+        fluxos = cur.fetchall()
+    if not fluxos:
+        return _sen_texto_equip(cenario, aviso=f"O equipamento **{disp[ids[0]]['nome']}** não aparece em nenhum fluxo de produção do cenário. Escolha outro.\n\n")
+    estado.etapa_atual = 'sen_fluxos'
+    estado.dados_coletados = {**dados, 'equip_id': ids[0], 'equip_nome': disp[ids[0]]['nome'],
+                              'fluxos_disp': [[f[0], f[1] or str(f[0])] for f in fluxos]}
+    estado.save()
+    return _sen_texto_fluxos(estado.dados_coletados)
+
+
+def _sen_texto_fluxos(dados, aviso=''):
+    itens = [{'id': f[0], 'codigo': str(f[0]), 'nome': f[1], 'status': 'escolha', 'motivo': f[1], 'marcado': True, 'titulo': f[1]}
+             for f in dados['fluxos_disp']]
+    return (aviso + f"Equipamento **{dados['equip_nome']}**. Em quais **fluxos de produção** a mudança vale? Já vêm todos "
+            "marcados (a mudança vale para o equipamento em todos os fluxos); desmarque os que não mudam e confirme.\n\n"
+            + _equ_marcador('SELECAO_PRODUTOS', {'produtos': itens, 'rotulo_confirmar': 'Confirmar fluxos', 'ordem_alternavel': 'nome',
+                                                  'rotulo_marcar': 'Marcar todos', 'tipo_rotulo': 'fluxos'}))
+
+
+def _etapa_sen_fluxos(estado, texto):
+    dados = estado.dados_coletados or {}
+    entrada = _equ_json(texto)
+    disp = {f[0]: f[1] for f in dados.get('fluxos_disp') or []}
+    ids = []
+    if entrada is not None and isinstance(entrada.get('produtos'), list):
+        for v in entrada['produtos']:
+            try:
+                ids.append(int(v))
+            except (TypeError, ValueError):
+                pass
+    ids = [i for i in dict.fromkeys(ids) if i in disp]
+    if not ids:
+        return _sen_texto_fluxos(dados, aviso="Marque pelo menos um fluxo.\n\n")
+    todos = len(ids) == len(disp)
+    dados_task = {'empresa_id': dados.get('empresa_id'), 'itens_ids': [dados['cenario_id'], dados['equip_id']],
+                  'itens_codigos': [] if todos else ids,
+                  'itens_nomes': [dados['equip_nome']] + ([] if todos else [disp[i] for i in ids])}
+    _cfx_disparar(estado, dados_task, None, None, 'sensibilidade')
+    return (f"Calculando a **Sensibilidade Custo x Produtividade** de **{dados['equip_nome']}** "
+            f"({'todos os fluxos' if todos else str(len(ids)) + ' fluxo(s)'}) em segundo plano: 169 combinações x cada "
+            "período otimizado. Pode levar alguns minutos -- acompanho por aqui.")
+
+
+def _sen_montar(estado, dados):
+    from otimizacao.sensibilidade import calcular_sensibilidade
+    from django.db import connection
+    cid, equip_id = (dados.get('itens_ids') or [None, None])[:2]
+    cenario = TbCenarios.objects_real.filter(id=cid).first()
+    _encerrar_fluxo(estado)
+    if cenario is None:
+        return "O cenário da análise não existe mais."
+    ordens = list(TbCenariosDaugther.objects.filter(mae_id=cid, otimizar=1, flag=1).order_by('dau_order').values_list('dau_order', flat=True))
+    fluxos = dados.get('itens_codigos') or None
+    r = calcular_sensibilidade(cid, ordens, equip_id, fluxos, rotulo_periodo=lambda o: _dau_order_para_periodo(cenario, o))
+    # MCT gravada pelo Otimizar (para conferir o modelo refeito)
+    with connection.cursor() as cur:
+        cur.execute("""select coalesce(sum(d.dau_valor_2 * d.dau_valor_3), 0) from otimizacao_tbprodutomercadofluxodaugther d
+                       where d.tbcenarios_id = %s and d.flag = true and d.dau_order = any(%s)""", [cid, ordens])
+        mct_gravada = float(cur.fetchone()[0] or 0)
+    moeda = _cmp_moeda(estado)
+    nomes = dados.get('itens_nomes') or ['']
+    titulo = f"Sensibilidade Custo x Produtividade — {nomes[0]}"
+    periodo = f"{_dau_order_para_periodo(cenario, min(ordens))} a {_dau_order_para_periodo(cenario, max(ordens))}" if ordens else ''
+    br = lambda v: f"{v:,.0f}".replace(',', '.')
+    texto = (f"**{titulo}** · cenário {cenario.numero_sequencial}/{cenario.cen_nome} · {periodo}\n\n"
+             f"Margem de contribuição total (base, refeita): **{moeda}{br(r['base'])}** · {r['periodos']} período(s) · "
+             f"{len(r['pontos'])} combinações em {r['segundos']} s")
+    payload = {'tipo_fluxo': 'sensibilidade', 'titulo': titulo, 'periodo': periodo, 'moeda': moeda,
+               'cenario': f"{cenario.numero_sequencial}/{cenario.cen_nome}", 'equipamento': nomes[0],
+               'fluxos': nomes[1:], 'mct_gravada': mct_gravada, **r}
+    return texto + "\n\n" + _equ_marcador('FLUXO_PRODUCAO_MENSAL', payload)
 
 
 def _etapa_fp_criar_fluxos_produto_escolher(estado, texto):
@@ -6630,6 +6889,8 @@ _HANDLERS_PROCESSAR = {
     'cfx_visao': _etapa_cfx_visao,
     'cfx_processando': _etapa_cfx_processando,
     'cbs_itens': _etapa_cbs_itens,
+    'sen_equip': _etapa_sen_equip,
+    'sen_fluxos': _etapa_sen_fluxos,
     'cbs_periodo': _etapa_cbs_periodo,
 }
 

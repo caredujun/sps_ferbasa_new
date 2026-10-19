@@ -1,2766 +1,4602 @@
+#
 msgid ""
 msgstr ""
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-10-17 19:13-0300\n"
+"Language: zh_Hans\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Language: zh_Hans\n"
 
-msgid "Nome"
-msgstr "名称"
-
-msgid "Tipo"
-msgstr "类型"
-
-msgid "Descrição"
-msgstr "描述"
-
-msgid "Moeda"
-msgstr "货币"
-
-msgid "Imagem da Moeda"
-msgstr "货币图片"
-
-msgid "Logo"
-msgstr "徽标"
-
-msgid "Fluxo de Produção"
-msgstr "生产流程"
-
-msgid "Idioma Padrão"
-msgstr "默认语言"
-
-msgid "Próximo Número de Cenário"
-msgstr "下一个方案编号"
-
-msgid "Apps Habilitados"
-msgstr "已启用的应用"
-
-msgid "Empresa"
-msgstr "公司"
-
-msgid "Empresas"
-msgstr "公司"
-
-msgid "    Empresa"
-msgstr "    公司"
-
-msgid "   Cenário"
-msgstr "   方案"
-
-msgid "   Cenários"
-msgstr "   方案"
-
-msgid "Início"
-msgstr "开始"
-
-msgid "Fim"
-msgstr "结束"
-
-msgid "Ativo"
-msgstr "激活"
-
-msgid "Grupo"
-msgstr "组"
-
-msgid "Copiar de "
-msgstr "复制自 "
-
-msgid "Controle"
-msgstr "控制"
-
-msgid "Cenário"
-msgstr "方案"
-
-msgid "É Cenário Base"
-msgstr "是基础方案"
-
-msgid "Cenário Ativo"
-msgstr "当前方案"
-
-msgid "Pode trocar cenário ativo"
-msgstr "可以更改当前方案"
-
-msgid "Superusuário da Empresa"
-msgstr "公司超级用户"
-
-msgid "Idioma"
-msgstr "语言"
-
-msgid "Empresa Ativa (superusuário)"
-msgstr "当前公司（超级用户）"
-
-msgid "Cenários ativos por empresa (memória)"
-msgstr "按公司划分的当前方案（记忆）"
-
-msgid "Perfil de Usuário"
-msgstr "用户资料"
-
-msgid "Perfis de Usuário"
-msgstr "用户资料"
-
-msgid "Assistente de IA Integrado"
-msgstr "集成人工智能助手"
-
-msgid "Relatórios"
-msgstr "报告"
-
-msgid "Marque os arquivos que deseja incluir na análise da resposta atual."
-msgstr "勾选您希望包含在当前回复分析中的文件。"
-
-msgid "Arraste um PDF, TXT ou XLSX aqui"
-msgstr "将 PDF、TXT 或 XLSX 文件拖到此处"
-
-msgid "ou clique para escolher"
-msgstr "或点击选择"
-
-msgid "Nenhum PDF cadastrado no Admin."
-msgstr "管理后台中没有已注册的 PDF。"
-
-msgid "Digite sua pergunta..."
-msgstr "请输入您的问题……"
-
-msgid "Enviar"
-msgstr "发送"
-
-msgid "Ações Comuns no SPS"
-msgstr "SPS 常用操作"
-
-msgid "Escolhe a categoria e seleciona a ação, sem risco de digitar errado."
-msgstr "选择类别和操作，无需担心输入错误。"
-
-msgid "Selecione uma ação..."
-msgstr "请选择操作……"
-
-msgid "Criar cenário novo"
-msgstr "创建新方案"
-
-msgid "Mudar tipo/período"
-msgstr "更改类型/期间"
-
-msgid "Ver status"
-msgstr "查看状态"
-
-msgid "Limpar"
-msgstr "清除"
-
-msgid "Otimizar"
-msgstr "优化"
-
-msgid "Consolidar"
-msgstr "整合"
-
-msgid "Ciclo completo (limpar, otimizar e consolidar)"
-msgstr "完整流程（清除、优化并整合）"
-
-msgid "Indicadores"
-msgstr "指标"
-
-msgid "Mudar valor"
-msgstr "更改数值"
-
-msgid "Criar novo"
-msgstr "新建"
-
-msgid "Reajuste em massa"
-msgstr "批量调整"
-
-msgid "Eliminar"
-msgstr "删除"
-
-msgid "Taxas de Câmbio"
-msgstr "汇率"
-
-msgid "Criar nova"
-msgstr "新建"
-
-msgid "Agente IA"
-msgstr "人工智能助手"
-
-msgid "                 Indicador"
-msgstr "                 指标"
-
-msgid "                 Indicadores"
-msgstr "                 指标"
-
-msgid "Valores Previstos (%)"
-msgstr "预测值 (%)"
-
-msgid "               Taxa de Câmbio"
-msgstr "               汇率"
-
-msgid "               Taxas de Câmbio"
-msgstr "               汇率"
-
-msgid "Valores Previstos"
-msgstr "预测值"
-
-msgid "              Imposto de Renda"
-msgstr "              所得税"
-
-msgid "             Taxa de Desconto (WACC)"
-msgstr "             折现率（WACC）"
-
-msgid "            Custo Fixo"
-msgstr "            固定成本"
-
-msgid "            Custos Fixos"
-msgstr "            固定成本"
-
-msgid "           Deprec./Amortização"
-msgstr "           折旧/摊销"
-
-msgid "           Deprec./Amortizações"
-msgstr "           折旧/摊销"
-
-msgid "          CAPEX"
-msgstr "          资本支出"
-
-msgid "         Unidade de Produção"
-msgstr "         生产单元"
-
-msgid "         Unidades de Produção"
-msgstr "         生产单元"
-
-msgid "        Mercado"
-msgstr "        市场"
-
-msgid "        Mercados"
-msgstr "        市场"
-
-msgid "     Custo Variável - Tipo"
-msgstr "     变动成本 - 类型"
-
-msgid "     Custo Variável - Tipos"
-msgstr "     变动成本 - 类型"
-
-msgid "     Custo Variável - Item"
-msgstr "     变动成本 - 项目"
-
-msgid "    Custo Variável - Itens"
-msgstr "    变动成本 - 项目"
-
-msgid "    Custo Variável - Preço"
-msgstr "    变动成本 - 价格"
-
-msgid "    Custo Variável - Preços"
-msgstr "    变动成本 - 价格"
-
-msgid "   Tipo de Produção"
-msgstr "   生产类型"
-
-msgid "   Tipos de Produção"
-msgstr "   生产类型"
-
-msgid "  Família de Produto"
-msgstr "  产品系列"
-
-msgid "  Famílias de Produtos"
-msgstr "  产品系列"
-
-msgid " Grupo de Cenários"
-msgstr " 方案组"
-
-msgid " Grupos de Cenários"
-msgstr " 方案组"
-
-msgid "Equação Ajuste Preço"
-msgstr "价格调整公式"
-
-msgid "Equações Ajustes Preços"
-msgstr "价格调整公式"
-
-msgid "          Item de Consumo"
-msgstr "          消耗品项目"
-
-msgid "          Itens de Consumo"
-msgstr "          消耗品项目"
-
-msgid "           Item de Produção"
-msgstr "           生产项目"
-
-msgid "           Itens de Produção"
-msgstr "           生产项目"
-
-msgid "Arvore Genealógica de Produção"
-msgstr "生产族谱"
-
-msgid "         Estabelecimento"
-msgstr "         机构"
-
-msgid "         Estabelecimentos"
-msgstr "         机构"
-
-msgid "        Grupo Máquina"
-msgstr "        机器组"
-
-msgid "        Grupos Máquinas"
-msgstr "        机器组"
-
-msgid "       Conta Contábil"
-msgstr "       会计科目"
-
-msgid "       Contas Contábeis"
-msgstr "       会计科目"
-
-msgid "      Centro de Custo"
-msgstr "      成本中心"
-
-msgid "      Centros de Custo"
-msgstr "      成本中心"
-
-msgid "     Conta Contábil/Centro de Custo"
-msgstr "     会计科目/成本中心"
-
-msgid "     Contas Contábeis/Centros de Custo"
-msgstr "     会计科目/成本中心"
-
-msgid "    Produção Mensal"
-msgstr "    月度生产"
-
-msgid "   Distribuição GGF Mensal"
-msgstr "   月度制造费用分摊"
-
-msgid "  Consumo Específico SPS"
-msgstr "  SPS 单耗"
-
-msgid "  Consumos Específicos SPS"
-msgstr "  SPS 单耗"
-
-msgid "Valor Histórico"
-msgstr "历史值"
-
-msgid "Valores Históricos"
-msgstr "历史值"
-
-msgid "Consumo Específico Complementar"
-msgstr "补充单耗"
-
-msgid "Consumos Específicos Complementares"
-msgstr "补充单耗"
-
-msgid " Custo Variável Adicionado SPS"
-msgstr " SPS 附加变动成本"
-
-msgid " Custos Variáveis Adicionados SPS"
-msgstr " SPS 附加变动成本"
-
-msgid "Custo Variável Adicional"
-msgstr "附加变动成本"
-
-msgid "Custos Variáveis Adicionais"
-msgstr "附加变动成本"
-
-msgid "Regressão Linear Múltipla"
-msgstr "多元线性回归"
-
-msgid "Regressões Lineares Múltiplas"
-msgstr "多元线性回归"
-
-msgid "Variável"
-msgstr "变量"
-
-msgid "Variáveis"
-msgstr "变量"
-
-msgid "Base de Dados"
-msgstr "数据库"
-
-msgid "  Cadastro"
-msgstr "  登记"
-
-msgid " Ordem de Producao"
-msgstr " 生产订单"
-
-msgid " Ordem de Produção"
-msgstr " 生产订单"
-
-msgid "Consumo Específico"
-msgstr "单耗"
-
-msgid "Consumos Específicos"
-msgstr "单耗"
-
-msgid "  Produto"
-msgstr "  产品"
-
-msgid "  Produtos"
-msgstr "  产品"
-
-msgid "  Volume/Preço por Mercado"
-msgstr "  按市场划分的销量/价格"
-
-msgid "  Volume/Preços por Mercado"
-msgstr "  按市场划分的销量/价格"
-
-msgid "Volume Mín/Máx - Preço Previsto"
-msgstr "最小/最大销量 - 预测价格"
-
-msgid "Volumes Mín/Máx - Preços Previstos"
-msgstr "最小/最大销量 - 预测价格"
-
-msgid "Custo Outbound"
-msgstr "出库成本"
-
-msgid "Custos Outbound"
-msgstr "出库成本"
-
-msgid "   Consumo Padrão"
-msgstr "   标准消耗"
-
-msgid "   Consumos Padrões"
-msgstr "   标准消耗"
-
-msgid "Consumo Padrão Previsto"
-msgstr "预测标准消耗"
-
-msgid "Consumos Padrões Previstos"
-msgstr "预测标准消耗"
-
-msgid " Fluxo de Produção"
-msgstr " 生产流程"
-
-msgid " Fluxos de Produção"
-msgstr " 生产流程"
-
-msgid "Detalhe Fluxo/Equipamento"
-msgstr "流程/设备明细"
-
-msgid "Detalhes Fluxo/Equipamento"
-msgstr "流程/设备明细"
-
-msgid "Sequenciamento da Produção"
-msgstr "生产排序"
-
-msgid "Detalhes por Período"
-msgstr "按期间划分的明细"
-
-msgid "Detalhamento por Equipamento"
-msgstr "按设备划分的明细"
-
-msgid "Detalhe por Período (click e use setas para direita e esquerda)"
-msgstr "按期间划分的明细（点击并使用左右方向键）"
-
-msgid "Detalhes por Período (click e use setas para direita e esquerda)"
-msgstr "按期间划分的明细（点击并使用左右方向键）"
-
-msgid "      Produto"
-msgstr "      产品"
-
-msgid "      Produtos"
-msgstr "      产品"
-
-msgid "Detalhe"
-msgstr "明细"
-
-msgid "Detalhes"
-msgstr "明细"
-
-msgid "    Produto / Mercado / Fluxo"
-msgstr "    产品/市场/流程"
-
-msgid "    Produtos / Mercados / Fluxos"
-msgstr "    产品/市场/流程"
-
-msgid "     Produto / Mercado"
-msgstr "     产品/市场"
-
-msgid "     Produtos / Mercados"
-msgstr "     产品/市场"
-
-msgid "   Equipamento"
-msgstr "   设备"
-
-msgid "   Equipamentos"
-msgstr "   设备"
-
-msgid "Detalhe "
-msgstr "明细 "
-
-msgid "  Equipamento/Ordem de Produção"
-msgstr "  设备/生产订单"
-
-msgid "  Equipamentos/Ordem de Produção"
-msgstr "  设备/生产订单"
-
-msgid "  Equipamento/Conjunto"
-msgstr "  设备/组合"
-
-msgid "  Equipamentos/Conjunto"
-msgstr "  设备/组合"
-
-msgid "Produção Mínima e Máxima por Periodo"
-msgstr "按期间划分的最小/最大产量"
-
-msgid "Produções Mínimas e Máximas por Periodo"
-msgstr "按期间划分的最小/最大产量"
-
-msgid " Item de Custo/Planta"
-msgstr " 成本项目/工厂"
-
-msgid " Itens de Custo/Planta"
-msgstr " 成本项目/工厂"
-
-msgid " Consumo Específico por Tipo de Produção"
-msgstr " 按生产类型划分的单耗"
-
-msgid " Consumos Específicos por Tipo de Produção"
-msgstr " 按生产类型划分的单耗"
-
-msgid "Comparação de Cenários"
-msgstr "方案对比"
-
-msgid "Análise Comparativa Cenário Ativo - Cenário Referência"
-msgstr "对比分析：当前方案 - 参考方案"
-
-msgid "Sombra da Otimização Simplex"
-msgstr "单纯形优化影子价格"
-
-msgid "Sombras da Otimização Simplex"
-msgstr "单纯形优化影子价格"
-
-msgid "       PARÂMETROS"
-msgstr "       参数"
-
-msgid "      TABELAS"
-msgstr "      数据表"
-
-msgid "     EQUIPAMENTOS"
-msgstr "     设备"
-
-msgid "    PRODUTOS"
-msgstr "    产品"
-
-msgid "   Fluxos de Produção"
-msgstr "   生产流程"
-
-msgid "  Resultados Otimização"
-msgstr "  优化结果"
-
-msgid " Custo Ferbasa - CF"
-msgstr " Ferbasa 成本 - CF"
-
-msgid "App (nome técnico)"
-msgstr "应用（技术名称）"
-
-msgid "Nome de Exibição"
-msgstr "显示名称"
-
-msgid "   App Opcional"
-msgstr "   可选应用"
-
-msgid "Ano/Mês"
-msgstr "年/月"
-
-msgid "Vendas"
-msgstr "销售"
-
-msgid "Inbound"
-msgstr "入库"
-
-msgid "Outbound"
-msgstr "出库"
-
-msgid "Manut."
-msgstr "维护"
-
-msgid "Margem"
-msgstr "利润率"
-
-msgid "Fixo"
-msgstr "固定"
-
-msgid "EBTIDA"
-msgstr "EBTIDA"
-
-msgid "EBTIDA (%)"
-msgstr "EBTIDA (%)"
-
-msgid "D&A"
-msgstr "D&A"
-
-msgid "IR (%)"
-msgstr "所得税 (%)"
-
-msgid "MP"
-msgstr "原材料"
-
-msgid "WIP"
-msgstr "在制品"
-
-msgid "PF"
-msgstr "产成品"
-
-msgid "Total Est."
-msgstr "预计总计"
-
-msgid "Receber"
-msgstr "应收"
-
-msgid "Pagar"
-msgstr "应付"
-
-msgid "OWCR"
-msgstr "OWCR"
-
-msgid "CAPEX"
-msgstr "CAPEX"
-
-msgid "OFCF"
-msgstr "OFCF"
-
-msgid "Solúção"
-msgstr "解决方案"
-
-msgid "Mãe"
-msgstr "主记录"
-
-msgid "Resultado"
-msgstr "结果"
-
-msgid "Data"
-msgstr "日期"
-
-msgid "O Que"
-msgstr "内容"
-
-msgid "Diário de Bordo"
-msgstr "日志"
-
-msgid "Imagem"
-msgstr "图片"
-
-msgid "Fonte"
-msgstr "来源"
-
-msgid "  Glossário"
-msgstr "  术语表"
-
-msgid "Instruções"
-msgstr "说明"
-
-msgid " Comportamento Agente IA"
-msgstr " 人工智能助手行为"
-
-msgid "Usuário"
-msgstr "用户"
-
-msgid "Pergunta Usuário"
-msgstr "用户提问"
-
-msgid "Resposta Agente IA"
-msgstr "人工智能助手回复"
-
-msgid "Histórico Agente IA"
-msgstr "人工智能助手历史记录"
-
-msgid "Fluxo em andamento"
-msgstr "进行中的流程"
-
-msgid "Etapa atual"
-msgstr "当前步骤"
-
-msgid "Dados coletados"
-msgstr "已收集数据"
-
-msgid "Atualizado em"
-msgstr "更新时间"
-
-msgid "Estado de Conversa do Agente"
-msgstr "助手对话状态"
-
-msgid "Relatório Consulta IA"
-msgstr "AI 查询报告"
-
-msgid "Ação"
-msgstr "操作"
-
-msgid "Remover Cenário(s) Selecionado(s)"
-msgstr "删除所选方案"
-
-msgid "Exportar Excel Cenário(s) Selecionado(s)"
-msgstr "导出所选方案的 Excel"
-
-msgid "Ativa"
-msgstr "激活"
-
-msgid "   Apps Opcionais"
-msgstr "   可选应用"
-
-msgid "Resultados"
-msgstr "结果"
-
-msgid " Comportamentos Agente IA"
-msgstr " 人工智能助手行为"
-
-msgid "Históricos Agente IA"
-msgstr "人工智能助手历史记录"
-
-msgid "Estados de Conversa do Agente"
-msgstr "助手对话状态"
-
-msgid "Relatórios Consulta IA"
-msgstr "AI 查询报告"
-
-msgid "Precisa bater com o nome real do app Django (ex: \"custo_ferbasa\")."
-msgstr "必须与 Django 应用的真实名称一致（例如 \"custo_ferbasa\"）。"
-
-msgid "Instruções para o Agente IA"
-msgstr "人工智能助手的指令"
-
-msgid "Se desmarcado, o usuário não verá a opção de ativar outro cenário."
-msgstr "未勾选时，用户将看不到激活其他方案的选项。"
-
-msgid "Tem todos os poderes de superusuário, mas restritos à própria empresa (não pode trocar de empresa nem ver dados de outras)."
-msgstr "拥有超级用户的全部权限，但仅限于本公司（不能切换公司，也不能查看其他公司的数据）。"
-
-msgid "Se vazio, usa o idioma padrão da empresa."
-msgstr "如果为空，则使用公司的默认语言。"
-
-msgid "A empresa desse usuário -- ele só vê os dados dela. Não se aplica a superusuários."
-msgstr "该用户所属的公司——他只能看到该公司的数据。不适用于超级用户。"
-
-msgid "Só usado por superusuários -- em qual empresa ele está trabalhando agora."
-msgstr "仅供超级用户使用——当前正在哪个公司工作。"
-
-msgid "Observação"
-msgstr "备注"
-
-msgid "Valor Inicial (%)"
-msgstr "初始值 (%)"
-
-msgid "Valor (%)"
-msgstr "数值 (%)"
-
-msgid "Indicador"
-msgstr "指标"
-
-msgid "Valor Inicial"
-msgstr "初始值"
-
-msgid "Valor"
-msgstr "数值"
-
-msgid "Câmbio"
-msgstr "汇率"
-
-msgid "Imposto de Renda"
-msgstr "所得税"
-
-msgid "Taxa de Desconto (WACC)"
-msgstr "折现率（WACC）"
-
-msgid "Valor Inicial Valor"
-msgstr "初始值"
-
-msgid "Valor Inicial Pagamento (dias)"
-msgstr "初始付款（天）"
-
-msgid "Pagamento (dias)"
-msgstr "付款（天）"
-
-msgid "Custo Fixo"
-msgstr "固定成本"
-
-msgid "Recorrente"
-msgstr "经常性"
-
-msgid "Depreciação/Amortização"
-msgstr "折旧/摊销"
-
-msgid "Localização"
-msgstr "位置"
-
-msgid "Grupo(s) Usuários com Permissão"
-msgstr "有权限的用户组"
-
-msgid "Código Interno"
-msgstr "内部编码"
-
-msgid "Unidade"
-msgstr "单位"
-
-msgid "Imagem do Item"
-msgstr "项目图片"
-
-msgid "Item de Custo"
-msgstr "成本项目"
-
-msgid "Unidade de Produção"
-msgstr "生产单元"
-
-msgid "Validado"
-msgstr "已验证"
-
-msgid "Custo Var. Adic. CF"
-msgstr "附加变动成本 CF"
-
-msgid "Indicador do Preço"
-msgstr "价格指标"
-
-msgid "Moeda do Preço"
-msgstr "价格货币"
-
-msgid "Indicador do Inbound"
-msgstr "入库指标"
-
-msgid "Moeda do Inbound"
-msgstr "入库货币"
-
-msgid "Valor Inicial: Preço"
-msgstr "初始值：价格"
-
-msgid "Valor Inicial: Inbound"
-msgstr "初始值：入库"
-
-msgid "Estoque (dias)"
-msgstr "库存（天）"
-
-msgid "Valor Preço"
-msgstr "价格值"
-
-msgid "Valor Inbound"
-msgstr "入库值"
-
-msgid "Família"
-msgstr "系列"
-
-msgid "Grupo de Cenários"
-msgstr "方案组"
-
-msgid "A"
-msgstr "A"
-
-msgid "B"
-msgstr "B"
-
-msgid "C"
-msgstr "C"
-
-msgid "D"
-msgstr "D"
-
-msgid "E"
-msgstr "E"
-
-msgid "F"
-msgstr "F"
-
-msgid "Fórmula"
-msgstr "公式"
-
-msgid "Títulos: Primeiro"
-msgstr "标题：第一"
-
-msgid "Segundo"
-msgstr "第二"
-
-msgid "Valor VAR para teste"
-msgstr "测试用 VAR 值"
-
-msgid "Código"
-msgstr "编码"
-
-msgid "Subproduto"
-msgstr "副产品"
-
-msgid "Ano/Mês Início"
-msgstr "起始年/月"
-
-msgid "Ano/Mês Fim"
-msgstr "结束年/月"
-
-msgid "Qtde Produzida Real"
-msgstr "实际产量"
-
-msgid "Qtde Produzida Mov./Ext."
-msgstr "移动/外部产量"
-
-msgid "Perc. Variável GGF (%)"
-msgstr "变动制造费用比例 (%)"
-
-msgid "Perc. Fixo/Outros GGF (%)"
-msgstr "固定/其他制造费用比例 (%)"
-
-msgid "Valor GGF Variável Direto"
-msgstr "直接变动制造费用"
-
-msgid "Valor GGF Fixo/Outros Direto"
-msgstr "直接固定/其他制造费用"
-
-msgid "Valor GGF Variável Prod. Internos"
-msgstr "内部生产变动制造费用"
-
-msgid "Valor GGF Fixo/Outros Prod. Internos"
-msgstr "内部生产固定/其他制造费用"
-
-msgid "Item Consumo"
-msgstr "消耗品项目"
-
-msgid "Quantidade Consumida"
-msgstr "消耗数量"
-
-msgid "Valor Material"
-msgstr "材料价值"
-
-msgid "Valor GGF"
-msgstr "制造费用"
-
-msgid "Chave"
-msgstr "键"
-
-msgid "Item de Consumo"
-msgstr "消耗品项目"
-
-msgid "Descricao"
-msgstr "描述"
-
-msgid "Conta de Pessoal"
-msgstr "人事科目"
-
-msgid "Referência"
-msgstr "参考"
-
-msgid "Mão-de-obra Direta (MOD)"
-msgstr "直接人工（MOD）"
-
-msgid "Mão-de-obra Indireta (MOI)"
-msgstr "间接人工（MOI）"
-
-msgid "Conta Contábil"
-msgstr "会计科目"
-
-msgid "Centro de Custo"
-msgstr "成本中心"
-
-msgid "Estabelecimento"
-msgstr "机构"
-
-msgid "Percentual (%)"
-msgstr "百分比 (%)"
-
-msgid "Grupo Máquina"
-msgstr "机器组"
-
-msgid "Ordem Produção"
-msgstr "生产订单"
-
-msgid "Item Produção"
-msgstr "生产项目"
-
-msgid "Qtde Produzida"
-msgstr "生产数量"
-
-msgid "Qtde Consumo"
-msgstr "消耗数量"
-
-msgid "Valor Última Entrada"
-msgstr "最近入库价值"
-
-msgid "Conta Contábil/Centro de Custo"
-msgstr "会计科目/成本中心"
-
-msgid "Área Responsável"
-msgstr "负责区域"
-
-msgid "Criado por"
-msgstr "创建人"
-
-msgid "Alterado por"
-msgstr "修改人"
-
-msgid "Compartilhar"
-msgstr "共享"
-
-msgid "Ajustar Período Pela Prod. Mínima"
-msgstr "按最小产量调整期间"
-
-msgid "Prod. Minima"
-msgstr "最小产量"
-
-msgid "Status"
-msgstr "状态"
-
-msgid "Considerar Desvio como Produção (P+D)"
-msgstr "将偏差视为产量 (P+D)"
-
-msgid "Qtde Desviada"
-msgstr "偏差数量"
-
-msgid "Itens de Produção"
-msgstr "生产项目"
-
-msgid "Grupos Máquina"
-msgstr "机器组"
-
-msgid "Itens de Consumo"
-msgstr "消耗品项目"
-
-msgid "Equação Cons. Específico"
-msgstr "单耗公式"
-
-msgid "Tipo Equação"
-msgstr "公式类型"
-
-msgid "Indicador (SPS)"
-msgstr "指标 (SPS)"
-
-msgid "Considerar Subproduto como Produção (Quando Escolhido)"
-msgstr "将副产品视为产量（如选中）"
-
-msgid "Custo Var. Adic. Mat (SPS)"
-msgstr "附加变动成本 材料 (SPS)"
-
-msgid "Custo Var. Adic. GGF (SPS)"
-msgstr "附加变动成本 制造费用 (SPS)"
-
-msgid "Custo Var. Adic. Mat (P)"
-msgstr "附加变动成本 材料 (P)"
-
-msgid "Custo Var. Adic. GGF (P)"
-msgstr "附加变动成本 制造费用 (P)"
-
-msgid "Custo Var. Adic. Mat (P+D)"
-msgstr "附加变动成本 材料 (P+D)"
-
-msgid "Custo Var. Adic. GGF (P+D)"
-msgstr "附加变动成本 制造费用 (P+D)"
-
-msgid "Custo Variável (P)"
-msgstr "变动成本 (P)"
-
-msgid "Custo Fixo/Outros (P)"
-msgstr "固定/其他成本 (P)"
-
-msgid "Custo Total (P)"
-msgstr "总成本 (P)"
-
-msgid "Custo Var. GGF Fase (P)"
-msgstr "变动成本 制造费用阶段 (P)"
-
-msgid "Custo Variável (P+D)"
-msgstr "变动成本 (P+D)"
-
-msgid "Custo Fixo/Outros (P+D)"
-msgstr "固定/其他成本 (P+D)"
-
-msgid "Custo Total (P+D)"
-msgstr "总成本 (P+D)"
-
-msgid "Custo Var. GGF Fase (P+D)"
-msgstr "变动成本 制造费用阶段 (P+D)"
-
-msgid "Itens de Consumo para Desconsiderar"
-msgstr "需排除的消耗品项目"
-
-msgid "Custo Varíável (P)"
-msgstr "变动成本 (P)"
-
-msgid "Custo Varíável (P+D)"
-msgstr "变动成本 (P+D)"
-
-msgid "Custo Variável Adicionado"
-msgstr "附加变动成本"
-
-msgid "Id Item Produção"
-msgstr "生产项目 ID"
-
-msgid "Id Item Consumo"
-msgstr "消耗品项目 ID"
-
-msgid "Flag"
-msgstr "标记"
-
-msgid "Ordem Lançamento"
-msgstr "录入顺序"
-
-msgid "Equação Regressão"
-msgstr "回归方程"
-
-msgid "R2 Regressão"
-msgstr "回归 R2"
-
-msgid "Considerar desvio como produção"
-msgstr "将偏差视为产量"
-
-msgid "Sumário"
-msgstr "摘要"
-
-msgid "Item de Consumo / Código"
-msgstr "消耗品项目/编码"
-
-msgid "Classificação"
-msgstr "分类"
-
-msgid "Mínimo"
-msgstr "最小值"
-
-msgid "Média"
-msgstr "平均值"
-
-msgid "Máximo"
-msgstr "最大值"
-
-msgid "Tipo Variável"
-msgstr "变量类型"
-
-msgid "Agrupamento"
-msgstr "分组"
-
-msgid "Coeficiente"
-msgstr "系数"
-
-msgid "P>|t|"
-msgstr "P>|t|"
-
-msgid "Itens Consumo"
-msgstr "消耗品项目"
-
-msgid "Equipamento"
-msgstr "设备"
-
-msgid "Gargalo"
-msgstr "瓶颈"
-
-msgid "Expedição"
-msgstr "发货"
-
-msgid "Output"
-msgstr "产出"
-
-msgid "Planta"
-msgstr "工厂"
-
-msgid "Indicador Custo Manutenção"
-msgstr "维护成本指标"
-
-msgid "Moeda Custo Manutenção"
-msgstr "维护成本货币"
-
-msgid "Valor Inicial Running"
-msgstr "初始运行值"
-
-msgid "Valor Inicial Paradas Programadas (%)"
-msgstr "初始计划停机 (%)"
-
-msgid "Valor Inicial Manutenção"
-msgstr "初始维护值"
-
-msgid "Running"
-msgstr "运行中"
-
-msgid "Paradas Programadas (%)"
-msgstr "计划停机 (%)"
-
-msgid "Custo Manutenção (Moeda/h)"
-msgstr "维护成本（货币/小时）"
-
-msgid "Tipo Produção"
-msgstr "生产类型"
-
-msgid "WIP (Dias Produção)"
-msgstr "在制品（生产天数）"
-
-msgid "Ordem"
-msgstr "顺序"
-
-msgid "Descrição da Ordem"
-msgstr "订单说明"
-
-msgid "Valor Inicial Paradas Não Programadas (%)"
-msgstr "初始非计划停机 (%)"
-
-msgid "Valor Inicial Produtividade"
-msgstr "初始生产率"
-
-msgid "Paradas Não Prog. (%)"
-msgstr "非计划停机 (%)"
-
-msgid "Produtividade"
-msgstr "生产率"
-
-msgid "Equipamentos"
-msgstr "设备"
-
-msgid "Equipamento / Ordem / Descrição"
-msgstr "设备/订单/说明"
-
-msgid "Item de Custo / Planta"
-msgstr "成本项目/工厂"
-
-msgid "Consumo Específico CF"
-msgstr "单耗 CF"
-
-msgid "Valor Inicial do Consumo Específico"
-msgstr "初始单耗值"
-
-msgid "Equipamento/Item"
-msgstr "设备/项目"
-
-msgid "Produto"
-msgstr "产品"
-
-msgid "Mercado"
-msgstr "市场"
-
-msgid "Cód. Interno"
-msgstr "内部编码"
-
-msgid "Desc. Interna"
-msgstr "内部说明"
-
-msgid "Estoque (dias venda)"
-msgstr "库存（销售天数）"
-
-msgid "Indicador Preço"
-msgstr "价格指标"
-
-msgid "Indicador Volume: Mín."
-msgstr "销量指标：最小值"
-
-msgid "Máx."
-msgstr "最大值"
-
-msgid "Considerar Outbound (se existir...)"
-msgstr "考虑出库（如存在……）"
-
-msgid "Equação de Preço"
-msgstr "价格公式"
-
-msgid "Volume Mín. Inicial"
-msgstr "初始最小销量"
-
-msgid "Volume Máx. Inicial"
-msgstr "初始最大销量"
-
-msgid "Preço Inicial"
-msgstr "初始价格"
-
-msgid "Volume Mínimo"
-msgstr "最小销量"
-
-msgid "Volume Máximo"
-msgstr "最大销量"
-
-msgid "Preço"
-msgstr "价格"
-
-msgid "Produto Mercado Preço"
-msgstr "产品市场价格"
-
-msgid "Planta de Produção"
-msgstr "生产工厂"
-
-msgid "Mercado Outbound"
-msgstr "出库市场"
-
-msgid "From"
-msgstr "起点"
-
-msgid "To"
-msgstr "终点"
-
-msgid "Valor Inicial Consumo Padrão"
-msgstr "初始标准消耗值"
-
-msgid "Consumo Padrão"
-msgstr "标准消耗"
-
-msgid "Custo Variável Médio"
-msgstr "平均变动成本"
-
-msgid "I/O Atualizado"
-msgstr "输入/输出已更新"
-
-msgid "Copiar de"
-msgstr "复制自"
-
-msgid "Tem Erro"
-msgstr "有错误"
-
-msgid "Fluxo (PDF)"
-msgstr "流程（PDF）"
-
-msgid "Dados Fluxo"
-msgstr "流程数据"
-
-msgid "Data Criação"
-msgstr "创建日期"
-
-msgid "Data Modificação"
-msgstr "修改日期"
-
-msgid "Coluna"
-msgstr "列"
-
-msgid "Linha"
-msgstr "行"
-
-msgid "From --> To"
-msgstr "从 --> 到"
-
-msgid "Margem Horária"
-msgstr "每小时利润率"
-
-msgid "Custo Variável"
-msgstr "变动成本"
-
-msgid "`Parcela Itens`"
-msgstr "`项目占比`"
-
-msgid "`Parcela Inbound`"
-msgstr "`入库占比`"
-
-msgid "`Parcela Manutencão`"
-msgstr "`维护占比`"
-
-msgid "Envia para"
-msgstr "发送至"
-
-msgid "Input Padrão"
-msgstr "标准输入"
-
-msgid "Input Real"
-msgstr "实际输入"
-
-msgid "Output Padrão"
-msgstr "标准产出"
-
-msgid "Output Real"
-msgstr "实际产出"
-
-msgid "Preço Médio"
-msgstr "平均价格"
-
-msgid "Custo Var. Médio"
-msgstr "平均变动成本"
-
-msgid "Margem Cont. Horária Média"
-msgstr "平均每小时贡献利润率"
-
-msgid "Fluxo Produção"
-msgstr "生产流程"
-
-msgid "Fluxo"
-msgstr "流程"
-
-msgid "Margem Contrib."
-msgstr "贡献利润率"
-
-msgid "Parcela Outbound"
-msgstr "出库占比"
-
-msgid "Equip."
-msgstr "设备"
-
-msgid "Parcela Itens"
-msgstr "项目占比"
-
-msgid "Parcela Inbound"
-msgstr "入库占比"
-
-msgid "Parcela Manutenção"
-msgstr "维护占比"
-
-msgid "Prod.(Volume)"
-msgstr "产量（销量）"
-
-msgid "Loading Time(h)"
-msgstr "装载时间（小时）"
-
-msgid "Ocupação(%)"
-msgstr "占用率 (%)"
-
-msgid "Ocupação Mín.(%)"
-msgstr "最小占用率 (%)"
-
-msgid "Ocupação Máx.(%)"
-msgstr "最大占用率 (%)"
-
-msgid "Prod.(Horas)"
-msgstr "产量（小时）"
-
-msgid "Equipamento/Ordem de Produção"
-msgstr "设备/生产订单"
-
-msgid "Produção (Volume)"
-msgstr "产量（销量）"
-
-msgid "Produção (Horas)"
-msgstr "产量（小时）"
-
-msgid "WIP (Volume)"
-msgstr "在制品（销量）"
-
-msgid "WIP (Valor)"
-msgstr "在制品（价值）"
-
-msgid "Produção Mínima"
-msgstr "最小产量"
-
-msgid "Produção Máxima"
-msgstr "最大产量"
-
-msgid "Produção"
-msgstr "产量"
-
-msgid "Item de Custo/Unidade de Produção"
-msgstr "成本项目/生产单元"
-
-msgid "Consumo Mínimo"
-msgstr "最小消耗"
-
-msgid "Consumo Máximo"
-msgstr "最大消耗"
-
-msgid "Consumo Calculado"
-msgstr "计算消耗"
-
-msgid "Estoque (Qtde)"
-msgstr "库存（数量）"
-
-msgid "Estoque (Valor)"
-msgstr "库存（价值）"
-
-msgid "Tipo de Produção"
-msgstr "生产类型"
-
-msgid "Consumo Via Equipamento"
-msgstr "通过设备消耗"
-
-msgid "Indicador Ajuste"
-msgstr "调整指标"
-
-msgid "Operação"
-msgstr "操作"
-
-msgid "Consumo Via Item de Consumo"
-msgstr "通过消耗品项目消耗"
-
-msgid "Cenário Referência"
-msgstr "参考方案"
-
-msgid "Análise Comparativa Cenário Ativo - Cenário Referência (Valores em "
-msgstr "对比分析 当前方案 - 参考方案（数值单位："
-
-msgid "Restrição"
-msgstr "约束"
-
-msgid "Id 1"
-msgstr "Id 1"
-
-msgid "Id 2"
-msgstr "Id 2"
-
-msgid "Periodo Order"
-msgstr "期间顺序"
-
-msgid "Sombra Mín"
-msgstr "影子价格 最小值"
-
-msgid "Sombra Máx"
-msgstr "影子价格 最大值"
-
-msgid "Res. Mín"
-msgstr "结果 最小值"
-
-msgid "Res. Máx"
-msgstr "结果 最大值"
-
-msgid "Mín"
-msgstr "最小值"
-
-msgid "Máx"
-msgstr "最大值"
-
-msgid "Real"
-msgstr "实际"
-
-msgid "Lim Inf Mín"
-msgstr "下限 最小值"
-
-msgid "Lim Sup Mín"
-msgstr "上限 最小值"
-
-msgid "Lim Inf Máx"
-msgstr "下限 最大值"
-
-msgid "Lim Sup Máx"
-msgstr "上限 最大值"
-
-msgid "Conc Reduzir"
-msgstr "降低浓度"
-
-msgid "Conc Aumentar"
-msgstr "提高浓度"
-
-msgid "Exportar PDF"
-msgstr "导出 PDF"
-
-msgid "Importar Excel (Novos)"
-msgstr "导入 Excel（新）"
-
-msgid "Importar Excel"
-msgstr "导入 Excel"
-
-msgid "Exportar Excel"
-msgstr "导出 Excel"
-
-msgid "Validar Custos Variáveis Selecionados"
-msgstr "验证所选变动成本"
-
-msgid "Desvalidar Custos Variáveis Selecionados"
-msgstr "取消验证所选变动成本"
-
-msgid "Qtde Equip./Ordem"
-msgstr "设备/订单数量"
-
-msgid "Update Preço/CustoVariável Adicionado Itens Selecionados"
-msgstr "更新所选项目的价格/附加变动成本"
-
-msgid "Testar o cálculo"
-msgstr "测试计算"
-
+#: custo_ferbasa/admin.py:137
+msgid "Selecione uma empresa antes de atualizar a genealogia."
+msgstr "更新族谱前请先选择公司。"
+
+#: custo_ferbasa/admin.py:141
+msgid ""
+"Genealogia NÃO atualizada: existem contas (Conta Contábil x Centro de Custo) "
+"com GGF lançado e tipo diferente de V, F ou O. Classifique-as e rode de novo."
+" Contas: "
+msgstr "族谱未更新：存在已记入 GGF 且类型不是 V、F 或 O 的科目（会计科目 x 成本中心）。请对其分类后重新运行。科目："
+
+#: custo_ferbasa/admin.py:146
+msgid ""
+"Atualizando genealogia dos Itens de Produção em segundo plano. Leva poucos "
+"segundos: atualize a página para ver os novos percentuais."
+msgstr "正在后台更新生产项目族谱。只需几秒钟：刷新页面即可查看新的百分比。"
+
+#: custo_ferbasa/admin.py:149
 msgid "Atualizar Genealogia Itens de Produção (todos)"
 msgstr "更新生产项目族谱（全部）"
 
-msgid "Referência CC"
-msgstr "成本中心参考"
-
-msgid "Importar Arquivo Excel da AWS"
-msgstr "从 AWS 导入 Excel 文件"
-
-msgid "Exportar Excel Registros Selecionados"
-msgstr "导出所选记录的 Excel"
-
-msgid "Valor Médio SPS"
-msgstr "SPS 平均值"
-
-msgid "Valor Médio SPS (Cons. Padrão)"
-msgstr "SPS 平均值（标准消耗）"
-
-msgid "Valor Médio SPS (Cons. Espec.)"
-msgstr "SPS 平均值（单耗）"
-
-msgid "Calcular / Atualizar Por Período"
-msgstr "按期间计算/更新"
-
-msgid "Validar Consumos Esp. Selecionados"
-msgstr "验证所选单耗"
-
-msgid "Desvalidar Consumos Esp. Selecionados"
-msgstr "取消验证所选单耗"
-
-msgid "Exportar Análise Áreas Excel"
-msgstr "导出区域分析 Excel"
-
-msgid "Validar Custos Variáveis AdicionadoS Selecionados"
-msgstr "验证所选附加变动成本"
-
-msgid "Desvalidar Custos Variáveis AdicionadoS Selecionados"
-msgstr "取消验证所选附加变动成本"
-
-msgid "Anos Running"
-msgstr "运行年份"
-
-msgid "Trimestres Running"
-msgstr "运行季度"
-
-msgid "Meses Running"
-msgstr "运行月份"
-
-msgid "Período Running"
-msgstr "运行期间"
-
-msgid "Anos Ativa"
-msgstr "激活年份"
-
-msgid "Trimestres Ativa"
-msgstr "激活季度"
-
-msgid "Meses Ativa"
-msgstr "激活月份"
-
-msgid "Período Ativa"
-msgstr "激活期间"
-
-msgid "Paradas NP (%)"
-msgstr "非计划停机 (%)"
-
-msgid "Custo Var. Adic."
-msgstr "附加变动成本"
-
-msgid "Update Indicador Consumos Específicos Selecionados"
-msgstr "更新所选单耗指标"
-
-msgid "Exportar (Excel) Produtos Selecionados"
-msgstr "导出（Excel）所选产品"
-
-msgid "Importar (Excel) Produtos Selecionados"
-msgstr "导入（Excel）所选产品"
-
-msgid "Ativar Produtos Selecionados"
-msgstr "激活所选产品"
-
-msgid "Desativar Produtos Selecionados"
-msgstr "停用所选产品"
-
-msgid "Validar Prod/Mercado/Preços Selecionados"
-msgstr "验证所选产品/市场/价格"
-
-msgid "Desvalidar Prod/Mercado/Preços Selecionados"
-msgstr "取消验证所选产品/市场/价格"
-
-msgid "Média Consumo"
-msgstr "平均消耗"
-
-msgid "Fluxos I/O Atualizados"
-msgstr "已更新的输入/输出流程"
-
-msgid "Validar Consumos Padrões Selecionados"
-msgstr "验证所选标准消耗"
-
-msgid "Desvalidar Consumos Padrões Selecionados"
-msgstr "取消验证所选标准消耗"
-
-msgid "Remover Fluxo(s) Selecionado(s)"
-msgstr "删除所选流程"
-
-msgid "Remover Sequências Output Real Zerado Fluxos Selecionados"
-msgstr "删除所选流程中实际产出为零的序列"
-
-msgid "Ativar Fluxos Selecionados"
-msgstr "激活所选流程"
-
-msgid "Verificar Erros Fluxos Selecionados"
-msgstr "检查所选流程的错误"
-
-msgid "Desativar Itens Selecionados"
-msgstr "停用所选项目"
-
-msgid "Update Fluxo PDF Itens Selecionados"
-msgstr "更新所选项目的流程 PDF"
-
-msgid "Atualizar Input/Output/Custos dos Fluxos Selecionados"
-msgstr "更新所选流程的输入/输出/成本"
-
-msgid "Atualizar Custos dos Fluxos Selecionados"
-msgstr "更新所选流程的成本"
-
-msgid "Importar Excel/xls 1º Plano (Novos)"
-msgstr "导入 Excel/xls 第一计划（新）"
-
-msgid "Importar Excel/xls 2º Plano (Novos)"
-msgstr "导入 Excel/xls 第二计划（新）"
-
-msgid "Importar Excel/xlsx 1º Plano (Novos)"
-msgstr "导入 Excel/xlsx 第一计划（新）"
-
-msgid "Importar Excel/xlsx 2º Plano (Novos)"
-msgstr "导入 Excel/xlsx 第二计划（新）"
-
-msgid "Atualizar Fluxos (Input/Output) Itens Selecionados"
-msgstr "更新所选项目的流程（输入/输出）"
-
-msgid "Update Indicador Consumos Padrões Selecionados"
-msgstr "更新所选标准消耗指标"
-
-msgid "Visualizar Fluxo"
-msgstr "查看流程"
-
-msgid "Exportar Excel Consolidado"
-msgstr "导出整合 Excel"
-
-msgid "Anos Running (Fluxo)"
-msgstr "运行年份（流程）"
-
-msgid "Trimestres Running (Fluxo)"
-msgstr "运行季度（流程）"
-
-msgid "Meses Running (Fluxo)"
-msgstr "运行月份（流程）"
-
-msgid "Período Running (Fluxo)"
-msgstr "运行期间（流程）"
-
-msgid "Anos Running (Equip.)"
-msgstr "运行年份（设备）"
-
-msgid "Trimestres Running (Equip.)"
-msgstr "运行季度（设备）"
-
-msgid "Meses Running (Equip.)"
-msgstr "运行月份（设备）"
-
-msgid "Período Running (Equip.)"
-msgstr "运行期间（设备）"
-
-msgid "Valor Indicador"
-msgstr "指标值"
-
-msgid "Seu usuário não tem um Perfil de Usuário. Contate o administrador."
-msgstr "您的账号没有用户资料。请联系管理员。"
-
-msgid "Seu usuário está bloqueado para trocar de cenário ativo. Contate o administrador."
-msgstr "您的账号被禁止更改当前方案。请联系管理员。"
-
-msgid "Cenário(s) selecionado(s) sendo excluidos em segundo plano. Para verificar o status da exclusão, refresh a tela."
-msgstr "所选方案正在后台删除。要查看删除状态，请刷新页面。"
-
-msgid "Um ou mais cenários selecionados são cenários base da empresa e não podem ser excluídos"
-msgstr "一个或多个所选方案是公司的基础方案，无法删除"
-
-msgid "Este cenário está ativo. Não pode importar dele mesmo!"
-msgstr "该方案当前处于激活状态，不能从自身导入！"
-
-msgid "Importação do cenário ativo sendo feita em segundo plano. Favor aguardar..."
-msgstr "正在后台导入当前方案，请稍候……"
-
-msgid "Atualização dos Fluxos de Produção sendo realizado em segundo plano. Favor aguardar!"
-msgstr "正在后台更新生产流程，请稍候！"
-
-msgid "Existem fluxos de produção com I/O desatualizado. Use \"Atualizar Fluxos\" antes."
-msgstr "存在输入/输出已过期的生产流程。请先使用\"更新流程\"。"
-
-msgid "TEMOS FLUXO(S) DE PRODUÇÃO ATIVO(S) SEM O CÁLCULO DOS CUSTOS VARIÁVEIS. FAVOR VERIFICAR!"
-msgstr "存在未计算变动成本的激活生产流程。请检查！"
-
-msgid "TEMOS FLUXO(S) DE PRODUÇÃO ATIVO(S) COM I/O DESATUALIZADO(S). FAVOR VERIFICAR!"
-msgstr "存在输入/输出已过期的激活生产流程。请检查！"
-
-msgid "TEMOS FLUXO(S) DE PRODUÇÃO ATIVO(S) COM CUSTO VARIÁVEL ZERADO. FAVOR VERIFICAR!"
-msgstr "存在变动成本为零的激活生产流程。请检查！"
-
-msgid "LIMPEZA do cenário sendo realizada em segundo plano. Favor aguardar!"
-msgstr "正在后台清理方案，请稍候！"
-
-msgid "OTIMIZAÇÃO do cenário sendo realizada em segundo plano. Favor aguardar!"
-msgstr "正在后台优化方案，请稍候！"
-
-msgid "Cenário só pode ser LIMPO!"
-msgstr "该方案只能被清理！"
-
-msgid "Cenário só pode ser LIMPO ou CONSOLIDADO!"
-msgstr "该方案只能被清理或整合！"
-
-msgid "CONSOLIDAÇÃO do cenário sendo realizada em segundo plano. Favor aguardar!"
-msgstr "正在后台整合方案，请稍候！"
-
-msgid "Cenário só pode ser OTIMIZADO!"
-msgstr "该方案只能被优化！"
-
-msgid "Cenário só pode ser CONSOLIDADO!"
-msgstr "该方案只能被整合！"
-
-msgid "Só superusuários podem trocar de empresa ativa."
-msgstr "只有超级用户可以切换当前公司。"
-
-msgid "Você não tem autorização para excluir cenários. Favor entrar em contato com administrador do sistema!"
-msgstr "您无权删除方案。请联系系统管理员！"
-
-msgid "Cenário informado na planilha não é o ativo. Favor verificar!"
-msgstr "表格中指定的方案不是当前方案。请检查！"
-
-msgid "Novo(s) indicador(es) foram adicionados com sucesso."
-msgstr "新增指标已成功添加。"
-
-msgid "Cabeçalho do arquivo Excel não está correto. Favor verificar!"
-msgstr "Excel 文件表头不正确。请检查！"
-
-msgid "Não foi encontrado o arquivo indicadores_new.xls no diretório c:\\sps\\excel ou AWS S3. Favor verificar!"
-msgstr "在目录 c:\\sps\\excel 或 AWS S3 中未找到文件 indicadores_new.xls。请检查！"
-
-msgid "Cenário informado na planilha na aba mãe não é o cenário ativo. Favor verificar!"
-msgstr "表格主标签页中指定的方案不是当前方案。请检查！"
-
-msgid "Tabela Indicadores foi atualizada com sucesso!"
-msgstr "指标表已成功更新！"
-
-msgid "Total de lançamentos na aba mãe e/ou filhas não está correto. Favor verificar!"
-msgstr "主标签页和/或子标签页的记录总数不正确。请检查！"
-
-msgid "Cabeçalho da aba filha não está correto. Favor verificar!"
-msgstr "子标签页表头不正确。请检查！"
-
-msgid "Cabeçalho da aba mãe não está correto. Favor verificar!"
-msgstr "主标签页表头不正确。请检查！"
-
-msgid "Arquivo gerado com sucesso."
-msgstr "文件已成功生成。"
-
-msgid "Novos itens de custo variável foram adicionados com sucesso."
-msgstr "新增变动成本项目已成功添加。"
-
-msgid "Tabela Custo Variável - Itens atualizada com sucesso!"
-msgstr "变动成本-项目表已成功更新！"
-
-msgid "Não foi encontrado o arquivo custoitem.xls no diretório c:\\sps\\excel ou AWS S3. Favor verificar!"
-msgstr "在目录 c:\\sps\\excel 或 AWS S3 中未找到文件 custoitem.xls。请检查！"
-
-msgid "Update do preço pelo valor do custo variável adicionado realizado com sucesso para os itens selecionados!"
-msgstr "已成功根据附加变动成本值更新所选项目的价格！"
-
-msgid "Novos itens de custo com preços foram adicionados com sucesso."
-msgstr "新增带价格的成本项目已成功添加。"
-
-msgid "Cenário informado na planilha (aba mãe ou filhas) não é o ativo. Favor verificar!"
-msgstr "表格中（主标签页或子标签页）指定的方案不是当前方案。请检查！"
-
-msgid "Tabela Custo Item Preço foi atualizada com sucesso!"
-msgstr "成本项目价格表已成功更新！"
-
-msgid "Ocorreu um erro na importação dos dados. Favor contatar a equipe de suporte da SPS Consultoria."
-msgstr "导入数据时发生错误。请联系 SPS Consultoria 支持团队。"
-
-msgid "Update do preço pelo valor do custo variável adicionado realizado com sucesso!"
-msgstr "已成功根据附加变动成本值更新价格！"
-
-msgid "Atualizando genealogia dos Itens de Produção em segundo plano. Favor aguardar!"
-msgstr "正在后台更新生产项目族谱，请稍候！"
-
+#: custo_ferbasa/admin.py:268
 msgid "Tabela Itens de Consumo foi atualizada com sucesso!"
 msgstr "消耗品项目表已成功更新！"
 
+#: custo_ferbasa/admin.py:273
 msgid "Cabeçalho da planilha importada não está correto. Favor verificar!"
 msgstr "导入表格的表头不正确。请检查！"
 
+#: custo_ferbasa/admin.py:275 equipamentos/admin.py:662
+#: equipamentos/admin.py:1275 fluxos/admin.py:693 fluxos/admin.py:1625
+#: tabelas/admin.py:630 tabelas/admin.py:1868 tabelas/admin.py:2610
+msgid "Importar Excel"
+msgstr "导入 Excel"
+
+#: custo_ferbasa/admin.py:306 custo_ferbasa/admin.py:438
+#: custo_ferbasa/admin.py:568 custo_ferbasa/admin.py:664
+#: equipamentos/admin.py:779 equipamentos/admin.py:1371 fluxos/admin.py:808
+#: tabelas/admin.py:696 tabelas/admin.py:1901 tabelas/admin.py:2752
+msgid "Arquivo gerado com sucesso."
+msgstr "文件已成功生成。"
+
+#: custo_ferbasa/admin.py:310 custo_ferbasa/admin.py:442
+#: custo_ferbasa/admin.py:1377 custo_ferbasa/admin.py:1978
+#: equipamentos/admin.py:783 equipamentos/admin.py:1375 fluxos/admin.py:812
+#: fluxos/admin.py:1638 otimizacao/admin.py:416 otimizacao/admin.py:955
+#: otimizacao/admin.py:1195 otimizacao/admin.py:1505 otimizacao/admin.py:1894
+#: otimizacao/admin.py:2101 otimizacao/admin.py:2572 parameters/admin.py:476
+#: tabelas/admin.py:700 tabelas/admin.py:1905 tabelas/admin.py:2756
+msgid "Exportar Excel"
+msgstr "导出 Excel"
+
+#: custo_ferbasa/admin.py:381 custo_ferbasa/models.py:482
+msgid "Referência CC"
+msgstr "成本中心参考"
+
+#: custo_ferbasa/admin.py:488 custo_ferbasa/admin.py:579
+#: custo_ferbasa/admin.py:685
+msgid "Importar Arquivo Excel da AWS"
+msgstr "从 AWS 导入 Excel 文件"
+
+#: custo_ferbasa/admin.py:572 custo_ferbasa/admin.py:668
+msgid "Exportar Excel Registros Selecionados"
+msgstr "导出所选记录的 Excel"
+
+#: custo_ferbasa/admin.py:577
 msgid "Tabela Produção Mensal sendo atualizada em segundo plano!"
 msgstr "正在后台更新月度生产表！"
 
+#: custo_ferbasa/admin.py:683
 msgid "Distribuição GGF Mensal sendo atualizada em segundo plano!"
 msgstr "正在后台更新月度制造费用分摊！"
 
-msgid "Registro foi alterado com sucesso. Calculando indicadores em segundo plano. Se Status = CALCULANDO, refresh tela para atualizar."
+#: custo_ferbasa/admin.py:746 custo_ferbasa/admin.py:788
+#: custo_ferbasa/admin.py:1593 custo_ferbasa/admin.py:1640
+msgid "Valor Médio SPS"
+msgstr "SPS 平均值"
+
+#: custo_ferbasa/admin.py:839
+msgid "Valor Médio SPS (Cons. Padrão)"
+msgstr "SPS 平均值（标准消耗）"
+
+#: custo_ferbasa/admin.py:868
+msgid "Valor Médio SPS (Cons. Espec.)"
+msgstr "SPS 平均值（单耗）"
+
+#: custo_ferbasa/admin.py:982 custo_ferbasa/admin.py:1738
+msgid "Calcular / Atualizar Por Período"
+msgstr "按期间计算/更新"
+
+#: custo_ferbasa/admin.py:993
+msgid "Validar Consumos Esp. Selecionados"
+msgstr "验证所选单耗"
+
+#: custo_ferbasa/admin.py:1004
+msgid "Desvalidar Consumos Esp. Selecionados"
+msgstr "取消验证所选单耗"
+
+#: custo_ferbasa/admin.py:1070
+msgid "Exportar Análise Áreas Excel"
+msgstr "导出区域分析 Excel"
+
+#: custo_ferbasa/admin.py:1273 custo_ferbasa/admin.py:1542
+#: custo_ferbasa/admin.py:1543 custo_ferbasa/admin.py:2144
+#: custo_ferbasa/admin.py:2145 otimizacao/admin.py:289 otimizacao/admin.py:1764
+#: tabelas/admin.py:291 tabelas/admin.py:950 templates/chat.html:1012
+msgid "Exportar PDF"
+msgstr "导出 PDF"
+
+#: custo_ferbasa/admin.py:1296
+msgid ""
+"Registro foi alterado com sucesso. Calculando indicadores em segundo plano. "
+"Se Status = CALCULANDO, refresh tela para atualizar."
 msgstr "记录已成功修改。正在后台计算指标。如状态为「计算中」，请刷新页面。"
 
+#: custo_ferbasa/admin.py:1307
 msgid "Update dos consumos padrões vinculados realizado com sucesso!"
 msgstr "已成功更新关联的标准消耗！"
 
-msgid "TEMOS REGISTRO NA TABELA DE CONTA CONTÁBIL / CENTRO DE CUSTO AGUARDANDO CLASSIFICAÇÃO. FAVOR VERIFICAR!"
+#: custo_ferbasa/admin.py:1309
+msgid "Update Consumos Padrões"
+msgstr "更新标准消耗"
+
+#: custo_ferbasa/admin.py:1736 custo_ferbasa/admin.py:1803
+msgid ""
+"TEMOS REGISTRO NA TABELA DE CONTA CONTÁBIL / CENTRO DE CUSTO AGUARDANDO "
+"CLASSIFICAÇÃO. FAVOR VERIFICAR!"
 msgstr "会计科目/成本中心表中存在待分类的记录。请检查！"
 
-msgid "Registro foi alterado com sucesso. Calculando custos em segundo plano. Se Status = CALCULANDO, refresh tela para atualizar."
+#: custo_ferbasa/admin.py:1749
+msgid "Validar Custos Variáveis AdicionadoS Selecionados"
+msgstr "验证所选附加变动成本"
+
+#: custo_ferbasa/admin.py:1760
+msgid "Desvalidar Custos Variáveis AdicionadoS Selecionados"
+msgstr "取消验证所选附加变动成本"
+
+#: custo_ferbasa/admin.py:1794
+msgid ""
+"Registro foi alterado com sucesso. Calculando custos em segundo plano. Se "
+"Status = CALCULANDO, refresh tela para atualizar."
 msgstr "记录已成功修改。正在后台计算成本。如状态为「计算中」，请刷新页面。"
 
-msgid "Registro foi alterado com sucesso. Calculando regressão em segundo plano. Se Status = CALCULANDO, refresh tela para atualizar."
+#: custo_ferbasa/admin.py:1904
+msgid "Exportar Excel Itens Custo Variável"
+msgstr "导出变动成本项目 Excel"
+
+#: custo_ferbasa/admin.py:2221
+msgid ""
+"Registro foi alterado com sucesso. Calculando regressão em segundo plano. Se "
+"Status = CALCULANDO, refresh tela para atualizar."
 msgstr "记录已成功修改。正在后台计算回归。如状态为「计算中」，请刷新页面。"
 
+#: custo_ferbasa/apps.py:8
+msgid " Custo Ferbasa - CF"
+msgstr " Ferbasa 成本 - CF"
+
+#: custo_ferbasa/forms.py:111 custo_ferbasa/forms.py:138
+#: custo_ferbasa/models.py:410 custo_ferbasa/models.py:455
+#: custo_ferbasa/models.py:517 custo_ferbasa/models.py:671
+#: custo_ferbasa/models.py:784 custo_ferbasa/models.py:933
+#: custo_ferbasa/models.py:1060 custo_ferbasa/models.py:1165
+msgid "Qtde Produzida"
+msgstr "生产数量"
+
+#: custo_ferbasa/forms.py:112 custo_ferbasa/models.py:412
+#: custo_ferbasa/models.py:519 custo_ferbasa/models.py:673
+#: custo_ferbasa/models.py:1166
+msgid "Qtde Consumo"
+msgstr "消耗数量"
+
+#: custo_ferbasa/forms.py:114 custo_ferbasa/models.py:178
+#: custo_ferbasa/models.py:413
+msgid "Valor Material"
+msgstr "材料价值"
+
+#: custo_ferbasa/forms.py:116 custo_ferbasa/models.py:179
+#: custo_ferbasa/models.py:414
+msgid "Valor GGF"
+msgstr "制造费用"
+
+#: custo_ferbasa/forms.py:118 custo_ferbasa/models.py:415
+msgid "Valor Última Entrada"
+msgstr "最近入库价值"
+
+#: custo_ferbasa/forms.py:139 custo_ferbasa/models.py:457 tabelas/forms.py:137
+#: tabelas/models.py:352 tabelas/models.py:628 tabelas/models.py:809
+#: tabelas/models.py:986 templates/chat.html:1106
+msgid "Valor"
+msgstr "数值"
+
+#: custo_ferbasa/forms.py:162 custo_ferbasa/forms.py:308
+#: custo_ferbasa/models.py:514 custo_ferbasa/models.py:782
+msgid "Prod. Minima"
+msgstr "最小产量"
+
+#: custo_ferbasa/forms.py:531 custo_ferbasa/models.py:131
+#: custo_ferbasa/models.py:511 custo_ferbasa/models.py:779
+#: custo_ferbasa/models.py:1054 parameters/forms.py:58
+msgid "Ano/Mês Início"
+msgstr "起始年/月"
+
+#: custo_ferbasa/forms.py:532 custo_ferbasa/models.py:132
+#: custo_ferbasa/models.py:512 custo_ferbasa/models.py:780
+#: custo_ferbasa/models.py:1055 parameters/forms.py:59
+msgid "Ano/Mês Fim"
+msgstr "结束年/月"
+
+#: custo_ferbasa/models.py:84 custo_ferbasa/models.py:128
+#: custo_ferbasa/models.py:258 custo_ferbasa/models.py:287
+#: custo_ferbasa/models.py:315 custo_ferbasa/models.py:347
+#: custo_ferbasa/models.py:732 custo_ferbasa/models.py:1007
+#: templates/chat.html:819
+msgid "Código"
+msgstr "编码"
+
+#: custo_ferbasa/models.py:85 custo_ferbasa/models.py:129
+#: custo_ferbasa/models.py:505 custo_ferbasa/models.py:777
+#: custo_ferbasa/models.py:1053 equipamentos/models.py:117 fluxos/models.py:72
+#: fluxos/models.py:299 fluxos/models.py:508 parameters/models.py:102
+#: parameters/models.py:259 parameters/models.py:831 tabelas/models.py:1742
+#: templates/chat.html:786 templates/chat.html:820 templates/chat.html:1001
+msgid "Descrição"
+msgstr "描述"
+
+#: custo_ferbasa/models.py:86 custo_ferbasa/models.py:130
+#: parameters/fluxo_criar_cenario.py:1855
+#: parameters/fluxo_criar_cenario.py:2015 tabelas/models.py:1278
+#: tabelas/models.py:1383 templates/chat.html:923 templates/chat.html:1066
+msgid "Unidade"
+msgstr "单位"
+
+#: custo_ferbasa/models.py:87 custo_ferbasa/models.py:386
+#: custo_ferbasa/models.py:446 parameters/models.py:101
+#: parameters/models.py:260 tabelas/models.py:1279 tabelas/models.py:1393
+#: templates/chat.html:1054
+msgid "Tipo"
+msgstr "类型"
+
+#: custo_ferbasa/models.py:88 templates/chat.html:892 templates/chat.html:1056
+msgid "Subproduto"
+msgstr "副产品"
+
+#: custo_ferbasa/models.py:89 custo_ferbasa/models.py:141
+#: custo_ferbasa/models.py:260 custo_ferbasa/models.py:289
+#: custo_ferbasa/models.py:318 custo_ferbasa/models.py:352
+#: custo_ferbasa/models.py:388 custo_ferbasa/models.py:416
+#: custo_ferbasa/models.py:458 custo_ferbasa/models.py:526
+#: custo_ferbasa/models.py:808 custo_ferbasa/models.py:1064
+#: equipamentos/models.py:128 equipamentos/models.py:312
+#: equipamentos/models.py:762 fluxos/models.py:84 fluxos/models.py:309
+#: tabelas/models.py:165 tabelas/models.py:295 tabelas/models.py:556
+#: tabelas/models.py:737 tabelas/models.py:914 tabelas/models.py:1085
+#: tabelas/models.py:1157 tabelas/models.py:1220 tabelas/models.py:1281
+#: tabelas/models.py:1353 tabelas/models.py:1614
+msgid "Observação"
+msgstr "备注"
+
+#: custo_ferbasa/models.py:90 custo_ferbasa/models.py:142
+#: custo_ferbasa/models.py:181 custo_ferbasa/models.py:213
+#: custo_ferbasa/models.py:240 custo_ferbasa/models.py:261
+#: custo_ferbasa/models.py:290 custo_ferbasa/models.py:319
+#: custo_ferbasa/models.py:353 custo_ferbasa/models.py:389
+#: custo_ferbasa/models.py:417 custo_ferbasa/models.py:459
+#: custo_ferbasa/models.py:528 custo_ferbasa/models.py:677
+#: custo_ferbasa/models.py:735 custo_ferbasa/models.py:810
+#: custo_ferbasa/models.py:955 custo_ferbasa/models.py:1011
+#: custo_ferbasa/models.py:1065 custo_ferbasa/models.py:1146
+#: custo_ferbasa/models.py:1170 parameters/admin.py:1477
+#: parameters/admin.py:1478 parameters/models.py:130 parameters/models.py:131
+#: parameters/models.py:298 parameters/models.py:835 parameters/models.py:892
+#: parameters/models.py:938 parameters/models.py:957 parameters/models.py:996
+#: parameters/models.py:1061 parameters/models.py:1137 tabelas/models.py:1088
+#: tabelas/models.py:1160 tabelas/models.py:1222 tabelas/models.py:1283
+#: tabelas/models.py:1616 tabelas/models.py:1662 tabelas/models.py:1702
+#: tabelas/models.py:1763
+msgid "Empresa"
+msgstr "公司"
+
+#: custo_ferbasa/models.py:103 custo_ferbasa/models.py:187
+msgid "          Item de Consumo"
+msgstr "          消耗品项目"
+
+#: custo_ferbasa/models.py:104 custo_ferbasa/models.py:188
+msgid "          Itens de Consumo"
+msgstr "          消耗品项目"
+
+#: custo_ferbasa/models.py:123
+msgid "Bonificação"
+msgstr "赠品"
+
+#: custo_ferbasa/models.py:133
+msgid "Qtde Produzida Real"
+msgstr "实际产量"
+
+#: custo_ferbasa/models.py:134
+msgid "Qtde Produzida Mov./Ext."
+msgstr "移动/外部产量"
+
+#: custo_ferbasa/models.py:135
+msgid "Perc. Variável GGF (%)"
+msgstr "变动制造费用比例 (%)"
+
+#: custo_ferbasa/models.py:136
+msgid "Perc. Fixo/Outros GGF (%)"
+msgstr "固定/其他制造费用比例 (%)"
+
+#: custo_ferbasa/models.py:137
+msgid "Valor GGF Variável Direto"
+msgstr "直接变动制造费用"
+
+#: custo_ferbasa/models.py:138
+msgid "Valor GGF Fixo/Outros Direto"
+msgstr "直接固定/其他制造费用"
+
+#: custo_ferbasa/models.py:139
+msgid "Valor GGF Variável Prod. Internos"
+msgstr "内部生产变动制造费用"
+
+#: custo_ferbasa/models.py:140
+msgid "Valor GGF Fixo/Outros Prod. Internos"
+msgstr "内部生产固定/其他制造费用"
+
+#: custo_ferbasa/models.py:155
+msgid "Qtde Produzida Total"
+msgstr "总产量"
+
+#: custo_ferbasa/models.py:163
+msgid "           Item de Produção"
+msgstr "           生产项目"
+
+#: custo_ferbasa/models.py:164
+msgid "           Itens de Produção"
+msgstr "           生产项目"
+
+#: custo_ferbasa/models.py:176 custo_ferbasa/models.py:411
+msgid "Item Consumo"
+msgstr "消耗品项目"
+
+#: custo_ferbasa/models.py:177
+msgid "Quantidade Consumida"
+msgstr "消耗数量"
+
+#: custo_ferbasa/models.py:180 custo_ferbasa/models.py:212
+#: custo_ferbasa/models.py:239 custo_ferbasa/models.py:676
+#: custo_ferbasa/models.py:734 custo_ferbasa/models.py:954
+#: custo_ferbasa/models.py:1010 custo_ferbasa/models.py:1145
+#: custo_ferbasa/models.py:1169 fluxos/models.py:185 fluxos/models.py:447
+#: fluxos/models.py:564 fluxos/models.py:843 fluxos/models.py:873
+#: parameters/models.py:649 parameters/models.py:818 tabelas/models.py:1533
+msgid "Mãe"
+msgstr "主记录"
+
+#: custo_ferbasa/models.py:209
+msgid "Chave"
+msgstr "键"
+
+#: custo_ferbasa/models.py:210 custo_ferbasa/models.py:234
+msgid "Item de Consumo"
+msgstr "消耗品项目"
+
+#: custo_ferbasa/models.py:211 custo_ferbasa/models.py:1135
+#: custo_ferbasa/models.py:1167 tabelas/models.py:221 tabelas/models.py:554
+#: tabelas/models.py:735 tabelas/models.py:912 templates/chat.html:850
+#: templates/chat.html:1113
+msgid "Indicador"
+msgstr "指标"
+
+#: custo_ferbasa/models.py:219 custo_ferbasa/models.py:220
+msgid "Arvore Genealógica de Produção"
+msgstr "生产族谱"
+
+#: custo_ferbasa/models.py:235
+msgid "Quantidade por unidade"
+msgstr "单位数量"
+
+#: custo_ferbasa/models.py:236
+msgid "GGF Variável por unidade"
+msgstr "单位变动 GGF"
+
+#: custo_ferbasa/models.py:237
+msgid "GGF Fixo/Outros por unidade"
+msgstr "单位固定/其他 GGF"
+
+#: custo_ferbasa/models.py:238
+msgid "Participação no GGF (%)"
+msgstr "GGF 占比 (%)"
+
+#: custo_ferbasa/models.py:246 custo_ferbasa/models.py:247
+msgid "Participação Consolidada na Cadeia"
+msgstr "链中的合并占比"
+
+#: custo_ferbasa/models.py:259 custo_ferbasa/models.py:288 fluxos/models.py:300
+#: parameters/models.py:100 parameters/models.py:258 parameters/models.py:830
+#: parameters/models.py:883 tabelas/models.py:164 tabelas/models.py:553
+#: tabelas/models.py:733 tabelas/models.py:910 tabelas/models.py:1082
+#: tabelas/models.py:1155 tabelas/models.py:1218 tabelas/models.py:1276
+#: tabelas/models.py:1611
+msgid "Nome"
+msgstr "名称"
+
+#: custo_ferbasa/models.py:271
+msgid "         Estabelecimento"
+msgstr "         机构"
+
+#: custo_ferbasa/models.py:272
+msgid "         Estabelecimentos"
+msgstr "         机构"
+
+#: custo_ferbasa/models.py:300
+msgid "        Grupo Máquina"
+msgstr "        机器组"
+
+#: custo_ferbasa/models.py:301
+msgid "        Grupos Máquinas"
+msgstr "        机器组"
+
+#: custo_ferbasa/models.py:316 custo_ferbasa/models.py:349
+msgid "Descricao"
+msgstr "描述"
+
+#: custo_ferbasa/models.py:317
+msgid "Conta de Pessoal"
+msgstr "人事科目"
+
+#: custo_ferbasa/models.py:329
+msgid "       Conta Contábil"
+msgstr "       会计科目"
+
+#: custo_ferbasa/models.py:330
+msgid "       Contas Contábeis"
+msgstr "       会计科目"
+
+#: custo_ferbasa/models.py:348 otimizacao/admin.py:2171
+msgid "Referência"
+msgstr "参考"
+
+#: custo_ferbasa/models.py:350
+msgid "Mão-de-obra Direta (MOD)"
+msgstr "直接人工（MOD）"
+
+#: custo_ferbasa/models.py:351
+msgid "Mão-de-obra Indireta (MOI)"
+msgstr "间接人工（MOI）"
+
+#: custo_ferbasa/models.py:363
+msgid "      Centro de Custo"
+msgstr "      成本中心"
+
+#: custo_ferbasa/models.py:364
+msgid "      Centros de Custo"
+msgstr "      成本中心"
+
+#: custo_ferbasa/models.py:382
+msgid "Conta Contábil"
+msgstr "会计科目"
+
+#: custo_ferbasa/models.py:383
+msgid "Centro de Custo"
+msgstr "成本中心"
+
+#: custo_ferbasa/models.py:384 custo_ferbasa/models.py:406
+#: custo_ferbasa/models.py:451
+msgid "Estabelecimento"
+msgstr "机构"
+
+#: custo_ferbasa/models.py:387
+msgid "Percentual (%)"
+msgstr "百分比 (%)"
+
+#: custo_ferbasa/models.py:395
+msgid "     Conta Contábil/Centro de Custo"
+msgstr "     会计科目/成本中心"
+
+#: custo_ferbasa/models.py:396
+msgid "     Contas Contábeis/Centros de Custo"
+msgstr "     会计科目/成本中心"
+
+#: custo_ferbasa/models.py:405 custo_ferbasa/models.py:450
+#: custo_ferbasa/models.py:670 custo_ferbasa/models.py:932
+#: custo_ferbasa/models.py:1162 equipamentos/forms.py:24
+#: equipamentos/forms.py:155 equipamentos/forms.py:219
+#: equipamentos/models.py:219 equipamentos/models.py:597
+#: equipamentos/models.py:854 fluxos/forms.py:52 fluxos/forms.py:129
+#: fluxos/forms.py:151 fluxos/models.py:183 fluxos/models.py:554
+#: fluxos/models.py:870 otimizacao/forms.py:26 otimizacao/forms.py:43
+#: otimizacao/forms.py:59 otimizacao/forms.py:71 otimizacao/forms.py:90
+#: otimizacao/forms.py:108 otimizacao/forms.py:315 otimizacao/forms.py:327
+#: parameters/fluxo_criar_cenario.py:1734 parameters/forms.py:39
+#: parameters/models.py:626 produtos/forms.py:284 produtos/forms.py:353
+#: tabelas/forms.py:28 tabelas/forms.py:52 tabelas/forms.py:71
+#: tabelas/forms.py:90 tabelas/forms.py:126 tabelas/forms.py:175
+#: tabelas/forms.py:212 tabelas/forms.py:281 tabelas/models.py:219
+#: tabelas/models.py:351 tabelas/models.py:422 tabelas/models.py:493
+#: tabelas/models.py:627 tabelas/models.py:808 tabelas/models.py:985
+#: tabelas/models.py:1527
+msgid "Ano/Mês"
+msgstr "年/月"
+
+#: custo_ferbasa/models.py:407 custo_ferbasa/models.py:453
+msgid "Grupo Máquina"
+msgstr "机器组"
+
+#: custo_ferbasa/models.py:408 custo_ferbasa/models.py:452
+msgid "Ordem Produção"
+msgstr "生产订单"
+
+#: custo_ferbasa/models.py:409 custo_ferbasa/models.py:454
+msgid "Item Produção"
+msgstr "生产项目"
+
+#: custo_ferbasa/models.py:423 custo_ferbasa/models.py:424
+msgid "    Produção Mensal"
+msgstr "    月度生产"
+
+#: custo_ferbasa/models.py:456
+msgid "Conta Contábil/Centro de Custo"
+msgstr "会计科目/成本中心"
+
+#: custo_ferbasa/models.py:465 custo_ferbasa/models.py:466
+msgid "   Distribuição GGF Mensal"
+msgstr "   月度制造费用分摊"
+
+#: custo_ferbasa/models.py:506 custo_ferbasa/models.py:778 fluxos/models.py:73
+#: tabelas/models.py:1347
+msgid "Validado"
+msgstr "已验证"
+
+#: custo_ferbasa/models.py:507
+msgid "Área Responsável"
+msgstr "负责区域"
+
+#: custo_ferbasa/models.py:508
+msgid "Criado por"
+msgstr "创建人"
+
+#: custo_ferbasa/models.py:509
+msgid "Alterado por"
+msgstr "修改人"
+
+#: custo_ferbasa/models.py:510
+msgid "Compartilhar"
+msgstr "共享"
+
+#: custo_ferbasa/models.py:513 custo_ferbasa/models.py:781
+msgid "Ajustar Período Pela Prod. Mínima"
+msgstr "按最小产量调整期间"
+
+#: custo_ferbasa/models.py:515 custo_ferbasa/models.py:608
+#: custo_ferbasa/models.py:783 custo_ferbasa/models.py:893
+#: custo_ferbasa/models.py:1056 custo_ferbasa/models.py:1125
+#: parameters/models.py:423
+msgid "Status"
+msgstr "状态"
+
+#: custo_ferbasa/models.py:516 custo_ferbasa/models.py:786
+msgid "Considerar Desvio como Produção (P+D)"
+msgstr "将偏差视为产量 (P+D)"
+
+#: custo_ferbasa/models.py:518 custo_ferbasa/models.py:672
+#: custo_ferbasa/models.py:785 custo_ferbasa/models.py:934
+msgid "Qtde Desviada"
+msgstr "偏差数量"
+
+#: custo_ferbasa/models.py:520 custo_ferbasa/models.py:630
+#: custo_ferbasa/models.py:674
+msgid "Indicador (SPS)"
+msgstr "指标 (SPS)"
+
+#: custo_ferbasa/models.py:521 custo_ferbasa/models.py:805
+#: custo_ferbasa/models.py:1061
+msgid "Itens de Produção"
+msgstr "生产项目"
+
+#: custo_ferbasa/models.py:522 custo_ferbasa/models.py:806
+#: custo_ferbasa/models.py:1062
+msgid "Grupos Máquina"
+msgstr "机器组"
+
+#: custo_ferbasa/models.py:523
+msgid "Itens de Consumo"
+msgstr "消耗品项目"
+
+#: custo_ferbasa/models.py:524
+msgid "Equação Cons. Específico"
+msgstr "单耗公式"
+
+#: custo_ferbasa/models.py:525
+msgid "Tipo Equação"
+msgstr "公式类型"
+
+#: custo_ferbasa/models.py:527 custo_ferbasa/models.py:675
+#: custo_ferbasa/models.py:809 custo_ferbasa/models.py:953
+#: custo_ferbasa/models.py:1144 custo_ferbasa/models.py:1168
+#: parameters/models.py:278
+msgid "Controle"
+msgstr "控制"
+
+#: custo_ferbasa/models.py:567
+msgid "  Consumo Específico SPS"
+msgstr "  SPS 单耗"
+
+#: custo_ferbasa/models.py:568
+msgid "  Consumos Específicos SPS"
+msgstr "  SPS 单耗"
+
+#: custo_ferbasa/models.py:580 custo_ferbasa/models.py:845
+msgid "(D+P)"
+msgstr "(D+P)"
+
+#: custo_ferbasa/models.py:594 custo_ferbasa/models.py:728
+#: custo_ferbasa/models.py:860 custo_ferbasa/models.py:985
+msgid "Desvio (%)"
+msgstr "偏差 (%)"
+
+#: custo_ferbasa/models.py:621 custo_ferbasa/models.py:869
+msgid "SPS"
+msgstr "SPS"
+
+#: custo_ferbasa/models.py:642 custo_ferbasa/models.py:698
+msgid "Indicador (P)"
+msgstr "指标 (P)"
+
+#: custo_ferbasa/models.py:661 custo_ferbasa/models.py:712
+msgid "Indicador (P+D)"
+msgstr "指标 (P+D)"
+
+#: custo_ferbasa/models.py:683 custo_ferbasa/models.py:961
+msgid "Valor Histórico"
+msgstr "历史值"
+
+#: custo_ferbasa/models.py:684 custo_ferbasa/models.py:962
+msgid "Valores Históricos"
+msgstr "历史值"
+
+#: custo_ferbasa/models.py:733 custo_ferbasa/models.py:1009
+#: equipamentos/models.py:837 equipamentos/models.py:855 fluxos/models.py:83
+msgid "Consumo Específico"
+msgstr "单耗"
+
+#: custo_ferbasa/models.py:764 custo_ferbasa/models.py:1039
+msgid "Indicador Atual"
+msgstr "当前指标"
+
+#: custo_ferbasa/models.py:767
+msgid "Consumo Específico Complementar"
+msgstr "补充单耗"
+
+#: custo_ferbasa/models.py:768
+msgid "Consumos Específicos Complementares"
+msgstr "补充单耗"
+
+#: custo_ferbasa/models.py:787
+msgid "Considerar Subproduto como Produção (Quando Escolhido)"
+msgstr "将副产品视为产量（如选中）"
+
+#: custo_ferbasa/models.py:788 custo_ferbasa/models.py:936
+msgid "Custo Var. Adic. Mat (SPS)"
+msgstr "附加变动成本 材料 (SPS)"
+
+#: custo_ferbasa/models.py:789 custo_ferbasa/models.py:937
+msgid "Custo Var. Adic. GGF (SPS)"
+msgstr "附加变动成本 制造费用 (SPS)"
+
+#: custo_ferbasa/models.py:791 custo_ferbasa/models.py:939
+msgid "Custo Var. Adic. Mat (P)"
+msgstr "附加变动成本 材料 (P)"
+
+#: custo_ferbasa/models.py:792 custo_ferbasa/models.py:940
+msgid "Custo Var. Adic. GGF (P)"
+msgstr "附加变动成本 制造费用 (P)"
+
+#: custo_ferbasa/models.py:794 custo_ferbasa/models.py:942
+msgid "Custo Var. Adic. Mat (P+D)"
+msgstr "附加变动成本 材料 (P+D)"
+
+#: custo_ferbasa/models.py:795 custo_ferbasa/models.py:943
+msgid "Custo Var. Adic. GGF (P+D)"
+msgstr "附加变动成本 制造费用 (P+D)"
+
+#: custo_ferbasa/models.py:797
+msgid "Custo Variável (P)"
+msgstr "变动成本 (P)"
+
+#: custo_ferbasa/models.py:798 custo_ferbasa/models.py:946
+msgid "Custo Fixo/Outros (P)"
+msgstr "固定/其他成本 (P)"
+
+#: custo_ferbasa/models.py:799 custo_ferbasa/models.py:947
+msgid "Custo Total (P)"
+msgstr "总成本 (P)"
+
+#: custo_ferbasa/models.py:800 custo_ferbasa/models.py:948
+msgid "Custo Var. GGF Fase (P)"
+msgstr "变动成本 制造费用阶段 (P)"
+
+#: custo_ferbasa/models.py:801
+msgid "Custo Variável (P+D)"
+msgstr "变动成本 (P+D)"
+
+#: custo_ferbasa/models.py:802 custo_ferbasa/models.py:950
+msgid "Custo Fixo/Outros (P+D)"
+msgstr "固定/其他成本 (P+D)"
+
+#: custo_ferbasa/models.py:803 custo_ferbasa/models.py:951
+msgid "Custo Total (P+D)"
+msgstr "总成本 (P+D)"
+
+#: custo_ferbasa/models.py:804 custo_ferbasa/models.py:952
+msgid "Custo Var. GGF Fase (P+D)"
+msgstr "变动成本 制造费用阶段 (P+D)"
+
+#: custo_ferbasa/models.py:807
+msgid "Itens de Consumo para Desconsiderar"
+msgstr "需排除的消耗品项目"
+
+#: custo_ferbasa/models.py:872
+msgid " Custo Variável Adicionado SPS"
+msgstr " SPS 附加变动成本"
+
+#: custo_ferbasa/models.py:873
+msgid " Custos Variáveis Adicionados SPS"
+msgstr " SPS 附加变动成本"
+
+#: custo_ferbasa/models.py:905
+msgid "Custo Var. Adic. Tot. (SPS)"
+msgstr "附加变动成本合计 (SPS)"
+
+#: custo_ferbasa/models.py:917
+msgid "Custo Var. Adic. Tot. (P)"
+msgstr "附加变动成本总计 (P)"
+
+#: custo_ferbasa/models.py:929
+msgid "Custo Var. Adic. Tot. (P+D)"
+msgstr "附加变动成本总计 (P+D)"
+
+#: custo_ferbasa/models.py:945
+msgid "Custo Varíável (P)"
+msgstr "变动成本 (P)"
+
+#: custo_ferbasa/models.py:949
+msgid "Custo Varíável (P+D)"
+msgstr "变动成本 (P+D)"
+
+#: custo_ferbasa/models.py:976
+msgid "Custo Var. Adic. Total (SPS)"
+msgstr "附加变动成本总计 (SPS)"
+
+#: custo_ferbasa/models.py:994
+msgid "Custo Var. Adic. Total (P)"
+msgstr "附加变动成本总计 (P)"
+
+#: custo_ferbasa/models.py:1003
+msgid "Custo Var. Adic. Total (P+D)"
+msgstr "附加变动成本总计 (P+D)"
+
+#: custo_ferbasa/models.py:1008
+msgid "Custo Variável Adicionado"
+msgstr "附加变动成本"
+
+#: custo_ferbasa/models.py:1030
+msgid "Valor Atual"
+msgstr "当前值"
+
+#: custo_ferbasa/models.py:1042
+msgid "Custo Variável Adicional"
+msgstr "附加变动成本"
+
+#: custo_ferbasa/models.py:1043
+msgid "Custos Variáveis Adicionais"
+msgstr "附加变动成本"
+
+#: custo_ferbasa/models.py:1057
+msgid "Equação Regressão"
+msgstr "回归方程"
+
+#: custo_ferbasa/models.py:1058
+msgid "R2 Regressão"
+msgstr "回归 R2"
+
+#: custo_ferbasa/models.py:1059
+msgid "Considerar desvio como produção"
+msgstr "将偏差视为产量"
+
+#: custo_ferbasa/models.py:1063
+msgid "Sumário"
+msgstr "摘要"
+
+#: custo_ferbasa/models.py:1099
+msgid "Regressão Linear Múltipla"
+msgstr "多元线性回归"
+
+#: custo_ferbasa/models.py:1100
+msgid "Regressões Lineares Múltiplas"
+msgstr "多元线性回归"
+
+#: custo_ferbasa/models.py:1133
+msgid "Item de Consumo / Código"
+msgstr "消耗品项目/编码"
+
+#: custo_ferbasa/models.py:1134
+msgid "Classificação"
+msgstr "分类"
+
+#: custo_ferbasa/models.py:1136
+msgid "Mínimo"
+msgstr "最小值"
+
+#: custo_ferbasa/models.py:1137
+msgid "Média"
+msgstr "平均值"
+
+#: custo_ferbasa/models.py:1138
+msgid "Máximo"
+msgstr "最大值"
+
+#: custo_ferbasa/models.py:1139
+msgid "Tipo Variável"
+msgstr "变量类型"
+
+#: custo_ferbasa/models.py:1140
+msgid "Agrupamento"
+msgstr "分组"
+
+#: custo_ferbasa/models.py:1141
+msgid "Coeficiente"
+msgstr "系数"
+
+#: custo_ferbasa/models.py:1142
+msgid "P>|t|"
+msgstr "P>|t|"
+
+#: custo_ferbasa/models.py:1152 custo_ferbasa/models.py:1163
+#: parameters/admin.py:242 parameters/admin.py:392
+#: parameters/fluxo_criar_cenario.py:3443 parameters/models.py:629
+#: parameters/models.py:735 templates/chat.html:945
+msgid "Variável"
+msgstr "变量"
+
+#: custo_ferbasa/models.py:1153
+msgid "Variáveis"
+msgstr "变量"
+
+#: custo_ferbasa/models.py:1164
+msgid "Itens Consumo"
+msgstr "消耗品项目"
+
+#: custo_ferbasa/models.py:1176 custo_ferbasa/models.py:1177
+msgid "Base de Dados"
+msgstr "数据库"
+
+#: equipamentos/admin.py:130 otimizacao/admin.py:1067
+msgid "Anos Running"
+msgstr "运行年份"
+
+#: equipamentos/admin.py:132 otimizacao/admin.py:1069
+msgid "Trimestres Running"
+msgstr "运行季度"
+
+#: equipamentos/admin.py:134 otimizacao/admin.py:1071
+msgid "Meses Running"
+msgstr "运行月份"
+
+#: equipamentos/admin.py:136 otimizacao/admin.py:1073
+msgid "Período Running"
+msgstr "运行期间"
+
+#: equipamentos/admin.py:351 otimizacao/admin.py:1364
+msgid "Anos Ativa"
+msgstr "激活年份"
+
+#: equipamentos/admin.py:353 otimizacao/admin.py:1366
+msgid "Trimestres Ativa"
+msgstr "激活季度"
+
+#: equipamentos/admin.py:355 otimizacao/admin.py:1368
+msgid "Meses Ativa"
+msgstr "激活月份"
+
+#: equipamentos/admin.py:357 otimizacao/admin.py:1370
+msgid "Período Ativa"
+msgstr "激活期间"
+
+#: equipamentos/admin.py:369
+msgid "Paradas NP (%)"
+msgstr "非计划停机 (%)"
+
+#: equipamentos/admin.py:381 equipamentos/forms.py:170
+#: equipamentos/models.py:599
+msgid "Produtividade"
+msgstr "生产率"
+
+#: equipamentos/admin.py:408 equipamentos/models.py:666 fluxos/models.py:975
+msgid "Custo Var. Adic."
+msgstr "附加变动成本"
+
+#: equipamentos/admin.py:527 equipamentos/admin.py:1166 fluxos/admin.py:540
+#: tabelas/admin.py:2481
+msgid ""
+"Cenário informado na planilha (aba mãe ou filhas) não é o ativo. Favor "
+"verificar!"
+msgstr "表格中（主标签页或子标签页）指定的方案不是当前方案。请检查！"
+
+#: equipamentos/admin.py:635
 msgid "Tabela Equipamentos foi atualizada com sucesso!"
 msgstr "设备表已成功更新！"
 
+#: equipamentos/admin.py:651 equipamentos/admin.py:1264 fluxos/admin.py:682
+#: tabelas/admin.py:619 tabelas/admin.py:2599
+msgid ""
+"Total de lançamentos na aba mãe e/ou filhas não está correto. Favor "
+"verificar!"
+msgstr "主标签页和/或子标签页的记录总数不正确。请检查！"
+
+#: equipamentos/admin.py:654 equipamentos/admin.py:1267 fluxos/admin.py:685
+#: tabelas/admin.py:622 tabelas/admin.py:2602
+msgid "Cabeçalho da aba filha não está correto. Favor verificar!"
+msgstr "子标签页表头不正确。请检查！"
+
+#: equipamentos/admin.py:657 equipamentos/admin.py:1270 fluxos/admin.py:688
+#: tabelas/admin.py:625 tabelas/admin.py:1862 tabelas/admin.py:2605
+msgid "Cabeçalho da aba mãe não está correto. Favor verificar!"
+msgstr "主标签页表头不正确。请检查！"
+
+#: equipamentos/admin.py:886
 msgid "Update do indicador dos consumos especvíficos realizado com sucesso!"
 msgstr "单耗指标已成功更新！"
 
-msgid "Novos equipamentos/ordem e item de custo/preço foram adicionados com sucesso."
+#: equipamentos/admin.py:888
+msgid "Update Indicador Consumos Específicos Selecionados"
+msgstr "更新所选单耗指标"
+
+#: equipamentos/admin.py:961 fluxos/admin.py:322 tabelas/admin.py:352
+#: tabelas/admin.py:2175
+msgid "Cenário informado na planilha não é o ativo. Favor verificar!"
+msgstr "表格中指定的方案不是当前方案。请检查！"
+
+#: equipamentos/admin.py:1040
+msgid ""
+"Novos equipamentos/ordem e item de custo/preço foram adicionados com sucesso."
 msgstr "新增设备/订单和成本/价格项目已成功添加。"
 
+#: equipamentos/admin.py:1064 fluxos/admin.py:425 fluxos/admin.py:1449
+#: tabelas/admin.py:397 tabelas/admin.py:1726 tabelas/admin.py:2363
+msgid "Cabeçalho do arquivo Excel não está correto. Favor verificar!"
+msgstr "Excel 文件表头不正确。请检查！"
+
+#: equipamentos/admin.py:1066 fluxos/admin.py:430 tabelas/admin.py:403
+#: tabelas/admin.py:1732 tabelas/admin.py:2368
+msgid "Importar Excel (Novos)"
+msgstr "导入 Excel（新）"
+
+#: equipamentos/admin.py:1260
 msgid "Tabela Equipamentos/Consumos Específicos foi atualizada com sucesso!"
 msgstr "设备/单耗表已成功更新！"
 
+#: equipamentos/admin.py:1380 equipamentos/admin.py:1397 fluxos/admin.py:818
 msgid "Update do indicador de consumo específico realizado com sucesso!"
 msgstr "单耗指标已成功更新！"
 
-msgid "Tabela Produtos atualizada com sucesso!"
-msgstr "产品表已成功更新！"
+#: equipamentos/admin.py:1382 equipamentos/admin.py:1399 fluxos/admin.py:820
+msgid "Update Indicador"
+msgstr "更新指标"
 
-msgid "Cabeçalho da aba produtos (primeira aba) não está correto. Favor verificar!"
-msgstr "产品标签页（第一个标签页）表头不正确。请检查！"
+#: equipamentos/apps.py:8
+msgid "     EQUIPAMENTOS"
+msgstr "     设备"
 
-msgid "Tabela Produtos/Volume/Preços por Mercado foi atualizada com sucesso!"
-msgstr "按市场划分的产品/销量/价格表已成功更新！"
-
-msgid "Não foi encontrado o arquivo 'produtos.xls' no diretório no AWS S3. Favor verificar!"
-msgstr "在 AWS S3 目录中未找到文件 'produtos.xls'。请检查！"
-
-msgid "Update do indicador dos consumos padrões realizado com sucesso!"
-msgstr "标准消耗指标已成功更新！"
-
-msgid "Novo(s) Consumo(s) Padrão(ões) foi(ram) adicionado(s) com sucesso."
-msgstr "新增标准消耗已成功添加。"
-
-msgid "Cabeçalho da aba mãe correto!"
-msgstr "主标签页表头正确！"
-
-msgid "Cabeçalho da aba filha está correto!"
-msgstr "子标签页表头正确！"
-
-msgid "Total de lançamentos na aba filha está correto!"
-msgstr "子标签页记录总数正确！"
-
-msgid "Abrindo aba mãe!"
-msgstr "正在打开主标签页！"
-
-msgid "Abrindo aba filha!"
-msgstr "正在打开子标签页！"
-
-msgid "Aba mãe atualizada com sucesso!"
-msgstr "主标签页已成功更新！"
-
-msgid "Aba filha atualizada com sucesso!"
-msgstr "子标签页已成功更新！"
-
-msgid "Tabela Consumos Padrões foi atualizada com sucesso!"
-msgstr "标准消耗表已成功更新！"
-
-msgid "Fluxo(s) selecionado(s) sendo excluidos em segundo plano. Para verificar o status da exclusão, refresh a tela."
-msgstr "所选流程正在后台删除。要查看删除状态，请刷新页面。"
-
-msgid "Sequências zeradas dos fluxos selecionados sendo removidas em segundo plano!"
-msgstr "正在后台移除所选流程中为零的序列！"
-
-msgid "Fluxos PDF sendo atualizados em segundo plano!"
-msgstr "正在后台更新流程 PDF！"
-
-msgid "Fluxos (input/output) sendo atualizados em segundo plano!"
-msgstr "正在后台更新流程（输入/输出）！"
-
-msgid "Custos sendo atualizados em segundo plano!"
-msgstr "正在后台更新成本！"
-
-msgid "Novo(s) Fluxo(s) de Produção foi(ram) adicionado(s) com sucesso."
-msgstr "新增生产流程已成功添加。"
-
-msgid "Importação Novos Fluxos de Produção sendo realizada em segundo plano!"
-msgstr "正在后台导入新的生产流程！"
-
-msgid "Cabeçalho do arquivo Excel no AWS não está correto. Favor verificar!"
-msgstr "AWS 中 Excel 文件的表头不正确。请检查！"
-
-msgid "Tabela Fluxo de Produção sendo atualizada em segundo plano!"
-msgstr "正在后台更新生产流程表！"
-
-msgid "Atualização do Fluxo (Input/Output) sendo realizada em segundo plano. Favor aguardar!"
-msgstr "正在后台更新流程（输入/输出），请稍候！"
-
-msgid "Update do arquivo PDF do fluxo sendo realizado em segundo plano. Favor aguardar!"
-msgstr "正在后台更新流程 PDF 文件，请稍候！"
-
-msgid "Atualização dos fluxos de produção está sendo feita em segundo plano."
-msgstr "正在后台更新生产流程。"
-
-msgid "Atualização do fluxo de produção está sendo feita em segundo plano."
-msgstr "正在后台更新生产流程。"
-
-msgid "Você não tem autorização para excluir fluxo(s). Favor entrar em contato com administrador do sistema!"
-msgstr "您无权删除流程。请联系系统管理员！"
-
-msgid "Exportação para Excel sendo realizada em segundo plano. Ao terminar (5/10 minutos), será enviado o arquivo ao e-mail cadastrado do usuário no sistema."
-msgstr "正在后台导出至 Excel。完成后（5至10分钟），文件将发送至用户在系统中注册的邮箱。"
-
+#: equipamentos/forms.py:20 equipamentos/forms.py:151 equipamentos/forms.py:215
+#: fluxos/forms.py:48 fluxos/forms.py:125 fluxos/forms.py:147
+#: otimizacao/forms.py:22 otimizacao/forms.py:39 otimizacao/forms.py:55
+#: otimizacao/forms.py:67 otimizacao/forms.py:86 otimizacao/forms.py:104
+#: otimizacao/forms.py:311 otimizacao/forms.py:323
+#: parameters/fluxo_criar_cenario.py:1731 parameters/forms.py:35
+#: produtos/forms.py:280 produtos/forms.py:349 tabelas/forms.py:24
+#: tabelas/forms.py:48 tabelas/forms.py:67 tabelas/forms.py:86
+#: tabelas/forms.py:122 tabelas/forms.py:171 tabelas/forms.py:208
+#: tabelas/forms.py:277
 msgid "Ano"
 msgstr "年"
 
+#: equipamentos/forms.py:22 equipamentos/forms.py:153 equipamentos/forms.py:217
+#: fluxos/forms.py:50 fluxos/forms.py:127 fluxos/forms.py:149
+#: otimizacao/forms.py:24 otimizacao/forms.py:41 otimizacao/forms.py:57
+#: otimizacao/forms.py:69 otimizacao/forms.py:88 otimizacao/forms.py:106
+#: otimizacao/forms.py:313 otimizacao/forms.py:325
+#: parameters/fluxo_criar_cenario.py:1733 parameters/forms.py:37
+#: produtos/forms.py:282 produtos/forms.py:351 tabelas/forms.py:26
+#: tabelas/forms.py:50 tabelas/forms.py:69 tabelas/forms.py:88
+#: tabelas/forms.py:124 tabelas/forms.py:173 tabelas/forms.py:210
+#: tabelas/forms.py:279
 msgid "Ano/Trimestre"
 msgstr "年/季度"
 
-msgid "Ano Início"
-msgstr "起始年"
-
-msgid "Ano Fim"
-msgstr "结束年"
-
-msgid "Ano/Trimestre Início"
-msgstr "起始年/季度"
-
-msgid "Ano/Trimestre Fim"
-msgstr "结束年/季度"
-
-#, python-format
-msgid "Valor (%(unidade)s)"
-msgstr "数值 (%(unidade)s)"
-
+#: equipamentos/forms.py:34
 #, python-format
 msgid "Custo Manutenção (%(moeda)s/h)"
 msgstr "维护成本（%(moeda)s/小时）"
 
+#: equipamentos/forms.py:36 equipamentos/models.py:222
+msgid "Custo Manutenção (Moeda/h)"
+msgstr "维护成本（货币/小时）"
+
+#: equipamentos/forms.py:132
+msgid ""
+"Em vermelho: produto escolhido, mas nenhum fluxo dele usa este "
+"equipamento/ordem. Compare com o painel \"Produtos Usados nos Fluxos\" "
+"abaixo."
+msgstr "红色：已选择该产品，但其任何流程都未使用此设备/订单。请与下方“流程中使用的产品”面板对比。"
+
+#: equipamentos/forms.py:168
 #, python-format
 msgid "Produtividade (%(unidade)s/h)"
 msgstr "生产率（%(unidade)s/小时）"
 
+#: equipamentos/forms.py:174
 #, python-format
 msgid "WIP (%(unidade)s)"
 msgstr "在制品（%(unidade)s）"
 
-#, python-format
-msgid "Preço (%(moeda)s%(t1)s/%(t2)s)"
-msgstr "价格（%(moeda)s%(t1)s/%(t2)s）"
+#: equipamentos/models.py:116 equipamentos/models.py:223
+#: equipamentos/models.py:302 fluxos/models.py:838
+#: parameters/fluxo_criar_cenario.py:1928 templates/chat.html:865
+#: templates/chat.html:1021 templates/chat.html:1104
+msgid "Equipamento"
+msgstr "设备"
 
-#, python-format
-msgid "Preço (%(moeda)s)"
-msgstr "价格（%(moeda)s）"
+#: equipamentos/models.py:118 equipamentos/models.py:380
+msgid "Gargalo"
+msgstr "瓶颈"
 
-msgid "IF(%)"
-msgstr "IF(%)"
+#: equipamentos/models.py:119 equipamentos/models.py:386
+msgid "Expedição"
+msgstr "发货"
 
-msgid "Solução"
-msgstr "解决方案"
+#: equipamentos/models.py:120
+msgid "Output"
+msgstr "产出"
 
-msgid "Total Estoque"
-msgstr "库存总量"
+#: equipamentos/models.py:121
+msgid "Planta"
+msgstr "工厂"
 
-msgid "Capex"
-msgstr "资本支出"
+#: equipamentos/models.py:122 equipamentos/models.py:339
+#: equipamentos/models.py:778 equipamentos/models.py:789
+#: parameters/models.py:832 tabelas/models.py:1083 tabelas/models.py:1156
+#: tabelas/models.py:1372 tabelas/models.py:1613
+msgid "Imagem"
+msgstr "图片"
 
-#, python-format
-msgid "Valor (%(moeda)s)"
-msgstr "数值 (%(moeda)s)"
+#: equipamentos/models.py:123
+msgid "Indicador Custo Manutenção"
+msgstr "维护成本指标"
 
-msgid "Período Inicio"
-msgstr "起始期间"
+#: equipamentos/models.py:124
+msgid "Moeda Custo Manutenção"
+msgstr "维护成本货币"
 
-msgid "Período Fim"
-msgstr "结束期间"
+#: equipamentos/models.py:125 equipamentos/models.py:316
+msgid "Valor Inicial Running"
+msgstr "初始运行值"
 
-msgid "Valor Custo Var. Adicionado"
-msgstr "附加变动成本值"
+#: equipamentos/models.py:126
+msgid "Valor Inicial Paradas Programadas (%)"
+msgstr "初始计划停机 (%)"
 
-msgid "Bonificação"
-msgstr "赠品"
+#: equipamentos/models.py:127
+msgid "Valor Inicial Manutenção"
+msgstr "初始维护值"
 
-msgid "Qtde Produzida Total"
-msgstr "总产量"
+#: equipamentos/models.py:129 equipamentos/models.py:313
+#: parameters/models.py:833 tabelas/models.py:166 tabelas/models.py:296
+#: tabelas/models.py:557 tabelas/models.py:738 tabelas/models.py:915
+msgid "Fonte"
+msgstr "来源"
 
-msgid "(D+P)"
-msgstr "(D+P)"
+#: equipamentos/models.py:130 equipamentos/models.py:224
+#: equipamentos/models.py:317 equipamentos/models.py:602
+#: equipamentos/models.py:764 equipamentos/models.py:857 fluxos/models.py:86
+#: fluxos/models.py:186 fluxos/models.py:328 fluxos/models.py:448
+#: fluxos/models.py:565 fluxos/models.py:844 fluxos/models.py:874
+#: parameters/admin.py:1039 parameters/models.py:303 parameters/models.py:361
+#: tabelas/models.py:168 tabelas/models.py:222 tabelas/models.py:298
+#: tabelas/models.py:354 tabelas/models.py:408 tabelas/models.py:425
+#: tabelas/models.py:479 tabelas/models.py:496 tabelas/models.py:560
+#: tabelas/models.py:631 tabelas/models.py:740 tabelas/models.py:811
+#: tabelas/models.py:917 tabelas/models.py:988 tabelas/models.py:1359
+#: tabelas/models.py:1534 templates/chat.html:627 templates/chat.html:691
+msgid "Cenário"
+msgstr "方案"
 
-msgid "Desvio (%)"
-msgstr "偏差 (%)"
+#: equipamentos/models.py:175 equipamentos/models.py:176
+msgid "  Cadastro"
+msgstr "  登记"
 
-msgid "SPS"
-msgstr "SPS"
-
-msgid "Indicador (P)"
-msgstr "指标 (P)"
-
-msgid "Indicador (P+D)"
-msgstr "指标 (P+D)"
-
-msgid "Indicador Atual"
-msgstr "当前指标"
-
-msgid "Custo Var. Adic. Tot. (P)"
-msgstr "附加变动成本总计 (P)"
-
-msgid "Custo Var. Adic. Tot. (P+D)"
-msgstr "附加变动成本总计 (P+D)"
-
-msgid "Custo Var. Adic. Total (SPS)"
-msgstr "附加变动成本总计 (SPS)"
-
-msgid "Custo Var. Adic. Total (P)"
-msgstr "附加变动成本总计 (P)"
-
-msgid "Custo Var. Adic. Total (P+D)"
-msgstr "附加变动成本总计 (P+D)"
-
-msgid "Valor Atual"
-msgstr "当前值"
-
+#: equipamentos/models.py:184
 msgid "Ordens"
 msgstr "订单"
 
+#: equipamentos/models.py:220 fluxos/models.py:555
+#: parameters/fluxo_criar_cenario.py:1928
+msgid "Running"
+msgstr "运行中"
+
+#: equipamentos/models.py:221
+msgid "Paradas Programadas (%)"
+msgstr "计划停机 (%)"
+
+#: equipamentos/models.py:296 equipamentos/models.py:297
+#: equipamentos/models.py:753 equipamentos/models.py:754
+#: equipamentos/models.py:979 equipamentos/models.py:980 produtos/models.py:853
+#: produtos/models.py:854 tabelas/models.py:401 tabelas/models.py:402
+#: tabelas/models.py:723 tabelas/models.py:724 tabelas/models.py:900
+#: tabelas/models.py:901 tabelas/models.py:1077 tabelas/models.py:1078
+#: tabelas/models.py:1606 tabelas/models.py:1607
+msgid "Valores Previstos"
+msgstr "预测值"
+
+#: equipamentos/models.py:303 parameters/fluxo_criar_cenario.py:1968
+msgid "Tipo Produção"
+msgstr "生产类型"
+
+#: equipamentos/models.py:308
+msgid "É Clone Da Ordem"
+msgstr "是订单的克隆"
+
+#: equipamentos/models.py:309
+msgid "WIP (Dias Produção)"
+msgstr "在制品（生产天数）"
+
+#: equipamentos/models.py:310 templates/chat.html:785 templates/chat.html:822
+#: templates/chat.html:884 templates/chat.html:1105
+msgid "Ordem"
+msgstr "顺序"
+
+#: equipamentos/models.py:311
+msgid "Descrição da Ordem"
+msgstr "订单说明"
+
+#: equipamentos/models.py:314
+msgid "Valor Inicial Paradas Não Programadas (%)"
+msgstr "初始非计划停机 (%)"
+
+#: equipamentos/models.py:315
+msgid "Valor Inicial Produtividade"
+msgstr "初始生产率"
+
+#: equipamentos/models.py:325
+msgid "Produtos Que Usam"
+msgstr "使用的产品"
+
+#: equipamentos/models.py:367
+msgid " Ordem de Producao"
+msgstr " 生产订单"
+
+#: equipamentos/models.py:368
+msgid " Ordem de Produção"
+msgstr " 生产订单"
+
+#: equipamentos/models.py:375
 msgid "Itens"
 msgstr "项目"
 
+#: equipamentos/models.py:392
+msgid "Critério Fluxo"
+msgstr "流程标准"
+
+#: equipamentos/models.py:454
+msgid "Escolhidos Igual Fluxos"
+msgstr "所选与流程一致"
+
+#: equipamentos/models.py:590
+msgid "Produtos Usados nos Fluxos"
+msgstr "流程中使用的产品"
+
+#: equipamentos/models.py:598
+msgid "Paradas Não Prog. (%)"
+msgstr "非计划停机 (%)"
+
+#: equipamentos/models.py:600 parameters/admin.py:887
+msgid "Ativa"
+msgstr "激活"
+
+#: equipamentos/models.py:601 templates/chat.html:759
+msgid "Equipamentos"
+msgstr "设备"
+
+#: equipamentos/models.py:689
 msgid "Parc. Itens"
 msgstr "项目占比"
 
+#: equipamentos/models.py:713
 msgid "Parc. Inbound"
 msgstr "入库占比"
 
+#: equipamentos/models.py:736
 msgid "Parc. Manutenção"
 msgstr "维护占比"
 
+#: equipamentos/models.py:759
+msgid "Equipamento / Ordem / Descrição"
+msgstr "设备/订单/说明"
+
+#: equipamentos/models.py:760
+msgid "Item de Custo / Planta"
+msgstr "成本项目/工厂"
+
+#: equipamentos/models.py:761
+msgid "Consumo Específico CF"
+msgstr "单耗 CF"
+
+#: equipamentos/models.py:763
+msgid "Valor Inicial do Consumo Específico"
+msgstr "初始单耗值"
+
+#: equipamentos/models.py:799 fluxos/models.py:100 tabelas/models.py:1450
+msgid "Período Inicio"
+msgstr "起始期间"
+
+#: equipamentos/models.py:808 fluxos/models.py:110 tabelas/models.py:1459
+msgid "Período Fim"
+msgstr "结束期间"
+
+#: equipamentos/models.py:819 fluxos/models.py:122 otimizacao/admin.py:2164
+#: otimizacao/admin.py:2178
+msgid "Valor Indicador"
+msgstr "指标值"
+
+#: equipamentos/models.py:838
+msgid "Consumos Específicos"
+msgstr "单耗"
+
+#: equipamentos/models.py:856
+msgid "Equipamento/Item"
+msgstr "设备/项目"
+
+#: equipamentos/models.py:924
 msgid "Parcela Preço"
 msgstr "价格占比"
 
+#: equipamentos/models.py:950 parameters/fluxo_criar_cenario.py:1858
+msgid "Parcela Inbound"
+msgstr "入库占比"
+
+#: equipamentos/models.py:976
 msgid "Total (Preço + Inbound)"
 msgstr "总计（价格+入库）"
 
-msgid "Mercados"
-msgstr "市场"
+#: fluxos/admin.py:147
+msgid "Média Consumo"
+msgstr "平均消耗"
 
-msgid "Fluxos Total"
-msgstr "流程总数"
+#: fluxos/admin.py:173
+msgid "Fluxos I/O Atualizados"
+msgstr "已更新的输入/输出流程"
 
-msgid "Fluxos Ativos"
-msgstr "激活流程"
+#: fluxos/admin.py:222
+msgid "Atualizar Fluxos (Input/Output) Itens Selecionados"
+msgstr "更新所选项目的流程（输入/输出）"
 
-msgid "Existe Outbound"
-msgstr "存在出库"
+#: fluxos/admin.py:232
+msgid "Update do indicador dos consumos padrões realizado com sucesso!"
+msgstr "标准消耗指标已成功更新！"
 
+#: fluxos/admin.py:234
+msgid "Update Indicador Consumos Padrões Selecionados"
+msgstr "更新所选标准消耗指标"
+
+#: fluxos/admin.py:245
+msgid "Validar Consumos Padrões Selecionados"
+msgstr "验证所选标准消耗"
+
+#: fluxos/admin.py:256
+msgid "Desvalidar Consumos Padrões Selecionados"
+msgstr "取消验证所选标准消耗"
+
+#: fluxos/admin.py:401
+msgid "Novo(s) Consumo(s) Padrão(ões) foi(ram) adicionado(s) com sucesso."
+msgstr "新增标准消耗已成功添加。"
+
+#: fluxos/admin.py:666
+msgid "Tabela Consumos Padrões foi atualizada com sucesso!"
+msgstr "标准消耗表已成功更新！"
+
+#: fluxos/admin.py:960
+msgid "Atualização do fluxo de produção está sendo feita em segundo plano."
+msgstr "正在后台更新生产流程。"
+
+#: fluxos/admin.py:1227
+msgid "Criar/Atualizar Fluxo no Editor (somente automáticos)"
+msgstr "在编辑器中创建/更新流程（仅自动）"
+
+#: fluxos/admin.py:1239
+msgid ""
+"Fluxo(s) selecionado(s) sendo excluidos em segundo plano. Para verificar o "
+"status da exclusão, refresh a tela."
+msgstr "所选流程正在后台删除。要查看删除状态，请刷新页面。"
+
+#: fluxos/admin.py:1243
+msgid ""
+"Você não tem autorização para excluir fluxo(s). Favor entrar em contato com "
+"administrador do sistema!"
+msgstr "您无权删除流程。请联系系统管理员！"
+
+#: fluxos/admin.py:1245
+msgid "Remover Fluxo(s) Selecionado(s)"
+msgstr "删除所选流程"
+
+#: fluxos/admin.py:1256
+msgid ""
+"Sequências zeradas dos fluxos selecionados sendo removidas em segundo plano!"
+msgstr "正在后台移除所选流程中为零的序列！"
+
+#: fluxos/admin.py:1258
+msgid "Remover Sequências Output Real Zerado Fluxos Selecionados"
+msgstr "删除所选流程中实际产出为零的序列"
+
+#: fluxos/admin.py:1268
+msgid "Ativar Fluxos Selecionados"
+msgstr "激活所选流程"
+
+#: fluxos/admin.py:1280
+msgid "Verificar Erros Fluxos Selecionados"
+msgstr "检查所选流程的错误"
+
+#: fluxos/admin.py:1290
+msgid "Desativar Itens Selecionados"
+msgstr "停用所选项目"
+
+#: fluxos/admin.py:1300
+msgid "Fluxos PDF sendo atualizados em segundo plano!"
+msgstr "正在后台更新流程 PDF！"
+
+#: fluxos/admin.py:1302
+msgid "Update Fluxo PDF Itens Selecionados"
+msgstr "更新所选项目的流程 PDF"
+
+#: fluxos/admin.py:1313
+msgid "Fluxos (input/output) sendo atualizados em segundo plano!"
+msgstr "正在后台更新流程（输入/输出）！"
+
+#: fluxos/admin.py:1315
+msgid "Atualizar Input/Output/Custos dos Fluxos Selecionados"
+msgstr "更新所选流程的输入/输出/成本"
+
+#: fluxos/admin.py:1325
+msgid "Custos sendo atualizados em segundo plano!"
+msgstr "正在后台更新成本！"
+
+#: fluxos/admin.py:1327
+msgid "Atualizar Custos dos Fluxos Selecionados"
+msgstr "更新所选流程的成本"
+
+#: fluxos/admin.py:1438 fluxos/admin.py:1572
+msgid "Novo(s) Fluxo(s) de Produção foi(ram) adicionado(s) com sucesso."
+msgstr "新增生产流程已成功添加。"
+
+#: fluxos/admin.py:1451
+msgid "Importar Excel/xls 1º Plano (Novos)"
+msgstr "导入 Excel/xls 第一计划（新）"
+
+#: fluxos/admin.py:1458 fluxos/admin.py:1591
+msgid "Importação Novos Fluxos de Produção sendo realizada em segundo plano!"
+msgstr "正在后台导入新的生产流程！"
+
+#: fluxos/admin.py:1460
+msgid "Importar Excel/xls 2º Plano (Novos)"
+msgstr "导入 Excel/xls 第二计划（新）"
+
+#: fluxos/admin.py:1582
+msgid "Cabeçalho do arquivo Excel no AWS não está correto. Favor verificar!"
+msgstr "AWS 中 Excel 文件的表头不正确。请检查！"
+
+#: fluxos/admin.py:1584
+msgid "Importar Excel/xlsx 1º Plano (Novos)"
+msgstr "导入 Excel/xlsx 第一计划（新）"
+
+#: fluxos/admin.py:1593
+msgid "Importar Excel/xlsx 2º Plano (Novos)"
+msgstr "导入 Excel/xlsx 第二计划（新）"
+
+#: fluxos/admin.py:1623
+msgid "Tabela Fluxo de Produção sendo atualizada em segundo plano!"
+msgstr "正在后台更新生产流程表！"
+
+#: fluxos/admin.py:1648
+msgid ""
+"Atualização do Fluxo (Input/Output) sendo realizada em segundo plano. Favor "
+"aguardar!"
+msgstr "正在后台更新流程（输入/输出），请稍候！"
+
+#: fluxos/admin.py:1650
+msgid "Atualizar Fluxo (Input/Output)"
+msgstr "更新流程（输入/输出）"
+
+#: fluxos/admin.py:1656
+msgid ""
+"Update do arquivo PDF do fluxo sendo realizado em segundo plano. Favor "
+"aguardar!"
+msgstr "正在后台更新流程 PDF 文件，请稍候！"
+
+#: fluxos/admin.py:1658
+msgid "Update Fluxo (PDF)"
+msgstr "更新流程（PDF）"
+
+#: fluxos/admin.py:1751
+#, python-brace-format
+msgid ""
+"<a href=\"{0}\" class=\"button\">Criar Fluxo no Editor (a partir do "
+"Sequenciamento da Produção)</a>"
+msgstr "<a href=\"{0}\" class=\"button\">在编辑器中创建流程（基于生产排序）</a>"
+
+#: fluxos/admin.py:1754
+#, python-brace-format
+msgid ""
+"<a href=\"/fluxo_producao/editor/{0}/\" class=\"button\" "
+"target=\"_blank\">Visualizar Fluxo</a>&nbsp;&nbsp;<a href=\"{1}\" "
+"class=\"button\" onclick=\"return confirm('Isso substitui o desenho atual do "
+"editor pelo que está cadastrado hoje na tabela filha (coluna/linha). "
+"Continuar?');\">Atualizar Fluxo no Editor (a partir do Sequenciamento da "
+"Produção)</a>"
+msgstr ""
+"<a href=\"/fluxo_producao/editor/{0}/\" class=\"button\" "
+"target=\"_blank\">查看流程</a>&nbsp;&nbsp;<a href=\"{1}\" class=\"button\" "
+"onclick=\"return "
+"confirm('这将用子表（列/行）中当前登记的内容替换编辑器中的现有图形。是否继续？');\">在编辑器中更新流程（基于生产排序）</a>"
+
+#: fluxos/admin.py:1761
+msgid "Visualizar Fluxo"
+msgstr "查看流程"
+
+#: fluxos/apps.py:8
+msgid "   Fluxos de Produção"
+msgstr "   生产流程"
+
+#: fluxos/forms.py:153
+msgid "IF(%)"
+msgstr "IF(%)"
+
+#: fluxos/models.py:75
+msgid "From"
+msgstr "起点"
+
+#: fluxos/models.py:78
+msgid "To"
+msgstr "终点"
+
+#: fluxos/models.py:85
+msgid "Valor Inicial Consumo Padrão"
+msgstr "初始标准消耗值"
+
+#: fluxos/models.py:157
+msgid "   Consumo Padrão"
+msgstr "   标准消耗"
+
+#: fluxos/models.py:158
+msgid "   Consumos Padrões"
+msgstr "   标准消耗"
+
+#: fluxos/models.py:184
+msgid "Consumo Padrão"
+msgstr "标准消耗"
+
+#: fluxos/models.py:264
 msgid "Custo Var. Adicionado"
 msgstr "附加变动成本"
 
-msgid "Parcela Manutencao"
-msgstr "维护占比"
+#: fluxos/models.py:267
+msgid "Consumo Padrão Previsto"
+msgstr "预测标准消耗"
 
+#: fluxos/models.py:268
+msgid "Consumos Padrões Previstos"
+msgstr "预测标准消耗"
+
+#: fluxos/models.py:302 parameters/fluxo_criar_cenario.py:1759
+#: parameters/fluxo_criar_cenario.py:1801
+#: parameters/fluxo_criar_cenario.py:1855 templates/chat.html:907
+#: templates/chat.html:1055
+msgid "Produto"
+msgstr "产品"
+
+#: fluxos/models.py:304
+msgid "Custo Variável Médio"
+msgstr "平均变动成本"
+
+#: fluxos/models.py:305 fluxos/models.py:842 parameters/admin.py:141
+#: parameters/fluxo_criar_cenario.py:2017
+msgid "Ativo"
+msgstr "激活"
+
+#: fluxos/models.py:306
+msgid "I/O Atualizado"
+msgstr "输入/输出已更新"
+
+#: fluxos/models.py:308
+msgid "Copiar de"
+msgstr "复制自"
+
+#: fluxos/models.py:310
+msgid "Tem Erro"
+msgstr "有错误"
+
+#: fluxos/models.py:311
+msgid "Fluxo (PDF)"
+msgstr "流程（PDF）"
+
+#: fluxos/models.py:312
+msgid "Dados Fluxo"
+msgstr "流程数据"
+
+#: fluxos/models.py:313
+msgid "Permite Atualização Automática"
+msgstr "允许自动更新"
+
+#: fluxos/models.py:313
+msgid ""
+"Permite que processos automáticos/Celery atualizem o fluxo salvo no editor."
+msgstr "允许自动/Celery 进程更新编辑器中保存的流程。"
+
+#: fluxos/models.py:315
+msgid "Data Criação"
+msgstr "创建日期"
+
+#: fluxos/models.py:317
+msgid "Data Modificação"
+msgstr "修改日期"
+
+#: fluxos/models.py:395
+msgid " Fluxo de Produção"
+msgstr " 生产流程"
+
+#: fluxos/models.py:396
+msgid " Fluxos de Produção"
+msgstr " 生产流程"
+
+#: fluxos/models.py:435
+msgid "Detalhe Fluxo/Equipamento"
+msgstr "流程/设备明细"
+
+#: fluxos/models.py:436
+msgid "Detalhes Fluxo/Equipamento"
+msgstr "流程/设备明细"
+
+#: fluxos/models.py:441 fluxos/models.py:835 templates/chat.html:1107
+msgid "Coluna"
+msgstr "列"
+
+#: fluxos/models.py:442 fluxos/models.py:836
+msgid "Linha"
+msgstr "行"
+
+#: fluxos/models.py:444
+msgid "From --> To"
+msgstr "从 --> 到"
+
+#: fluxos/models.py:446 parameters/fluxo_criar_cenario.py:1761
+#: parameters/fluxo_criar_cenario.py:1803
+msgid "Margem Horária"
+msgstr "每小时利润率"
+
+#: fluxos/models.py:454 fluxos/models.py:455
+msgid "Sequenciamento da Produção"
+msgstr "生产排序"
+
+#: fluxos/models.py:557 parameters/fluxo_criar_cenario.py:1760
+#: parameters/fluxo_criar_cenario.py:1802
+#: parameters/fluxo_criar_cenario.py:1858
+msgid "Custo Variável"
+msgstr "变动成本"
+
+#: fluxos/models.py:559
+msgid "`Parcela Itens`"
+msgstr "`项目占比`"
+
+#: fluxos/models.py:561
+msgid "`Parcela Inbound`"
+msgstr "`入库占比`"
+
+#: fluxos/models.py:563
+msgid "`Parcela Manutencão`"
+msgstr "`维护占比`"
+
+#: fluxos/models.py:760
 msgid "Gargalo/Produtividade"
 msgstr "瓶颈/生产率"
 
+#: fluxos/models.py:826
+msgid "Produção Máxima"
+msgstr "最大产量"
+
+#: fluxos/models.py:829 fluxos/models.py:830
+msgid "Detalhes por Período"
+msgstr "按期间划分的明细"
+
+#: fluxos/models.py:841
+msgid "Envia para"
+msgstr "发送至"
+
+#: fluxos/models.py:852 fluxos/models.py:853
+msgid "Detalhamento por Equipamento"
+msgstr "按设备划分的明细"
+
+#: fluxos/models.py:871
+msgid "Output Padrão"
+msgstr "标准产出"
+
+#: fluxos/models.py:872
+msgid "Output Real"
+msgstr "实际产出"
+
+#: fluxos/models.py:1029
 msgid "Prod. Equivalente"
 msgstr "等效产量"
 
-msgid "Margem Contrib. Média"
-msgstr "平均贡献利润率"
-
-msgid "Margem Contrib. (%)"
-msgstr "贡献利润率 (%)"
-
-msgid "Margem Horária Média"
-msgstr "平均每小时利润率"
-
-msgid "Margem Cont. Bruta Média"
-msgstr "平均毛贡献利润率"
-
-msgid "Custo Médio"
-msgstr "平均成本"
-
-msgid "Margem Média"
-msgstr "平均利润率"
-
-msgid "Margem Contrib.(%) Média"
-msgstr "平均贡献利润率 (%)"
-
-msgid "Part. (%)"
-msgstr "占比 (%)"
-
-msgid "VPL"
-msgstr "净现值"
-
-msgid "Payback Descontado"
-msgstr "折现回收期"
-
-msgid "TIR (%)"
-msgstr "内部收益率 (%)"
-
-msgid "OFCF Referência"
-msgstr "OFCF 参考"
-
-msgid "OFCF Ativo"
-msgstr "OFCF 当前"
-
-msgid "Delta OFCF"
-msgstr "OFCF 差值"
-
-msgid "WACC (%)"
-msgstr "WACC (%)"
-
-msgid "Delta OFCF Descontado"
-msgstr "折现 OFCF 差值"
-
-msgid "Vendas Referência"
-msgstr "销售参考"
-
-msgid "Vendas Ativo"
-msgstr "销售当前"
-
-msgid "Delta Vendas"
-msgstr "销售差值"
-
-msgid "Variável Referência"
-msgstr "变动成本参考"
-
-msgid "Variável Ativo"
-msgstr "变动成本当前"
-
-msgid "Delta Variável"
-msgstr "变动成本差值"
-
-msgid "Inbound Referência"
-msgstr "入库参考"
-
-msgid "Inbound Ativo"
-msgstr "入库当前"
-
-msgid "Delta Inbound"
-msgstr "入库差值"
-
-msgid "Outbound Referência"
-msgstr "出库参考"
-
-msgid "Outbound Ativo"
-msgstr "出库当前"
-
-msgid "Delta Outbound"
-msgstr "出库差值"
-
-msgid "Manutenção Referência"
-msgstr "维护参考"
-
-msgid "Manutenção Ativo"
-msgstr "维护当前"
-
-msgid "Delta Manutenção"
-msgstr "维护差值"
-
-msgid "Margem Cont. Referência"
-msgstr "贡献利润率参考"
-
-msgid "Margem Cont. Ativo"
-msgstr "贡献利润率当前"
-
-msgid "Delta Margem Cont."
-msgstr "贡献利润率差值"
-
-msgid "Custo Fixo Referência"
-msgstr "固定成本参考"
-
-msgid "Custo Fixo Ativo"
-msgstr "固定成本当前"
-
-msgid "Delta Custo Fixo"
-msgstr "固定成本差值"
-
-msgid "EBITDA Referência"
-msgstr "EBITDA 参考"
-
-msgid "EBITDA Ativo"
-msgstr "EBITDA 当前"
-
-msgid "Delta EBITDA"
-msgstr "EBITDA 差值"
-
-msgid "EBITDA (%) Referência"
-msgstr "EBITDA (%) 参考"
-
-msgid "EBITDA (%) Ativo"
-msgstr "EBITDA (%) 当前"
-
-msgid "Delta EBITDA (%)"
-msgstr "EBITDA (%) 差值"
-
-msgid "D&A Referência"
-msgstr "D&A 参考"
-
-msgid "D&A Ativo"
-msgstr "D&A 当前"
-
-msgid "Delta D&A"
-msgstr "D&A 差值"
-
-msgid "IR (%) Referência"
-msgstr "所得税 (%) 参考"
-
-msgid "IR (%) Ativo"
-msgstr "所得税 (%) 当前"
-
-msgid "Delta IR (%)"
-msgstr "所得税 (%) 差值"
-
-msgid "MP Referência"
-msgstr "原材料参考"
-
-msgid "MP Ativo"
-msgstr "原材料当前"
-
-msgid "Delta MP"
-msgstr "原材料差值"
-
-msgid "WIP Referência"
-msgstr "在制品参考"
-
-msgid "WIP Ativo"
-msgstr "在制品当前"
-
-msgid "Delta WIP"
-msgstr "在制品差值"
-
-msgid "PF Referência"
-msgstr "产成品参考"
-
-msgid "PF Ativo"
-msgstr "产成品当前"
-
-msgid "Delta PF"
-msgstr "产成品差值"
-
-msgid "estoque Referência"
-msgstr "库存参考"
-
-msgid "estoque Ativo"
-msgstr "库存当前"
-
-msgid "Delta estoque"
-msgstr "库存差值"
-
-msgid "Receber Referência"
-msgstr "应收参考"
-
-msgid "Receber Ativo"
-msgstr "应收当前"
-
-msgid "Delta Receber"
-msgstr "应收差值"
-
-msgid "pagar Referência"
-msgstr "应付参考"
-
-msgid "pagar Ativo"
-msgstr "应付当前"
-
-msgid "Delta pagar"
-msgstr "应付差值"
-
-msgid "OWCR Referência"
-msgstr "OWCR 参考"
-
-msgid "OWCR Ativo"
-msgstr "OWCR 当前"
-
-msgid "Delta OWCR"
-msgstr "OWCR 差值"
-
-msgid "capex Referência"
-msgstr "资本支出参考"
-
-msgid "capex Ativo"
-msgstr "资本支出当前"
-
-msgid "Delta capex"
-msgstr "资本支出差值"
-
+#: fluxos/models.py:1032
+msgid "Detalhe por Período (click e use setas para direita e esquerda)"
+msgstr "按期间划分的明细（点击并使用左右方向键）"
+
+#: fluxos/models.py:1033
+msgid "Detalhes por Período (click e use setas para direita e esquerda)"
+msgstr "按期间划分的明细（点击并使用左右方向键）"
+
+#: otimizacao/admin.py:546
+msgid "Exportar Excel Consolidado"
+msgstr "导出整合 Excel"
+
+#: otimizacao/admin.py:655
+msgid "Anos Running (Fluxo)"
+msgstr "运行年份（流程）"
+
+#: otimizacao/admin.py:657
+msgid "Trimestres Running (Fluxo)"
+msgstr "运行季度（流程）"
+
+#: otimizacao/admin.py:659
+msgid "Meses Running (Fluxo)"
+msgstr "运行月份（流程）"
+
+#: otimizacao/admin.py:661
+msgid "Período Running (Fluxo)"
+msgstr "运行期间（流程）"
+
+#: otimizacao/admin.py:694
+msgid "Anos Running (Equip.)"
+msgstr "运行年份（设备）"
+
+#: otimizacao/admin.py:696
+msgid "Trimestres Running (Equip.)"
+msgstr "运行季度（设备）"
+
+#: otimizacao/admin.py:698
+msgid "Meses Running (Equip.)"
+msgstr "运行月份（设备）"
+
+#: otimizacao/admin.py:700
+msgid "Período Running (Equip.)"
+msgstr "运行期间（设备）"
+
+#: otimizacao/admin.py:787
+msgid ""
+"Exportação para Excel sendo realizada em segundo plano. Ao terminar (5/10 "
+"minutos), será enviado o arquivo ao e-mail cadastrado do usuário no sistema."
+msgstr "正在后台导出至 Excel。完成后（5至10分钟），文件将发送至用户在系统中注册的邮箱。"
+
+#: otimizacao/apps.py:8
+msgid "  Resultados Otimização"
+msgstr "  优化结果"
+
+#: otimizacao/models.py:231
+msgid "      Produto"
+msgstr "      产品"
+
+#: otimizacao/models.py:232
+msgid "      Produtos"
+msgstr "      产品"
+
+#: otimizacao/models.py:310 otimizacao/models.py:536 otimizacao/models.py:852
+msgid "Detalhe"
+msgstr "明细"
+
+#: otimizacao/models.py:311 otimizacao/models.py:537 otimizacao/models.py:853
+#: otimizacao/models.py:1065 otimizacao/models.py:1283
+#: otimizacao/models.py:1509
+msgid "Detalhes"
+msgstr "明细"
+
+#: otimizacao/models.py:422
+msgid "    Produto / Mercado / Fluxo"
+msgstr "    产品/市场/流程"
+
+#: otimizacao/models.py:423
+msgid "    Produtos / Mercados / Fluxos"
+msgstr "    产品/市场/流程"
+
+#: otimizacao/models.py:780
+msgid "     Produto / Mercado"
+msgstr "     产品/市场"
+
+#: otimizacao/models.py:781
+msgid "     Produtos / Mercados"
+msgstr "     产品/市场"
+
+#: otimizacao/models.py:988
+msgid "   Equipamento"
+msgstr "   设备"
+
+#: otimizacao/models.py:989
+msgid "   Equipamentos"
+msgstr "   设备"
+
+#: otimizacao/models.py:1064 otimizacao/models.py:1282
+#: otimizacao/models.py:1508
+msgid "Detalhe "
+msgstr "明细 "
+
+#: otimizacao/models.py:1181
+msgid "  Equipamento/Ordem de Produção"
+msgstr "  设备/生产订单"
+
+#: otimizacao/models.py:1182
+msgid "  Equipamentos/Ordem de Produção"
+msgstr "  设备/生产订单"
+
+#: otimizacao/models.py:1298
+msgid "  Equipamento/Conjunto"
+msgstr "  设备/组合"
+
+#: otimizacao/models.py:1299
+msgid "  Equipamentos/Conjunto"
+msgstr "  设备/组合"
+
+#: otimizacao/models.py:1398
+msgid "Produção Mínima e Máxima por Periodo"
+msgstr "按期间划分的最小/最大产量"
+
+#: otimizacao/models.py:1399
+msgid "Produções Mínimas e Máximas por Periodo"
+msgstr "按期间划分的最小/最大产量"
+
+#: otimizacao/models.py:1434
+msgid " Item de Custo/Planta"
+msgstr " 成本项目/工厂"
+
+#: otimizacao/models.py:1435
+msgid " Itens de Custo/Planta"
+msgstr " 成本项目/工厂"
+
+#: otimizacao/models.py:1561
+msgid " Consumo Específico por Tipo de Produção"
+msgstr " 按生产类型划分的单耗"
+
+#: otimizacao/models.py:1562
+msgid " Consumos Específicos por Tipo de Produção"
+msgstr " 按生产类型划分的单耗"
+
+#: otimizacao/models.py:1776 otimizacao/models.py:1777
+msgid "Comparação de Cenários"
+msgstr "方案对比"
+
+#: otimizacao/models.py:2766 otimizacao/models.py:2767
+msgid "Análise Comparativa Cenário Ativo - Cenário Referência"
+msgstr "对比分析：当前方案 - 参考方案"
+
+#: otimizacao/models.py:2864
+msgid "Sombra da Otimização Simplex"
+msgstr "单纯形优化影子价格"
+
+#: otimizacao/models.py:2865
+msgid "Sombras da Otimização Simplex"
+msgstr "单纯形优化影子价格"
+
+#: parameters/admin.py:123 parameters/admin.py:683
+msgid "Seu usuário não tem um Perfil de Usuário. Contate o administrador."
+msgstr "您的账号没有用户资料。请联系管理员。"
+
+#: parameters/admin.py:126 parameters/admin.py:687
+msgid ""
+"Seu usuário está bloqueado para trocar de cenário ativo. Contate o "
+"administrador."
+msgstr "您的账号被禁止更改当前方案。请联系管理员。"
+
+#: parameters/admin.py:157 parameters/admin.py:895
+msgid "<a class=\"button\" href=\"{}\">Ativar</a>"
+msgstr "<a class=\"button\" href=\"{}\">激活</a>"
+
+#: parameters/admin.py:159 parameters/admin.py:897
+msgid "Ação"
+msgstr "操作"
+
+#: parameters/admin.py:216
+msgid ""
+"Cenário(s) selecionado(s) sendo excluidos em segundo plano. Para verificar o "
+"status da exclusão, refresh a tela."
+msgstr "所选方案正在后台删除。要查看删除状态，请刷新页面。"
+
+#: parameters/admin.py:219
+msgid ""
+"Um ou mais cenários selecionados são cenários base da empresa e não podem ser"
+" excluídos"
+msgstr "一个或多个所选方案是公司的基础方案，无法删除"
+
+#: parameters/admin.py:222
+msgid ""
+"Você não tem autorização para excluir cenários. Favor entrar em contato com "
+"administrador do sistema!"
+msgstr "您无权删除方案。请联系系统管理员！"
+
+#: parameters/admin.py:224
+msgid "Remover Cenário(s) Selecionado(s)"
+msgstr "删除所选方案"
+
+#: parameters/admin.py:239
+msgid "RESULTADOS POR CENÁRIO"
+msgstr "按方案划分的结果"
+
+#: parameters/admin.py:242
+msgid "Id Cenário"
+msgstr "方案编号"
+
+#: parameters/admin.py:242
+msgid "Nome Cenário"
+msgstr "方案名称"
+
+#: parameters/admin.py:242 parameters/admin.py:392
+#: parameters/fluxo_criar_cenario.py:3443 templates/chat.html:849
 msgid "Período"
 msgstr "期间"
 
-#, python-format
-msgid "(%(moeda)s%(t1)s/%(t2)s)"
-msgstr "(%(moeda)s%(t1)s/%(t2)s)"
+#: parameters/admin.py:242 parameters/admin.py:392
+#: parameters/fluxo_criar_cenario.py:3443
+msgid "Solução Ótima"
+msgstr "最优解"
 
-#, python-format
-msgid "(%(moeda)s)"
-msgstr "(%(moeda)s)"
+#: parameters/admin.py:242 parameters/admin.py:392
+#: parameters/fluxo_criar_cenario.py:1759
+#: parameters/fluxo_criar_cenario.py:1802
+#: parameters/fluxo_criar_cenario.py:1856
+#: parameters/fluxo_criar_cenario.py:3443 parameters/models.py:628
+#: parameters/models.py:731
+msgid "Vendas"
+msgstr "销售"
 
+#: parameters/admin.py:243 parameters/admin.py:392
+#: parameters/fluxo_criar_cenario.py:3443 parameters/models.py:630
+#: parameters/models.py:739
+msgid "Inbound"
+msgstr "入库"
+
+#: parameters/admin.py:243 parameters/admin.py:392
+#: parameters/fluxo_criar_cenario.py:3443 parameters/models.py:631
+#: parameters/models.py:743
+msgid "Outbound"
+msgstr "出库"
+
+#: parameters/admin.py:243 parameters/admin.py:393
+#: parameters/fluxo_criar_cenario.py:3444 parameters/models.py:632
+#: parameters/models.py:747
+msgid "Manut."
+msgstr "维护"
+
+#: parameters/admin.py:243 parameters/admin.py:393
+#: parameters/fluxo_criar_cenario.py:3444 parameters/models.py:633
+#: parameters/models.py:751
+msgid "Margem"
+msgstr "利润率"
+
+#: parameters/admin.py:243 parameters/admin.py:393
+#: parameters/fluxo_criar_cenario.py:3444 parameters/models.py:634
+#: parameters/models.py:755
+msgid "Fixo"
+msgstr "固定"
+
+#: parameters/admin.py:243 parameters/admin.py:393
+#: parameters/fluxo_criar_cenario.py:3444 parameters/models.py:635
+#: parameters/models.py:759
+msgid "EBTIDA"
+msgstr "EBTIDA"
+
+#: parameters/admin.py:243 parameters/admin.py:393
+#: parameters/fluxo_criar_cenario.py:3444 parameters/models.py:636
+#: parameters/models.py:763
+msgid "EBTIDA (%)"
+msgstr "EBTIDA (%)"
+
+#: parameters/admin.py:244 parameters/admin.py:393
+#: parameters/fluxo_criar_cenario.py:3444 parameters/models.py:637
+#: parameters/models.py:767
+msgid "D&A"
+msgstr "D&A"
+
+#: parameters/admin.py:244 parameters/admin.py:393
+#: parameters/fluxo_criar_cenario.py:3444 parameters/models.py:638
+#: parameters/models.py:771
+msgid "IR (%)"
+msgstr "所得税 (%)"
+
+#: parameters/admin.py:244 parameters/admin.py:394
+#: parameters/fluxo_criar_cenario.py:3445 parameters/models.py:639
+#: parameters/models.py:775 templates/chat.html:987
+msgid "MP"
+msgstr "原材料"
+
+#: parameters/admin.py:244 parameters/admin.py:394
+#: parameters/fluxo_criar_cenario.py:3445 parameters/models.py:640
+#: parameters/models.py:779
+msgid "WIP"
+msgstr "在制品"
+
+#: parameters/admin.py:244 parameters/admin.py:394
+#: parameters/fluxo_criar_cenario.py:3445 parameters/models.py:641
+#: parameters/models.py:783
+msgid "PF"
+msgstr "产成品"
+
+#: parameters/admin.py:244 parameters/admin.py:394
+#: parameters/fluxo_criar_cenario.py:3445 parameters/models.py:642
+msgid "Total Est."
+msgstr "预计总计"
+
+#: parameters/admin.py:244 parameters/admin.py:394
+#: parameters/fluxo_criar_cenario.py:3445 parameters/models.py:643
+#: parameters/models.py:791
+msgid "Receber"
+msgstr "应收"
+
+#: parameters/admin.py:244 parameters/admin.py:394
+#: parameters/fluxo_criar_cenario.py:3445 parameters/models.py:644
+#: parameters/models.py:795
+msgid "Pagar"
+msgstr "应付"
+
+#: parameters/admin.py:245 parameters/admin.py:394
+#: parameters/fluxo_criar_cenario.py:3445 parameters/models.py:645
+#: parameters/models.py:799
+msgid "OWCR"
+msgstr "OWCR"
+
+#: parameters/admin.py:245 parameters/admin.py:395
+#: parameters/fluxo_criar_cenario.py:3446 parameters/models.py:646
+msgid "CAPEX"
+msgstr "CAPEX"
+
+#: parameters/admin.py:245 parameters/admin.py:395
+#: parameters/fluxo_criar_cenario.py:3446 parameters/models.py:647
+#: parameters/models.py:807
+msgid "OFCF"
+msgstr "OFCF"
+
+#: parameters/admin.py:264 parameters/admin.py:414
+#: parameters/fluxo_criar_cenario.py:3453
+msgid "Sim"
+msgstr "是"
+
+#: parameters/admin.py:267 parameters/admin.py:417
+#: parameters/fluxo_criar_cenario.py:3453
+msgid "Não"
+msgstr "否"
+
+#: parameters/admin.py:270 parameters/admin.py:420
+#: parameters/fluxo_criar_cenario.py:3453
+msgid "Limpo"
+msgstr "已清理"
+
+#: parameters/admin.py:273 parameters/admin.py:423
+#: parameters/fluxo_criar_cenario.py:3454
+msgid "Limpando"
+msgstr "清理中"
+
+#: parameters/admin.py:275 parameters/admin.py:425
+#: parameters/fluxo_criar_cenario.py:3454
+#: parameters/fluxo_criar_cenario.py:3459
+msgid "Otimizando"
+msgstr "优化中"
+
+#: parameters/admin.py:329
+msgid "Exportar Excel Cenário(s) Selecionado(s)"
+msgstr "导出所选方案的 Excel"
+
+#: parameters/admin.py:333
+msgid "Este cenário está ativo. Não pode importar dele mesmo!"
+msgstr "该方案当前处于激活状态，不能从自身导入！"
+
+#: parameters/admin.py:337
+msgid ""
+"Importação do cenário ativo sendo feita em segundo plano. Favor aguardar..."
+msgstr "正在后台导入当前方案，请稍候……"
+
+#: parameters/admin.py:374
 msgid "Importar Ativo"
 msgstr "导入当前"
 
-msgid "Exportar Excel Itens Custo Variável"
-msgstr "导出变动成本项目 Excel"
+#: parameters/admin.py:389
+msgid "RESULTADOS CENÁRIO "
+msgstr "方案结果 "
 
+#: parameters/admin.py:498
+msgid ""
+"Atualização dos Fluxos de Produção sendo realizado em segundo plano. Favor "
+"aguardar!"
+msgstr "正在后台更新生产流程，请稍候！"
+
+#: parameters/admin.py:503
+msgid "Atualizar Fluxos"
+msgstr "更新流程"
+
+#: parameters/admin.py:508 parameters/admin.py:583 parameters/admin.py:648
+msgid ""
+"Existem fluxos de produção com I/O desatualizado. Use \"Atualizar Fluxos\" "
+"antes."
+msgstr "存在输入/输出已过期的生产流程。请先使用\"更新流程\"。"
+
+#: parameters/admin.py:537
+#, python-format
+msgid ""
+"Limpeza interrompida. Produto(s) com \"Escolhidos Igual Fluxos\" = Não: "
+"%(lista)s. Abra o produto e veja o que está em vermelho."
+msgstr "清理已中断。“所选与流程一致”= 否 的产品：%(lista)s。请打开该产品并查看红色部分。"
+
+#: parameters/admin.py:542
+#, python-format
+msgid ""
+"Limpeza interrompida. Equipamento(s)/Ordem(ns) com \"Escolhidos Igual "
+"Fluxos\" = Não: %(lista)s. Abra o equipamento e veja o que está em vermelho."
+msgstr "清理已中断。“所选与流程一致”= 否 的设备/订单：%(lista)s。请打开该设备并查看红色部分。"
+
+#: parameters/admin.py:550
+msgid ""
+"TEMOS FLUXO(S) DE PRODUÇÃO ATIVO(S) SEM O CÁLCULO DOS CUSTOS VARIÁVEIS. FAVOR"
+" VERIFICAR!"
+msgstr "存在未计算变动成本的激活生产流程。请检查！"
+
+#: parameters/admin.py:555
+msgid ""
+"TEMOS FLUXO(S) DE PRODUÇÃO ATIVO(S) COM I/O DESATUALIZADO(S). FAVOR "
+"VERIFICAR!"
+msgstr "存在输入/输出已过期的激活生产流程。请检查！"
+
+#: parameters/admin.py:560
+msgid ""
+"TEMOS FLUXO(S) DE PRODUÇÃO ATIVO(S) COM CUSTO VARIÁVEL ZERADO. FAVOR "
+"VERIFICAR!"
+msgstr "存在变动成本为零的激活生产流程。请检查！"
+
+#: parameters/admin.py:573
+msgid "LIMPEZA do cenário sendo realizada em segundo plano. Favor aguardar!"
+msgstr "正在后台清理方案，请稍候！"
+
+#: parameters/admin.py:578 templates/chat.html:698
+msgid "Limpar"
+msgstr "清除"
+
+#: parameters/admin.py:608
+msgid "OTIMIZAÇÃO do cenário sendo realizada em segundo plano. Favor aguardar!"
+msgstr "正在后台优化方案，请稍候！"
+
+#: parameters/admin.py:611 parameters/admin.py:659 parameters/admin.py:668
+#: parameters/admin.py:671 parameters/admin.py:673
+msgid "Cenário só pode ser LIMPO!"
+msgstr "该方案只能被清理！"
+
+#: parameters/admin.py:613
+msgid "Cenário só pode ser LIMPO ou CONSOLIDADO!"
+msgstr "该方案只能被清理或整合！"
+
+#: parameters/admin.py:618 parameters/models.py:627 templates/chat.html:699
+msgid "Otimizar"
+msgstr "优化"
+
+#: parameters/admin.py:643
+msgid "Status Otimização"
+msgstr "优化状态"
+
+#: parameters/admin.py:656
+msgid ""
+"CONSOLIDAÇÃO do cenário sendo realizada em segundo plano. Favor aguardar!"
+msgstr "正在后台整合方案，请稍候！"
+
+#: parameters/admin.py:662
+msgid "Cenário só pode ser OTIMIZADO!"
+msgstr "该方案只能被优化！"
+
+#: parameters/admin.py:665
+msgid "Cenário só pode ser CONSOLIDADO!"
+msgstr "该方案只能被整合！"
+
+#: parameters/admin.py:678 templates/chat.html:700
+msgid "Consolidar"
+msgstr "整合"
+
+#: parameters/admin.py:696
+msgid "Ativar Este Cenário"
+msgstr "激活此方案"
+
+#: parameters/admin.py:778
+msgid "Ver registro"
+msgstr "查看记录"
+
+# 🌟 NOVO: campo ultimas_alteracoes em TbCenarios (models.py)
+#: parameters/admin.py:783 parameters/models.py:288
+msgid "Últimas Alterações"
+msgstr "最近更改"
+
+#: parameters/admin.py:857
+msgid "Só superusuários podem trocar de empresa ativa."
+msgstr "只有超级用户可以切换当前公司。"
+
+#: parameters/admin.py:1051 parameters/models.py:1085
+msgid "Cenário Ativo"
+msgstr "当前方案"
+
+#: parameters/apps.py:13
+msgid "       PARÂMETROS"
+msgstr "       参数"
+
+#: parameters/fluxo_criar_cenario.py:1754
+#: parameters/fluxo_criar_cenario.py:1796
+#: parameters/fluxo_criar_cenario.py:1850
+#: parameters/fluxo_criar_cenario.py:1923
+#: parameters/fluxo_criar_cenario.py:1963
+#: parameters/fluxo_criar_cenario.py:2010
+#: parameters/fluxo_criar_cenario.py:3434 parameters/models.py:811
+msgid "Resultados"
+msgstr "结果"
+
+#: parameters/fluxo_criar_cenario.py:1759
+#: parameters/fluxo_criar_cenario.py:1801
+msgid "Vol. Mínimo"
+msgstr "最小量"
+
+#: parameters/fluxo_criar_cenario.py:1759
+#: parameters/fluxo_criar_cenario.py:1801
+msgid "Vol. Máximo"
+msgstr "最大量"
+
+#: parameters/fluxo_criar_cenario.py:1760
+#: parameters/fluxo_criar_cenario.py:1802
+#: parameters/fluxo_criar_cenario.py:1857
+msgid "Preço"
+msgstr "价格"
+
+#: parameters/fluxo_criar_cenario.py:1760
+#: parameters/fluxo_criar_cenario.py:1802
+msgid "Margem Contribuição"
+msgstr "边际贡献"
+
+#: parameters/fluxo_criar_cenario.py:1760
+#: parameters/fluxo_criar_cenario.py:1803
+msgid "Margem (%)"
+msgstr "利润率 (%)"
+
+#: parameters/fluxo_criar_cenario.py:1801
+#: parameters/fluxo_criar_cenario.py:1855
+msgid "Mercado"
+msgstr "市场"
+
+#: parameters/fluxo_criar_cenario.py:1855
+msgid "Preço Comercial"
+msgstr "商业价格"
+
+#: parameters/fluxo_criar_cenario.py:1856 parameters/models.py:106
+msgid "Fluxo de Produção"
+msgstr "生产流程"
+
+#: parameters/fluxo_criar_cenario.py:1856
+msgid "Fluxo Running"
+msgstr "流程运行中"
+
+#: parameters/fluxo_criar_cenario.py:1856
+msgid "Equip. Running"
+msgstr "设备运行中"
+
+#: parameters/fluxo_criar_cenario.py:1857
+msgid "Margen Contrib."
+msgstr "边际贡献"
+
+#: parameters/fluxo_criar_cenario.py:1857
+msgid "Margen Horária"
+msgstr "每小时利润"
+
+#: parameters/fluxo_criar_cenario.py:1857
+msgid "Equip. Margem Horária"
+msgstr "设备每小时利润"
+
+#: parameters/fluxo_criar_cenario.py:1858
+msgid "Parcela Itens"
+msgstr "项目占比"
+
+#: parameters/fluxo_criar_cenario.py:1859
+msgid "Parcela Outbound"
+msgstr "出库占比"
+
+#: parameters/fluxo_criar_cenario.py:1859
+msgid "Parcela Manutenção"
+msgstr "维护占比"
+
+#: parameters/fluxo_criar_cenario.py:1859
+msgid "Total Margem"
+msgstr "总利润"
+
+#: parameters/fluxo_criar_cenario.py:1928
+#: parameters/fluxo_criar_cenario.py:1969
+msgid "Produção(volume)"
+msgstr "产量(数量)"
+
+#: parameters/fluxo_criar_cenario.py:1929
+#: parameters/fluxo_criar_cenario.py:1969
+msgid "Produção(h)"
+msgstr "产量(小时)"
+
+#: parameters/fluxo_criar_cenario.py:1929
+msgid "Loading Time(h)"
+msgstr "装载时间（小时）"
+
+#: parameters/fluxo_criar_cenario.py:1929
+msgid "Ocupação Mínima (%)"
+msgstr "最低占用率 (%)"
+
+#: parameters/fluxo_criar_cenario.py:1930
+msgid "Ocupação Máxima (%)"
+msgstr "最高占用率 (%)"
+
+#: parameters/fluxo_criar_cenario.py:1930
+msgid "Ocupação(%)"
+msgstr "占用率 (%)"
+
+#: parameters/fluxo_criar_cenario.py:1968
+msgid "Equipamento Código"
+msgstr "设备代码"
+
+#: parameters/fluxo_criar_cenario.py:1968
+msgid "Equipamento Descrição"
+msgstr "设备描述"
+
+#: parameters/fluxo_criar_cenario.py:1969
+msgid "Equipamento/Planta/Ordem de Produção"
+msgstr "设备/工厂/生产订单"
+
+#: parameters/fluxo_criar_cenario.py:1970
+msgid "WIP(volume)"
+msgstr "在制品(数量)"
+
+#: parameters/fluxo_criar_cenario.py:1970
+msgid "WIP(valor)"
+msgstr "在制品(价值)"
+
+#: parameters/fluxo_criar_cenario.py:2015 tabelas/models.py:1345
+msgid "Item de Custo"
+msgstr "成本项目"
+
+#: parameters/fluxo_criar_cenario.py:2015
+msgid "Planta de Produção"
+msgstr "生产工厂"
+
+#: parameters/fluxo_criar_cenario.py:2016
+msgid "Consumo Mínimo"
+msgstr "最小消耗"
+
+#: parameters/fluxo_criar_cenario.py:2016
+msgid "Consumo Máximo"
+msgstr "最大消耗"
+
+#: parameters/fluxo_criar_cenario.py:2016
+msgid "Consumo Calculado"
+msgstr "计算消耗"
+
+#: parameters/fluxo_criar_cenario.py:2017
+msgid "Estoque (Qtde)"
+msgstr "库存（数量）"
+
+#: parameters/fluxo_criar_cenario.py:2017
+msgid "Estoque (Valor)"
+msgstr "库存（价值）"
+
+#: parameters/fluxo_criar_cenario.py:3465
+msgid "Resultados Cenário"
+msgstr "方案结果"
+
+#: parameters/forms.py:48
+msgid "Ano Início"
+msgstr "起始年"
+
+#: parameters/forms.py:49
+msgid "Ano Fim"
+msgstr "结束年"
+
+#: parameters/forms.py:61
+msgid "Ano/Trimestre Início"
+msgstr "起始年/季度"
+
+#: parameters/forms.py:62
+msgid "Ano/Trimestre Fim"
+msgstr "结束年/季度"
+
+#: parameters/models.py:45
+msgid "App (nome técnico)"
+msgstr "应用（技术名称）"
+
+#: parameters/models.py:46
+msgid "Precisa bater com o nome real do app Django (ex: \"custo_ferbasa\")."
+msgstr "必须与 Django 应用的真实名称一致（例如 \"custo_ferbasa\"）。"
+
+#: parameters/models.py:47 parameters/models.py:75
+msgid "Nome de Exibição"
+msgstr "显示名称"
+
+#: parameters/models.py:53
+msgid "App Opcional"
+msgstr "可选应用"
+
+#: parameters/models.py:54
+msgid "Apps Opcionais"
+msgstr "可选应用"
+
+#: parameters/models.py:71
+msgid "Categoria"
+msgstr "类别"
+
+#: parameters/models.py:72
+msgid "Ex: \"Indicadores\", \"Câmbio\", \"Cenário\"."
+msgstr "例如：\"指标\"、\"汇率\"、\"方案\"。"
+
+#: parameters/models.py:73
+msgid "Ação (chave técnica)"
+msgstr "操作（技术键）"
+
+#: parameters/models.py:74
+msgid "Identificador técnico usado no código -- não muda depois de criado."
+msgstr "代码中使用的技术标识符——创建后不会更改。"
+
+#: parameters/models.py:81
+msgid "Ação Comum IA"
+msgstr "AI 常用操作"
+
+#: parameters/models.py:82
+msgid "Ações Comuns IA"
+msgstr "AI 常用操作"
+
+#: parameters/models.py:103 tabelas/models.py:293 tabelas/models.py:555
+#: tabelas/models.py:736 tabelas/models.py:913
+msgid "Moeda"
+msgstr "货币"
+
+#: parameters/models.py:104 tabelas/models.py:294
+msgid "Imagem da Moeda"
+msgstr "货币图片"
+
+#: parameters/models.py:105
+msgid "Logo"
+msgstr "徽标"
+
+#: parameters/models.py:110
+msgid "Idioma Padrão"
+msgstr "默认语言"
+
+#: parameters/models.py:115
+msgid "Próximo Número de Cenário"
+msgstr "下一个方案编号"
+
+#: parameters/models.py:120
+msgid "Apps Habilitados"
+msgstr "已启用的应用"
+
+#: parameters/models.py:127
+msgid "Ações Comuns Habilitadas"
+msgstr "已启用的常用操作"
+
+#: parameters/models.py:261
+msgid "Início"
+msgstr "开始"
+
+#: parameters/models.py:262
+msgid "Fim"
+msgstr "结束"
+
+#: parameters/models.py:276 parameters/models.py:1060
+msgid "Grupo"
+msgstr "组"
+
+#: parameters/models.py:277
+msgid "Copiar de "
+msgstr "复制自 "
+
+#: parameters/models.py:290
+msgid ""
+"Histórico de alterações em outras tabelas que fizeram este cenário ficar "
+"\"ALTERADO\" -- uma linha por alteração, preenchido automaticamente."
+msgstr "记录导致此场景变为\"已更改\"状态的其他表格中的修改历史 -- 每次修改一行，自动填写。"
+
+#: parameters/models.py:308
+msgid "É Cenário Base"
+msgstr "是基础方案"
+
+#: parameters/models.py:362
+msgid "Cenários"
+msgstr "方案"
+
+#: parameters/models.py:648
+msgid "Solúção"
+msgstr "解决方案"
+
+#: parameters/models.py:727
+msgid "Solução"
+msgstr "解决方案"
+
+#: parameters/models.py:787
+msgid "Total Estoque"
+msgstr "库存总量"
+
+#: parameters/models.py:803
+msgid "Capex"
+msgstr "资本支出"
+
+#: parameters/models.py:810
+msgid "Resultado"
+msgstr "结果"
+
+#: parameters/models.py:815 parameters/models.py:920
+msgid "Data"
+msgstr "日期"
+
+#: parameters/models.py:816
+msgid "O Que"
+msgstr "内容"
+
+#: parameters/models.py:825 parameters/models.py:826
+msgid "Diário de Bordo"
+msgstr "日志"
+
+#: parameters/models.py:864 parameters/models.py:865
+msgid "Glossário"
+msgstr "词汇表"
+
+#: parameters/models.py:884
+msgid "Instruções para o Agente IA"
+msgstr "人工智能助手的指令"
+
+#: parameters/models.py:884
+msgid "Instruções"
+msgstr "说明"
+
+#: parameters/models.py:915
+msgid "Comportamento Agente IA"
+msgstr "AI 代理行为"
+
+#: parameters/models.py:916
+msgid "Comportamentos Agente IA"
+msgstr "AI 代理行为"
+
+#: parameters/models.py:926
+msgid "Usuário"
+msgstr "用户"
+
+#: parameters/models.py:928
+msgid "Pergunta Usuário"
+msgstr "用户提问"
+
+#: parameters/models.py:929
+msgid "Resposta Agente IA"
+msgstr "人工智能助手回复"
+
+#: parameters/models.py:944
+msgid "Histórico Agente IA"
+msgstr "人工智能助手历史记录"
+
+#: parameters/models.py:945
+msgid "Históricos Agente IA"
+msgstr "人工智能助手历史记录"
+
+#: parameters/models.py:950
+msgid "Título do Relatório"
+msgstr "报告标题"
+
+#: parameters/models.py:951 parameters/models.py:994
+msgid "Arquivo"
+msgstr "文件"
+
+#: parameters/models.py:952
+msgid "Disponível para a IA"
+msgstr "对 AI 可用"
+
+#: parameters/models.py:963
+msgid "Relatório Agente IA"
+msgstr "AI代理报告"
+
+#: parameters/models.py:964 templates/chat.html:556
+msgid "Relatórios Agente IA"
+msgstr "AI代理报告"
+
+#: parameters/models.py:995
+msgid "Nome original"
+msgstr "原始名称"
+
+#: parameters/models.py:1000
+msgid "Arquivo de Atualização do Agente"
+msgstr "代理更新文件"
+
+#: parameters/models.py:1001
+msgid "Arquivos de Atualização do Agente"
+msgstr "代理更新文件"
+
+#: parameters/models.py:1035
+msgid "Fluxo em andamento"
+msgstr "进行中的流程"
+
+#: parameters/models.py:1037
+msgid "Etapa atual"
+msgstr "当前步骤"
+
+#: parameters/models.py:1038
+msgid "Dados coletados"
+msgstr "已收集数据"
+
+#: parameters/models.py:1039
+msgid "Atualizado em"
+msgstr "更新时间"
+
+#: parameters/models.py:1047
+msgid "Estado de Conversa do Agente"
+msgstr "助手对话状态"
+
+#: parameters/models.py:1048
+msgid "Estados de Conversa do Agente"
+msgstr "助手对话状态"
+
+#: parameters/models.py:1064
+msgid "Empresa do Grupo"
+msgstr "集团公司"
+
+#: parameters/models.py:1065
+msgid "Empresa dos Grupos"
+msgstr "集团公司"
+
+#: parameters/models.py:1089
+msgid "Pode trocar cenário ativo"
+msgstr "可以更改当前方案"
+
+#: parameters/models.py:1090
+msgid "Se desmarcado, o usuário não verá a opção de ativar outro cenário."
+msgstr "未勾选时，用户将看不到激活其他方案的选项。"
+
+#: parameters/models.py:1103
+msgid "Acesso ao Agente IA"
+msgstr "人工智能助手访问权限"
+
+#: parameters/models.py:1104
+msgid "Se marcado, o usuário pode acessar o Agente IA (chat)."
+msgstr "勾选后，该用户可以访问人工智能助手（聊天）。"
+
+#: parameters/models.py:1115
+msgid "Superusuário da Empresa"
+msgstr "公司超级用户"
+
+#: parameters/models.py:1116
+msgid ""
+"Tem todos os poderes de superusuário, mas restritos à própria empresa (não "
+"pode trocar de empresa nem ver dados de outras)."
+msgstr "拥有超级用户的全部权限，但仅限于本公司（不能切换公司，也不能查看其他公司的数据）。"
+
+#: parameters/models.py:1125
+msgid "Idioma"
+msgstr "语言"
+
+#: parameters/models.py:1126
+msgid "Se vazio, usa o idioma padrão da empresa."
+msgstr "如果为空，则使用公司的默认语言。"
+
+#: parameters/models.py:1138
+msgid ""
+"A empresa desse usuário -- ele só vê os dados dela. Não se aplica a "
+"superusuários."
+msgstr "该用户所属的公司——他只能看到该公司的数据。不适用于超级用户。"
+
+#: parameters/models.py:1143
+msgid "Empresa Ativa (superusuário)"
+msgstr "当前公司（超级用户）"
+
+#: parameters/models.py:1144
+msgid ""
+"Só usado por superusuários -- em qual empresa ele está trabalhando agora."
+msgstr "仅供超级用户使用——当前正在哪个公司工作。"
+
+#: parameters/models.py:1153
+msgid "Cenários ativos por empresa (memória)"
+msgstr "按公司划分的当前方案（记忆）"
+
+#: parameters/models.py:1169
+msgid "Apps Restritos (deste usuário)"
+msgstr "受限应用（此用户）"
+
+#: parameters/models.py:1171
+msgid ""
+"Apps que ESTE usuário específico não deve ver, mesmo habilitados para a "
+"empresa dele. Só é possível restringir apps que a empresa já tem habilitados."
+msgstr "此特定用户不应看到的应用，即使其公司已启用。只能限制公司已启用的应用。"
+
+#: parameters/models.py:1177
+msgid "Ações Comuns Restritas (deste usuário)"
+msgstr "受限常用操作（此用户）"
+
+#: parameters/models.py:1179
+msgid ""
+"Ações do menu \"Ações Comuns\" que ESTE usuário específico não deve ver, "
+"mesmo habilitadas para a empresa dele. Só é possível restringir ações que a "
+"empresa já tem habilitadas."
+msgstr "“常用操作”菜单中此特定用户不应看到的操作，即使其公司已启用。只能限制公司已启用的操作。"
+
+#: parameters/models.py:1236
 #, python-format
 msgid "Perfil de %(usuario)s"
 msgstr "%(usuario)s 的资料"
 
-#, python-format
-msgid "Produto/Mercado: %(produto)s/%(mercado)s"
-msgstr "产品/市场：%(produto)s/%(mercado)s"
+#: parameters/models.py:1239
+msgid "Perfil de Usuário"
+msgstr "用户资料"
 
-#, python-format
-msgid "Mercado: %(mercado)s/Unidade de Produção: %(unidade)s/Produto: %(produto)s"
-msgstr "市场：%(mercado)s/生产单元：%(unidade)s/产品：%(produto)s"
+#: parameters/models.py:1240
+msgid "Perfis de Usuário"
+msgstr "用户资料"
 
-msgid "<a class=\"button\" href=\"{}\">Ativar</a>"
-msgstr "<a class=\"button\" href=\"{}\">激活</a>"
-
-msgid "<a href=\"/fluxo_producao/editor/{0}/\" class=\"button\" target=\"_blank\">Visualizar / Editar Fluxo</a>"
-msgstr "<a href=\"/fluxo_producao/editor/{0}/\" class=\"button\" target=\"_blank\">查看/编辑流程</a>"
-
-msgid "Atualizar Fluxos"
-msgstr "更新流程"
-
-msgid "Status Otimização"
-msgstr "优化状态"
-
-msgid "Ativar Este Cenário"
-msgstr "激活此方案"
-
-msgid "Update Preço/CustoVariável Adicionado"
-msgstr "更新价格/附加变动成本"
-
-msgid "Testar"
-msgstr "测试"
-
-msgid "Update Consumos Padrões"
-msgstr "更新标准消耗"
-
-msgid "Update Indicador"
-msgstr "更新指标"
-
-msgid "Atualizar Fluxo (Input/Output)"
-msgstr "更新流程（输入/输出）"
-
-msgid "Update Fluxo (PDF)"
-msgstr "更新流程（PDF）"
-
-msgid "Central de IA do SPS"
-msgstr "SPS 人工智能中心"
-
-msgid "Limpar Hoje"
-msgstr "清除今天"
-
-msgid "Limpar Últimos 7 dias"
-msgstr "清除最近7天"
-
-msgid "Limpar Todo o Histórico"
-msgstr "清除全部历史记录"
-
-msgid "Intervalo de Datas"
-msgstr "日期范围"
-
-msgid "até"
-msgstr "至"
-
-msgid "Executar Limpeza"
-msgstr "执行清理"
-
-msgid "Confirma a exclusão das mensagens do período selecionado?"
-msgstr "确认删除所选期间的消息吗？"
-
-msgid "⚠️ ATENÇÃO: Tem certeza de que deseja apagar permanentemente TODO o histórico?"
-msgstr "⚠️ 警告：您确定要永久删除全部历史记录吗？"
-
-msgid "Por favor, selecione as duas datas no calendário."
-msgstr "请在日历中选择两个日期。"
-
-msgid "A data de início não pode ser depois da data de fim."
-msgstr "开始日期不能晚于结束日期。"
-
-msgid "Erro: "
-msgstr "错误："
-
-msgid "Erro na comunicação com o servidor."
-msgstr "与服务器通信时出错。"
-
-msgid "Histórico limpo! Olá"
-msgstr "历史记录已清除！你好"
-
-msgid "o que posso fazer por você agora?"
-msgstr "现在我能为您做些什么？"
-
-msgid "Cancelar"
-msgstr "取消"
-
-msgid "Você"
-msgstr "您"
-
-msgid "Manual"
-msgstr "手动"
-
-msgid "Planilha"
-msgstr "电子表格"
-
-msgid "Sim"
-msgstr "是"
-
-msgid "Não"
-msgstr "否"
-
-msgid "Verificar"
-msgstr "检查"
-
-msgid "Já enviei a planilha"
-msgstr "我已经发送了表格"
-
-msgid "Manter"
-msgstr "保留"
-
-msgid "Nenhum"
-msgstr "无"
-
-msgid "Gráfico de linha"
-msgstr "折线图"
-
-msgid "Gráfico de barra"
-msgstr "柱状图"
-
-msgid "Plotar Gráfico"
-msgstr "绘制图表"
-
-msgid "Excluir Cenário"
-msgstr "删除方案"
-
-msgid "Concluir"
-msgstr "完成"
-
-msgid "CONSOLIDADO"
-msgstr "已整合"
-
-msgid "LIMPO"
-msgstr "已清理"
-
-msgid "OTIMIZADO"
-msgstr "已优化"
-
-msgid "OTIMIZANDO"
-msgstr "优化中"
-
-msgid "LIMPANDO"
-msgstr "清理中"
-
-msgid "CONSOLIDANDO"
-msgstr "整合中"
-
-msgid "ATUALIZANDO FLUXOS"
-msgstr "更新流程中"
-
+#: parameters/views.py:655 parameters/views.py:726
 msgid "Ainda não processado"
 msgstr "尚未处理"
 
-msgid "Solução Ótima"
-msgstr "最优解"
+#: produtos/apps.py:8
+msgid "    PRODUTOS"
+msgstr "    产品"
 
-msgid "Limpo"
-msgstr "已清理"
+#: produtos/forms.py:122
+msgid "Equipamentos/Ordens Que Compõem a Produção"
+msgstr "构成生产的设备/订单"
 
-msgid "Limpando"
-msgstr "清理中"
+#: produtos/forms.py:123
+msgid "Equipamentos/Ordens"
+msgstr "设备/订单"
 
-msgid "Otimizando"
-msgstr "优化中"
+#: produtos/forms.py:125
+msgid ""
+"Em vermelho: escolhido, mas não aparece em nenhum fluxo de produção do "
+"produto. Compare com o painel \"Equipamentos Usados nos Fluxos\" abaixo."
+msgstr "红色：已选择，但未出现在该产品的任何生产流程中。请与下方“流程中使用的设备”面板对比。"
 
-msgid "RESULTADOS CENÁRIO "
-msgstr "方案结果 "
-
-msgid "RESULTADOS POR CENÁRIO"
-msgstr "按方案划分的结果"
-
-msgid "Id Cenário"
-msgstr "方案编号"
-
-msgid "Nome Cenário"
-msgstr "方案名称"
-
-msgid "Exportar Excel Resultados Financeiros do Cenário Ativo"
-msgstr "导出当前方案财务结果 Excel"
-
-msgid "Resultados Cenário"
-msgstr "方案结果"
-
-msgid "Título do Relatório"
-msgstr "报告标题"
-
-msgid "Disponível para a IA"
-msgstr "对 AI 可用"
-
-msgid "Arquivo"
-msgstr "文件"
-
-msgid "Baixar Imagem"
-msgstr "下载图片"
-
-msgid "Mensagem Agente IA"
-msgstr "AI 代理消息"
-
+#: produtos/forms.py:309
 #, python-format
-msgid "Não foi possível atender a mensagem abaixo do usuário \"%(nome)s (%(username)s)\"."
-msgstr "无法处理用户 \"%(nome)s (%(username)s)\" 的以下消息。"
+msgid "Preço (%(moeda)s%(t1)s/%(t2)s)"
+msgstr "价格（%(moeda)s%(t1)s/%(t2)s）"
 
-msgid "Mensagem do usuário:"
-msgstr "用户消息："
+#: produtos/forms.py:311 produtos/forms.py:313 produtos/forms.py:314
+#, python-format
+msgid "Preço (%(moeda)s)"
+msgstr "价格（%(moeda)s）"
 
-msgid "Resposta do agente:"
-msgstr "代理响应："
+#: produtos/models.py:374
+msgid "  Produto"
+msgstr "  产品"
 
-msgid "Agente processando resposta..."
-msgstr "代理正在处理回复…"
+#: produtos/models.py:375
+msgid "  Produtos"
+msgstr "  产品"
 
-msgid "RESULTADOS OTIMIZAÇÃO: PRODUTO"
-msgstr "优化结果：产品"
+#: produtos/models.py:480
+msgid "  Volume/Preço por Mercado"
+msgstr "  按市场划分的销量/价格"
 
-msgid "CENÁRIO"
-msgstr "方案"
+#: produtos/models.py:481
+msgid "  Volume/Preços por Mercado"
+msgstr "  按市场划分的销量/价格"
 
-msgid "Vol. Mínimo"
-msgstr "最小量"
+#: produtos/models.py:685
+msgid "Volume Mín/Máx - Preço Previsto"
+msgstr "最小/最大销量 - 预测价格"
 
-msgid "Vol. Máximo"
-msgstr "最大量"
+#: produtos/models.py:686
+msgid "Volumes Mín/Máx - Preços Previstos"
+msgstr "最小/最大销量 - 预测价格"
 
-msgid "Margem Contribuição"
-msgstr "边际贡献"
+#: produtos/models.py:743
+msgid "Custo Outbound"
+msgstr "出库成本"
 
-msgid "Margem (%)"
-msgstr "利润率 (%)"
+#: produtos/models.py:744
+msgid "Custos Outbound"
+msgstr "出库成本"
 
-msgid "RESULTADOS OTIMIZAÇÃO: PRODUTO-MERCADO"
-msgstr "优化结果：产品-市场"
+# 🌟 NOVO: personalização do cabeçalho do Django Admin (urls.py)
+#: sps/urls.py:19
+msgid "Administração do Sistema"
+msgstr "系统管理"
 
-msgid "RESULTADOS OTIMIZAÇÃO: PRODUTO-MERCADO-FLUXO DE PRODUÇÃO"
-msgstr "优化结果：产品-市场-生产流程"
+#: sps/urls.py:27
+msgid "Administração"
+msgstr "管理"
 
-msgid "Preço Comercial"
-msgstr "商业价格"
+#: tabelas/admin.py:387
+msgid "Novo(s) indicador(es) foram adicionados com sucesso."
+msgstr "新增指标已成功添加。"
 
-msgid "Fluxo Running"
-msgstr "流程运行中"
+#: tabelas/admin.py:401
+msgid ""
+"Não foi encontrado o arquivo indicadores_new.xls no diretório c:\\sps\\excel "
+"ou AWS S3. Favor verificar!"
+msgstr "在目录 c:\\sps\\excel 或 AWS S3 中未找到文件 indicadores_new.xls。请检查！"
 
-msgid "Equip. Running"
-msgstr "设备运行中"
+#: tabelas/admin.py:504
+msgid ""
+"Cenário informado na planilha na aba mãe não é o cenário ativo. Favor "
+"verificar!"
+msgstr "表格主标签页中指定的方案不是当前方案。请检查！"
 
-msgid "Margen Contrib."
-msgstr "边际贡献"
+#: tabelas/admin.py:611
+msgid "Tabela Indicadores foi atualizada com sucesso!"
+msgstr "指标表已成功更新！"
 
-msgid "Margen Horária"
-msgstr "每小时利润"
+#: tabelas/admin.py:1708
+msgid "Novos itens de custo variável foram adicionados com sucesso."
+msgstr "新增变动成本项目已成功添加。"
 
-msgid "Equip. Margem Horária"
-msgstr "设备每小时利润"
+#: tabelas/admin.py:1856
+msgid "Tabela Custo Variável - Itens atualizada com sucesso!"
+msgstr "变动成本-项目表已成功更新！"
 
-msgid "Total Margem"
-msgstr "总利润"
+#: tabelas/admin.py:1866
+msgid ""
+"Não foi encontrado o arquivo custoitem.xls no diretório c:\\sps\\excel ou AWS"
+" S3. Favor verificar!"
+msgstr "在目录 c:\\sps\\excel 或 AWS S3 中未找到文件 custoitem.xls。请检查！"
 
-msgid "RESULTADOS OTIMIZAÇÃO: EQUIPAMENTOS"
-msgstr "优化结果：设备"
+#: tabelas/admin.py:2066
+msgid "Validar Custos Variáveis Selecionados"
+msgstr "验证所选变动成本"
 
-msgid "Produção(volume)"
-msgstr "产量(数量)"
+#: tabelas/admin.py:2077
+msgid "Desvalidar Custos Variáveis Selecionados"
+msgstr "取消验证所选变动成本"
 
-msgid "Produção(h)"
-msgstr "产量(小时)"
+#: tabelas/admin.py:2084
+msgid ""
+"Update do preço pelo valor do custo variável adicionado realizado com sucesso"
+" para os itens selecionados!"
+msgstr "已成功根据附加变动成本值更新所选项目的价格！"
 
-msgid "Ocupação Mínima (%)"
-msgstr "最低占用率 (%)"
+#: tabelas/admin.py:2086
+msgid "Update Preço/CustoVariável Adicionado Itens Selecionados"
+msgstr "更新所选项目的价格/附加变动成本"
 
-msgid "Ocupação Máxima (%)"
-msgstr "最高占用率 (%)"
+#: tabelas/admin.py:2328
+msgid "Novos itens de custo com preços foram adicionados com sucesso."
+msgstr "新增带价格的成本项目已成功添加。"
 
-msgid "RESULTADOS OTIMIZAÇÃO: EQUIPAMENTOS - ORDEM DE PRODUÇÃO"
-msgstr "优化结果：设备-生产订单"
+#: tabelas/admin.py:2595
+msgid "Tabela Custo Item Preço foi atualizada com sucesso!"
+msgstr "成本项目价格表已成功更新！"
 
-msgid "Equipamento Código"
-msgstr "设备代码"
+#: tabelas/admin.py:2608
+msgid ""
+"Ocorreu um erro na importação dos dados. Favor contatar a equipe de suporte "
+"da SPS Consultoria."
+msgstr "导入数据时发生错误。请联系 SPS Consultoria 支持团队。"
 
-msgid "Equipamento Descrição"
-msgstr "设备描述"
+#: tabelas/admin.py:2761
+msgid ""
+"Update do preço pelo valor do custo variável adicionado realizado com "
+"sucesso!"
+msgstr "已成功根据附加变动成本值更新价格！"
 
-msgid "Equipamento/Planta/Ordem de Produção"
-msgstr "设备/工厂/生产订单"
+#: tabelas/admin.py:2763
+msgid "Update Preço/CustoVariável Adicionado"
+msgstr "更新价格/附加变动成本"
 
-msgid "WIP(volume)"
-msgstr "在制品(数量)"
+#: tabelas/admin.py:2933
+msgid "Qtde Equip./Ordem"
+msgstr "设备/订单数量"
 
-msgid "WIP(valor)"
-msgstr "在制品(价值)"
+#: tabelas/apps.py:8
+msgid "      TABELAS"
+msgstr "      数据表"
 
-msgid "RESULTADOS OTIMIZAÇÃO: ITENS DE CUSTO - PLANTA DE PRODUÇÃO"
-msgstr "优化结果：成本项目-生产工厂"
+#: tabelas/forms.py:135
+#, python-format
+msgid "Valor (%(unidade)s)"
+msgstr "数值 (%(unidade)s)"
 
-msgid "Exportar Dados de Otimização do Cenário Ativo"
-msgstr "导出当前方案优化数据"
+#: tabelas/forms.py:298 tabelas/models.py:1744
+msgid "A"
+msgstr "A"
 
-msgid "App Opcional"
-msgstr "可选应用"
+#: tabelas/forms.py:299 tabelas/models.py:1746
+msgid "B"
+msgstr "B"
 
-msgid "Apps Opcionais"
-msgstr "可选应用"
+#: tabelas/forms.py:300 tabelas/models.py:1748 templates/chat.html:952
+msgid "C"
+msgstr "C"
 
-msgid "Ação Comum IA"
-msgstr "AI 常用操作"
+#: tabelas/forms.py:301 tabelas/models.py:1750
+msgid "D"
+msgstr "D"
 
-msgid "Ações Comuns IA"
-msgstr "AI 常用操作"
+#: tabelas/forms.py:302 tabelas/models.py:1752
+msgid "E"
+msgstr "E"
 
-msgid "Cenários"
-msgstr "方案"
+#: tabelas/forms.py:303 tabelas/models.py:1754
+msgid "F"
+msgstr "F"
 
-msgid "Glossário"
-msgstr "词汇表"
+#: tabelas/forms.py:304 tabelas/models.py:1759
+msgid "Valor VAR para teste"
+msgstr "测试用 VAR 值"
 
-msgid "Comportamento Agente IA"
-msgstr "AI 代理行为"
+#: tabelas/forms.py:332
+#, python-format
+msgid "(%(moeda)s%(t1)s/%(t2)s)"
+msgstr "(%(moeda)s%(t1)s/%(t2)s)"
 
-msgid "Comportamentos Agente IA"
-msgstr "AI 代理行为"
+#: tabelas/forms.py:333 tabelas/forms.py:351
+#, python-format
+msgid "(%(moeda)s)"
+msgstr "(%(moeda)s)"
 
-msgid "Ação (chave técnica)"
-msgstr "操作（技术键）"
+#: tabelas/models.py:101
+#, python-format
+msgid "Valor (%(moeda)s)"
+msgstr "数值 (%(moeda)s)"
 
-msgid "Ações Comuns Habilitadas"
-msgstr "已启用的常用操作"
+#: tabelas/models.py:167
+msgid "Valor Inicial (%)"
+msgstr "初始值 (%)"
 
-msgid "Bloquear troca de cenário ativo (selecionados)"
-msgstr "锁定切换当前方案（已选）"
+#: tabelas/models.py:192
+msgid "                 Indicador"
+msgstr "                 指标"
 
-msgid "Categoria"
-msgstr "类别"
+#: tabelas/models.py:193
+msgid "                 Indicadores"
+msgstr "                 指标"
 
-msgid "Definir cenário ativo para os selecionados"
-msgstr "为所选设置当前方案"
+#: tabelas/models.py:220 tabelas/models.py:423 tabelas/models.py:494
+msgid "Valor (%)"
+msgstr "数值 (%)"
 
-msgid "Desbloquear troca de cenário ativo (selecionados)"
-msgstr "解锁切换当前方案（已选）"
+#: tabelas/models.py:282 tabelas/models.py:283 tabelas/models.py:472
+#: tabelas/models.py:473 tabelas/models.py:543 tabelas/models.py:544
+msgid "Valores Previstos (%)"
+msgstr "预测值 (%)"
 
-msgid "Empresa e Cenário ativo"
-msgstr "公司与当前方案"
+#: tabelas/models.py:297 tabelas/models.py:407 tabelas/models.py:478
+#: tabelas/models.py:739 tabelas/models.py:916
+msgid "Valor Inicial"
+msgstr "初始值"
 
-msgid "Ex: \"Indicadores\", \"Câmbio\", \"Cenário\"."
-msgstr "例如：\"指标\"、\"汇率\"、\"方案\"。"
+#: tabelas/models.py:329
+msgid "               Taxa de Câmbio"
+msgstr "               汇率"
 
-msgid "Identificador técnico usado no código -- não muda depois de criado."
-msgstr "代码中使用的技术标识符——创建后不会更改。"
+#: tabelas/models.py:330
+msgid "               Taxas de Câmbio"
+msgstr "               汇率"
 
+#: tabelas/models.py:353
+msgid "Câmbio"
+msgstr "汇率"
+
+#: tabelas/models.py:406 tabelas/models.py:424
+msgid "Imposto de Renda"
+msgstr "所得税"
+
+#: tabelas/models.py:415 tabelas/models.py:416
+msgid "              Imposto de Renda"
+msgstr "              所得税"
+
+#: tabelas/models.py:477 tabelas/models.py:495
+msgid "Taxa de Desconto (WACC)"
+msgstr "折现率（WACC）"
+
+#: tabelas/models.py:486 tabelas/models.py:487
+msgid "             Taxa de Desconto (WACC)"
+msgstr "             折现率（WACC）"
+
+#: tabelas/models.py:558
+msgid "Valor Inicial Valor"
+msgstr "初始值"
+
+#: tabelas/models.py:559
+msgid "Valor Inicial Pagamento (dias)"
+msgstr "初始付款（天）"
+
+#: tabelas/models.py:592
+msgid "            Custo Fixo"
+msgstr "            固定成本"
+
+#: tabelas/models.py:593
+msgid "            Custos Fixos"
+msgstr "            固定成本"
+
+#: tabelas/models.py:629 tabelas/models.py:1356 tabelas/models.py:1357
+#: tabelas/models.py:1530 tabelas/models.py:1531
+msgid "Pagamento (dias)"
+msgstr "付款（天）"
+
+#: tabelas/models.py:630
+msgid "Custo Fixo"
+msgstr "固定成本"
+
+#: tabelas/models.py:734 tabelas/models.py:911
+msgid "Recorrente"
+msgstr "经常性"
+
+#: tabelas/models.py:773
+msgid "           Deprec./Amortização"
+msgstr "           折旧/摊销"
+
+#: tabelas/models.py:774
+msgid "           Deprec./Amortizações"
+msgstr "           折旧/摊销"
+
+#: tabelas/models.py:810 tabelas/models.py:987
+msgid "Depreciação/Amortização"
+msgstr "折旧/摊销"
+
+#: tabelas/models.py:950 tabelas/models.py:951
+msgid "          CAPEX"
+msgstr "          资本支出"
+
+#: tabelas/models.py:1084
+msgid "Localização"
+msgstr "位置"
+
+#: tabelas/models.py:1146
+msgid "         Unidade de Produção"
+msgstr "         生产单元"
+
+#: tabelas/models.py:1147
+msgid "         Unidades de Produção"
+msgstr "         生产单元"
+
+#: tabelas/models.py:1209
+msgid "        Mercado"
+msgstr "        市场"
+
+#: tabelas/models.py:1210
+msgid "        Mercados"
+msgstr "        市场"
+
+#: tabelas/models.py:1219
+msgid "Grupo(s) Usuários com Permissão"
+msgstr "有权限的用户组"
+
+#: tabelas/models.py:1249
+msgid "     Custo Variável - Tipo"
+msgstr "     变动成本 - 类型"
+
+#: tabelas/models.py:1250
+msgid "     Custo Variável - Tipos"
+msgstr "     变动成本 - 类型"
+
+#: tabelas/models.py:1277
+msgid "Código Interno"
+msgstr "内部编码"
+
+#: tabelas/models.py:1280
+msgid "Imagem do Item"
+msgstr "项目图片"
+
+#: tabelas/models.py:1325
+msgid "     Custo Variável - Item"
+msgstr "     变动成本 - 项目"
+
+#: tabelas/models.py:1326
+msgid "    Custo Variável - Itens"
+msgstr "    变动成本 - 项目"
+
+#: tabelas/models.py:1346
+msgid "Unidade de Produção"
+msgstr "生产单元"
+
+#: tabelas/models.py:1348
+msgid "Custo Var. Adic. CF"
+msgstr "附加变动成本 CF"
+
+#: tabelas/models.py:1349
+msgid "Indicador do Preço"
+msgstr "价格指标"
+
+#: tabelas/models.py:1350 tabelas/models.py:1743
+msgid "Moeda do Preço"
+msgstr "价格货币"
+
+#: tabelas/models.py:1351
+msgid "Indicador do Inbound"
+msgstr "入库指标"
+
+#: tabelas/models.py:1352
+msgid "Moeda do Inbound"
+msgstr "入库货币"
+
+#: tabelas/models.py:1354
+msgid "Valor Inicial: Preço"
+msgstr "初始值：价格"
+
+#: tabelas/models.py:1355
+msgid "Valor Inicial: Inbound"
+msgstr "初始值：入库"
+
+#: tabelas/models.py:1358 tabelas/models.py:1532
+msgid "Estoque (dias)"
+msgstr "库存（天）"
+
+#: tabelas/models.py:1471
+msgid "Valor Custo Var. Adicionado"
+msgstr "附加变动成本值"
+
+#: tabelas/models.py:1487
+msgid "Preço Médio"
+msgstr "平均价格"
+
+#: tabelas/models.py:1490
+msgid "    Custo Variável - Preço"
+msgstr "    变动成本 - 价格"
+
+#: tabelas/models.py:1491
+msgid "    Custo Variável - Preços"
+msgstr "    变动成本 - 价格"
+
+#: tabelas/models.py:1528
+msgid "Valor Preço"
+msgstr "价格值"
+
+#: tabelas/models.py:1529
+msgid "Valor Inbound"
+msgstr "入库值"
+
+#: tabelas/models.py:1612
+msgid "Critério Quebra Fluxo"
+msgstr "流程中断标准"
+
+#: tabelas/models.py:1651
+msgid "   Tipo de Produção"
+msgstr "   生产类型"
+
+#: tabelas/models.py:1652
+msgid "   Tipos de Produção"
+msgstr "   生产类型"
+
+#: tabelas/models.py:1660
+msgid "Família"
+msgstr "系列"
+
+#: tabelas/models.py:1688
+msgid "  Família de Produto"
+msgstr "  产品系列"
+
+#: tabelas/models.py:1689
+msgid "  Famílias de Produtos"
+msgstr "  产品系列"
+
+#: tabelas/models.py:1697
+msgid "Grupo de Cenários"
+msgstr "方案组"
+
+#: tabelas/models.py:1728
+msgid " Grupo de Cenários"
+msgstr " 方案组"
+
+#: tabelas/models.py:1729
+msgid " Grupos de Cenários"
+msgstr " 方案组"
+
+#: tabelas/models.py:1756
+msgid "Fórmula"
+msgstr "公式"
+
+#: tabelas/models.py:1757
+msgid "Títulos: Primeiro"
+msgstr "标题：第一"
+
+#: tabelas/models.py:1758
+msgid "Segundo"
+msgstr "第二"
+
+#: tabelas/models.py:1881
+msgid "Equação Ajuste Preço"
+msgstr "价格调整公式"
+
+#: tabelas/models.py:1882
+msgid "Equações Ajustes Preços"
+msgstr "价格调整公式"
+
+#: templates/admin/base_site.html:79 templates/chat.html:812
+msgid "Agente IA"
+msgstr "人工智能助手"
+
+#: templates/chat.html:6
+msgid "Assistente de IA Integrado"
+msgstr "集成人工智能助手"
+
+#: templates/chat.html:557
+msgid "Marque os arquivos que deseja incluir na análise da resposta atual."
+msgstr "勾选您希望包含在当前回复分析中的文件。"
+
+#: templates/chat.html:561
+msgid "Arraste um PDF, TXT ou XLSX aqui"
+msgstr "将 PDF、TXT 或 XLSX 文件拖到此处"
+
+#: templates/chat.html:561 templates/chat.html:587
+msgid "ou clique para escolher"
+msgstr "或点击选择"
+
+#: templates/chat.html:573 templates/chat.html:5874
+msgid "Nenhum PDF cadastrado no Admin."
+msgstr "管理后台中没有已注册的 PDF。"
+
+#: templates/chat.html:583
+msgid "Arquivo para Atualização"
+msgstr "待更新文件"
+
+#: templates/chat.html:584
+msgid ""
+"Solte aqui um arquivo (Excel ou CSV) que o Agente vai usar uma vez para "
+"atualizar dados no sistema. Só cabe um arquivo por vez."
+msgstr "将文件(Excel或CSV)拖放到此处，供代理使用一次以更新系统中的数据。一次只能放一个文件。"
+
+#: templates/chat.html:587
+msgid "Arraste um XLSX, XLS ou CSV aqui"
+msgstr "将XLSX、XLS或CSV文件拖到此处"
+
+#: templates/chat.html:596 templates/chat.html:6028
+msgid "Nenhum arquivo no espaço de atualização."
+msgstr "更新区域没有文件。"
+
+#: templates/chat.html:640
+msgid "Agente IA do SPS"
+msgstr "SPS 人工智能助手"
+
+#: templates/chat.html:643
+msgid "Limpa só a tela. As mensagens continuam salvas no histórico."
+msgstr "仅清空屏幕。消息仍保存在历史记录中。"
+
+#: templates/chat.html:643
+msgid "Limpar chat"
+msgstr "清空聊天"
+
+#: templates/chat.html:646
+msgid "Limpar Hoje"
+msgstr "清除今天"
+
+#: templates/chat.html:647
+msgid "Limpar Últimos 7 dias"
+msgstr "清除最近7天"
+
+#: templates/chat.html:648
+msgid "Limpar Todo o Histórico"
+msgstr "清除全部历史记录"
+
+#: templates/chat.html:649
+msgid "Intervalo de Datas"
+msgstr "日期范围"
+
+#: templates/chat.html:655
+msgid "até"
+msgstr "至"
+
+#: templates/chat.html:659
+msgid "Executar Limpeza"
+msgstr "执行清理"
+
+#: templates/chat.html:664 templates/chat.html:666
 #, python-format
 msgid "Olá %(nome_usuario)s! O que posso fazer por você hoje?"
 msgstr "你好，%(nome_usuario)s！今天我能为您做些什么？"
 
-msgid "Relatórios Agente IA"
-msgstr "AI代理报告"
-
-msgid "Relatório Agente IA"
-msgstr "AI代理报告"
-
-msgid "Arquivo para Atualização"
-msgstr "待更新文件"
-
-msgid "Solte aqui um arquivo (Excel ou CSV) que o Agente vai usar uma vez para atualizar dados no sistema. Só cabe um arquivo por vez."
-msgstr "将文件(Excel或CSV)拖放到此处，供代理使用一次以更新系统中的数据。一次只能放一个文件。"
-
-msgid "Arraste um XLSX, XLS ou CSV aqui"
-msgstr "将XLSX、XLS或CSV文件拖到此处"
-
-msgid "Nenhum arquivo no espaço de atualização."
-msgstr "更新区域没有文件。"
-
-msgid "Custo Ferbasa"
-msgstr "Ferbasa成本"
-
-msgid "Atualizar Produção e GGF Mensal"
-msgstr "更新月度生产和GGF"
-
-msgid "Já enviei o arquivo"
-msgstr "我已经发送了文件"
-
-msgid "Pular"
-msgstr "跳过"
-
-msgid "Encerrar Ação"
-msgstr "结束操作"
-
-msgid "Arquivo de Atualização do Agente"
-msgstr "代理更新文件"
-
-msgid "Arquivos de Atualização do Agente"
-msgstr "代理更新文件"
-
-msgid "Nome original"
-msgstr "原始名称"
-
-msgid "Atualizar Consumo Específico e Custo Variável Adicionado"
-msgstr "更新特定消耗和附加可变成本"
-
-msgid "Falar em vez de digitar"
-msgstr "说话代替打字"
-
-# 🌟 NOVO: personalização do cabeçalho do Django Admin (urls.py)
-msgid "Administração do Sistema"
-msgstr "系统管理"
-
-msgid "Administração"
-msgstr "管理"
-
-
-# 🌟 NOVO: campo ultimas_alteracoes em TbCenarios (models.py)
-msgid "Últimas Alterações"
-msgstr "最近更改"
-
-msgid "Histórico de alterações em outras tabelas que fizeram este cenário ficar \"ALTERADO\" -- uma linha por alteração, preenchido automaticamente."
-msgstr "记录导致此场景变为\"已更改\"状态的其他表格中的修改历史 -- 每次修改一行，自动填写。"
-
-
 # 🌟 NOVO: chat -- placeholder e botão Limpar chat
+#: templates/chat.html:671
 msgid "Digite sua pergunta ou mensagem..."
 msgstr "输入您的问题或消息..."
 
-msgid "Limpar chat"
-msgstr "清空聊天"
+#: templates/chat.html:672
+msgid "Falar em vez de digitar"
+msgstr "说话代替打字"
 
-msgid "Limpa só a tela. As mensagens continuam salvas no histórico."
-msgstr "仅清空屏幕。消息仍保存在历史记录中。"
+#: templates/chat.html:673
+msgid "Enviar"
+msgstr "发送"
+
+#: templates/chat.html:682
+msgid "Ações Comuns no SPS"
+msgstr "SPS 常用操作"
+
+#: templates/chat.html:683
+msgid "Escolhe a categoria e seleciona a ação, sem risco de digitar errado."
+msgstr "选择类别和操作，无需担心输入错误。"
+
+#: templates/chat.html:693 templates/chat.html:712 templates/chat.html:724
+#: templates/chat.html:736 templates/chat.html:748 templates/chat.html:761
+msgid "Selecione uma ação..."
+msgstr "请选择操作……"
+
+#: templates/chat.html:694
+msgid "Criar cenário novo"
+msgstr "创建新方案"
+
+#: templates/chat.html:695
+msgid "Mudar tipo/período"
+msgstr "更改类型/期间"
+
+#: templates/chat.html:696
+msgid "Ver status"
+msgstr "查看状态"
+
+#: templates/chat.html:697
+msgid "Atualizar Fluxos de Produção"
+msgstr "更新生产流程"
+
+#: templates/chat.html:701
+msgid "Ciclo completo (limpar, otimizar e consolidar)"
+msgstr "完整流程（清除、优化并整合）"
+
+#: templates/chat.html:702
+msgid "Excluir Cenário"
+msgstr "删除方案"
+
+#: templates/chat.html:703
+msgid "Exportar Excel Resultados Financeiros do Cenário Ativo"
+msgstr "导出当前方案财务结果 Excel"
+
+#: templates/chat.html:704
+msgid "Exportar Dados de Otimização do Cenário Ativo"
+msgstr "导出当前方案优化数据"
+
+#: templates/chat.html:710
+msgid "Custo Ferbasa"
+msgstr "Ferbasa成本"
+
+#: templates/chat.html:713
+msgid "Atualizar Produção e GGF Mensal"
+msgstr "更新月度生产和GGF"
+
+#: templates/chat.html:714
+msgid "Atualizar Consumo Específico e Custo Variável"
+msgstr "更新单耗和变动成本"
+
+#: templates/chat.html:715
+msgid "Montar Fluxo de Produção Base Produção Mensal"
+msgstr "基于月度生产构建生产流程"
+
+#: templates/chat.html:722
+msgid "Fluxos de Produção"
+msgstr "生产流程"
+
+#: templates/chat.html:725
+msgid "Atualizar Visão do Fluxo de Produção"
+msgstr "更新生产流程视图"
+
+#: templates/chat.html:726
+msgid "Atualizar Fluxos de Produção por Produto"
+msgstr "按产品更新生产流程"
+
+#: templates/chat.html:727
+msgid "Comparar Fluxos de Produção"
+msgstr "比较生产流程"
+
+#: templates/chat.html:728
+msgid "Custo Variável Distribuição / Escada por Equipamento"
+msgstr "变动成本分布 / 按设备阶梯图"
+
+#: templates/chat.html:734
+msgid "Indicadores"
+msgstr "指标"
+
+#: templates/chat.html:737 templates/chat.html:749
+msgid "Mudar valor"
+msgstr "更改数值"
+
+#: templates/chat.html:738
+msgid "Criar novo"
+msgstr "新建"
+
+#: templates/chat.html:739 templates/chat.html:751
+msgid "Reajuste em massa"
+msgstr "批量调整"
+
+#: templates/chat.html:740 templates/chat.html:752
+msgid "Eliminar"
+msgstr "删除"
+
+#: templates/chat.html:741 templates/chat.html:753
+msgid "Plotar Gráfico"
+msgstr "绘制图表"
+
+#: templates/chat.html:746
+msgid "Taxas de Câmbio"
+msgstr "汇率"
+
+#: templates/chat.html:750
+msgid "Criar nova"
+msgstr "新建"
+
+#: templates/chat.html:762
+msgid "Criar novo equipamento"
+msgstr "创建新设备"
+
+#: templates/chat.html:763
+msgid "Criar nova ordem de produção"
+msgstr "创建新生产订单"
+
+#: templates/chat.html:778 templates/chat.html:1075
+msgid "Fechar"
+msgstr "关闭"
+
+#: templates/chat.html:787 templates/chat.html:881
+msgid "Tipo de produção"
+msgstr "生产类型"
+
+#: templates/chat.html:788
+msgid "WIP (dias)"
+msgstr "在制品（天）"
+
+#: templates/chat.html:789
+msgid "É clone de"
+msgstr "是…的克隆"
+
+#: templates/chat.html:790
+msgid "Fluxos usando"
+msgstr "使用的流程"
+
+#: templates/chat.html:803
+msgid "Confirma a exclusão das mensagens do período selecionado?"
+msgstr "确认删除所选期间的消息吗？"
+
+#: templates/chat.html:804
+msgid ""
+"⚠️ ATENÇÃO: Tem certeza de que deseja apagar permanentemente TODO o "
+"histórico?"
+msgstr "⚠️ 警告：您确定要永久删除全部历史记录吗？"
+
+#: templates/chat.html:805
+msgid "Por favor, selecione as duas datas no calendário."
+msgstr "请在日历中选择两个日期。"
+
+#: templates/chat.html:806
+msgid "A data de início não pode ser depois da data de fim."
+msgstr "开始日期不能晚于结束日期。"
+
+#: templates/chat.html:807
+msgid "Erro: "
+msgstr "错误："
+
+#: templates/chat.html:808
+msgid "Erro na comunicação com o servidor."
+msgstr "与服务器通信时出错。"
+
+#: templates/chat.html:809
+msgid "Histórico limpo! Olá"
+msgstr "历史记录已清除！你好"
+
+#: templates/chat.html:810
+msgid "o que posso fazer por você agora?"
+msgstr "现在我能为您做些什么？"
+
+#: templates/chat.html:811
+msgid "Você"
+msgstr "您"
+
+#: templates/chat.html:813
+msgid "Baixar Imagem"
+msgstr "下载图片"
+
+#: templates/chat.html:814
+msgid "Agente processando resposta..."
+msgstr "代理正在处理回复…"
+
+#: templates/chat.html:815
+msgid "Sem imagem"
+msgstr "无图片"
+
+#: templates/chat.html:816
+msgid "Ver as ordens de produção"
+msgstr "查看生产订单"
+
+#: templates/chat.html:817
+msgid "Carregando..."
+msgstr "加载中..."
+
+#: templates/chat.html:818
+msgid "Esse equipamento ainda não tem ordens de produção neste cenário."
+msgstr "该设备在此方案中还没有生产订单。"
+
+#: templates/chat.html:821
+msgid "Confirmar"
+msgstr "确认"
+
+#: templates/chat.html:823
+msgid "Cadastrar um novo Tipo de Produção"
+msgstr "登记新的生产类型"
+
+#: templates/chat.html:824
+msgid "Ordens informadas"
+msgstr "已填写的订单"
+
+#: templates/chat.html:825
+msgid "Preenche todos os campos antes de confirmar."
+msgstr "确认前请填写所有字段。"
+
+#: templates/chat.html:826
+msgid "Cadastrados"
+msgstr "已登记"
+
+#: templates/chat.html:827
+msgid "Corretos"
+msgstr "正确"
+
+#: templates/chat.html:828
+msgid "A gerar"
+msgstr "待生成"
+
+#: templates/chat.html:829
+msgid "A remover"
+msgstr "待删除"
+
+#: templates/chat.html:830
+msgid "OK"
+msgstr "确定"
+
+#: templates/chat.html:831
+msgid "Sem fluxos cadastrados"
+msgstr "无已登记流程"
+
+#: templates/chat.html:832
+msgid "Não foi possível calcular"
+msgstr "无法计算"
+
+#: templates/chat.html:833
+msgid "Marcar os que precisam de ajuste"
+msgstr "勾选需要调整的项"
+
+#: templates/chat.html:834
+msgid "Ordenar por código"
+msgstr "按代码排序"
+
+#: templates/chat.html:835
+msgid "Pesquisar por código ou descrição..."
+msgstr "按代码或描述搜索..."
+
+#: templates/chat.html:836 templates/chat.html:981 templates/chat.html:1099
+msgid "de"
+msgstr "/"
+
+#: templates/chat.html:837
+msgid "Ordenar por descrição"
+msgstr "按描述排序"
+
+#: templates/chat.html:838
+msgid "Atualizar selecionados"
+msgstr "更新所选"
+
+#: templates/chat.html:839
+msgid "Produtos selecionados"
+msgstr "所选产品"
+
+#: templates/chat.html:840
+msgid "Origem -> destino"
+msgstr "来源 -> 目的地"
+
+#: templates/chat.html:841
+msgid "Valor inicial"
+msgstr "初始值"
+
+#: templates/chat.html:842
+msgid "já existe, valor atual"
+msgstr "已存在，当前值"
+
+#: templates/chat.html:843
+msgid "Marcar todos"
+msgstr "全选"
+
+#: templates/chat.html:844
+msgid "Desmarcar todos"
+msgstr "全部取消"
+
+#: templates/chat.html:845
+msgid "Consumos padrão"
+msgstr "标准消耗"
+
+#: templates/chat.html:846
+msgid ""
+"Informe um valor numérico válido (até 4 casas decimais) nas linhas marcadas."
+msgstr "请在勾选的行中输入有效数值（最多 4 位小数）。"
+
+#: templates/chat.html:847
+msgid "Fluxo A"
+msgstr "流程 A"
+
+#: templates/chat.html:848
+msgid "Fluxo B"
+msgstr "流程 B"
+
+#: templates/chat.html:851
+msgid "Custo"
+msgstr "成本"
+
+#: templates/chat.html:852
+msgid "Variação (B − A)"
+msgstr "变化 (B − A)"
+
+#: templates/chat.html:853
+msgid "Para produzir em"
+msgstr "用于生产"
+
+#: templates/chat.html:854
+msgid "sem ligação"
+msgstr "无连接"
+
+#: templates/chat.html:855
+msgid "n/d"
+msgstr "无"
+
+#: templates/chat.html:856
+msgid "produto"
+msgstr "产品"
+
+#: templates/chat.html:857
+msgid "Ligações só neste fluxo"
+msgstr "仅在此流程中的连接"
+
+#: templates/chat.html:858
+msgid "Equipamento/ordem só neste fluxo"
+msgstr "仅在此流程中的设备/订单"
+
+#: templates/chat.html:859
+msgid "Ligações iguais nos dois fluxos"
+msgstr "两个流程中相同的连接"
+
+#: templates/chat.html:860
+msgid "Soma por período das ligações diferentes (custo variável adicionado)"
+msgstr "不同连接的分期合计（附加变动成本）"
+
+#: templates/chat.html:861
+msgid ""
+"▲ B maior que A · ▼ B menor que A · = igual · fundo amarelo = valores "
+"diferentes. Custo = custo variável adicionado do equipamento de origem × "
+"indicador (mesmo cálculo do Admin)."
+msgstr ""
+"▲ B 大于 A · ▼ B 小于 A · = 相等 · 黄色背景 = 数值不同。成本 = 来源设备的附加变动成本 × 指标（与后台相同的计算）。"
+
+#: templates/chat.html:862
+msgid ""
+"O custo variável adicionado não pôde ser calculado (a procedure do banco "
+"falhou); o indicador não depende disso."
+msgstr "无法计算附加变动成本（数据库存储过程失败）；指标不依赖于此。"
+
+#: templates/chat.html:863
+msgid ""
+"O custo variável adicionado ficou incompleto: o cálculo passou do tempo "
+"limite."
+msgstr "附加变动成本不完整：计算超时。"
+
+#: templates/chat.html:864
+msgid "Mapa dos equipamentos"
+msgstr "设备图"
+
+#: templates/chat.html:866
+msgid "col"
+msgstr "列"
+
+#: templates/chat.html:867
+msgid "Diferença"
+msgstr "差异"
+
+#: templates/chat.html:868
+msgid "mesma ordem"
+msgstr "相同订单"
+
+#: templates/chat.html:869
+msgid "ordem diferente"
+msgstr "不同订单"
+
+#: templates/chat.html:870
+msgid "mesma ordem, ligação diferente"
+msgstr "相同订单，不同连接"
+
+#: templates/chat.html:871 templates/chat.html:1119
+msgid "só no Fluxo A"
+msgstr "仅在流程 A 中"
+
+#: templates/chat.html:872 templates/chat.html:1120
+msgid "só no Fluxo B"
+msgstr "仅在流程 B 中"
+
+#: templates/chat.html:873
+msgid "coluna diferente"
+msgstr "不同列"
+
+#: templates/chat.html:874
+msgid "ver o que muda ↓"
+msgstr "查看变化 ↓"
+
+#: templates/chat.html:875
+msgid "o que muda de uma ordem para a outra"
+msgstr "订单之间的变化"
+
+#: templates/chat.html:876
+msgid "Custo variável adicionado da ordem"
+msgstr "订单的附加变动成本"
+
+#: templates/chat.html:877
+msgid "Consumo padrão de saída (para o próximo equipamento)"
+msgstr "标准输出消耗（供下一设备）"
+
+#: templates/chat.html:878 templates/chat.html:1117
+msgid "Consumos específicos"
+msgstr "单耗"
+
+#: templates/chat.html:879
+msgid "só na ordem do Fluxo A"
+msgstr "仅在流程 A 的订单中"
+
+#: templates/chat.html:880
+msgid "só na ordem do Fluxo B"
+msgstr "仅在流程 B 的订单中"
+
+#: templates/chat.html:882
+msgid "Equipamentos só neste fluxo"
+msgstr "仅在此流程中的设备"
+
+#: templates/chat.html:883
+msgid "Equipamentos com a mesma ordem e a mesma ligação"
+msgstr "订单和连接都相同的设备"
+
+#: templates/chat.html:885
+#, python-format
+msgid "%%"
+msgstr "%%"
+
+#: templates/chat.html:886
+msgid ""
+"▲ B maior que A · ▼ B menor que A · = igual · fundo amarelo = ordem ou "
+"valores diferentes. Custo da ordem = custo variável adicionado da ordem "
+"(procedure do banco); custo da ligação = custo da ordem de origem × "
+"indicador."
+msgstr ""
+"▲ B 大于 A · ▼ B 小于 A · = 相等 · 黄色背景 = 订单或数值不同。订单成本 = 订单的附加变动成本（数据库存储过程）；连接成本 = "
+"来源订单成本 × 指标。"
+
+#: templates/chat.html:887
+msgid "Filtrar"
+msgstr "筛选"
+
+#: templates/chat.html:888
+msgid "Filtrar por palavras da descrição"
+msgstr "按描述中的词筛选"
+
+#: templates/chat.html:889
+msgid "mostrando"
+msgstr "显示"
+
+#: templates/chat.html:890
+msgid "Produzido"
+msgstr "已生产"
+
+#: templates/chat.html:891
+msgid "Gerado como subproduto"
+msgstr "作为副产品产生"
+
+#: templates/chat.html:893
+msgid "Gerado como subproduto por"
+msgstr "作为副产品产生自"
+
+#: templates/chat.html:894
+msgid "Consumido por outros produtos"
+msgstr "被其他产品消耗"
+
+#: templates/chat.html:895
+msgid "Qtde gerada no período"
+msgstr "期间产生数量"
+
+#: templates/chat.html:896
+msgid "Neste fluxo"
+msgstr "本流程中"
+
+#: templates/chat.html:897
+msgid "Consumo Neste Fluxo"
+msgstr "本流程消耗"
+
+#: templates/chat.html:898
+msgid "Consumo Outros Produtos"
+msgstr "其他产品消耗"
+
+#: templates/chat.html:899
+msgid "Outros produtos"
+msgstr "其他产品"
+
+#: templates/chat.html:900
+msgid "Estoque/perdas"
+msgstr "库存/损耗"
+
+#: templates/chat.html:901
+msgid "Veio de estoque"
+msgstr "来自库存"
+
+#: templates/chat.html:902
+msgid "Balanço do item no período"
+msgstr "期间物料平衡"
+
+#: templates/chat.html:903
+msgid "todos os grupos de máquina"
+msgstr "所有机组"
+
+#: templates/chat.html:904
+msgid ""
+"Ver quais outros produtos consumiram este item e quais equipamentos o geraram"
+" como subproduto"
+msgstr "查看哪些其他产品消耗了该物料，以及哪些设备将其作为副产品产生"
+
+#: templates/chat.html:905
+msgid "detalhar balanço ›"
+msgstr "平衡明细 ›"
+
+#: templates/chat.html:906
+msgid ""
+"Gerado como subproduto: o item saiu como subproduto de outro equipamento "
+"(ex.: produção de outro produto fora de especificação, desviada para este "
+"item) -- na Produção Mensal aparece como consumo negativo. Entra no balanço "
+"junto com o produzido. Outros produtos: consumo do item registrado na "
+"Produção Mensal do período por equipamentos que não fazem parte deste fluxo. "
+"Estoque/perdas: o que foi produzido e não aparece consumido por ninguém "
+"(estoque, venda direta ou perdas). Veio de estoque: consumiu-se mais do que "
+"se produziu no período, e a diferença saiu de estoque (ou de produção de "
+"outro período)."
+msgstr ""
+"作为副产品产生：该物料作为另一设备的副产品产出（例如：另一产品的不合格产量转为此物料）——在月度生产中显示为负消耗，与产量一起计入平衡。其他产品：本期月度生产中由不属于本流程的设备登记的该物料消耗。库存/损耗：已生产但未显示被任何人消耗的部分（库存、直接销售或损耗）。来自库存：本期消耗多于生产，差额来自库存（或其他期间的生产）。"
+
+#: templates/chat.html:908
+msgid "Grupos de máquina"
+msgstr "机组"
+
+#: templates/chat.html:909
+msgid "Qtde consumida no período"
+msgstr "期间消耗数量"
+
+#: templates/chat.html:910
+msgid "outros produtos não listados:"
+msgstr "其他未列出的产品："
+
+#: templates/chat.html:911
+msgid "RC"
+msgstr "RC"
+
+#: templates/chat.html:912
+msgid "MV"
+msgstr "MV"
+
+#: templates/chat.html:913
+msgid ""
+"movimentações VAZIO que entregam ao equipamento -- clique para pôr no desenho"
+" um nível (ou tirar)"
+msgstr "向该设备交付的 VAZIO 移动——点击可在图中添加一层（或移除）"
+
+#: templates/chat.html:914
+msgid ""
+"No fluxo real, clique no círculo MV de um equipamento para pôr no desenho as "
+"movimentações VAZIO que entregam a ele; cada caixa que entra tem o seu MV "
+"para continuar abrindo, nível a nível (clique de novo para tirar)."
+msgstr ""
+"在实际流程中，点击设备的 MV 圆圈，可将向其交付的 VAZIO 移动加入图中；每个新加入的方框都有自己的 MV，可逐层继续展开（再次点击可移除）。"
+
+#: templates/chat.html:915
+msgid "recirculações no equipamento (material que volta na cadeia)"
+msgstr "设备中的回流（在链中返回的物料）"
+
+#: templates/chat.html:916
+msgid "Recirculações em"
+msgstr "回流于"
+
+#: templates/chat.html:917
+msgid "Contribuição no custo do produto final"
+msgstr "对最终产品成本的贡献"
+
+#: templates/chat.html:918
+msgid "por"
+msgstr "每"
+
+#: templates/chat.html:919
+msgid "usa"
+msgstr "使用"
+
+#: templates/chat.html:920
+msgid "Gráfico em escada"
+msgstr "阶梯图"
+
+#: templates/chat.html:921
+msgid "Esconder gráfico"
+msgstr "隐藏图表"
+
+#: templates/chat.html:922
+msgid ""
+"Consumo específico = quantidade por unidade consumida no equipamento. Custo "
+"por unidade do próprio item (valor contábil médio no período, neste "
+"equipamento); nos subprodutos, o crédito por unidade gerada (negativo)."
+msgstr "单耗 = 在该设备中消耗的每单位数量。物料本身的单位成本（本期在该设备中的平均账面价值）；副产品为每单位产出的抵减（负值）。"
+
+#: templates/chat.html:924 templates/chat.html:1039
+msgid "Consumo específico"
+msgstr "单耗"
+
+#: templates/chat.html:925
+msgid ""
+"Custo por unidade de cada matéria-prima / subproduto consumido (valor "
+"contábil médio no período, neste equipamento)."
+msgstr "每种所消耗原材料/副产品的单位成本（本期在该设备中的平均账面价值）。"
+
+#: templates/chat.html:926
+msgid "Total das matérias-primas e subprodutos consumidos"
+msgstr "所消耗原材料和副产品合计"
+
+#: templates/chat.html:927
+msgid ""
+"Crédito por unidade de cada subproduto gerado (valor contábil médio no "
+"período, neste equipamento) -- negativo porque reduz o custo."
+msgstr "每种所产生副产品的单位抵减（本期在该设备中的平均账面价值）——为负值，因为它降低成本。"
+
+#: templates/chat.html:928
+msgid "MOVIMENTAÇÃO (equipamento VAZIO)"
+msgstr "移动（VAZIO 设备）"
+
+#: templates/chat.html:929
+msgid "equipamento do produto final"
+msgstr "最终产品设备"
+
+#: templates/chat.html:930
+msgid "equipamento"
+msgstr "设备"
+
+#: templates/chat.html:931
+msgid "Exportar Excel Todo Fluxo"
+msgstr "导出 Excel 全流程"
+
+#: templates/chat.html:932
+msgid ""
+"Planilha com a evolução mensal do custo do produto final e de todos os "
+"equipamentos deste fluxo"
+msgstr "包含最终产品及本流程所有设备月度成本变化的表格"
+
+#: templates/chat.html:933
+msgid "Gerando planilha..."
+msgstr "正在生成表格..."
+
+#: templates/chat.html:934
+msgid ""
+"Não consegui gerar a planilha (a biblioteca de Excel não carregou). Verifique"
+" a internet e tente de novo."
+msgstr "无法生成表格（Excel 库未加载）。请检查网络后重试。"
+
+#: templates/chat.html:935
+msgid "Evolução mensal do custo"
+msgstr "月度成本变化"
+
+#: templates/chat.html:936
+msgid "Esconder evolução mensal"
+msgstr "隐藏月度变化"
+
+#: templates/chat.html:937
+msgid "Sem produção do produto em nenhum mês do período."
+msgstr "本期任何月份均无该产品的生产。"
+
+#: templates/chat.html:938
+msgid "Mês"
+msgstr "月份"
+
+#: templates/chat.html:939
+msgid ""
+"Custo por unidade do produto final em cada mês, pelo valor contábil do mês "
+"(insumos + GGF distribuído do mês)."
+msgstr "每月最终产品的单位成本，按当月账面价值计算（投入 + 当月分摊的 GGF）。"
+
+#: templates/chat.html:940
+msgid "Custo do produto"
+msgstr "产品成本"
+
+#: templates/chat.html:941
+msgid "Demais equipamentos"
+msgstr "其他设备"
+
+#: templates/chat.html:942
+#, python-format
+msgid "cada um com menos de 1%% do custo do produto"
+msgstr "每项均低于产品成本的 1%%"
+
+#: templates/chat.html:943
+msgid "Custo por"
+msgstr "成本 每"
+
+#: templates/chat.html:944
+msgid "Total"
+msgstr "合计"
+
+#: templates/chat.html:946
+msgid "Fixo/Outros"
+msgstr "固定/其他"
+
+#: templates/chat.html:947
+msgid "Materiais consumidos"
+msgstr "所耗材料"
+
+#: templates/chat.html:948
+msgid "Subprodutos (crédito)"
+msgstr "副产品（抵减）"
+
+#: templates/chat.html:949
+msgid "GGF distribuído"
+msgstr "分摊的 GGF"
+
+#: templates/chat.html:950
+msgid "valor contábil (custo médio de estoque)"
+msgstr "账面价值（平均库存成本）"
+
+#: templates/chat.html:951
+msgid "Custo não calculado para este equipamento."
+msgstr "该设备未计算成本。"
+
+#: templates/chat.html:953
+msgid ""
+"custo por unidade produzida no equipamento (total, variável e fixo/outros)"
+msgstr "设备单位产量成本（合计、变动和固定/其他）"
+
+#: templates/chat.html:954
+msgid "Nenhuma recirculação neste equipamento no período."
+msgstr "本期该设备无回流。"
+
+#: templates/chat.html:955
+msgid ""
+"Recebe de volta: o equipamento consome um item produzido mais adiante na "
+"cadeia. Envia de volta: o item que ele produz volta para um equipamento "
+"anterior da cadeia."
+msgstr "接收回流：设备消耗链中下游生产的物料。发送回流：其生产的物料返回链中上游设备。"
+
+#: templates/chat.html:956
+msgid "Sentido"
+msgstr "方向"
+
+#: templates/chat.html:957
+msgid "Com"
+msgstr "对方"
+
+#: templates/chat.html:958
+msgid "Por unidade produzida por quem recebe"
+msgstr "按接收方单位产量"
+
+#: templates/chat.html:959
+msgid "Recebe de volta"
+msgstr "接收回流"
+
+#: templates/chat.html:960
+msgid "Envia de volta"
+msgstr "发送回流"
+
+#: templates/chat.html:961
+msgid "a própria produção"
+msgstr "自身产量"
+
+#: templates/chat.html:962
+msgid "Equipamentos do fluxo de produção"
+msgstr "生产流程设备"
+
+#: templates/chat.html:963
+msgid "total"
+msgstr "合计"
+
+#: templates/chat.html:964
+msgid "no fluxo"
+msgstr "在流程中"
+
+#: templates/chat.html:965
+msgid "fora do fluxo"
+msgstr "流程外"
+
+#: templates/chat.html:966
+msgid ""
+"Na ordem da cadeia, do mais próximo do produto final. Fundo vermelho: já está"
+" no fluxo — clique para localizar (borda vermelha no desenho); dá para "
+"localizar vários ao mesmo tempo, clique de novo para tirar o destaque de um "
+"ou numa área vazia do desenho para tirar de todos. Os demais: marque e clique"
+" em “Adicionar ao fluxo”, ou arraste para o desenho."
+msgstr ""
+"按链的顺序，离最终产品最近的在前。红色背景：已在流程中——点击可定位（图中红色边框）；可同时定位多个，再次点击可取消某个的高亮，点击图中空白处可取消全部。其他：勾选后点击“添加到流程”，或拖到图中。"
+
+#: templates/chat.html:967
+msgid "Localizar no fluxo"
+msgstr "在流程中定位"
+
+#: templates/chat.html:968
+msgid "Filtrar por código ou descrição…"
+msgstr "按代码或描述筛选…"
+
+#: templates/chat.html:969
+msgid "entrega para"
+msgstr "交付给"
+
+#: templates/chat.html:970
+msgid "Adicionar ao fluxo"
+msgstr "添加到流程"
+
+#: templates/chat.html:971
+msgid "Voltar aos iniciais"
+msgstr "恢复初始"
+
+#: templates/chat.html:972
+msgid "Tirar do desenho (volta para a lista)"
+msgstr "从图中移除（返回列表）"
+
+#: templates/chat.html:973
+msgid "Mostrar equipamentos"
+msgstr "显示设备"
+
+#: templates/chat.html:974
+msgid "Esconder equipamentos"
+msgstr "隐藏设备"
+
+#: templates/chat.html:975
+msgid "fora do desenho"
+msgstr "图外"
+
+#: templates/chat.html:976
+msgid ""
+"A linha vermelha tracejada no desenho liga este equipamento a quem envia ou "
+"recebe a recirculação (só aparece se o outro equipamento estiver no desenho)."
+msgstr "图中的红色虚线将此设备与发送或接收回流的设备相连（仅当另一设备在图中时显示）。"
+
+#: templates/chat.html:977
+msgid "Reorganizar"
+msgstr "重新排列"
+
+#: templates/chat.html:978
+msgid "Esconder valores das ligações"
+msgstr "隐藏连接数值"
+
+#: templates/chat.html:979
+msgid "Mostrar valores das ligações"
+msgstr "显示连接数值"
+
+#: templates/chat.html:980
+msgid "Equipamentos no desenho:"
+msgstr "图中设备："
+
+#: templates/chat.html:982
+msgid "Montar"
+msgstr "构建"
+
+#: templates/chat.html:983
+msgid ""
+"Monta o desenho de novo com os N equipamentos mais próximos do produto final "
+"(no empate, quem envia mais). Pode ir até o total de equipamentos do fluxo."
+msgstr "用最接近最终产品的 N 台设备重新构建图（相同时取发送量较多者）。最多可达流程的全部设备。"
+
+#: templates/chat.html:984
+msgid ""
+"Arraste os equipamentos para mudar o desenho; duplo clique numa linha cria um"
+" ponto de dobra que pode ser arrastado (duplo clique no ponto o remove)."
+msgstr "拖动设备可改变图形；双击连线可创建可拖动的折点（双击折点将其删除）。"
+
+#: templates/chat.html:985
+msgid "Duplo clique: criar um ponto de dobra nesta linha"
+msgstr "双击：在此连线上创建折点"
+
+#: templates/chat.html:986
+msgid "Arraste para mover a linha; duplo clique para remover o ponto"
+msgstr "拖动以移动连线；双击删除折点"
+
+#: templates/chat.html:988
+msgid "SP"
+msgstr "SP"
+
+#: templates/chat.html:989
+msgid "matérias-primas e subprodutos consumidos no equipamento"
+msgstr "设备中消耗的原材料和副产品"
+
+#: templates/chat.html:990
+msgid "subprodutos gerados no equipamento"
+msgstr "设备中产生的副产品"
+
+#: templates/chat.html:991
+msgid ""
+"Clique nos círculos MP, SP, RC e C de cada equipamento para ver as matérias-"
+"primas e subprodutos consumidos, os subprodutos gerados, as recirculações "
+"(material que volta na cadeia) e o custo do produto no equipamento."
+msgstr ""
+"点击每台设备的 MP、SP、RC 和 C 圆圈，可查看所消耗的原材料和副产品、所产生的副产品、回流（在链中返回的物料）以及该设备中的产品成本。"
+
+#: templates/chat.html:992
+msgid "Matérias-primas e subprodutos consumidos em"
+msgstr "消耗的原材料和副产品："
+
+#: templates/chat.html:993
+msgid "Este ano"
+msgstr "今年"
+
+#: templates/chat.html:994
+msgid "Na Tabela de Produção Mensal só existem dados até"
+msgstr "月度生产表中的数据仅截至"
+
+#: templates/chat.html:995
+msgid "Na Tabela de Produção Mensal só existem dados a partir de"
+msgstr "月度生产表中的数据仅从以下时间开始"
+
+#: templates/chat.html:996
+msgid "O fim não pode ser antes do início."
+msgstr "结束时间不能早于开始时间。"
+
+#: templates/chat.html:997
+msgid "Subprodutos gerados em"
+msgstr "产生的副产品："
+
+#: templates/chat.html:998
+msgid ""
+"Nenhuma matéria-prima ou subproduto consumido neste equipamento no período."
+msgstr "本期该设备未消耗任何原材料或副产品。"
+
+#: templates/chat.html:999
+msgid "Nenhum subproduto gerado neste equipamento no período."
+msgstr "本期该设备未产生任何副产品。"
+
+#: templates/chat.html:1000
+msgid "Item"
+msgstr "物料"
+
+#: templates/chat.html:1002
+msgid "Qtde no período"
+msgstr "期间数量"
+
+#: templates/chat.html:1003
+msgid "Por unidade produzida"
+msgstr "单位产量"
+
+#: templates/chat.html:1004
+msgid "Produção"
+msgstr "产量"
+
+#: templates/chat.html:1005
+msgid "todos os equipamentos que fazem o item"
+msgstr "生产该物料的所有设备"
+
+#: templates/chat.html:1006
+msgid "Comentário da IA"
+msgstr "人工智能评论"
+
+#: templates/chat.html:1007
+msgid "Gerando comentário..."
+msgstr "正在生成评论..."
+
+#: templates/chat.html:1008
+msgid ""
+"Texto gerado pela IA a partir dos números desta análise (só interpreta; os "
+"números exatos estão nas tabelas abaixo). Hipóteses sugeridas devem ser "
+"verificadas."
+msgstr "由人工智能根据本分析的数字生成的文字（仅作解读；准确数字见下方表格）。所提出的假设需加以核实。"
+
+#: templates/chat.html:1009
+msgid "Não foi possível obter o comentário da IA agora. Tente de novo."
+msgstr "目前无法获取人工智能评论，请重试。"
+
+#: templates/chat.html:1010
+msgid "Análise Variação Custo"
+msgstr "成本变化分析"
+
+#: templates/chat.html:1011
+msgid "Esconder análise"
+msgstr "隐藏分析"
+
+#: templates/chat.html:1013
+msgid "Período base"
+msgstr "基期"
+
+#: templates/chat.html:1014
+msgid "Período de comparação"
+msgstr "对比期"
+
+#: templates/chat.html:1015
+msgid "Recalcular"
+msgstr "重新计算"
+
+#: templates/chat.html:1016
+msgid ""
+"Sem dados mensais suficientes para a análise neste quadrado (ex.: caixa "
+"aberta pelo círculo MV ou só um mês com produção)."
+msgstr "此方框的月度数据不足以进行分析（例如：通过 MV 圆圈打开的方框或只有一个月有生产）。"
+
+#: templates/chat.html:1017
+#, python-format
+msgid ""
+"fora do gráfico: produção do mês muito pequena (menos de 1%% da mediana "
+"mensal) -- o custo por unidade sai sem significado (valores grandes divididos"
+" por quase nada). Continua na tabela e na planilha; no custo do período ele "
+"entra normalmente."
+msgstr ""
+"不在图中：当月产量极小（低于月度中位数的 1%%）——单位成本没有意义（大数值除以几乎为零）。仍保留在表格和电子表格中；在期间成本中正常计入。"
+
+#: templates/chat.html:1018
+msgid "Consumo por equipamentos à frente"
+msgstr "下游设备消耗"
+
+#: templates/chat.html:1019
+msgid "Consumido por (equipamentos do desenho)"
+msgstr "消耗方（图中设备）"
+
+#: templates/chat.html:1020
+msgid "Devolvido aos equipamentos do produto (recirculação)"
+msgstr "返回该产品设备（回流）"
+
+#: templates/chat.html:1022
+msgid "Produz"
+msgstr "生产"
+
+#: templates/chat.html:1023
+msgid "Do produto"
+msgstr "所属产品"
+
+#: templates/chat.html:1024
+msgid "Recebido por"
+msgstr "接收方"
+
+#: templates/chat.html:1025
+msgid "o próprio equipamento do produto"
+msgstr "该产品自身的设备"
+
+#: templates/chat.html:1026
+msgid ""
+"Itens feitos pelos equipamentos à frente (ou por quem vem depois deles) que "
+"voltaram a ser consumidos pelos equipamentos do produto no período."
+msgstr "本期由下游设备（或其后续设备）生产、又被该产品设备再次消耗的物料。"
+
+#: templates/chat.html:1027
+msgid ""
+"Fora do consolidado (insumo de outro produto escolhido -- senão o mesmo "
+"material entraria duas vezes)"
+msgstr "不计入合并（是另一所选产品的投入——否则同一物料会被计算两次）"
+
+#: templates/chat.html:1028
+msgid "CONSOLIDADO dos produtos"
+msgstr "产品合并"
+
+#: templates/chat.html:1029
+msgid "todos os produtos selecionados"
+msgstr "所有所选产品"
+
+#: templates/chat.html:1030
+msgid ""
+"Consolidado dos produtos escolhidos: produção somada, custo médio ponderado "
+"pela produção, MP, SP e balanço somados."
+msgstr "所选产品的合并：产量相加、按产量加权的平均成本，MP、SP 和平衡相加。"
+
+#: templates/chat.html:1031
+msgid "Disponível"
+msgstr "可用"
+
+#: templates/chat.html:1032
+msgid "Conta do balanço"
+msgstr "平衡计算"
+
+#: templates/chat.html:1033
+msgid "CONSOLIDADO"
+msgstr "已整合"
+
+#: templates/chat.html:1034
+msgid "todos os equipamentos do produto"
+msgstr "该产品的所有设备"
+
+#: templates/chat.html:1035
+msgid ""
+"Agrupamento do produto final: produção somada e custo consolidado dos "
+"equipamentos que o fazem (média ponderada pela produção)."
+msgstr "最终产品分组：生产它的设备的产量相加及合并成本（按产量加权平均）。"
+
+#: templates/chat.html:1036
+msgid "Clique para ver a evolução mensal deste item no equipamento"
+msgstr "点击查看该物料在此设备中的月度变化"
+
+#: templates/chat.html:1037
+msgid "Evolução mensal"
+msgstr "月度变化"
+
+#: templates/chat.html:1038
+msgid "Custo por unidade do item"
+msgstr "物料单位成本"
+
+#: templates/chat.html:1040
+msgid "Geração específica"
+msgstr "单位产出"
+
+#: templates/chat.html:1041
+msgid "Qtde"
+msgstr "数量"
+
+#: templates/chat.html:1042
+msgid "Produção do equipamento"
+msgstr "设备产量"
+
+#: templates/chat.html:1043
+msgid ""
+"Sem dados mensais deste item neste equipamento (ex.: equipamento aberto pelo "
+"círculo MV)."
+msgstr "该设备中没有此物料的月度数据（例如：通过 MV 圆圈打开的设备）。"
+
+#: templates/chat.html:1044
+msgid ""
+"Valor contábil médio de cada mês, neste equipamento. Consumo específico = "
+"qtde do item / produção do equipamento no mês. Só aparecem os meses em que o "
+"item foi consumido (ou gerado)."
+msgstr "该设备每月的平均账面价值。单耗 = 物料数量 / 当月设备产量。仅显示该物料被消耗（或产生）的月份。"
+
+#: templates/chat.html:1045
+msgid ""
+"Na rota, o valor de cada mês já vem ajustado pelo valor contábil da rota "
+"naquele mês (o mesmo ajuste do custo do equipamento)."
+msgstr "在路线中，每月数值已按该路线当月的账面价值调整（与设备成本的调整相同）。"
+
+#: templates/chat.html:1046
+msgid "Exportar Excel Gráfico Abaixo"
+msgstr "导出下方图表 Excel"
+
+#: templates/chat.html:1047
+msgid "Exporta os dados deste gráfico para uma planilha Excel"
+msgstr "将此图表数据导出到 Excel 表格"
+
+#: templates/chat.html:1048
+msgid "Clique para ver o balanço de entradas e saídas do equipamento"
+msgstr "点击查看设备的投入产出平衡"
+
+#: templates/chat.html:1049
+msgid "Balanço de entradas e saídas"
+msgstr "投入产出平衡"
+
+#: templates/chat.html:1050
+msgid "Entradas (consumos registrados na Produção Mensal)"
+msgstr "投入（月度生产中登记的消耗）"
+
+#: templates/chat.html:1051
+msgid "Saídas (produção e subprodutos gerados)"
+msgstr "产出（产量和产生的副产品）"
+
+#: templates/chat.html:1052
+msgid "Vem de (no desenho)"
+msgstr "来自（图中）"
+
+#: templates/chat.html:1053
+msgid "Vai para (no desenho)"
+msgstr "去向（图中）"
+
+#: templates/chat.html:1057
+msgid "MP/SP"
+msgstr "MP/SP"
+
+#: templates/chat.html:1058
+msgid "Recirculação"
+msgstr "回流"
+
+#: templates/chat.html:1059
+msgid "Fora deste desenho (outros produtos, estoque ou perdas)"
+msgstr "本图之外（其他产品、库存或损耗）"
+
+#: templates/chat.html:1060
+msgid "Produto final (saída do fluxo)"
+msgstr "最终产品（流程产出）"
+
+#: templates/chat.html:1061
+msgid "Exportar para Excel"
+msgstr "导出到 Excel"
+
+#: templates/chat.html:1062
+msgid ""
+"Exporta todo este quadro (entradas, saídas e totais) para uma planilha Excel"
+msgstr "将整个面板（投入、产出和合计）导出到 Excel 表格"
+
+#: templates/chat.html:1063
+msgid ""
+"Custo por unidade de cada item (valor contábil médio no período, neste "
+"equipamento): entradas = custo do item consumido; produto = custo do "
+"equipamento (materiais + subprodutos + GGF), o mesmo do círculo C; subproduto"
+" = crédito, negativo porque reduz o custo."
+msgstr ""
+"每项物料的单位成本（本期在该设备中的平均账面价值）：投入 = 所耗物料成本；产品 = 设备成本（材料 + 副产品 + GGF），与 C 圆圈相同；副产品 "
+"= 抵减，为负值，因为它降低成本。"
+
+#: templates/chat.html:1064
+msgid "não aparece no desenho"
+msgstr "未出现在图中"
+
+#: templates/chat.html:1065
+msgid "Totais por unidade de medida"
+msgstr "按计量单位合计"
+
+#: templates/chat.html:1067
+msgid "Entradas"
+msgstr "投入"
+
+#: templates/chat.html:1068
+msgid "Saídas"
+msgstr "产出"
+
+#: templates/chat.html:1069
+msgid "Entradas − Saídas"
+msgstr "投入 − 产出"
+
+#: templates/chat.html:1070
+msgid ""
+"Só são somados itens com a mesma unidade de medida. A diferença é o que "
+"entrou e não saiu como produto ou subproduto registrado (ou o contrário, "
+"quando negativa)."
+msgstr "仅对计量单位相同的物料求和。差额为投入后未作为已登记产品或副产品产出的部分（为负时则相反）。"
+
+#: templates/chat.html:1071
+msgid "Nenhum consumo registrado neste equipamento no período."
+msgstr "本期该设备未登记任何消耗。"
+
+#: templates/chat.html:1072
+msgid "vários grupos de máquina"
+msgstr "多个机组"
+
+#: templates/chat.html:1073
+msgid "Tela cheia"
+msgstr "全屏"
+
+#: templates/chat.html:1074
+msgid "Ajustar à tela"
+msgstr "适应屏幕"
+
+#: templates/chat.html:1076
+msgid "Roda do mouse: zoom · arrastar: mover · Esc: fechar"
+msgstr "鼠标滚轮：缩放 · 拖动：移动 · Esc：关闭"
+
+#: templates/chat.html:1077
+msgid "consumo no período (total e por unidade produzida)"
+msgstr "期间消耗（合计及单位产量）"
+
+#: templates/chat.html:1078
+msgid "produção de cada grupo de máquina"
+msgstr "各机组产量"
+
+#: templates/chat.html:1079
+msgid "Distribuição de Custo Variável do Produto"
+msgstr "产品变动成本分布"
+
+#: templates/chat.html:1080
+msgid "Custo Por Equipamento"
+msgstr "按设备成本"
+
+#: templates/chat.html:1081
+msgid "Exportar Gráfico"
+msgstr "导出图表"
+
+#: templates/chat.html:1082
+msgid "Gerando…"
+msgstr "生成中…"
+
+#: templates/chat.html:1083
+msgid "Erro ao gerar a imagem do gráfico."
+msgstr "生成图表图片时出错。"
+
+#: templates/chat.html:1084
+msgid "fluxo(s) de produção -- custo variável médio entre"
+msgstr "条生产流程——平均变动成本介于"
+
+#: templates/chat.html:1085
+msgid "e"
+msgstr "和"
+
+#: templates/chat.html:1086
+msgid "a"
+msgstr "至"
+
+#: templates/chat.html:1087
+msgid "entre"
+msgstr "介于"
+
+#: templates/chat.html:1088
+msgid "fluxo(s)"
+msgstr "条流程"
+
+#: templates/chat.html:1089
+msgid ""
+"A barra verde é a faixa do fluxo que você está analisando. Clique numa barra "
+"pra ver os fluxos dela."
+msgstr "绿色柱是您正在分析的流程所在区间。点击柱可查看其流程。"
+
+#: templates/chat.html:1090
+msgid "Clique numa barra pra ver os fluxos dela."
+msgstr "点击柱可查看其流程。"
+
+#: templates/chat.html:1091
+msgid "(inclui o fluxo em análise)"
+msgstr "（包括正在分析的流程）"
+
+#: templates/chat.html:1092
+msgid "Faixa"
+msgstr "区间"
+
+#: templates/chat.html:1093
+msgid "os de maior custo variável"
+msgstr "变动成本最高的"
+
+#: templates/chat.html:1094
+msgid "Nenhum fluxo com custo variável calculado ainda."
+msgstr "尚无已计算变动成本的流程。"
+
+#: templates/chat.html:1095
+msgid "Nenhuma contribuição de custo calculada pra esse fluxo."
+msgstr "该流程未计算成本贡献。"
+
+#: templates/chat.html:1096
+msgid ""
+"equipamento(s) na cadeia, em cascata até o custo total. Clique no código pra "
+"ver a descrição."
+msgstr "台设备在链中，逐级累计至总成本。点击代码查看描述。"
+
+#: templates/chat.html:1097
+msgid "TOTAL"
+msgstr "合计"
+
+#: templates/chat.html:1098
+msgid "(sem descrição)"
+msgstr "（无描述）"
+
+#: templates/chat.html:1100
+msgid "fluxos"
+msgstr "条流程"
+
+#: templates/chat.html:1101
+msgid "Há mais fluxos do que os mostrados: use o filtro para refinar."
+msgstr "流程多于所显示的：请使用筛选进一步缩小范围。"
+
+#: templates/chat.html:1102
+msgid "Nenhum fluxo encontrado."
+msgstr "未找到流程。"
+
+#: templates/chat.html:1103
+msgid "Filtro"
+msgstr "筛选"
+
+#: templates/chat.html:1108
+msgid "Delta (B − A)"
+msgstr "差值 (B − A)"
+
+#: templates/chat.html:1109
+msgid "Detalhar"
+msgstr "详情"
+
+#: templates/chat.html:1110
+msgid "Ocultar"
+msgstr "隐藏"
+
+#: templates/chat.html:1111
+msgid "Custo do fluxo (média dos períodos)"
+msgstr "流程成本（各期平均）"
+
+#: templates/chat.html:1112
+msgid "Período a período"
+msgstr "逐期"
+
+#: templates/chat.html:1114
+msgid "Output real"
+msgstr "实际产出"
+
+#: templates/chat.html:1115
+msgid "Custo da ordem"
+msgstr "订单成本"
+
+#: templates/chat.html:1116
+msgid "Custo no fluxo"
+msgstr "流程中的成本"
+
+#: templates/chat.html:1118
+msgid "mesma ordem nos dois fluxos: os consumos específicos são iguais"
+msgstr "两个流程中订单相同：单耗相同"
+
+#: templates/chat.html:1121
+msgid "custo indisponível"
+msgstr "成本不可用"
+
+#: templates/chat.html:1122
+msgid "Diferença do custo do fluxo (B − A)"
+msgstr "流程成本差异 (B − A)"
+
+#: templates/chat.html:1123
+msgid ""
+"Ordem = ordem(ns) de produção do equipamento naquela coluna do fluxo (1/2 = "
+"duas ordens na mesma coluna); a diferença entre os fluxos costuma ser a "
+"ordem. Valor = soma, das ordens, de output real (dau_valor_4 do I/O) × custo "
+"variável adicionado da ordem, em média dos períodos. Delta = B − A (o que um "
+"fluxo não tem conta como zero). A comparação parte do último equipamento do "
+"fluxo. ▲ B maior · ▼ B menor · = igual · fundo amarelo = ordem ou coluna "
+"diferente."
+msgstr ""
+"订单 = 该流程此列中设备的生产订单（1/2 = 同一列中有两个订单）；流程之间的差异通常在于订单。数值 = 各订单的实际产出（I/O 的 "
+"dau_valor_4）× 订单附加变动成本之和，按各期平均。差值 = B − A（某流程没有的项按零计）。比较从流程的最后一台设备开始。▲ B 较大 ·"
+" ▼ B 较小 · = 相等 · 黄色背景 = 订单或列不同。"

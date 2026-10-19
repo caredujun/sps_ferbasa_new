@@ -28,6 +28,8 @@ from .fluxo_criar_cenario import (
     iniciar_fluxo_custo_variavel_fluxo,
     iniciar_fluxo_montar_fluxo_producao_mensal,
     iniciar_fluxo_balanco_subprodutos,
+    iniciar_fluxo_analise_resultados,
+    iniciar_fluxo_sensibilidade,
     eh_pedido_outra_visao_fpm, abrir_outra_visao_fpm,
     iniciar_fluxo_criar_equipamento,
     iniciar_fluxo_criar_ordem,
@@ -319,6 +321,16 @@ def _detectar_intencao_criar_equipamento(mensagem):
 # e ggf mencionados juntos, em qualquer ordem, ou o nome da categoria).
 # 🌟 NOVO: "Custo Ferbasa - Montar Fluxo de Produção pela Produção Mensal" (só consulta). Exige "montar" + "fluxo" +
 # "produção mensal" -- checado ANTES dos outros detectores de Custo Ferbasa.
+def _detectar_intencao_sensibilidade(mensagem):
+    """🌟 NOVO (18/10/2026): "Cenário - Sensibilidade Custo x Produtividade"."""
+    return bool(re.search(r'sensibilidade.{0,20}custo|custo\s*x\s*produtividade', mensagem or "", re.IGNORECASE))
+
+
+def _detectar_intencao_analise_resultados(mensagem):
+    """🌟 NOVO (18/10/2026): "Cenário - Análise de Resultados" (texto do menu ou variações)."""
+    return bool(re.search(r'an[aá]lise\s+(dos?\s+|de\s+)?resultados?', mensagem or "", re.IGNORECASE))
+
+
 def _detectar_intencao_balanco_subprodutos(mensagem):
     """🌟 NOVO (17/10/2026): "Custo Ferbasa - Fluxo/Balanço de Subprodutos" (texto do menu ou variações)."""
     return bool(re.search(r'(fluxo|balan[cç]o)\W{0,3}(/\W{0,3}balan[cç]o\W+)?(dos?|de)\s+subprodutos?', mensagem or "", re.IGNORECASE))
@@ -1267,6 +1279,22 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
         _salvar_historico(usuario, mensagem_usuario, resposta)
         return resposta, []
 
+    # 🌟 NOVO (18/10/2026): Sensibilidade Custo x Produtividade (Cenário) -- só consulta.
+    if _detectar_intencao_sensibilidade(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Cenário', 'sensibilidade_custo_produtividade'):
+        if esta_em_fluxo:
+            cancelar_fluxo_ativo(usuario)
+        resposta = iniciar_fluxo_sensibilidade(usuario)
+        _salvar_historico(usuario, mensagem_usuario, resposta)
+        return resposta, []
+
+    # 🌟 NOVO (18/10/2026): Análise de Resultados do cenário ativo (Cenário) -- só consulta.
+    if _detectar_intencao_analise_resultados(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Cenário', 'analise_resultados'):
+        if esta_em_fluxo:
+            cancelar_fluxo_ativo(usuario)
+        resposta = iniciar_fluxo_analise_resultados(usuario)
+        _salvar_historico(usuario, mensagem_usuario, resposta)
+        return resposta, []
+
     # 🌟 NOVO (17/10/2026): Fluxo/Balanço de Subprodutos (Custo Ferbasa) -- só consulta.
     if _detectar_intencao_balanco_subprodutos(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Custo Ferbasa', 'fluxo_balanco_subprodutos'):
         if esta_em_fluxo:
@@ -1800,10 +1828,70 @@ INSTRUCAO_COMENTARIO_ANALISE_CUSTO = (
 )
 
 
+# 🌟 NOVO (18/10/2026): comentário da IA na "Análise de Resultados" do cenário (mesmo mecanismo: a tela manda um resumo
+# pequeno, em JSON, na mensagem "[COMENTARIO_ANALISE_RESULTADOS:base64]").
+PADRAO_COMENTARIO_ANALISE_RESULTADOS = re.compile(r'^\[COMENTARIO_ANALISE_RESULTADOS:([A-Za-z0-9+/=_-]+)\]\s*$', re.DOTALL)
+INSTRUCAO_COMENTARIO_ANALISE_RESULTADOS = (
+    "Você é um consultor sênior de planejamento industrial e otimização de margem. Você recebe um JSON com o resultado "
+    "de um cenário otimizado pelo Simplex (programação linear que maximiza a MARGEM DE CONTRIBUIÇÃO TOTAL -- MCT -- em "
+    "cada período, respeitando capacidade dos equipamentos, limites de vendas por produto e por produto/mercado e limites "
+    "de consumo de insumos), somado do primeiro ao último período: o resumo financeiro, os produtos/mercados que mais "
+    "geram margem (total, por unidade e por hora -- CMH), os equipamentos (ocupação, margem que passa por eles e o PREÇO "
+    "SOMBRA da hora), e as restrições ativas com o preço sombra (quanto a MCT aumenta com 1 unidade a mais no máximo, ou "
+    "a menos no mínimo) e o ganho potencial estimado dentro da faixa de validade.\n\n"
+    "Escreva em português do Brasil, em no máximo 450 palavras, em markdown simples (parágrafos curtos e listas com '- '):\n"
+    "1. **Resumo executivo**: MCT, o que mais gera margem e o que mais limita o resultado.\n"
+    "2. **Gargalos e investimentos**: equipamentos no limite e o valor da hora; o que priorizar.\n"
+    "3. **Mercados e contratos**: limites máximos que seguram a margem e mínimos obrigatórios que custam margem.\n"
+    "4. **Insumos**: limitações de disponibilidade ou exigências de consumo mínimo que prejudicam o resultado.\n"
+    "5. **O que analisar primeiro**: 3 a 6 itens em ordem de impacto.\n\n"
+    "REGRAS OBRIGATÓRIAS: use SOMENTE os números do JSON, exatamente como estão (não recalcule nem invente números). O "
+    "preço sombra é marginal e vale só dentro da faixa: diga que o ganho é uma estimativa. A margem que passa por um "
+    "equipamento NÃO é somável entre equipamentos (o mesmo produto passa por vários). Não afirme causas externas como fato: "
+    "se sugerir, diga que é hipótese a verificar. Os valores do JSON JÁ VÊM FORMATADOS no padrão brasileiro, com a moeda "
+    "(ex.: 'R$ 4.226.557.500', 'R$ 2.553,00/h', '100,0%'): copie-os EXATAMENTE como estão, com o símbolo da moeda e os "
+    "separadores de milhar; nunca escreva um número sem separador nem a moeda pela metade. Se usar tabela, use tabela "
+    "markdown simples (| coluna | coluna |) com no máximo 5 colunas."
+)
+
+
+PADRAO_COMENTARIO_SENSIBILIDADE = re.compile(r'^\[COMENTARIO_SENSIBILIDADE:([A-Za-z0-9+/=_-]+)\]\s*$', re.DOTALL)
+INSTRUCAO_COMENTARIO_SENSIBILIDADE = (
+    "Você é um consultor sênior de planejamento industrial. Você recebe um JSON com uma análise de sensibilidade feita "
+    "com o MESMO modelo de programação linear (Simplex) que maximiza a MARGEM DE CONTRIBUIÇÃO TOTAL (MCT) do cenário: o "
+    "custo variável ACUMULADO ATÉ um equipamento, inclusive (o adicionado por ele mais o de tudo que os equipamentos "
+    "upstream mandam para ele no fluxo), foi variado (delta_custo, %) junto com a produtividade dele "
+    "(delta_produtividade, %) e, para cada combinação, o modelo foi otimizado de novo em todos os períodos (o mix pode "
+    "mudar). Combinações 'sem solução' são aquelas em que os limites mínimos do cenário (venda mínima, produção mínima, "
+    "ocupação mínima) não cabem na nova capacidade: elas NÃO têm margem; limites_minimos_que_nao_cabem diz quais mínimos "
+    "faltam e a partir de que produtividade, e variacao_mct_descumprindo_minimos é só a referência se a empresa aceitar "
+    "não cumprir esses mínimos. Vem a MCT base, a ocupação base do equipamento, a curva de equilíbrio (para cada variação de produtividade, a "
+    "variação de custo em que a MCT fica igual à base) e as combinações principais com a variação da MCT.\n\n"
+    "Escreva em português do Brasil, em no máximo 400 palavras, em markdown simples:\n"
+    "1. **Resumo**: o equipamento é gargalo ou tem folga? O que pesa mais na margem: custo ou produtividade?\n"
+    "2. **Reduzir custo perdendo produtividade**: até quanto de perda de produtividade compensa cada redução de custo.\n"
+    "3. **Aumentar custo para ganhar produtividade**: até quanto de aumento de custo compensa cada ganho de produtividade.\n"
+    "4. **Limites mínimos** (só se houver combinações sem solução): quais mínimos deixam de caber e a partir de que perda "
+    "de produtividade.\n"
+    "5. **Recomendação e cuidados**.\n\n"
+    "REGRAS OBRIGATÓRIAS: use SOMENTE os números do JSON, exatamente como estão (já vêm formatados, com a moeda e os "
+    "separadores: copie assim). O custo fixo NÃO está na MCT: se a mudança altera custo fixo, diga que isso deve ser "
+    "somado à parte. Não invente causas técnicas: se sugerir, diga que é hipótese a verificar."
+)
+
+
 def _comentario_analise_custo(mensagem_usuario, usuario):
-    """Devolve o texto do comentário da IA (ou uma mensagem de erro curta). Ver PADRAO_COMENTARIO_ANALISE_CUSTO."""
+    """Devolve o texto do comentário da IA (ou uma mensagem de erro curta). Ver PADRAO_COMENTARIO_ANALISE_CUSTO e
+    PADRAO_COMENTARIO_ANALISE_RESULTADOS (mesma função, instrução diferente)."""
     import base64
+    instrucao = INSTRUCAO_COMENTARIO_ANALISE_CUSTO
     m = PADRAO_COMENTARIO_ANALISE_CUSTO.match(mensagem_usuario or '')
+    if not m:
+        m = PADRAO_COMENTARIO_ANALISE_RESULTADOS.match(mensagem_usuario or '')
+        instrucao = INSTRUCAO_COMENTARIO_ANALISE_RESULTADOS
+    if not m:
+        m = PADRAO_COMENTARIO_SENSIBILIDADE.match(mensagem_usuario or '')
+        instrucao = INSTRUCAO_COMENTARIO_SENSIBILIDADE
     try:
         bruto = m.group(1)
         bruto += '=' * (-len(bruto) % 4)
@@ -1819,7 +1907,7 @@ def _comentario_analise_custo(mensagem_usuario, usuario):
         response = client.chat.completions.create(
             model="openai/gpt-oss-120b",
             messages=[
-                {"role": "system", "content": INSTRUCAO_COMENTARIO_ANALISE_CUSTO},
+                {"role": "system", "content": instrucao},
                 {"role": "user", "content": texto_json},
             ],
             temperature=0.2,
@@ -1856,7 +1944,8 @@ def executar_agente_com_prompt_do_admin(mensagem_usuario: str, pdf_ids: list, us
     texto TRADUZIDO só pra mostrar na tela.
     """
     # 🌟 NOVO (16/10/2026): comentário da IA na análise da variação do custo -- direto, sem histórico nem detectores
-    if PADRAO_COMENTARIO_ANALISE_CUSTO.match(mensagem_usuario or ''):
+    if (PADRAO_COMENTARIO_ANALISE_CUSTO.match(mensagem_usuario or '') or PADRAO_COMENTARIO_ANALISE_RESULTADOS.match(mensagem_usuario or '')
+            or PADRAO_COMENTARIO_SENSIBILIDADE.match(mensagem_usuario or '')):
         texto = _comentario_analise_custo(mensagem_usuario, usuario)
         perfil_c = getattr(usuario, 'perfilusuario', None)
         idioma_c = perfil_c.idioma_efetivo() if perfil_c else None

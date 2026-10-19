@@ -224,5 +224,29 @@ def exportar_excel_tbprodutomercadofluxo_celery(lista_id, user_mail):
     #print('Enviando e-mail')
 
 
+# ---------------------------------------------------------------------------------------------------------------
+# 🌟 NOVO (18/10/2026): análises do cenário ativo pedidas pelo Agente IA (chat). Rodam aqui, em segundo plano (no Heroku
+# uma requisição de mais de 30 s derruba o sistema). O resultado (texto da resposta do chat, com o quadro) fica no
+# resultado da task; o chat sonda e mostra quando terminar (etapa 'cfx_processando' em parameters/fluxo_criar_cenario.py).
+#   - Análise de Resultados: otimizacao/analise_resultados.py (lê as tabelas preenchidas por Otimizar / Consolidar)
+#   - Sensibilidade Custo x Produtividade: otimizacao/sensibilidade.py (o mesmo modelo do Otimizar --
+#     parameters.tasks.otimizar_cenario_celery -- resolvido de novo com scipy.optimize.linprog, method='highs')
+# ---------------------------------------------------------------------------------------------------------------
+@shared_task(bind=True)
+def analise_resultados_chat_celery(self, usuario_id, dados):
+    import time as _time
+    from parameters.fluxo_criar_cenario import montar_analise_otimizacao_em_segundo_plano
+    comeco = _time.time()
+    resposta = montar_analise_otimizacao_em_segundo_plano(usuario_id, 'analise_resultados', dados)
+    print(f"[otimizacao][analise_resultados] pronta em {_time.time() - comeco:.1f}s ({len(resposta or '')} caracteres)")
+    return resposta
 
 
+@shared_task(bind=True)
+def sensibilidade_custo_produtividade_chat_celery(self, usuario_id, dados):
+    import time as _time
+    from parameters.fluxo_criar_cenario import montar_analise_otimizacao_em_segundo_plano
+    comeco = _time.time()
+    resposta = montar_analise_otimizacao_em_segundo_plano(usuario_id, 'sensibilidade', dados)
+    print(f"[otimizacao][sensibilidade] pronta em {_time.time() - comeco:.1f}s ({len(resposta or '')} caracteres)")
+    return resposta

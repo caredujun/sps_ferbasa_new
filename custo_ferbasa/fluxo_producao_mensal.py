@@ -1881,16 +1881,26 @@ def subprodutos_com_geracao(empresa_id):
     return sorted(por_codigo.values(), key=lambda r: (r['descricao'].lower(), r['codigo']))
 
 
-def montar_fluxo_subprodutos(linhas, itens_producao, itens_consumo, codigos, pct_var_ggf=None):
-    """Função pura (sem banco). linhas: as da Produção Mensal do período (com 'grupo'), como em montar_grafo."""
+def montar_fluxo_subprodutos(linhas, itens_producao, itens_consumo, codigos, pct_var_ggf=None, ggf_linhas=None):
+    """Função pura (sem banco). linhas: as da Produção Mensal do período (com 'grupo'), como em montar_grafo.
+    🌟 ALTERADO (18/10/2026): + CUSTO (valor contábil, total e variável -- mesma conta de montar_grafo):
+      geração  = crédito dado a quem gerou ((material + GGF do item) x qtde gerada; variável = material + a parte
+                 variável do GGF pelo % variável do item);
+      consumo  = valor cobrado de quem consumiu (mesma conta);
+      produção = custo de quem FABRICA o item: todos os consumos do equipamento (linhas com produção, créditos de
+                 subprodutos incluídos) + GGF distribuído das ordens com produção -- como no Montar Fluxo."""
     pct_var_ggf = pct_var_ggf or {}
     codigos = set(codigos)
     producao = defaultdict(float)
     ja_contado = set()
     grupos = {}
-    # op -> código -> [qtde gerada, valor gerado, qtde consumida, valor consumido]   (valores com sinal trocado na geração)
-    mov = defaultdict(lambda: defaultdict(lambda: [0.0, 0.0, 0.0, 0.0]))
-    principais = defaultdict(lambda: defaultdict(float))      # op -> id item consumido -> qtde (> 0)
+    # op -> código -> [qtde gerada, total gerado, variável gerado, qtde consumida, total consumido, variável consumido]
+    # (na geração, os valores com o sinal trocado: crédito positivo)
+    mov = defaultdict(lambda: defaultdict(lambda: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
+    custo_op = defaultdict(lambda: [0.0, 0.0])          # op -> [total, variável] de tudo o que consumiu (com produção)
+    ordens = defaultdict(set)
+    cons_op = defaultdict(lambda: defaultdict(float))   # op -> id item consumido -> qtde líquida (negativa = gerado)
+    val_op = defaultdict(lambda: defaultdict(lambda: [0.0, 0.0]))   # op -> id item consumido -> [total, variável]
     for l in linhas:
         op = (l['pro_men_item_producao_id'], l['pro_men_grupo_maquina_id'])
         grupos[op[1]] = l.get('grupo') or {'codigo': str(op[1]), 'nome': ''}
@@ -1900,28 +1910,43 @@ def montar_fluxo_subprodutos(linhas, itens_producao, itens_consumo, codigos, pct
         if chave_prod not in ja_contado:
             ja_contado.add(chave_prod)
             producao[op] += qp
-        cid = l['pro_men_item_consumo_id']
-        ic = itens_consumo[cid]
+        ic = itens_consumo[l['pro_men_item_consumo_id']]
         qtd = _num(l['pro_men_qtde_consumo'])
-        if qtd > 0:
-            principais[op][cid] += qtd
+        cons_op[op][l['pro_men_item_consumo_id']] += qtd
+        total = variavel = 0.0
+        if qp > 0:      # como no custo (procedure): só linhas com produção têm valor
+            material, ggf = _num(l.get('pro_men_valor_material')), _num(l.get('pro_men_valor_ggf'))
+            pct = pct_var_ggf.get(ic['codigo'], 0.0) if ggf > 0 else 0.0
+            total = (material + ggf) * qtd
+            variavel = material * qtd + ggf * qtd * (pct if pct > 0 else 0.0) / 100.0
+            custo_op[op][0] += total
+            custo_op[op][1] += variavel
+            val_op[op][l['pro_men_item_consumo_id']][0] += total
+            val_op[op][l['pro_men_item_consumo_id']][1] += variavel
+            ordens[op].add((l['pro_men_ano_mes'], l['pro_men_ordem_producao']))
         if ic['codigo'] not in codigos or qtd == 0:
             continue
-        valor = 0.0
-        if qp > 0:      # como no custo (procedure): só linhas com produção têm valor
-            valor = (_num(l.get('pro_men_valor_material')) + _num(l.get('pro_men_valor_ggf'))) * qtd
         reg = mov[op][ic['codigo']]
         if qtd < 0:
             reg[0] += -qtd
-            reg[1] += -valor
+            reg[1] += -total
+            reg[2] += -variavel
         else:
-            reg[2] += qtd
-            reg[3] += valor
+            reg[3] += qtd
+            reg[4] += total
+            reg[5] += variavel
+    # GGF distribuído (só interessa a quem fabrica algum subproduto escolhido)
+    for g in ggf_linhas or []:
+        op = (g['item_id'], g['grupo_id'])
+        if (g['ano_mes'], g['ordem']) in ordens.get(op, ()):
+            v = _num(g['valor'])
+            custo_op[op][0] += v
+            custo_op[op][1] += _parte_variavel_ggf(v, g.get('tipo'), g.get('percentual'))
 
     def equip(op):
         g, prod = grupos[op[1]], itens_producao[op[0]]
         return {'grupo': g['codigo'], 'grupo_nome': g['nome'], 'vazio': (g['codigo'] or '').strip().upper() == GRUPO_VAZIO,
-                'produto': prod['codigo'], 'descricao': prod['descricao']}
+                'produto': prod['codigo'], 'descricao': prod['descricao'], 'nid': f"op:{op[0]}:{op[1]}"}
 
     info = {}
     for ic in itens_consumo.values():
@@ -1932,49 +1957,50 @@ def montar_fluxo_subprodutos(linhas, itens_producao, itens_consumo, codigos, pct
         c = itens_producao[op[0]]['codigo']
         if c in codigos:
             ops_por_codigo[c].append(op)
+            if c not in info:
+                info[c] = {'codigo': c, 'descricao': itens_producao[op[0]]['descricao'], 'unidade': itens_producao[op[0]]['unidade']}
 
-    itens = []
+    itens, por_codigo_ops = [], {}
     for codigo in codigos:
         if codigo not in info:
             continue
-        ger, con = [], []
+        ger, con, prod = [], [], []
         for op, porc in mov.items():
             r = porc.get(codigo)
             if not r:
                 continue
             if r[0] > 1e-12:
-                ger.append(dict(equip(op), qtd=r[0], valor=r[1]))
-            if r[2] > 1e-12:
-                con.append(dict(equip(op), qtd=r[2], valor=r[3]))
-        prod = []
+                ger.append(dict(equip(op), qtd=r[0], valor=r[1], variavel=r[2], _op=op))
+            if r[3] > 1e-12:
+                con.append(dict(equip(op), qtd=r[3], valor=r[4], variavel=r[5], _op=op))
         for op in ops_por_codigo.get(codigo, []):
-            if producao[op] <= 0:
-                continue
-            top = sorted(principais[op].items(), key=lambda kv: -kv[1])[:3]
-            prod.append(dict(equip(op), qtd=producao[op],
-                             consome=[{'codigo': itens_consumo[c]['codigo'], 'descricao': itens_consumo[c]['descricao'],
-                                       'unidade': itens_consumo[c]['unidade'], 'qtd': q} for c, q in top]))
+            if producao[op] > 0:
+                prod.append(dict(equip(op), qtd=producao[op], valor=custo_op[op][0], variavel=custo_op[op][1],
+                                 produziu=True, _op=op))
         for lst in (ger, con, prod):
             lst.sort(key=lambda r: -r['qtd'])
-        gerado, produzido, consumido = sum(r['qtd'] for r in ger), sum(r['qtd'] for r in prod), sum(r['qtd'] for r in con)
+        soma = lambda lst, k: sum(r[k] for r in lst)
+        gerado, produzido, consumido = soma(ger, 'qtd'), soma(prod, 'qtd'), soma(con, 'qtd')
         ic = info[codigo]
+        por_codigo_ops[codigo] = (ger, con, prod)
+        sem_op = lambda lst: [{k: v for k, v in r.items() if k != '_op'} for r in lst[:MAX_EQUIP_SUBPRODUTO]]
         itens.append({
             'codigo': codigo, 'descricao': ic['descricao'] or '', 'unidade': ic['unidade'] or '',
-            'gerado': gerado, 'credito': sum(r['valor'] for r in ger),
-            'produzido': produzido,
-            'consumido': consumido, 'cobrado': sum(r['valor'] for r in con),
+            'gerado': gerado, 'credito': soma(ger, 'valor'), 'credito_variavel': soma(ger, 'variavel'),
+            'produzido': produzido, 'custo_producao': soma(prod, 'valor'), 'custo_producao_variavel': soma(prod, 'variavel'),
+            'consumido': consumido, 'cobrado': soma(con, 'valor'), 'cobrado_variavel': soma(con, 'variavel'),
             'saldo': gerado + produzido - consumido,
-            'geradores': ger[:MAX_EQUIP_SUBPRODUTO], 'geradores_n': len(ger),
-            'produtores': prod[:MAX_EQUIP_SUBPRODUTO], 'produtores_n': len(prod),
-            'consumidores': con[:MAX_EQUIP_SUBPRODUTO], 'consumidores_n': len(con),
+            'geradores': sem_op(ger), 'geradores_n': len(ger),
+            'produtores': sem_op(prod), 'produtores_n': len(prod),
+            'consumidores': sem_op(con), 'consumidores_n': len(con),
         })
     itens.sort(key=lambda r: (str(r['descricao']).lower(), r['codigo']))
 
-    # 🌟 ALTERADO (17/10/2026): o DESENHO no mesmo formato do Montar Fluxo (nós + ligações), para usar o mesmo desenho
-    # (zoom, arrastar, tela cheia, lista de equipamentos, quantidade e consumo específico nas ligações):
-    #   equipamento que GEROU  --(subproduto: qtde gerada, gerado/produção do equipamento)-->  caixa do SUBPRODUTO
-    #   equipamento que PRODUZIU --(producao: qtde produzida)-->                               caixa do SUBPRODUTO
-    #   caixa do SUBPRODUTO --(consumo: qtde consumida, consumido/produção do equipamento)-->   equipamento que CONSUMIU
+    # 🌟 O DESENHO no mesmo formato do Montar Fluxo (nós + ligações), para usar o mesmo desenho:
+    #   quem GEROU   --(subproduto: qtde gerada, gerado/produção do equipamento)-->   caixa do SUBPRODUTO
+    #   quem PRODUZIU --(producao: qtde produzida)-->                                 caixa do SUBPRODUTO
+    #   caixa do SUBPRODUTO --(consumo: qtde consumida, consumido/produção do equipamento)-->   quem CONSUMIU
+    # Cada equipamento leva o que GEROU / PRODUZIU / CONSUMIU de cada subproduto ('papeis', com o custo -- círculo C).
     nos, arestas = {}, []
 
     def no_op(op):
@@ -1983,7 +2009,7 @@ def montar_fluxo_subprodutos(linhas, itens_producao, itens_consumo, codigos, pct
             g, prod = grupos[op[1]], itens_producao[op[0]]
             nos[nid] = {'id': nid, 'tipo': 'op', 'final': False, 'grupo_codigo': g['codigo'], 'grupo_nome': g['nome'],
                         'item_codigo': prod['codigo'], 'item_descricao': prod['descricao'], 'unidade': prod['unidade'],
-                        'producao': producao.get(op, 0.0)}
+                        'producao': producao.get(op, 0.0), 'papeis': []}
         return nid
 
     def esp(q, op):
@@ -1992,53 +2018,70 @@ def montar_fluxo_subprodutos(linhas, itens_producao, itens_consumo, codigos, pct
 
     for idx, r in enumerate(itens):
         codigo, u = r['codigo'], r['unidade']
+        ger, con, prod = por_codigo_ops[codigo]
         sid = f"item:SUB:{codigo}"
         nos[sid] = {'id': sid, 'tipo': 'item', 'subproduto': True, 'idx': idx, 'item_codigo': codigo,
                     'item_descricao': r['descricao'], 'unidade': u, 'producao': r['gerado'] + r['produzido'],
                     'gerado': r['gerado'], 'produzido': r['produzido'], 'consumido': r['consumido'], 'saldo': r['saldo'],
-                    'membros': []}
-        for op, porc in mov.items():
-            m = porc.get(codigo)
-            if not m:
-                continue
+                    'membros': [],
+                    'cg': {'qtd': r['gerado'], 'total': r['credito'], 'variavel': r['credito_variavel']},
+                    'cp': {'qtd': r['produzido'], 'total': r['custo_producao'], 'variavel': r['custo_producao_variavel']},
+                    'cc': {'qtd': r['consumido'], 'total': r['cobrado'], 'variavel': r['cobrado_variavel']}}
+        for e in ger:
+            op = e['_op']
             u_op = itens_producao[op[0]]['unidade']
-            # 🌟 ALTERADO (17/10/2026): cada caixa de equipamento leva o que ela GEROU / CONSUMIU de cada subproduto
-            # ('papeis'), para o desenho dizer onde o subproduto foi gerado e onde foi consumido.
-            if m[0] > 1e-12:
-                arestas.append({'de': no_op(op), 'para': sid, 'tipo': 'subproduto', 'qtd': m[0], 'unidade': u,
-                                'especifico': esp(m[0], op), 'unidade_esp': f"{u}/{u_op}"})
-                nos[no_op(op)].setdefault('papeis', []).append({'tipo': 'gerou', 'codigo': codigo, 'qtd': m[0], 'unidade': u})
-            if m[2] > 1e-12:
-                arestas.append({'de': sid, 'para': no_op(op), 'tipo': 'consumo', 'qtd': m[2], 'unidade': u,
-                                'especifico': esp(m[2], op), 'unidade_esp': f"{u}/{u_op}"})
-                nos[no_op(op)].setdefault('papeis', []).append({'tipo': 'consumiu', 'codigo': codigo, 'qtd': m[2], 'unidade': u})
-        # 🌟 ALTERADO (17/10/2026): quem FABRICA o item (produção com o mesmo código) NÃO entra no desenho -- o desenho é
-        # da geração e do consumo do subproduto. A produção fica na linha "Produzido" da caixa e em "Quem produziu" do balanço.
+            arestas.append({'de': no_op(op), 'para': sid, 'tipo': 'subproduto', 'qtd': e['qtd'], 'unidade': u,
+                            'especifico': esp(e['qtd'], op), 'unidade_esp': f"{u}/{u_op}"})
+            nos[no_op(op)]['papeis'].append({'tipo': 'gerou', 'codigo': codigo, 'qtd': e['qtd'], 'unidade': u,
+                                             'total': e['valor'], 'variavel': e['variavel']})
+        for e in prod:
+            op = e['_op']
+            arestas.append({'de': no_op(op), 'para': sid, 'tipo': 'producao', 'qtd': e['qtd'], 'unidade': u,
+                            'especifico': None, 'unidade_esp': ''})
+            nos[no_op(op)]['papeis'].append({'tipo': 'produziu', 'codigo': codigo, 'qtd': e['qtd'], 'unidade': u,
+                                             'total': e['valor'], 'variavel': e['variavel']})
+        for e in con:
+            op = e['_op']
+            u_op = itens_producao[op[0]]['unidade']
+            arestas.append({'de': sid, 'para': no_op(op), 'tipo': 'consumo', 'qtd': e['qtd'], 'unidade': u,
+                            'especifico': esp(e['qtd'], op), 'unidade_esp': f"{u}/{u_op}"})
+            nos[no_op(op)]['papeis'].append({'tipo': 'consumiu', 'codigo': codigo, 'qtd': e['qtd'], 'unidade': u,
+                                             'total': e['valor'], 'variavel': e['variavel']})
+    # 🌟 NOVO (18/10/2026): de cada equipamento do desenho, o que entrou e saiu (cx) e o custo por unidade -- o mesmo do
+    # Montar Fluxo, para o link "Produção:" (balanço de entradas e saídas, com o custo de cada item)
+    for nid, no in nos.items():
+        if no['tipo'] != 'op':
+            continue
+        op = (int(nid.split(':')[1]), int(nid.split(':')[2]))
+        ins, sub = {}, {}
+        for cid, qtd in cons_op[op].items():
+            if abs(qtd) < 1e-12:
+                continue
+            ic = itens_consumo[cid]
+            t, v = val_op[op].get(cid, (0.0, 0.0))
+            r = (ins if qtd > 0 else sub).setdefault(ic['codigo'], [ic['codigo'], 0.0, 0.0, 0.0, ic.get('descricao') or '', ic.get('unidade') or ''])
+            r[1] += abs(qtd)
+            r[2] += t
+            r[3] += v
+        p = producao.get(op, 0.0)
+        no['cx'] = {'p': p, 's': [custo_op[op][0], custo_op[op][1]], 'i': list(ins.values()), 'g': list(sub.values())}
+        no['custo'] = {'producao': p, 'unit_total': custo_op[op][0] / p if p > 0 else 0.0,
+                       'unit_variavel': custo_op[op][1] / p if p > 0 else 0.0}
     return {'tipo_fluxo': 'subprodutos', 'itens': itens, 'nos': list(nos.values()), 'arestas': arestas,
             'equipamentos_iniciais': EQUIPAMENTOS_INICIAIS_SUBPRODUTOS}
 
 
 def carregar_fluxo_subprodutos(empresa_id, codigos, ano_mes_inicio, ano_mes_fim):
-    """Lê a Produção Mensal do período (empresa inteira) e monta o fluxo/balanço dos subprodutos (sem GGF distribuído:
-    os valores vêm das próprias linhas, como no custo)."""
-    from .models import TbItensProducao, TbItensConsumo, TbGruposMaquinas
-    linhas = list(producao_mensal_da_empresa(empresa_id)
-                  .filter(pro_men_ano_mes__gte=ano_mes_inicio, pro_men_ano_mes__lte=ano_mes_fim)
-                  .order_by()
-                  .values('pro_men_ano_mes', 'pro_men_estabelecimento_id', 'pro_men_grupo_maquina_id',
-                          'pro_men_ordem_producao', 'pro_men_item_producao_id', 'pro_men_qtde_produzida',
-                          'pro_men_item_consumo_id', 'pro_men_qtde_consumo',
-                          'pro_men_valor_material', 'pro_men_valor_ggf'))
-    ids_prod = {l['pro_men_item_producao_id'] for l in linhas}
-    ids_cons = {l['pro_men_item_consumo_id'] for l in linhas}
-    ids_grupo = {l['pro_men_grupo_maquina_id'] for l in linhas}
-    itens_producao = {i['id']: {'codigo': i['ite_pro_codigo'], 'descricao': i['ite_pro_descricao'], 'unidade': i['ite_pro_unidade']}
-                      for i in TbItensProducao.objects.filter(id__in=ids_prod).values('id', 'ite_pro_codigo', 'ite_pro_descricao', 'ite_pro_unidade')}
-    itens_consumo = {i['id']: {'codigo': i['ite_con_codigo'], 'descricao': i['ite_con_descricao'], 'unidade': i['ite_con_unidade'],
-                               'tipo': i['ite_con_tipo']}
-                     for i in TbItensConsumo.objects.filter(id__in=ids_cons).values('id', 'ite_con_codigo', 'ite_con_descricao', 'ite_con_unidade', 'ite_con_tipo')}
-    grupos = {g['id']: {'codigo': g['gru_maq_codigo'], 'nome': g['gru_maq_nome']}
-              for g in TbGruposMaquinas.objects.filter(id__in=ids_grupo).values('id', 'gru_maq_codigo', 'gru_maq_nome')}
-    for l in linhas:
-        l['grupo'] = grupos.get(l['pro_men_grupo_maquina_id'])
-    return montar_fluxo_subprodutos(linhas, itens_producao, itens_consumo, codigos)
+    """Lê a Produção Mensal do período (empresa inteira), o GGF distribuído e o % variável -- os mesmos dados do Montar
+    Fluxo -- e monta o fluxo/balanço dos subprodutos.
+    🌟 ALTERADO (18/10/2026): + evolução mensal de cada equipamento do desenho (custo da produção e cada item consumido /
+    gerado), para os links de evolução dos quadros de custo e do "Produção:"."""
+    linhas, itens_producao, itens_consumo, ggf_linhas, pct_var_ggf = _carregar_periodo(empresa_id, [], ano_mes_inicio, ano_mes_fim)
+    grafo = montar_fluxo_subprodutos(linhas, itens_producao, itens_consumo, codigos, pct_var_ggf, ggf_linhas)
+    meses = sorted({l['pro_men_ano_mes'] for l in linhas})
+    ids_ops = {n['id'] for n in grafo['nos'] if n['tipo'] == 'op'}
+    grafo['meses'] = meses
+    grafo['custo_mensal_op'] = _evolucao_ops_compacta(
+        _custos_mensais_ops(linhas, ggf_linhas, itens_consumo, pct_var_ggf), ids_ops, meses)
+    grafo['itens_mensal_op'] = _itens_mensais_compacta(_itens_mensais_ops(linhas, itens_consumo, pct_var_ggf), ids_ops, meses)
+    return grafo
