@@ -250,3 +250,15 @@ def sensibilidade_custo_produtividade_chat_celery(self, usuario_id, dados):
     resposta = montar_analise_otimizacao_em_segundo_plano(usuario_id, 'sensibilidade', dados)
     print(f"[otimizacao][sensibilidade] pronta em {_time.time() - comeco:.1f}s ({len(resposta or '')} caracteres)")
     return resposta
+
+
+@shared_task(bind=True)
+def sensibilidade_ganho_margem_chat_celery(self, usuario_id, visao, dados):
+    """🌟 NOVO (20/10/2026): "Sensibilidade Ganho Margem x Produtividade" (visao 'sens_ganho_prod') e
+    "Sensibilidade Ganho Margem x Limite Comercial" (visao 'sens_ganho_limite') -- otimizacao/sensibilidade_shadow.py."""
+    import time as _time
+    from parameters.fluxo_criar_cenario import montar_analise_otimizacao_em_segundo_plano
+    comeco = _time.time()
+    resposta = montar_analise_otimizacao_em_segundo_plano(usuario_id, visao, dados)
+    print(f"[otimizacao][{visao}] pronta em {_time.time() - comeco:.1f}s ({len(resposta or '')} caracteres)")
+    return resposta

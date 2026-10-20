@@ -3066,7 +3066,9 @@ def abrir_outra_visao_fpm(usuario, mensagem):
 # ---------------------------------------------------------------------
 ROTULO_VISAO_CURTO = {'completo': 'Fluxo Completo Consolidado', 'rotas': 'Fluxo Real por Rota Sem Movimentações',
                       'subprodutos': 'Fluxo/Balanço de Subprodutos', 'analise_resultados': 'Análise dos Resultados',
-                      'sensibilidade': 'Sensibilidade Custo x Produtividade'}
+                      'sensibilidade': 'Sensibilidade Custo x Produtividade',
+                      'sens_ganho_prod': 'Sensibilidade Ganho Margem x Produtividade',
+                      'sens_ganho_limite': 'Sensibilidade Ganho Margem x Limite Comercial'}
 
 
 class _EstadoSegundoPlano:
@@ -3102,6 +3104,8 @@ def montar_analise_otimizacao_em_segundo_plano(usuario_id, visao, dados):
     falso = _EstadoSegundoPlano(usuario)
     if visao == 'sensibilidade':
         return _sen_montar(falso, dados)
+    if visao in ('sens_ganho_prod', 'sens_ganho_limite'):
+        return _sg_montar(falso, dados, 'produtividade' if visao == 'sens_ganho_prod' else 'limite')
     return _car_montar(falso, dados)
 
 
@@ -3121,6 +3125,9 @@ def _cfx_disparar(estado, dados, inicio, fim, visao):
         from otimizacao.tasks import analise_resultados_chat_celery, sensibilidade_custo_produtividade_chat_celery
         tarefa = analise_resultados_chat_celery if visao == 'analise_resultados' else sensibilidade_custo_produtividade_chat_celery
         argumentos = (estado.usuario_id, dados_task)
+    elif visao in ('sens_ganho_prod', 'sens_ganho_limite'):
+        from otimizacao.tasks import sensibilidade_ganho_margem_chat_celery as tarefa
+        argumentos = (estado.usuario_id, visao, dados_task)
     else:
         from custo_ferbasa.tasks import montar_fluxo_producao_mensal_chat_celery as tarefa
         argumentos = (estado.usuario_id, visao, dados_task, inicio, fim)
@@ -3169,7 +3176,9 @@ def _etapa_cfx_processando(estado, texto):
         return ("A montagem do fluxo parou antes de terminar -- o processo do Celery foi encerrado ou deu erro (veja o log "
                 "do worker). Pode pedir de novo pela ação \"" + ({'subprodutos': "Fluxo/Balanço de Subprodutos",
                                                                   'analise_resultados': "Análise dos Resultados",
-                                                                  'sensibilidade': "Sensibilidade Custo x Produtividade"}.get(dados.get('visao'))
+                                                                  'sensibilidade': "Sensibilidade Custo x Produtividade",
+                                                                  'sens_ganho_prod': "Sensibilidade Ganho Margem x Produtividade",
+                                                                  'sens_ganho_limite': "Sensibilidade Ganho Margem x Limite Comercial"}.get(dados.get('visao'))
                                                                  or "Montar Fluxo de Produção Base Produção Mensal") + "\".")
     decorrido = ''
     try:
@@ -3650,6 +3659,203 @@ def _sen_montar(estado, dados):
                'fluxos': nomes[1:], 'mct_gravada': mct_gravada, **r}
     return texto + "\n\n" + _equ_marcador('FLUXO_PRODUCAO_MENSAL', payload)
 
+
+
+# ---------------------------------------------------------------------
+# 🌟 NOVO (20/10/2026): "Cenário - Sensibilidade Ganho Margem x Produtividade" e
+# "Cenário - Sensibilidade Ganho Margem x Limite Comercial" -- estimativa pelo preço sombra (TbOtimizacaoShadow) e valor
+# exato (otimização refeita) para -30% a +30% (otimizacao/sensibilidade_shadow.py). No Celery.
+# ---------------------------------------------------------------------
+def _sg_ordens(cenario):
+    return list(TbCenariosDaugther.objects.filter(mae_id=cenario.id, otimizar=1, flag=1).order_by('dau_order')
+                .values_list('dau_order', flat=True))
+
+
+def iniciar_fluxo_sens_ganho_produtividade(usuario):
+    from otimizacao.sensibilidade_shadow import equipamentos_cheios
+    cenario, erro = _sen_cenario(usuario)
+    if erro:
+        return erro
+    cheios = equipamentos_cheios(cenario.id, _sg_ordens(cenario), lambda o: _dau_order_para_periodo(cenario, o))
+    if not cheios:
+        return (f"No cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** nenhum equipamento gargalo chegou a 100% de "
+                "ocupação em algum período otimizado -- não há ganho de margem com produtividade para analisar.")
+    estado = _get_estado(usuario)
+    estado.fluxo_ativo = FLUXO_PROCESSAR
+    estado.etapa_atual = 'sgp_equip'
+    estado.dados_coletados = {'cenario_id': cenario.id, 'empresa_id': usuario.perfilusuario.empresa_efetiva_id(),
+                              'cheios': [int(k) for k in cheios]}
+    estado.save()
+    return _sgp_texto_equip(cenario, cheios, moeda=_cmp_moeda(estado))
+
+
+def _sgp_lista(cenario, ids, moeda=''):
+    """Cartões dos equipamentos, do MAIOR preço sombra da hora para o menor."""
+    from otimizacao.sensibilidade_shadow import sombra_media_equipamentos
+    sombra = sombra_media_equipamentos(cenario.id, _sg_ordens(cenario))
+    lista = [e for e in _sen_equipamentos(cenario) if e['id'] in set(ids)]
+    for e in lista:
+        sv = sombra.get(e['id'], 0.0)
+        e['sombra_hora'] = sv
+        e['extra'] = f"Preço sombra médio: {moeda}{sv:,.0f}/h".replace(',', '.') if sv > 0 else "Preço sombra: 0"
+    lista.sort(key=lambda e: (-e['sombra_hora'], str(e['codigo']).lower()))
+    return lista
+
+
+def _sgp_texto_equip(cenario, cheios, aviso='', moeda=''):
+    lista = _sgp_lista(cenario, [int(k) for k in cheios], moeda)
+    return (aviso + f"Cenário **{cenario.numero_sequencial}/{cenario.cen_nome}**. Estes são os equipamentos gargalo que "
+            "ficaram com **100% de ocupação** em pelo menos um período, do maior para o menor preço sombra da hora. Marque UM "
+            "e confirme: vou calcular quanto a margem de contribuição muda se a produtividade dele aumentar ou diminuir "
+            "(de -30% a +30%), pelo preço sombra e refazendo a otimização. \"Cancelar\" pra desistir.\n\n"
+            + _equ_marcador('FLUXO_PRODUCAO_MENSAL', {'tipo_fluxo': 'sen_escolha', 'equipamentos': lista, 'confirmar': True}))
+
+
+def _etapa_sgp_equip(estado, texto):
+    dados = estado.dados_coletados or {}
+    cenario = TbCenarios.objects_real.filter(id=dados.get('cenario_id')).first()
+    if cenario is None:
+        _encerrar_fluxo(estado)
+        return "O cenário não existe mais."
+    entrada = _equ_json(texto)
+    ids = []
+    if entrada is not None and isinstance(entrada.get('produtos'), list):
+        for v in entrada['produtos']:
+            try:
+                ids.append(int(v))
+            except (TypeError, ValueError):
+                pass
+    disp = {e['id']: e for e in _sgp_lista(cenario, dados.get('cheios') or [])}
+    ids = [i for i in ids if i in disp]
+    if len(ids) != 1:
+        return _sgp_texto_equip(cenario, dados.get('cheios') or [], aviso="Marque **um** equipamento e confirme.\n\n", moeda=_cmp_moeda(estado))
+    dados_task = {'empresa_id': dados.get('empresa_id'), 'itens_ids': [cenario.id, ids[0]], 'itens_nomes': [disp[ids[0]]['nome']]}
+    _cfx_disparar(estado, dados_task, None, None, 'sens_ganho_prod')
+    return (f"Calculando a **Sensibilidade Ganho Margem x Produtividade** de **{disp[ids[0]]['nome']}** em segundo plano "
+            "(13 variações x cada período otimizado). Acompanho por aqui.")
+
+
+def iniciar_fluxo_sens_ganho_limite(usuario):
+    from otimizacao.sensibilidade_shadow import limites_comerciais_ativos
+    cenario, erro = _sen_cenario(usuario)
+    if erro:
+        return erro
+    limites = limites_comerciais_ativos(cenario.id, _sg_ordens(cenario), lambda o: _dau_order_para_periodo(cenario, o))
+    if not limites:
+        return (f"No cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** nenhum limite comercial (máximo ou mínimo de "
+                "produto ou produto/mercado) segurou a margem em algum período otimizado -- não há o que analisar.")
+    estado = _get_estado(usuario)
+    estado.fluxo_ativo = FLUXO_PROCESSAR
+    estado.etapa_atual = 'sgl_limite'
+    estado.dados_coletados = {'cenario_id': cenario.id, 'empresa_id': usuario.perfilusuario.empresa_efetiva_id(),
+                              'limites': limites}
+    estado.save()
+    return _sgl_texto_limite(cenario, limites, _cmp_moeda(estado))
+
+
+def _sgl_rotulo(l, moeda=''):
+    tipo = 'Produto/mercado' if l['tipo'] == 'PM' else 'Produto'
+    lado = 'máximo' if l['lado'] == 'max' else 'mínimo'
+    sombra = f"{l['sombra_media']:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+    return f"{l['nome']} — {tipo}, limite {lado} ({len(l['periodos'])} período(s), sombra média {moeda}{sombra}/un)"
+
+
+def _sgl_imagens(limites):
+    """Imagem do produto e do mercado (cadastros) de cada limite -- mesmo cuidado dos cartões de equipamento."""
+    from otimizacao.models import TbProdutoMercado, TbOtimizacaoProduto
+
+    def url(campo):
+        try:
+            return campo.url if campo else None
+        except Exception:
+            return None
+    pm_ids = [l['id'] for l in limites if l['tipo'] == 'PM']
+    p_ids = [l['id'] for l in limites if l['tipo'] == 'P']
+    pms = {o.id: o for o in TbProdutoMercado.objects.filter(id__in=pm_ids).select_related('pro_mer_produto', 'pro_mer_mercado')}
+    ps = {o.id: o for o in TbOtimizacaoProduto.objects.filter(id__in=p_ids).select_related('oti_pro_produto')}
+    saida = []
+    for l in limites:
+        prod = merc = None
+        if l['tipo'] == 'PM' and l['id'] in pms:
+            prod, merc = pms[l['id']].pro_mer_produto, pms[l['id']].pro_mer_mercado
+        elif l['tipo'] == 'P' and l['id'] in ps:
+            prod = ps[l['id']].oti_pro_produto
+        saida.append({'img_produto': url(getattr(prod, 'pro_imagem', None)), 'img_mercado': url(getattr(merc, 'mer_imagem', None)),
+                      'produto': str(getattr(prod, 'pro_codigo', '') or '') if prod else '',
+                      'mercado': str(getattr(merc, 'mer_nome', '') or '') if merc else ''})
+    return saida
+
+
+def _sgl_texto_limite(cenario, limites, moeda='', aviso=''):
+    try:
+        imagens = _sgl_imagens(limites)
+    except Exception:
+        imagens = [{} for _ in limites]
+    cartoes = [{'id': k + 1, 'nome': l['nome'], 'tipo': l['tipo'], 'lado': l['lado'], 'periodos': l['periodos'],
+                'sombra_media': l['sombra_media'], 'limite_medio': l['limite_medio'], **imagens[k]} for k, l in enumerate(limites)]
+    return (aviso + f"Cenário **{cenario.numero_sequencial}/{cenario.cen_nome}**. Estes são os produtos/mercados onde os "
+            "limites comerciais seguraram a margem: preço sombra maior que zero em pelo menos um período (do maior para o "
+            "menor). Marque UM e confirme. Se foi o limite máximo que segurou a margem, vou calcular quanto a margem de "
+            "contribuição muda se o limite diminuir ou aumentar (de -30% a +30%). Se foi o limite mínimo que segurou a "
+            "margem, vou reduzir até zerar o mínimo, para ver quanto se ganharia eliminando a restrição. \"Cancelar\" pra "
+            "desistir.\n\n"
+            + _equ_marcador('FLUXO_PRODUCAO_MENSAL', {'tipo_fluxo': 'sgl_escolha', 'limites': cartoes, 'moeda': moeda}))
+
+def _etapa_sgl_limite(estado, texto):
+    dados = estado.dados_coletados or {}
+    cenario = TbCenarios.objects_real.filter(id=dados.get('cenario_id')).first()
+    if cenario is None:
+        _encerrar_fluxo(estado)
+        return "O cenário não existe mais."
+    limites = dados.get('limites') or []
+    entrada = _equ_json(texto)
+    ids = []
+    if entrada is not None and isinstance(entrada.get('produtos'), list):
+        for v in entrada['produtos']:
+            try:
+                ids.append(int(v))
+            except (TypeError, ValueError):
+                pass
+    ids = [i for i in dict.fromkeys(ids) if 1 <= i <= len(limites)]
+    if len(ids) != 1:
+        return _sgl_texto_limite(cenario, limites, _cmp_moeda(estado), aviso="Marque **um** produto/mercado (só um).\n\n")
+    l = limites[ids[0] - 1]
+    dados_task = {'empresa_id': dados.get('empresa_id'), 'itens_ids': [cenario.id], 'itens_codigos': [l['chave']],
+                  'itens_nomes': [_sgl_rotulo(l, _cmp_moeda(estado))]}
+    _cfx_disparar(estado, dados_task, None, None, 'sens_ganho_limite')
+    return (f"Calculando a **Sensibilidade Ganho Margem x Limite Comercial** de **{l['nome']}** (limite "
+            f"{'máximo' if l['lado'] == 'max' else 'mínimo'}) em segundo plano. Acompanho por aqui.")
+
+
+def _sg_montar(estado, dados, modo):
+    from otimizacao.sensibilidade_shadow import calcular_produtividade, calcular_limite
+    ids = dados.get('itens_ids') or []
+    cenario = TbCenarios.objects_real.filter(id=(ids or [None])[0]).first()
+    _encerrar_fluxo(estado)
+    if cenario is None:
+        return "O cenário da análise não existe mais."
+    ordens = _sg_ordens(cenario)
+    rot = lambda o: _dau_order_para_periodo(cenario, o)
+    moeda = _cmp_moeda(estado)
+    nome = (dados.get('itens_nomes') or [''])[0]
+    if modo == 'produtividade':
+        r = calcular_produtividade(cenario.id, ordens, ids[1], rot)
+        titulo = f"Sensibilidade Ganho Margem x Produtividade — {nome}"
+        extra = {'equipamento': nome}
+    else:
+        tipo, rid, lado = (dados.get('itens_codigos') or ['::'])[0].split(':')
+        r = calcular_limite(cenario.id, ordens, tipo, int(rid), lado, rot)
+        titulo = f"Sensibilidade Ganho Margem x Limite Comercial — {nome.split(' — ')[0]}"
+        extra = {'limite_nome': nome, 'limite_tipo': tipo, 'lado': lado}
+    if not r['periodos']:
+        return f"Não consegui refazer a otimização de nenhum período para **{nome}** (a restrição não está no modelo)."
+    periodo = f"{rot(min(ordens))} a {rot(max(ordens))}" if ordens else ''
+    br = lambda v: f"{v:,.0f}".replace(',', '.')
+    texto = (f"**{titulo}** · cenário {cenario.numero_sequencial}/{cenario.cen_nome} · {periodo}\n\n"
+             f"Margem de contribuição total (base, refeita): **{moeda}{br(r['mct_base'])}** · {r['periodos']} período(s)")
+    payload = {'tipo_fluxo': 'sens_ganho', 'modo': modo, 'titulo': titulo, 'periodo': periodo, 'moeda': moeda,
+               'cenario': f"{cenario.numero_sequencial}/{cenario.cen_nome}", **extra, **r}
+    return texto + "\n\n" + _equ_marcador('FLUXO_PRODUCAO_MENSAL', payload)
 
 def _etapa_fp_criar_fluxos_produto_escolher(estado, texto):
     dados = estado.dados_coletados or {}
@@ -6968,6 +7174,8 @@ _HANDLERS_PROCESSAR = {
     'cfx_processando': _etapa_cfx_processando,
     'cbs_itens': _etapa_cbs_itens,
     'sen_equip': _etapa_sen_equip,
+    'sgp_equip': _etapa_sgp_equip,
+    'sgl_limite': _etapa_sgl_limite,
     'car_minimos': _etapa_car_minimos,
     'sen_fluxos': _etapa_sen_fluxos,
     'cbs_periodo': _etapa_cbs_periodo,

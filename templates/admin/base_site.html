@@ -2,6 +2,14 @@
 {% load group_extras %}
 {% load admin_interface_tags %}
 {% load i18n %}
+{% load static %}
+
+{# 🌟 NOVO (20/10/2026): gráfico de barras ao lado de toda tabela filha com valores por período (Ano/Mês). O script #}
+{# só age nas telas que têm essas tabelas -- ver static/grafico_valores_inline.js. #}
+{% block extrahead %}
+{{ block.super }}
+<script src="{% static 'grafico_valores_inline.js' %}" defer></script>
+{% endblock extrahead %}
 
 {% block title %}
 {% if title %}{{ title }} | {% endif %}{% if empresa_ativa_usuario_texto %}{{ empresa_ativa_usuario_texto }} | {% endif %}{% if cenario_ativo_usuario_texto %}{{ cenario_ativo_usuario_texto }}{% else %}{{ site_title|default:"Django administration" }}{% endif %}

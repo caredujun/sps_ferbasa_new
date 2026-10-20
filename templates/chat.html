@@ -133,6 +133,17 @@
         .cartao-equipamento.sene-cheio .sene-ocup { background: #b02a37; }
         .cartao-equipamento.sene-sem .sene-ocup { background: #888; }
         .sene-legenda { font-size: 11px; color: #555; margin-top: 6px; }
+        .grade-equipamentos.sgl-grade { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+        .cartao-equipamento.sgl-min { background: #fff3cd; border-color: #b8860b; color: #6b4e00; }
+        .cartao-equipamento.sgl-min:hover, .cartao-equipamento.sgl-min:focus { background: #ffe69c; }
+        .cartao-equipamento.sgl-max { background: #f8d7da; border-color: #b02a37; color: #842029; }
+        .cartao-equipamento.sgl-max:hover, .cartao-equipamento.sgl-max:focus { background: #f1aeb5; }
+        .cartao-equipamento.sgl-escolhido { box-shadow: 0 0 0 3px #417690; }
+        .sgl-imagens { display: flex; gap: 6px; width: 100%; }
+        .sgl-imagens .cartao-imagem { flex: 1 1 0; min-width: 0; }
+        .cartao-equipamento .sgl-lado { position: absolute; top: 5px; right: 5px; z-index: 1; padding: 2px 7px; border-radius: 11px; font-size: 11px; font-weight: bold; color: #fff; }
+        .cartao-equipamento.sgl-min .sgl-lado { background: #b8860b; }
+        .cartao-equipamento.sgl-max .sgl-lado { background: #b02a37; }
         #sene-dica { position: fixed; z-index: 10100; display: none; background: #fff; color: #222; border: 1px solid #417690;
             border-radius: 6px; box-shadow: 0 2px 10px rgba(0,0,0,0.3); padding: 6px 8px; font-size: 12px; max-height: 70vh; overflow: auto; pointer-events: none; }
         #sene-dica table { border-collapse: collapse; font-size: 12px; margin-top: 4px; }
@@ -760,6 +771,8 @@
                     {% if acoes_habilitadas.cen_ciclo_completo %}<option value="limpar, otimizar e consolidar o cenário">{% trans "Ciclo completo (limpar, otimizar e consolidar)" %}</option>{% endif %}
                     {% if acoes_habilitadas.cen_analise_resultados %}<option value="análise dos resultados">{% trans "Análise dos Resultados" %}</option>{% endif %}
                     {% if acoes_habilitadas.cen_sensibilidade_custo_produtividade %}<option value="sensibilidade custo x produtividade">{% trans "Sensibilidade Custo x Produtividade" %}</option>{% endif %}
+                    {% if acoes_habilitadas.cen_sensibilidade_ganho_produtividade %}<option value="sensibilidade ganho margem x produtividade">{% trans "Sensibilidade Ganho Margem x Produtividade" %}</option>{% endif %}
+                    {% if acoes_habilitadas.cen_sensibilidade_ganho_limite %}<option value="sensibilidade ganho margem x limite comercial">{% trans "Sensibilidade Ganho Margem x Limite Comercial" %}</option>{% endif %}
                     {% if acoes_habilitadas.cen_excluir %}<option value="excluir um cenário">{% trans "Excluir Cenário" %}</option>{% endif %}
                     {% if acoes_habilitadas.cen_exportar_excel %}<option value="exportar o cenário ativo em excel">{% trans "Exportar Excel Resultados Financeiros do Cenário Ativo" %}</option>{% endif %}
                     {% if acoes_habilitadas.cen_exportar_dados_otimizacao %}<option value="exportar dados de otimização do cenário ativo">{% trans "Exportar Dados de Otimização do Cenário Ativo" %}</option>{% endif %}
@@ -1144,6 +1157,7 @@
         {% trans "Horas disponíveis" as ROTULO_SENE_DISP %}
         {% trans "sem carga" as ROTULO_SENE_SEM_CARGA %}
         {% trans "Equipamentos gargalo" as ROTULO_SENE_TITULO %}
+        {% trans "Confirmar Equipamento" as ROTULO_SENE_CONFIRMAR %}
         {% trans "Vermelho: ocupação média de" as ROTULO_SENE_LEG_CHEIO %}
         {% trans "Verde: abaixo de" as ROTULO_SENE_LEG_FOLGA %}
         {% trans "Produtividade" as ROTULO_SEN_PROD %}
@@ -1157,8 +1171,10 @@
         {% trans "Custo variável acumulado até o equipamento (base)" as ROTULO_SEN_CUSTO_EQ %}
         {% trans "no período, no mix ótimo; adicionado pelo próprio equipamento" as ROTULO_SEN_CUSTO_EQ_SUB %}
         {% trans "Fluxos selecionados" as ROTULO_FLUXOS_SEL %}
+        {% trans "Limites selecionados" as ROTULO_LIMITES_SEL %}
         {% trans "sem solução" as ROTULO_SEN_SEM_SOL %}
         {% trans "ocup." as ROTULO_SEN_OCUP_CURTA %}
+        {% trans "períodos" as ROTULO_SEN_PERIODOS_CURTO %}
         {% trans "Sem solução em" as ROTULO_SEN_SEM_SOL_EM %}
         {% trans "Limites mínimos que não cabem" as ROTULO_SEN_MIN_NAO_CABEM %}
         {% trans "mínimo" as ROTULO_SEN_MINIMO %}
@@ -1263,6 +1279,49 @@
         {% trans "Produto / mercado / fluxo" as ROTULO_AR_TAB_FLUXOS %}
         {% trans "Horas disponíveis = loading time; ocupação = horas usadas / disponíveis. Preço sombra da hora = quanto a margem total aumentaria com 1 hora a mais no equipamento (média dos períodos em que ele foi gargalo; entre parênteses, quantos). Ganho potencial = preço sombra × horas a mais até o limite da faixa de validade, somado nos períodos (estimativa). Margem que passa = margem dos fluxos que usam o equipamento (entre parênteses, quantos fluxos) — não é somável entre equipamentos. MCT/h = margem que passa / horas usadas." as ROTULO_AR_NOTA_EQUIP %}
         {% trans "Gargalos: valor de 1 hora a mais" as ROTULO_AR_TOP_GARGALOS %}
+        {% trans "Limite mínimo" as ROTULO_SGL_MINIMO %}
+        {% trans "Limite máximo" as ROTULO_SGL_MAXIMO %}
+        {% trans "Confirmar Produto/Mercado" as ROTULO_SGL_CONFIRMAR %}
+        {% trans "Preço sombra médio" as ROTULO_SGL_SOMBRA %}
+        {% trans "período(s)" as ROTULO_SGL_PERIODOS %}
+        {% trans "Amarelo: o limite mínimo segurou a margem. Vermelho: o limite máximo segurou a margem." as ROTULO_SGL_LEGENDA %}
+        {% trans "Variação" as ROTULO_SG_VARIACAO %}
+        {% trans "Produtividade média" as ROTULO_SG_PROD_COL %}
+        {% trans "Limite (soma dos períodos em que segurou)" as ROTULO_SG_LIM_MEDIO %}
+        {% trans "Eixo: variação e, embaixo, o valor correspondente" as ROTULO_SG_EIXO %}
+        {% trans "Produtividade média (cadastro das ordens)" as ROTULO_SG_PROD_MEDIA %}
+        {% trans "Limite" as ROTULO_SG_LIMITE %}
+        {% trans "Ganho exato (otimização refeita)" as ROTULO_SG_EXATO %}
+        {% trans "Estimativa pelo preço sombra" as ROTULO_SG_ESTIM %}
+        {% trans "Diferença" as ROTULO_SG_DIF %}
+        {% trans "Preço sombra válido" as ROTULO_SG_FAIXA %}
+        {% trans "fora da faixa em" as ROTULO_SG_FORA %}
+        {% trans "fora da faixa" as ROTULO_SG_FORA_CURTO %}
+        {% trans "sim" as ROTULO_SG_OK %}
+        {% trans "sem solução" as ROTULO_SG_SEM_SOL %}
+        {% trans "MCT base (refeita)" as ROTULO_SG_MCT_BASE %}
+        {% trans "MCT base dos períodos em que o limite segurou" as ROTULO_SG_MCT_BASE_LIM %}
+        {% trans "Preço sombra médio" as ROTULO_SG_SOMBRA_MEDIA %}
+        {% trans "período(s)" as ROTULO_SG_PERIODOS %}
+        {% trans "Ver por período" as ROTULO_SG_ABRIR %}
+        {% trans "Ocupação" as ROTULO_SG_OCUP %}
+        {% trans "Período" as ROTULO_SG_PERIODO %}
+        {% trans "Variação da produtividade do equipamento (todas as ordens dele). Estimativa = preço sombra da hora × (loading time × ocupação máxima) × variação, só nos períodos em que ele foi gargalo; vale dentro da faixa de validade do preço sombra. Ganho exato = a Rotina de Otimização refeita com a nova produtividade: mostra até onde o preço sombra vale e quando outro limite passa a segurar." as ROTULO_SG_NOTA_PROD %}
+        {% trans "Variação do limite comercial escolhido, partindo da SOMA dos limites dos períodos em que ele segurou a margem; só esses períodos são alterados e otimizados de novo (nos outros nada muda). Estimativa = preço sombra × variação do limite (máximo: vender mais; mínimo: reduzir a obrigação), válida dentro da faixa de validade do preço sombra. Ganho exato = a Rotina de Otimização refeita com o novo limite." as ROTULO_SG_NOTA_LIM %}
+        {% trans "Variação da margem de contribuição total" as ROTULO_SG_CURVA %}
+        {% trans "limite máximo" as ROTULO_SG_LIM_MAX %}
+        {% trans "limite mínimo" as ROTULO_SG_LIM_MIN %}
+        {% trans "Preço sombra da hora" as ROTULO_SG_SOMBRA_H %}
+        {% trans "Volume" as ROTULO_SG_VOLUME %}
+        {% trans "Horas do limite" as ROTULO_SG_HORAS %}
+        {% trans "Ganho com produtividade +1" as ROTULO_AR_COL_G1_PROD %}
+        {% trans "Ganho com máximo +1" as ROTULO_AR_COL_G1_MAX %}
+        {% trans "Ganho com mínimo −1" as ROTULO_AR_COL_G1_MIN %}
+        {% trans "Ganho com 1" as ROTULO_AR_COL_G1 %}
+        {% trans "Ganho com produtividade +1 por cento: aumentar a produtividade do equipamento em 1 por cento equivale a 1 por cento a mais nas horas do limite (loading time × ocupação máxima), porque o modelo usa horas por unidade = output / (produtividade × (1 − paradas não programadas)). Valor = preço sombra da hora × essas horas, somado nos períodos em que o equipamento foi gargalo, sem passar da faixa de validade do preço sombra (* = limitado pela faixa)." as ROTULO_AR_NOTA_G1 %}
+        {% trans "Ganho com máximo +1 por cento = preço sombra × 1 por cento do limite comercial máximo (poder vender 1 por cento a mais). Ganho com mínimo −1 por cento = preço sombra × 1 por cento do limite comercial mínimo (reduzir em 1 por cento a venda obrigatória). Somado nos períodos em que o limite segurou a margem, sem passar da faixa de validade do preço sombra (* = limitado pela faixa)." as ROTULO_AR_NOTA_G1_COM %}
+        {% trans "Ganho com máximo +1 por cento = preço sombra × 1 por cento do consumo máximo do insumo (ter 1 por cento a mais de insumo). Ganho com mínimo −1 por cento = preço sombra × 1 por cento do consumo mínimo obrigatório (reduzir a obrigação em 1 por cento). Somado nos períodos em que o limite segurou a margem, sem passar da faixa de validade do preço sombra (* = limitado pela faixa)." as ROTULO_AR_NOTA_G1_INS %}
+        {% trans "produtividade +1" as ROTULO_AR_SOMBRA_E_1PCT %}
         {% trans "Ocupação mínima forçada: margem com a faixa 0 a 100" as ROTULO_AR_TAB_OMIN %}
         {% trans "Equipamentos com ocupação mínima maior que zero (obrigados a rodar). Para cada um, a Rotina de Otimização foi refeita em todos os períodos com a ocupação mínima em 0 (o máximo continua o mesmo): é o valor exato, não a estimativa do preço sombra. Ganho zero = a obrigação não custa nada, o ótimo já usaria essa ocupação." as ROTULO_AR_NOTA_OMIN %}
         {% trans "Faixa atual (mín. / máx.)" as ROTULO_AR_COL_FAIXA %}
@@ -1723,6 +1782,7 @@
         var ROTULO_SENE_DISP = "{{ ROTULO_SENE_DISP|escapejs }}";
         var ROTULO_SENE_SEM_CARGA = "{{ ROTULO_SENE_SEM_CARGA|escapejs }}";
         var ROTULO_SENE_TITULO = "{{ ROTULO_SENE_TITULO|escapejs }}";
+        var ROTULO_SENE_CONFIRMAR = "{{ ROTULO_SENE_CONFIRMAR|escapejs }}";
         var ROTULO_SENE_LEG_CHEIO = "{{ ROTULO_SENE_LEG_CHEIO|escapejs }}";
         var ROTULO_SENE_LEG_FOLGA = "{{ ROTULO_SENE_LEG_FOLGA|escapejs }}";
         var ROTULO_SEN_PROD = "{{ ROTULO_SEN_PROD|escapejs }}";
@@ -1735,7 +1795,9 @@
         var ROTULO_SEN_OCUP_BASE = "{{ ROTULO_SEN_OCUP_BASE|escapejs }}";
         var ROTULO_SEN_CUSTO_EQ = "{{ ROTULO_SEN_CUSTO_EQ|escapejs }}";
         var ROTULO_FLUXOS_SEL = "{{ ROTULO_FLUXOS_SEL|escapejs }}";
+        var ROTULO_LIMITES_SEL = "{{ ROTULO_LIMITES_SEL|escapejs }}";
         var ROTULO_SEN_SEM_SOL = "{{ ROTULO_SEN_SEM_SOL|escapejs }}";
+        var ROTULO_SEN_PERIODOS_CURTO = "{{ ROTULO_SEN_PERIODOS_CURTO|escapejs }}";
         var ROTULO_SEN_OCUP_CURTA = "{{ ROTULO_SEN_OCUP_CURTA|escapejs }}";
         var ROTULO_SEN_SEM_SOL_EM = "{{ ROTULO_SEN_SEM_SOL_EM|escapejs }}";
         var ROTULO_SEN_MIN_NAO_CABEM = "{{ ROTULO_SEN_MIN_NAO_CABEM|escapejs }}";
@@ -1870,6 +1932,49 @@
         var ROTULO_AR_SEM_OMIN = "{{ ROTULO_AR_SEM_OMIN|escapejs }}";
         var ROTULO_AR_SEM_SOLUCAO_P = "{{ ROTULO_AR_SEM_SOLUCAO_P|escapejs }}";
         var ROTULO_AR_EXATO = "{{ ROTULO_AR_EXATO|escapejs }}";
+        var ROTULO_AR_COL_G1_PROD = "{{ ROTULO_AR_COL_G1_PROD|escapejs }}";
+        var ROTULO_AR_COL_G1_MAX = "{{ ROTULO_AR_COL_G1_MAX|escapejs }}";
+        var ROTULO_AR_COL_G1_MIN = "{{ ROTULO_AR_COL_G1_MIN|escapejs }}";
+        var ROTULO_AR_COL_G1 = "{{ ROTULO_AR_COL_G1|escapejs }}";
+        var ROTULO_AR_NOTA_G1 = "{{ ROTULO_AR_NOTA_G1|escapejs }}";
+        var ROTULO_AR_NOTA_G1_COM = "{{ ROTULO_AR_NOTA_G1_COM|escapejs }}";
+        var ROTULO_AR_NOTA_G1_INS = "{{ ROTULO_AR_NOTA_G1_INS|escapejs }}";
+        var ROTULO_AR_SOMBRA_E_1PCT = "{{ ROTULO_AR_SOMBRA_E_1PCT|escapejs }}";
+        var ROTULO_SG_VARIACAO = "{{ ROTULO_SG_VARIACAO|escapejs }}";
+        var ROTULO_SG_PROD_COL = "{{ ROTULO_SG_PROD_COL|escapejs }}";
+        var ROTULO_SG_LIM_MEDIO = "{{ ROTULO_SG_LIM_MEDIO|escapejs }}";
+        var ROTULO_SG_EIXO = "{{ ROTULO_SG_EIXO|escapejs }}";
+        var ROTULO_SG_PROD_MEDIA = "{{ ROTULO_SG_PROD_MEDIA|escapejs }}";
+        var ROTULO_SG_LIMITE = "{{ ROTULO_SG_LIMITE|escapejs }}";
+        var ROTULO_SG_EXATO = "{{ ROTULO_SG_EXATO|escapejs }}";
+        var ROTULO_SG_ESTIM = "{{ ROTULO_SG_ESTIM|escapejs }}";
+        var ROTULO_SG_DIF = "{{ ROTULO_SG_DIF|escapejs }}";
+        var ROTULO_SG_FAIXA = "{{ ROTULO_SG_FAIXA|escapejs }}";
+        var ROTULO_SG_FORA = "{{ ROTULO_SG_FORA|escapejs }}";
+        var ROTULO_SG_FORA_CURTO = "{{ ROTULO_SG_FORA_CURTO|escapejs }}";
+        var ROTULO_SG_OK = "{{ ROTULO_SG_OK|escapejs }}";
+        var ROTULO_SG_SEM_SOL = "{{ ROTULO_SG_SEM_SOL|escapejs }}";
+        var ROTULO_SG_MCT_BASE = "{{ ROTULO_SG_MCT_BASE|escapejs }}";
+        var ROTULO_SG_MCT_BASE_LIM = "{{ ROTULO_SG_MCT_BASE_LIM|escapejs }}";
+        var ROTULO_SG_SOMBRA_MEDIA = "{{ ROTULO_SG_SOMBRA_MEDIA|escapejs }}";
+        var ROTULO_SG_PERIODOS = "{{ ROTULO_SG_PERIODOS|escapejs }}";
+        var ROTULO_SG_ABRIR = "{{ ROTULO_SG_ABRIR|escapejs }}";
+        var ROTULO_SG_OCUP = "{{ ROTULO_SG_OCUP|escapejs }}";
+        var ROTULO_SG_PERIODO = "{{ ROTULO_SG_PERIODO|escapejs }}";
+        var ROTULO_SG_NOTA_PROD = "{{ ROTULO_SG_NOTA_PROD|escapejs }}";
+        var ROTULO_SG_NOTA_LIM = "{{ ROTULO_SG_NOTA_LIM|escapejs }}";
+        var ROTULO_SG_CURVA = "{{ ROTULO_SG_CURVA|escapejs }}";
+        var ROTULO_SG_LIM_MAX = "{{ ROTULO_SG_LIM_MAX|escapejs }}";
+        var ROTULO_SG_LIM_MIN = "{{ ROTULO_SG_LIM_MIN|escapejs }}";
+        var ROTULO_SG_SOMBRA_H = "{{ ROTULO_SG_SOMBRA_H|escapejs }}";
+        var ROTULO_SG_VOLUME = "{{ ROTULO_SG_VOLUME|escapejs }}";
+        var ROTULO_SG_HORAS = "{{ ROTULO_SG_HORAS|escapejs }}";
+        var ROTULO_SGL_MINIMO = "{{ ROTULO_SGL_MINIMO|escapejs }}";
+        var ROTULO_SGL_MAXIMO = "{{ ROTULO_SGL_MAXIMO|escapejs }}";
+        var ROTULO_SGL_CONFIRMAR = "{{ ROTULO_SGL_CONFIRMAR|escapejs }}";
+        var ROTULO_SGL_SOMBRA = "{{ ROTULO_SGL_SOMBRA|escapejs }}";
+        var ROTULO_SGL_PERIODOS = "{{ ROTULO_SGL_PERIODOS|escapejs }}";
+        var ROTULO_SGL_LEGENDA = "{{ ROTULO_SGL_LEGENDA|escapejs }}";
         var ROTULO_AR_TOP_GARGALOS = "{{ ROTULO_AR_TOP_GARGALOS|escapejs }}";
         var ROTULO_AR_OCUPACAO = "{{ ROTULO_AR_OCUPACAO|escapejs }}";
         var ROTULO_AR_COL_EQUIP = "{{ ROTULO_AR_COL_EQUIP|escapejs }}";
@@ -2234,7 +2339,13 @@
             var itens = sel.produtos || [];
             var algumSelecionavel = false, marcadosIniciais = 0;
             var rotuloConfirmar = sel.rotulo_confirmar || ROTULO_ATUALIZAR_SEL;
-            var html = '<div class="selecao-produtos" id="' + id + '"' + (sel.tipo_rotulo === 'fluxos' ? ' data-tipo-rotulo="fluxos"' : '') + '>';
+            var html = '<div class="selecao-produtos" id="' + id + '"' + (sel.tipo_rotulo === 'fluxos' || sel.tipo_rotulo === 'limites' ? ' data-tipo-rotulo="' + sel.tipo_rotulo + '"' : '') + '>';
+            // 🌟 20/10/2026: sel.confirmar_no_topo -- o botão Confirmar fica no topo (logo abaixo do "Cancelar" da mensagem),
+            // antes dos cartões; sel.sem_marcar_ajuste -- sem o botão "Marcar os que precisam de ajuste"
+            if (sel.confirmar_no_topo) html += '__BARRA_TOPO__';
+            // 🌟 20/10/2026: sel.selecao_unica -- marcar um cartão desmarca os outros; sel.sem_contagem -- botão sem "(n)"
+            var unica = !!sel.selecao_unica, semConta = !!sel.sem_contagem;
+            html = html.replace('class="selecao-produtos" id="' + id + '"', 'class="selecao-produtos" id="' + id + '"' + (unica ? ' data-unica="1"' : '') + (semConta ? ' data-sem-contagem="1"' : ''));
             // Botão pra alternar a ordem dos cartões entre descrição e código (só quando o servidor pede: ordem_alternavel
             // diz em que ordem a lista veio -- 'nome' ou 'codigo'). Só reordena na tela; o que está marcado continua marcado.
             if (sel.ordem_alternavel) {
@@ -2271,18 +2382,27 @@
                 html += '<label class="cartao-sel ' + escapeAttr(p.status) + (selecionavel ? '' : ' desativado') + (selecionavel && p.marcado ? ' marcado' : '') + '" title="' + escapeAttr(p.motivo || p.titulo || '') + '"' +
                         ' data-codigo="' + escapeAttr(p.codigo || '') + '" data-nome="' + escapeAttr(p.nome || p.motivo || '') + '" data-pos="' + posicao + '">' +
                         '<input type="checkbox" class="caixa-sel" value="' + Number(p.id) + '"' + (selecionavel ? '' : ' disabled') + (selecionavel && p.marcado ? ' checked' : '') +
-                            ' onchange="atualizarSelecaoProdutos(\'' + id + '\')">' +
+                            ' onchange="atualizarSelecaoProdutos(\'' + id + '\', this)">' +
                         '<span class="sel-codigo">' + escapeHtml(p.codigo) + '</span>' + corpo + '</label>';
             });
             html += '</div>';
             var barra = '';
             if (algumSelecionavel) {
-                barra = '<div class="barra-selecao' + (botoesEmCima ? ' barra-selecao-topo' : '') + '">' +
-                    '<button type="button" class="botao-sel" onclick="marcarQuePrecisamDeAjuste(\'' + id + '\')">' + escapeHtml(sel.rotulo_marcar || ROTULO_MARCAR_AJUSTE) + '</button>' +
-                    '<button type="button" class="botao-opcao botao-confirmar-sel" data-rotulo="' + escapeAttr(rotuloConfirmar) + '"' + (marcadosIniciais === 0 ? ' disabled' : '') + ' onclick="confirmarSelecaoProdutos(\'' + id + '\')">' + escapeHtml(rotuloConfirmar) + ' (' + marcadosIniciais + ')</button>' +
+                barra = '<div class="barra-selecao' + (botoesEmCima || sel.confirmar_no_topo ? ' barra-selecao-topo' : '') + '">' +
+                    (sel.sem_marcar_ajuste ? '' : '<button type="button" class="botao-sel" onclick="marcarQuePrecisamDeAjuste(\'' + id + '\')">' + escapeHtml(sel.rotulo_marcar || ROTULO_MARCAR_AJUSTE) + '</button>') +
+                    '<button type="button" class="botao-opcao botao-confirmar-sel" data-sel="' + id + '" data-rotulo="' + escapeAttr(rotuloConfirmar) + '"' + (marcadosIniciais === 0 ? ' disabled' : '') + ' onclick="confirmarSelecaoProdutos(\'' + id + '\')">' + escapeHtml(rotuloConfirmar) + (semConta ? '' : ' (' + marcadosIniciais + ')') + '</button>' +
                     '</div>';
             }
-            if (botoesEmCima) html = html.replace('__BARRA_SELECAO__', barra);
+            if (sel.confirmar_no_topo) {
+                html = html.replace('__BARRA_TOPO__', barra).replace('__BARRA_SELECAO__', '');
+                // o botão Confirmar vai para a MESMA linha dos botões da mensagem (à direita do "Cancelar")
+                setTimeout(function() {
+                    var f = document.getElementById(id), b = f && f.querySelector('.botao-confirmar-sel');
+                    var msg = f && f.closest('.chat-box-p'), op = msg && msg.querySelector('.opcoes-clicaveis');
+                    if (b && op) { var barraEl = b.parentNode; op.appendChild(b); if (barraEl && !barraEl.children.length) barraEl.remove(); }
+                }, 0);
+            }
+            else if (botoesEmCima) html = html.replace('__BARRA_SELECAO__', barra);
             else html += barra;
             return html + '</div>';
         }
@@ -2307,13 +2427,18 @@
             if (conta) conta.textContent = partes.length ? visiveis + ' ' + ROTULO_SEL_DE + ' ' + total : '';
         }
 
-        function atualizarSelecaoProdutos(id) {
+        function atualizarSelecaoProdutos(id, origem) {
             var f = document.getElementById(id);
             if (!f) return;
+            if (f.getAttribute('data-unica') === '1' && origem && origem.checked)
+                f.querySelectorAll('.caixa-sel:checked').forEach(function(c) { if (c !== origem) c.checked = false; });
             var marcados = f.querySelectorAll('.caixa-sel:checked').length;
             f.querySelectorAll('.cartao-sel').forEach(function(c) { c.classList.toggle('marcado', c.querySelector('.caixa-sel').checked); });
-            var botao = f.querySelector('.botao-confirmar-sel');
-            if (botao) { botao.textContent = (botao.getAttribute('data-rotulo') || ROTULO_ATUALIZAR_SEL) + ' (' + marcados + ')'; botao.disabled = (marcados === 0); }
+            var botao = document.querySelector('.botao-confirmar-sel[data-sel="' + id + '"]') || f.querySelector('.botao-confirmar-sel');
+            if (botao) {
+                botao.textContent = (botao.getAttribute('data-rotulo') || ROTULO_ATUALIZAR_SEL) + (f.getAttribute('data-sem-contagem') === '1' ? '' : ' (' + marcados + ')');
+                botao.disabled = (marcados === 0);
+            }
         }
 
         function alternarOrdemSelecao(id) {
@@ -3390,6 +3515,8 @@
             if (d && d.tipo_fluxo === 'analise_resultados') return montarAnaliseResultadosAR(d);     // 🌟 18/10/2026
             if (d && d.tipo_fluxo === 'sensibilidade') return montarSensibilidadeSEN(d);     // 🌟 18/10/2026
             if (d && d.tipo_fluxo === 'sen_escolha') return montarEscolhaEquipSEN(d);     // 🌟 18/10/2026
+            if (d && d.tipo_fluxo === 'sens_ganho') return montarSensGanhoSG(d);         // 🌟 20/10/2026
+            if (d && d.tipo_fluxo === 'sgl_escolha') return montarEscolhaLimiteSGL(d);   // 🌟 20/10/2026
             if (d && d.rotas && d.rotas.length) {
                 var wid = 'fpmr' + (++_contadorRotasFPM);
                 _rotasFPM[wid] = { rotas: d.rotas, html: {} };
@@ -4001,12 +4128,14 @@
         function tabelaAnalisarAR(d, lista) {
             if (!lista.length) return '<div class="fpm-detalhe-vazio">' + escapeHtml(ROTULO_AR_SEM_RESTRICOES) + '</div>';
             return tabelaAR([[ROTULO_AR_COL_TIPO], [ROTULO_AR_COL_RESTRICAO], [ROTULO_AR_COL_LIMITE], [ROTULO_AR_COL_O_QUE], [ROTULO_AR_COL_PERIODOS, 1],
-                             [ROTULO_AR_COL_SOMBRA, 1], [ROTULO_AR_COL_GANHO, 1]],
+                             [ROTULO_AR_COL_SOMBRA, 1], [ROTULO_AR_COL_G1 + '%', 1], [ROTULO_AR_COL_GANHO, 1]],
                 lista.map(function(a) {
                     return [escapeHtml(a.tipo), escapeHtml(a.nome) + (a.concorrentes && a.concorrentes.length ? '<div class="fpm-bs-tag">' + escapeHtml(ROTULO_AR_CONCORRE + ': ' + a.concorrentes.join('; ')) + '</div>' : ''),
                             escapeHtml(a.lado === 'max' ? ROTULO_AR_MAXIMO : ROTULO_AR_MINIMO) + (a.gargalo ? '<div class="fpm-bs-tag">' + escapeHtml(a.gargalo) + '</div>' : ''),
                             escapeHtml(a.o_que_fazer || a.acao), escapeHtml(String(a.periodos)),
-                            escapeHtml(a.exato ? '(' + ROTULO_AR_EXATO + ')' : (d.moeda || '') + numFPM(a.sombra_media, 2) + '/' + (a.unidade || ROTULO_AR_UN)), ganhoTextoAR(d, a)];
+                            escapeHtml(a.exato ? '(' + ROTULO_AR_EXATO + ')' : (d.moeda || '') + numFPM(a.sombra_media, 2) + '/' + (a.unidade || ROTULO_AR_UN)),
+                            a.ganho_1pct > 0 ? g1AR(d, a.ganho_1pct) + '<div class="fpm-bs-tag">' + escapeHtml(a.tipo_cod === 'E' ? ROTULO_AR_SOMBRA_E_1PCT + '%' : (a.lado === 'max' ? '+1%' : '−1%')) + '</div>' : '—',
+                            ganhoTextoAR(d, a)];
                 }));
         }
 
@@ -4021,7 +4150,7 @@
                 var y = 6 + i * (h + 6), w = Math.abs(x.v) * esc, x0 = x.v >= 0 ? zero : zero - w;
                 s += '<text x="' + (rotL - 6) + '" y="' + (y + 14) + '" font-size="11" text-anchor="end" fill="#2c3e50">' + escapeHtml(cortarFPM(x.rot, 62)) + '<title>' + escapeHtml(x.rot) + '</title></text>' +
                     '<rect x="' + x0 + '" y="' + y + '" width="' + Math.max(w, 1) + '" height="' + h + '" rx="3" fill="' + (x.v < 0 ? '#c0392b' : (x.cor || cor)) + '"/>' +
-                    '<text x="' + (L - valL + 4) + '" y="' + (y + 14) + '" font-size="11" fill="#2c3e50">' + escapeHtml(fmt(x.v)) + '</text>';
+                    '<text x="' + (L - valL + 4) + '" y="' + (y + 14) + '" font-size="11" fill="#2c3e50">' + escapeHtml(x.txt || fmt(x.v)) + '</text>';
             });
             if (temNeg) s += '<line x1="' + zero + '" y1="0" x2="' + zero + '" y2="' + (lista.length * (h + 6) + 6) + '" stroke="#90a4ae"/>';
             return s + '</svg>';
@@ -4047,6 +4176,10 @@
                 }).concat(mo.todos && lista.length > 1 ? [['<b>' + escapeHtml(ROTULO_AR_TODOS_LIVRES + ' (0-100%)') + '</b>', '', escapeHtml(String(mo.todos.periodos)), '', '',
                     escapeHtml(m + numFPM(mo.todos.mct_base, 0)), escapeHtml(m + numFPM(mo.todos.mct_relax, 0)), ganho(mo.todos.ganho)]] : []));
             return h;
+        }
+        function g1AR(d, v, limitado) {
+            if (v === null || v === undefined || !(v > 0)) return '—';
+            return escapeHtml('+' + (d.moeda || '') + numFPM(v, 0) + (limitado ? ' *' : ''));
         }
         function abaAR(d, aba) {
             var m = d.moeda || '', r = d.resumo || {}, html = '';
@@ -4094,7 +4227,8 @@
                 html += nota(ROTULO_AR_NOTA_EQUIP);
                 var garg = eq.filter(function(x) { return x.p_gargalo > 0; });
                 if (garg.length) html += '<div class="fpm-custo-secao">' + escapeHtml(ROTULO_AR_TOP_GARGALOS) + '</div>' +
-                    barrasAR(garg.slice(0, 15).map(function(x) { return { rot: rotG(x), v: x.sombra_hora, cor: corG(x) }; }), function(v) { return m + numFPM(v, 0) + '/h'; }, '#e67e22');
+                    barrasAR(garg.slice(0, 15).map(function(x) { return { rot: rotG(x), v: x.sombra_hora, cor: corG(x), txt: m + numFPM(x.sombra_hora, 0) + '/h' + (x.ganho_1pct > 0 ? ' · ' + ROTULO_AR_SOMBRA_E_1PCT + '%: ' + m + numFPM(x.ganho_1pct, 0) : '') }; }), function(v) { return m + numFPM(v, 0) + '/h'; }, '#e67e22') +
+                    nota(ROTULO_AR_NOTA_G1);
                 html += '<div class="fpm-custo-secao">' + escapeHtml(ROTULO_AR_OCUPACAO) + '</div>' +
                     barrasAR(eq.filter(function(x) { return x.ocupacao !== null; }).slice().sort(function(a, b) { return b.ocupacao - a.ocupacao; }).slice(0, 20)
                         .map(function(x) { return { rot: rotG(x), v: x.ocupacao, cor: x.e_gargalo ? '#2e86de' : '#95a5a6' }; }), function(v) { return numFPM(v, 1) + '%'; }, '#2e86de') +
@@ -4104,7 +4238,7 @@
                 html += '<div class="fpm-custo-secao">' + escapeHtml(ROTULO_AR_TAB_EQ_CONJ) + '</div>' + nota(ROTULO_AR_NOTA_EQ_CONJ);
                 if (!cj.length) html += '<div class="fpm-detalhe-vazio">' + escapeHtml(ROTULO_AR_SEM_CONJUNTOS) + '</div>';
                 else html += tabelaAR([[ROTULO_AR_COL_CONJUNTO], [ROTULO_AR_COL_PRODUCAO, 1], [ROTULO_AR_COL_MAXIMO, 1], [ROTULO_AR_COL_UTILIZACAO, 1], [ROTULO_AR_COL_NO_MAX, 1],
-                                       [ROTULO_AR_COL_SOMBRA_MAX, 1], [ROTULO_AR_COL_GANHO_MAX, 1], [ROTULO_AR_COL_NO_MIN, 1], [ROTULO_AR_COL_MEMBROS]],
+                                       [ROTULO_AR_COL_SOMBRA_MAX, 1], [ROTULO_AR_COL_G1_MAX + '%', 1], [ROTULO_AR_COL_GANHO_MAX, 1], [ROTULO_AR_COL_NO_MIN, 1], [ROTULO_AR_COL_MEMBROS]],
                     cj.map(function(c) {
                         var membros = (c.membros || []).map(function(e) {
                             return '<div style="white-space: nowrap;">' + escapeHtml(e.nome) + ': <b>' + escapeHtml(e.ocupacao === null || e.ocupacao === undefined ? '—' : numFPM(e.ocupacao, 1) + '%') + '</b> ' +
@@ -4112,48 +4246,49 @@
                         }).join('');
                         return [escapeHtml(c.nome) + (c.concorrentes && c.concorrentes.length ? '<div class="fpm-bs-tag">' + escapeHtml(ROTULO_AR_CONCORRE + ': ' + c.concorrentes.join('; ')) + '</div>' : ''),
                                 escapeHtml(numAR(c.producao, 0)), escapeHtml(numAR(c.maximo, 0)), escapeHtml(c.utilizacao === null || c.utilizacao === undefined ? '—' : numFPM(c.utilizacao, 1) + '%'),
-                                escapeHtml(c.p_max + '/' + c.periodos), escapeHtml(c.p_max ? m + numFPM(c.s_max_medio, 2) + '/' + ROTULO_AR_UN : '—'),
+                                escapeHtml(c.p_max + '/' + c.periodos), escapeHtml(c.p_max ? m + numFPM(c.s_max_medio, 2) + '/' + ROTULO_AR_UN : '—'), g1AR(d, c.g1_max),
                                 ganhoTextoAR(d, { ganho: c.ganho_max, sem_limite: c.ganho_max_sem_limite }), escapeHtml(c.p_min + '/' + c.periodos), membros || '—'];
                     }));
                 html += secaoOcupMinAR(d);
                 html += '<div class="fpm-custo-secao">' + escapeHtml(ROTULO_AR_COL_EQUIP) + '</div>' +
                     tabelaAR([[ROTULO_AR_COL_EQUIP], [ROTULO_AR_COL_GARGALO_CAD], [ROTULO_AR_COL_HORAS_DISP, 1], [ROTULO_AR_COL_HORAS_USO, 1], [ROTULO_AR_COL_OCUP, 1], [ROTULO_AR_COL_PER_100, 1],
-                                  [ROTULO_AR_COL_SOMBRA_H, 1], [ROTULO_AR_COL_GANHO, 1], [ROTULO_AR_COL_MARGEM_PASSA, 1], [ROTULO_AR_COL_MCT_H, 1]],
+                                  [ROTULO_AR_COL_SOMBRA_H, 1], [ROTULO_AR_COL_G1_PROD + '%', 1], [ROTULO_AR_COL_GANHO, 1], [ROTULO_AR_COL_MARGEM_PASSA, 1], [ROTULO_AR_COL_MCT_H, 1]],
                     eq.map(function(x) {
                         return [escapeHtml(x.nome) + (x.gargalo ? '<div class="fpm-bs-tag">' + escapeHtml(x.gargalo + (x.concorrentes.length ? ' · ' + ROTULO_AR_CONCORRE + ': ' + x.concorrentes.join('; ') : '')) + '</div>' : '') +
                                     ((x.conjuntos || []).length ? '<div class="fpm-bs-tag">' + escapeHtml(ROTULO_AR_COL_CONJUNTO + ': ' + x.conjuntos.join('; ')) + '</div>' : ''),
                                 escapeHtml(x.e_gargalo ? ROTULO_AR_SIM : ROTULO_AR_NAO),
                                 escapeHtml(numAR(x.loading, 0)), escapeHtml(numAR(x.horas, 0)), escapeHtml(x.ocupacao === null ? '—' : numFPM(x.ocupacao, 1) + '%'),
                                 escapeHtml(x.periodos_100 + '/' + x.periodos), escapeHtml(x.p_gargalo ? m + numFPM(x.sombra_hora, 0) + '/h (' + x.p_gargalo + ')' : '—'),
+                                g1AR(d, x.ganho_1pct, x.ganho_1pct_limitado),
                                 ganhoTextoAR(d, { ganho: x.ganho_max, sem_limite: x.ganho_max_sem_limite }), escapeHtml(m + numFPM(x.margem_passa, 0) + ' (' + x.n_fluxos + ')'),
                                 escapeHtml(x.mct_hora === null ? '—' : m + numFPM(x.mct_hora, 0) + '/h')];
                     })) + mais(eq.length, d.equipamentos_n);
             } else if (aba === 'comerciais' || aba === 'conjuntos') {
                 var listas = aba === 'comerciais' ? [[ROTULO_AR_TAB_LIM_PM, d.limites_pm || []], [ROTULO_AR_TAB_LIM_P, d.limites_p || []]] : [[ROTULO_AR_TAB_LIM_CE, d.limites_ce || []]];
-                html += nota(aba === 'comerciais' ? ROTULO_AR_NOTA_COMERCIAIS : ROTULO_AR_NOTA_CONJUNTOS);
+                html += nota(aba === 'comerciais' ? ROTULO_AR_NOTA_COMERCIAIS : ROTULO_AR_NOTA_CONJUNTOS) + nota(ROTULO_AR_NOTA_G1_COM);
                 listas.forEach(function(par) {
                     html += '<div class="fpm-custo-secao">' + escapeHtml(par[0]) + '</div>';
                     if (!par[1].length) { html += '<div class="fpm-detalhe-vazio">' + escapeHtml(ROTULO_AR_SEM_RESTRICOES) + '</div>'; return; }
-                    html += tabelaAR([[ROTULO_AR_COL_NOME], [ROTULO_AR_COL_NO_MAX, 1], [ROTULO_AR_COL_SOMBRA_MAX, 1], [ROTULO_AR_COL_GANHO_MAX, 1], [ROTULO_AR_COL_NO_MIN, 1], [ROTULO_AR_COL_SOMBRA_MIN, 1], [ROTULO_AR_COL_GANHO_MIN, 1]],
+                    html += tabelaAR([[ROTULO_AR_COL_NOME], [ROTULO_AR_COL_NO_MAX, 1], [ROTULO_AR_COL_SOMBRA_MAX, 1], [ROTULO_AR_COL_G1_MAX + '%', 1], [ROTULO_AR_COL_GANHO_MAX, 1], [ROTULO_AR_COL_NO_MIN, 1], [ROTULO_AR_COL_SOMBRA_MIN, 1], [ROTULO_AR_COL_G1_MIN + '%', 1], [ROTULO_AR_COL_GANHO_MIN, 1]],
                         par[1].map(function(x) {
                             return [escapeHtml(x.nome) + (x.concorrentes.length ? '<div class="fpm-bs-tag">' + escapeHtml(ROTULO_AR_CONCORRE + ': ' + x.concorrentes.join('; ')) + '</div>' : ''),
-                                    escapeHtml(x.p_max + '/' + x.periodos), escapeHtml(x.p_max ? m + numFPM(x.s_max_medio, 2) + '/' + ROTULO_AR_UN : '—'), ganhoTextoAR(d, { ganho: x.ganho_max, sem_limite: x.ganho_max_sem_limite }),
-                                    escapeHtml(x.p_min + '/' + x.periodos), escapeHtml(x.p_min ? m + numFPM(x.s_min_medio, 2) + '/' + ROTULO_AR_UN : '—'), ganhoTextoAR(d, { ganho: x.ganho_min, sem_limite: x.ganho_min_sem_limite })];
+                                    escapeHtml(x.p_max + '/' + x.periodos), escapeHtml(x.p_max ? m + numFPM(x.s_max_medio, 2) + '/' + ROTULO_AR_UN : '—'), g1AR(d, x.g1_max, x.g1_max_limitado), ganhoTextoAR(d, { ganho: x.ganho_max, sem_limite: x.ganho_max_sem_limite }),
+                                    escapeHtml(x.p_min + '/' + x.periodos), escapeHtml(x.p_min ? m + numFPM(x.s_min_medio, 2) + '/' + ROTULO_AR_UN : '—'), g1AR(d, x.g1_min, x.g1_min_limitado), ganhoTextoAR(d, { ganho: x.ganho_min, sem_limite: x.ganho_min_sem_limite })];
                         }));
                 });
             } else if (aba === 'insumos') {
                 var ins = d.insumos || [];
-                html += nota(ROTULO_AR_NOTA_INSUMOS);
+                html += nota(ROTULO_AR_NOTA_INSUMOS) + nota(ROTULO_AR_NOTA_G1_INS);
                 if (!ins.length) html += '<div class="fpm-detalhe-vazio">' + escapeHtml(ROTULO_AR_SEM_RESTRICOES) + '</div>';
-                else html += tabelaAR([[ROTULO_AR_COL_INSUMO], [ROTULO_AR_COL_CONSUMO, 1], [ROTULO_AR_COL_CMIN, 1], [ROTULO_AR_COL_CMAX, 1], [ROTULO_AR_COL_NO_MAX, 1], [ROTULO_AR_COL_SOMBRA_MAX, 1], [ROTULO_AR_COL_GANHO_MAX, 1],
-                                       [ROTULO_AR_COL_NO_MIN, 1], [ROTULO_AR_COL_SOMBRA_MIN, 1], [ROTULO_AR_COL_GANHO_MIN, 1]],
+                else html += tabelaAR([[ROTULO_AR_COL_INSUMO], [ROTULO_AR_COL_CONSUMO, 1], [ROTULO_AR_COL_CMIN, 1], [ROTULO_AR_COL_CMAX, 1], [ROTULO_AR_COL_NO_MAX, 1], [ROTULO_AR_COL_SOMBRA_MAX, 1], [ROTULO_AR_COL_G1_MAX + '%', 1], [ROTULO_AR_COL_GANHO_MAX, 1],
+                                       [ROTULO_AR_COL_NO_MIN, 1], [ROTULO_AR_COL_SOMBRA_MIN, 1], [ROTULO_AR_COL_G1_MIN + '%', 1], [ROTULO_AR_COL_GANHO_MIN, 1]],
                     ins.map(function(x) {
                         return [escapeHtml(x.nome) + (x.concorrentes.length ? '<div class="fpm-bs-tag">' + escapeHtml(ROTULO_AR_CONCORRE + ': ' + x.concorrentes.join('; ')) + '</div>' : '') +
                                     ((x.minimos_presos || []).length ? '<div class="fpm-bs-tag">' + escapeHtml(ROTULO_AR_PRESO_MIN + ': ' + x.minimos_presos.map(function(q) { return q.periodo + ' (' + ROTULO_AR_MINIMO + ' ' + numFPM(q.minimo, 0) + ')'; }).join(', ')) + '</div>' : '') +
                                     ((x.maximos_atingidos || []).length ? '<div class="fpm-bs-tag">' + escapeHtml(ROTULO_AR_NO_MAXIMO_TAG + ': ' + x.maximos_atingidos.map(function(q) { return q.periodo + ' (' + numFPM(q.maximo, 0) + ')'; }).join(', ')) + '</div>' : ''),
                                 escapeHtml(numAR(x.consumo, 0)), escapeHtml(numAR(x.cmin, 0)), escapeHtml(numAR(x.cmax, 0)), escapeHtml(String(x.p_max)),
-                                escapeHtml(x.p_max ? m + numFPM(x.s_max_medio, 2) + '/' + ROTULO_AR_UN : '—'), ganhoTextoAR(d, { ganho: x.ganho_max, sem_limite: x.ganho_max_sem_limite }),
-                                escapeHtml(String(x.p_min)), escapeHtml(x.p_min ? m + numFPM(x.s_min_medio, 2) + '/' + ROTULO_AR_UN : '—'), ganhoTextoAR(d, { ganho: x.ganho_min, sem_limite: x.ganho_min_sem_limite })];
+                                escapeHtml(x.p_max ? m + numFPM(x.s_max_medio, 2) + '/' + ROTULO_AR_UN : '—'), g1AR(d, x.g1_max), ganhoTextoAR(d, { ganho: x.ganho_max, sem_limite: x.ganho_max_sem_limite }),
+                                escapeHtml(String(x.p_min)), escapeHtml(x.p_min ? m + numFPM(x.s_min_medio, 2) + '/' + ROTULO_AR_UN : '—'), g1AR(d, x.g1_min), ganhoTextoAR(d, { ganho: x.ganho_min, sem_limite: x.ganho_min_sem_limite })];
                     }));
             } else if (aba === 'analisar') {
                 html += nota(ROTULO_AR_NOTA_ANALISAR);
@@ -4233,7 +4368,8 @@
                 vendidos_com_margem_negativa: (d.vendidos_negativos || []).slice(0, 6).map(function(x) { return { nome: x.nome, vendas: n(x.vendas) + ' ' + (x.unidade || ''), margem_total: $(x.margem) }; }),
                 equipamentos: (d.equipamentos || []).slice(0, 10).map(function(x) {
                     return { nome: x.nome, gargalo_no_cadastro: x.e_gargalo ? 'sim (tem limite de capacidade)' : 'não (sem limite de horas no modelo; ocupação acima de 100% não é problema do modelo)',
-                             conjuntos: x.conjuntos || [], ocupacao: x.ocupacao === null ? null : n(x.ocupacao, 1) + '%', periodos_gargalo: x.p_gargalo, periodos: x.periodos, sombra_hora: $(x.sombra_hora) + '/h', ganho_potencial: $(x.ganho_max),
+                             conjuntos: x.conjuntos || [], ocupacao: x.ocupacao === null ? null : n(x.ocupacao, 1) + '%', periodos_gargalo: x.p_gargalo,
+                             ganho_com_produtividade_mais_1pct: x.ganho_1pct > 0 ? $(x.ganho_1pct) + ' (soma dos períodos em que foi gargalo' + (x.horas_1pct ? '; 1% = ' + n(x.horas_1pct, 1) + ' h a mais por período' : '') + ')' : null, periodos: x.periodos, sombra_hora: $(x.sombra_hora) + '/h', ganho_potencial: $(x.ganho_max),
                              margem_que_passa: $(x.margem_passa), tipo_gargalo: x.gargalo, concorrentes: x.concorrentes };
                 }),
                 // 🌟 19/10/2026: insumos e limites com a LEITURA já pronta (sentido sem ambiguidade): mínimo ativo = o modelo
@@ -4257,6 +4393,7 @@
                              o_que_fazer: a.o_que_fazer || (a.lado === 'max' ? 'AUMENTAR o limite máximo' : 'REDUZIR o limite mínimo'),
                              periodos: a.periodos, quais_periodos: a.periodos_lista || [],
                              sombra_media: a.exato ? 'não se aplica: ganho exato, otimização refeita com o mínimo em 0%' : $(a.sombra_media, 2) + '/' + (a.unidade || 'un') + (a.lado === 'max' ? ' a mais no máximo' : ' a menos no mínimo'),
+                             ganho_com_1pct: a.ganho_1pct > 0 ? $(a.ganho_1pct) + (a.tipo_cod === 'E' ? ' com +1% de produtividade' : (a.lado === 'max' ? ' com +1% no limite máximo' : ' com -1% no limite mínimo')) : null,
                              ganho_potencial: $(a.ganho), periodos_sem_limite_na_faixa: a.sem_limite };
                 })
             };
@@ -4305,12 +4442,12 @@
             abas.push({ nome: ROTULO_AR_ABA_FLUXOS, linhas: cab.concat([[], [ROTULO_AR_COL_NOME, 'Un', ROTULO_AR_COL_VENDAS, ROTULO_AR_COL_MARGEM_UN, ROTULO_AR_COL_MARGEM, ROTULO_AR_COL_CMH, ROTULO_AR_COL_PER_DISP]])
                 .concat((d.fluxos || []).map(function(x) { return [x.nome, x.unidade, x.vendas, x.margem_un, x.margem, x.cmh, x.periodos_disp]; })), larguras: [50, 6, 14, 12, 16, 12, 10] });
             abas.push({ nome: ROTULO_AR_ABA_EQUIP, linhas: cab.concat([[], [ROTULO_AR_COL_EQUIP, ROTULO_AR_COL_GARGALO_CAD, ROTULO_AR_COL_CONJUNTO, ROTULO_AR_COL_HORAS_DISP, ROTULO_AR_COL_HORAS_USO, ROTULO_AR_COL_OCUP, ROTULO_AR_COL_PER_100, ROTULO_AR_COL_PERIODOS,
-                                                                     ROTULO_AR_COL_SOMBRA_H, ROTULO_AR_COL_PER_GARGALO, ROTULO_AR_COL_GANHO, ROTULO_AR_COL_MARGEM_PASSA, ROTULO_AR_COL_MCT_H, ROTULO_AR_COL_TIPO_GARGALO, ROTULO_AR_CONCORRE]])
-                .concat((d.equipamentos || []).map(function(x) { return [x.nome, x.e_gargalo ? ROTULO_AR_SIM : ROTULO_AR_NAO, (x.conjuntos || []).join('; '), x.loading, x.horas, x.ocupacao, x.periodos_100, x.periodos, x.sombra_hora, x.p_gargalo, x.ganho_max, x.margem_passa, x.mct_hora, x.gargalo, x.concorrentes.join('; ')]; })),
-                larguras: [36, 12, 30, 14, 14, 10, 10, 10, 14, 10, 16, 16, 14, 16, 40] });
+                                                                     ROTULO_AR_COL_SOMBRA_H, ROTULO_AR_COL_PER_GARGALO, ROTULO_AR_COL_G1_PROD + '%', ROTULO_AR_COL_GANHO, ROTULO_AR_COL_MARGEM_PASSA, ROTULO_AR_COL_MCT_H, ROTULO_AR_COL_TIPO_GARGALO, ROTULO_AR_CONCORRE]])
+                .concat((d.equipamentos || []).map(function(x) { return [x.nome, x.e_gargalo ? ROTULO_AR_SIM : ROTULO_AR_NAO, (x.conjuntos || []).join('; '), x.loading, x.horas, x.ocupacao, x.periodos_100, x.periodos, x.sombra_hora, x.p_gargalo, x.ganho_1pct, x.ganho_max, x.margem_passa, x.mct_hora, x.gargalo, x.concorrentes.join('; ')]; })),
+                larguras: [36, 12, 30, 14, 14, 10, 10, 10, 14, 10, 16, 16, 16, 14, 16, 40] });
             var lim = function(nome, lista) {
-                abas.push({ nome: nome, linhas: cab.concat([[], [ROTULO_AR_COL_NOME, ROTULO_AR_COL_PERIODOS, ROTULO_AR_COL_NO_MAX, ROTULO_AR_COL_SOMBRA_MAX, ROTULO_AR_COL_GANHO_MAX, ROTULO_AR_COL_NO_MIN, ROTULO_AR_COL_SOMBRA_MIN, ROTULO_AR_COL_GANHO_MIN, ROTULO_AR_CONCORRE]])
-                    .concat(lista.map(function(x) { return [x.nome, x.periodos, x.p_max, x.s_max_medio, x.ganho_max, x.p_min, x.s_min_medio, x.ganho_min, (x.concorrentes || []).join('; ')]; })), larguras: [40, 10, 10, 14, 16, 10, 14, 16, 40] });
+                abas.push({ nome: nome, linhas: cab.concat([[ROTULO_AR_NOTA_G1_COM], [], [ROTULO_AR_COL_NOME, ROTULO_AR_COL_PERIODOS, ROTULO_AR_COL_NO_MAX, ROTULO_AR_COL_SOMBRA_MAX, ROTULO_AR_COL_G1_MAX + '%', ROTULO_AR_COL_GANHO_MAX, ROTULO_AR_COL_NO_MIN, ROTULO_AR_COL_SOMBRA_MIN, ROTULO_AR_COL_G1_MIN + '%', ROTULO_AR_COL_GANHO_MIN, ROTULO_AR_CONCORRE]])
+                    .concat(lista.map(function(x) { return [x.nome, x.periodos, x.p_max, x.s_max_medio, x.g1_max, x.ganho_max, x.p_min, x.s_min_medio, x.g1_min, x.ganho_min, (x.concorrentes || []).join('; ')]; })), larguras: [40, 10, 10, 14, 16, 16, 10, 14, 16, 16, 40] });
             };
             lim(ROTULO_AR_ABA_LIMITES + ' ' + ROTULO_AR_TAB_LIM_PM, d.limites_pm || []);
             lim(ROTULO_AR_ABA_LIMITES + ' ' + ROTULO_AR_TAB_LIM_P, d.limites_p || []);
@@ -4336,9 +4473,9 @@
             }
             abas.push({ nome: ROTULO_AR_ABA_INSUMOS, linhas: cab.concat([[], [ROTULO_AR_COL_INSUMO, ROTULO_AR_COL_CONSUMO, ROTULO_AR_COL_CMIN, ROTULO_AR_COL_CMAX, ROTULO_AR_COL_NO_MAX, ROTULO_AR_COL_SOMBRA_MAX, ROTULO_AR_COL_GANHO_MAX, ROTULO_AR_COL_NO_MIN, ROTULO_AR_COL_SOMBRA_MIN, ROTULO_AR_COL_GANHO_MIN]])
                 .concat((d.insumos || []).map(function(x) { return [x.nome, x.consumo, x.cmin, x.cmax, x.p_max, x.s_max_medio, x.ganho_max, x.p_min, x.s_min_medio, x.ganho_min]; })), larguras: [36, 14, 14, 14, 10, 14, 16, 10, 14, 16] });
-            abas.push({ nome: ROTULO_AR_ABA_ANALISAR, linhas: cab.concat([[ROTULO_AR_NOTA_ANALISAR], [], [ROTULO_AR_COL_TIPO, ROTULO_AR_COL_RESTRICAO, ROTULO_AR_COL_LIMITE, ROTULO_AR_COL_O_QUE, ROTULO_AR_COL_PERIODOS, ROTULO_AR_COL_SOMBRA, 'Un', ROTULO_AR_COL_GANHO, ROTULO_AR_COL_SEM_LIMITE, ROTULO_AR_CONCORRE]])
-                .concat((d.analisar || []).map(function(a) { return [a.tipo, a.nome, a.lado === 'max' ? ROTULO_AR_MAXIMO : ROTULO_AR_MINIMO, a.o_que_fazer || a.acao, a.periodos, a.sombra_media, a.unidade || ROTULO_AR_UN, a.ganho, a.sem_limite, (a.concorrentes || []).join('; ')]; })),
-                larguras: [18, 40, 10, 50, 10, 14, 6, 16, 12, 40] });
+            abas.push({ nome: ROTULO_AR_ABA_ANALISAR, linhas: cab.concat([[ROTULO_AR_NOTA_ANALISAR], [], [ROTULO_AR_COL_TIPO, ROTULO_AR_COL_RESTRICAO, ROTULO_AR_COL_LIMITE, ROTULO_AR_COL_O_QUE, ROTULO_AR_COL_PERIODOS, ROTULO_AR_COL_SOMBRA, 'Un', ROTULO_AR_COL_G1 + '%', ROTULO_AR_COL_GANHO, ROTULO_AR_COL_SEM_LIMITE, ROTULO_AR_CONCORRE]])
+                .concat((d.analisar || []).map(function(a) { return [a.tipo, a.nome, a.lado === 'max' ? ROTULO_AR_MAXIMO : ROTULO_AR_MINIMO, a.o_que_fazer || a.acao, a.periodos, a.sombra_media, a.unidade || ROTULO_AR_UN, a.ganho_1pct, a.ganho, a.sem_limite, (a.concorrentes || []).join('; ')]; })),
+                larguras: [18, 40, 10, 50, 10, 14, 6, 16, 16, 12, 40] });
             if (d._ia) abas.push({ nome: ROTULO_FPM_AV_IA, linhas: [[d.titulo || ''], []].concat(d._ia.split('\n').map(function(l) { return [l]; })), larguras: [140] });
             // nome de aba do Excel: sem : \ / ? * [ ], até 31 caracteres e sem repetir
             var usados = {};
@@ -4387,6 +4524,9 @@
             var uid = 'sene' + (++_contadorSENE);
             _dadosSENE[uid] = d;
             var hist = !!d._historico;
+            // 🌟 20/10/2026: d.confirmar -- clicar só MARCA o cartão (um por vez) e o botão "Confirmar Equipamento", à direita
+            // do "Cancelar" da mensagem, envia a escolha
+            var acao = d.confirmar ? 'marcarEquipSENE' : 'escolherEquipSENE';
             var html = '<div class="sene-bloco" id="' + uid + '"><div class="grade-equipamentos sene-grade">';
             (d.equipamentos || []).forEach(function(eq, i) {
                 var imagemOk = eq.imagem && /^(\/|https?:\/\/)/.test(eq.imagem);
@@ -4397,16 +4537,42 @@
                 var txtOc = (oc === null || oc === undefined) ? ROTULO_SENE_SEM_CARGA : numFPM(oc, 1) + '%';
                 html += '<div class="cartao-equipamento ' + classeOcupSENE(oc) + (hist ? ' cartao-desativado' : '') + '" role="button" tabindex="0" data-i="' + i + '" ' +
                         'aria-label="' + escapeAttr(eq.codigo + ' - ' + ROTULO_SENE_MEDIA + ' ' + txtOc) + '" ' +
-                        'onclick="escolherEquipSENE(\'' + uid + '\', ' + i + ')" onkeydown="if (event.key === \'Enter\' || event.key === \' \') { event.preventDefault(); escolherEquipSENE(\'' + uid + '\', ' + i + '); }" ' +
+                        'onclick="' + acao + '(\'' + uid + '\', ' + i + ')" onkeydown="if (event.key === \'Enter\' || event.key === \' \') { event.preventDefault(); ' + acao + '(\'' + uid + '\', ' + i + '); }" ' +
                         'onmouseenter="mostrarDicaSENE(event, \'' + uid + '\', ' + i + ')" onmousemove="moverDicaSENE(event)" onmouseleave="esconderDicaSENE()" ' +
                         'onfocus="mostrarDicaSENE(event, \'' + uid + '\', ' + i + ')" onblur="esconderDicaSENE()">' +
                         '<span class="sene-ocup">' + escapeHtml(txtOc) + '</span>' +
                         '<div class="cartao-imagem">' + imagemHtml + '</div>' +
                         '<div class="cartao-codigo">' + escapeHtml(eq.codigo) + '</div>' +
                         '<div class="cartao-descricao">' + escapeHtml(eq.descricao || '') + '</div>' +
+                        (eq.extra ? '<div class="cartao-descricao" style="font-weight: bold;">' + escapeHtml(eq.extra) + '</div>' : '') +
                     '</div>';
             });
-            return html + '</div><div class="sene-legenda">' + escapeHtml(ROTULO_SENE_LEG_CHEIO + ' 100% · ' + ROTULO_SENE_LEG_FOLGA + ' 100%') + '</div></div>';
+            html += '</div><div class="sene-legenda">' + escapeHtml(ROTULO_SENE_LEG_CHEIO + ' 100% · ' + ROTULO_SENE_LEG_FOLGA + ' 100%') + '</div>';
+            if (d.confirmar && !hist) {
+                html += '<div class="barra-selecao barra-selecao-topo"><button type="button" class="botao-opcao botao-confirmar-sene" data-sene="' + uid + '" disabled onclick="confirmarEquipSENE(\'' + uid + '\')">' +
+                    escapeHtml(ROTULO_SENE_CONFIRMAR) + '</button></div>';
+                setTimeout(function() {
+                    var bloco = document.getElementById(uid), b = bloco && bloco.querySelector('.botao-confirmar-sene');
+                    var msg = bloco && bloco.closest('.chat-box-p'), op = msg && msg.querySelector('.opcoes-clicaveis');
+                    if (b && op) { var barra = b.parentNode; op.appendChild(b); if (barra && !barra.children.length) barra.remove(); }
+                }, 0);
+            }
+            return html + '</div>';
+        }
+        function marcarEquipSENE(uid, i) {
+            var bloco = document.getElementById(uid);
+            if (!bloco || bloco.getAttribute('data-enviado') === '1') return;
+            bloco.querySelectorAll('.cartao-equipamento').forEach(function(c) { c.classList.toggle('sene-escolhido', Number(c.getAttribute('data-i')) === i); });
+            bloco.setAttribute('data-escolhido', String(i));
+            var b = document.querySelector('.botao-confirmar-sene[data-sene="' + uid + '"]');
+            if (b) b.disabled = false;
+        }
+        function confirmarEquipSENE(uid) {
+            var bloco = document.getElementById(uid);
+            if (!bloco || bloco.getAttribute('data-escolhido') === null) return;
+            var b = document.querySelector('.botao-confirmar-sene[data-sene="' + uid + '"]');
+            if (b) b.disabled = true;
+            escolherEquipSENE(uid, Number(bloco.getAttribute('data-escolhido')));
         }
         function escolherEquipSENE(uid, i) {
             var bloco = document.getElementById(uid), d = _dadosSENE[uid];
@@ -4464,6 +4630,154 @@
             if (el) el.style.display = 'none';
         }
 
+        // 🌟 NOVO (20/10/2026): escolha do limite comercial da "Sensibilidade Ganho Margem x Limite Comercial" -- cartões com a
+        // imagem do produto e do mercado lado a lado; fundo amarelo = limite mínimo, vermelho = limite máximo. Um só; o botão
+        // Confirmar fica à direita do "Cancelar" da mensagem.
+        var _dadosSGL = {}, _contadorSGL = 0;
+        function imagemSGL(url, alt) {
+            var ok = url && /^(\/|https?:\/\/)/.test(url);
+            return '<div class="cartao-imagem">' + (ok ? '<img src="' + escapeAttr(url) + '" alt="' + escapeAttr(alt || '') + '" onerror="falhaImagemEquipamento(this)">'
+                : '<span class="cartao-sem-imagem">' + escapeHtml(ROTULO_SEM_IMAGEM) + '</span>') + '</div>';
+        }
+        function montarEscolhaLimiteSGL(d) {
+            var uid = 'sgl' + (++_contadorSGL), m = d.moeda || '', hist = !!d._historico;
+            _dadosSGL[uid] = d;
+            var html = '<div class="sene-bloco" id="' + uid + '"><div class="grade-equipamentos sgl-grade">';
+            (d.limites || []).forEach(function(l, i) {
+                var min = l.lado === 'min';
+                var dica = (l.periodos || []).join(', ');
+                html += '<div class="cartao-equipamento ' + (min ? 'sgl-min' : 'sgl-max') + (hist ? ' cartao-desativado' : '') + '" role="button" tabindex="0" data-i="' + i + '" title="' + escapeAttr(dica) + '" ' +
+                        'onclick="marcarLimiteSGL(\'' + uid + '\', ' + i + ')" onkeydown="if (event.key === \'Enter\' || event.key === \' \') { event.preventDefault(); marcarLimiteSGL(\'' + uid + '\', ' + i + '); }">' +
+                        '<span class="sgl-lado">' + escapeHtml(min ? ROTULO_SGL_MINIMO : ROTULO_SGL_MAXIMO) + '</span>' +
+                        '<div class="sgl-imagens">' + imagemSGL(l.img_produto, l.produto) + (l.tipo === 'PM' ? imagemSGL(l.img_mercado, l.mercado) : '') + '</div>' +
+                        '<div class="cartao-codigo">' + escapeHtml(l.produto && l.mercado ? l.produto + ' / ' + l.mercado : (l.produto || l.nome)) + '</div>' +
+                        '<div class="cartao-descricao">' + escapeHtml((l.periodos || []).length + ' ' + ROTULO_SGL_PERIODOS + ': ' + dica) + '</div>' +
+                        '<div class="cartao-descricao" style="font-weight: bold;">' + escapeHtml(ROTULO_SGL_SOMBRA + ': ' + m + numFPM(l.sombra_media, 2) + '/un') + '</div>' +
+                    '</div>';
+            });
+            html += '</div><div class="sene-legenda">' + escapeHtml(ROTULO_SGL_LEGENDA) + '</div>' +
+                '<div class="barra-selecao barra-selecao-topo sgl-barra"><button type="button" class="botao-opcao botao-confirmar-sgl" data-sgl="' + uid + '" disabled onclick="confirmarLimiteSGL(\'' + uid + '\')">' +
+                escapeHtml(ROTULO_SGL_CONFIRMAR) + '</button></div></div>';
+            if (!hist) setTimeout(function() {
+                var bloco = document.getElementById(uid), b = bloco && bloco.querySelector('.botao-confirmar-sgl');
+                var msg = bloco && bloco.closest('.chat-box-p'), op = msg && msg.querySelector('.opcoes-clicaveis');
+                if (b && op) { var barra = b.parentNode; op.appendChild(b); if (barra && !barra.children.length) barra.remove(); }
+            }, 0);
+            else html = html.replace('class="barra-selecao barra-selecao-topo sgl-barra"', 'class="barra-selecao barra-selecao-topo sgl-barra" style="display: none;"');
+            return html;
+        }
+        function marcarLimiteSGL(uid, i) {
+            var bloco = document.getElementById(uid);
+            if (!bloco || bloco.getAttribute('data-enviado') === '1') return;
+            bloco.querySelectorAll('.cartao-equipamento').forEach(function(c) { c.classList.toggle('sgl-escolhido', Number(c.getAttribute('data-i')) === i); });
+            bloco.setAttribute('data-escolhido', String(i));
+            var b = document.querySelector('.botao-confirmar-sgl[data-sgl="' + uid + '"]');
+            if (b) b.disabled = false;
+        }
+        function confirmarLimiteSGL(uid) {
+            var bloco = document.getElementById(uid), d = _dadosSGL[uid];
+            if (!bloco || !d || bloco.getAttribute('data-enviado') === '1') return;
+            var i = Number(bloco.getAttribute('data-escolhido'));
+            var l = (d.limites || [])[i];
+            if (!l) return;
+            bloco.setAttribute('data-enviado', '1');
+            bloco.querySelectorAll('.cartao-equipamento').forEach(function(c) { if (Number(c.getAttribute('data-i')) !== i) c.classList.add('cartao-desativado'); });
+            var b = document.querySelector('.botao-confirmar-sgl[data-sgl="' + uid + '"]');
+            if (b) b.disabled = true;
+            rotuloExibicaoOverride = (l.produto && l.mercado ? l.produto + ' / ' + l.mercado : (l.produto || l.nome)) + ' — ' + (l.lado === 'min' ? ROTULO_SGL_MINIMO : ROTULO_SGL_MAXIMO);
+            escolherOpcao(JSON.stringify({ produtos: [Number(l.id)] }));
+        }
+
+        // 🌟 NOVO (20/10/2026): "Sensibilidade Ganho Margem x Produtividade" / "x Limite Comercial" (d.tipo_fluxo =
+        // 'sens_ganho', d.modo = 'produtividade' | 'limite'; servidor: otimizacao/sensibilidade_shadow.py). Para cada
+        // variação: estimativa pelo preço sombra e ganho exato (otimização refeita), lado a lado.
+        var _dadosSG = {}, _contadorSG = 0;
+        function tabelaSG(d) {
+            var m = d.moeda || '', prod = d.modo === 'produtividade', n = d.periodos || 0;
+            var cols = [[ROTULO_SG_VARIACAO, 1], [prod ? ROTULO_SG_PROD_COL : ROTULO_SG_LIM_MEDIO, 1], [ROTULO_SG_EXATO, 1], [ROTULO_SG_ESTIM, 1], [ROTULO_SG_DIF, 1], [ROTULO_SG_FAIXA, 1]];
+            if (prod) cols.push([ROTULO_SG_OCUP, 1]);
+            var sinal = function(v) { return v === null || v === undefined ? '—' : '<span class="' + (v > 0.5 ? 'fpm-bs-pos' : (v < -0.5 ? 'fpm-bs-neg' : '')) + '">' + escapeHtml((v > 0.5 ? '+' : '') + m + numFPM(v, 0)) + '</span>'; };
+            return tabelaAR(cols, (d.pontos || []).map(function(p) {
+                var linha = ['<b>' + escapeHtml(pctSEN(p.d)) + '</b>',
+                    escapeHtml(prod ? (p.produtividade === null || p.produtividade === undefined ? '—' : numFPM(p.produtividade, 2)) : numFPM(p.limite, 0)),
+                    p.sem_solucao ? escapeHtml(ROTULO_SG_SEM_SOL + ' ' + p.sem_solucao + '/' + n + ' ' + ROTULO_SG_PERIODOS) : sinal(p.exato),
+                    sinal(p.estimativa), p.exato === null || p.exato === undefined ? '—' : sinal(p.estimativa - p.exato),
+                    escapeHtml(p.fora_faixa ? ROTULO_SG_FORA + ' ' + p.fora_faixa + '/' + n + ' ' + ROTULO_SG_PERIODOS : ROTULO_SG_OK)];
+                if (prod) linha.push(escapeHtml(p.ocupacao === null || p.ocupacao === undefined ? '—' : numFPM(p.ocupacao, 1) + '%'));
+                return linha;
+            }));
+        }
+        function graficoSG(d) {
+            var pts = (d.pontos || []).filter(function(p) { return p.exato !== null && p.exato !== undefined; });
+            if (pts.length < 2) return '';
+            var m = d.moeda || '';
+            var prod = d.modo === 'produtividade', nP = d.periodos || 1;
+            var x2 = function(p) { return prod ? (p.produtividade === null || p.produtividade === undefined ? '' : numFPM(p.produtividade, 2)) : numFPM(p.limite, 0); };
+            var listaG = pts.map(function(p) { return { mes: pctSEN(p.d), mes2: x2(p), ex: p.exato, es: p.estimativa, fora: p.fora_faixa }; });
+            listaG.rotulosTodos = true;
+            return '<div style="max-width: 760px;">' + graficoLinhasFPM(listaG,
+                [['total', ROTULO_SG_EXATO, function(y) { return y.ex; }], ['fixo', ROTULO_SG_ESTIM, function(y) { return y.es; }]],
+                function(sr) { return sr[1]; },
+                function(y) { return ROTULO_SG_VARIACAO + ' ' + y.mes + (y.mes2 ? ' (' + (prod ? ROTULO_SG_PROD_COL : ROTULO_SG_LIM_MEDIO) + ' ' + y.mes2 + ')' : '') + '\n' + ROTULO_SG_EXATO + ': ' + m + numFPM(y.ex, 0) + '\n' + ROTULO_SG_ESTIM + ': ' + m + numFPM(y.es, 0) + (y.fora ? '\n' + ROTULO_SG_FORA + ' ' + y.fora + ' ' + ROTULO_SG_PERIODOS : ''); }) + '</div>';
+        }
+        function montarSensGanhoSG(d) {
+            var uid = 'sg' + (++_contadorSG);
+            _dadosSG[uid] = d;
+            var m = d.moeda || '', prod = d.modo === 'produtividade';
+            var per = d.por_periodo || [];
+            var somb = per.filter(function(x) { return (prod ? x.sombra_hora : x.sombra) > 1e-9; });
+            var sombMed = somb.length ? somb.reduce(function(t, x) { return t + (prod ? x.sombra_hora : x.sombra); }, 0) / somb.length : 0;
+            var tile = function(rot, val, sub) {
+                return '<div class="ar-tile"><div class="ar-tile-rot">' + escapeHtml(rot) + '</div><div class="ar-tile-val">' + escapeHtml(val) + '</div>' + (sub ? '<div class="ar-tile-sub">' + escapeHtml(sub) + '</div>' : '') + '</div>';
+            };
+            var sub = (d.cenario || '') + ' · ' + (d.periodo || '') + ' · ' + (d.periodos || 0) + ' ' + ROTULO_SG_PERIODOS +
+                (prod ? '' : ' · ' + (d.lado === 'max' ? ROTULO_SG_LIM_MAX : ROTULO_SG_LIM_MIN));
+            return '<div class="fluxo-pm ar sg" id="' + uid + '"><div class="fpm-topo"><span class="fpm-dica-circulos"><b>' + escapeHtml(d.titulo || '') + '</b><br>' + escapeHtml(sub) + '</span>' +
+                '<span class="fpm-botoes"><span class="fpm-botoes-linha">' +
+                '<button type="button" class="botao-opcao" onclick="abrirSG(\'' + uid + '\')">' + escapeHtml(ROTULO_SG_ABRIR) + '</button>' +
+                '<button type="button" class="botao-opcao" onclick="exportarSG(this, \'' + uid + '\')">' + escapeHtml(ROTULO_FPM_BE_EXPORTAR) + '</button></span></span></div>' +
+                '<div class="ar-tiles">' + tile(prod ? ROTULO_SG_MCT_BASE : ROTULO_SG_MCT_BASE_LIM, m + numFPM(d.mct_base, 0)) +
+                (prod ? tile(ROTULO_SG_PROD_MEDIA, d.produtividade_media ? numFPM(d.produtividade_media, 2) : '—', d.ordens ? d.ordens + ' ordem(ns)' : '') +
+                        tile(ROTULO_SG_SOMBRA_H, m + numFPM(sombMed, 0) + '/h', somb.length + '/' + per.length + ' ' + ROTULO_SG_PERIODOS)
+                      : tile(ROTULO_SG_LIM_MEDIO, numFPM(d.limite_total, 0), (d.periodos || 0) + ' / ' + (d.periodos_total || d.periodos || 0) + ' ' + ROTULO_SG_PERIODOS) + tile(ROTULO_SG_SOMBRA_MEDIA, m + numFPM(sombMed, 2) + '/un', somb.length + '/' + per.length + ' ' + ROTULO_SG_PERIODOS)) + '</div>' +
+                '<div class="fpm-detalhe-sub">' + escapeHtml(prod ? ROTULO_SG_NOTA_PROD : ROTULO_SG_NOTA_LIM) + '</div>' +
+                '<div class="fpm-custo-secao">' + escapeHtml(ROTULO_SG_CURVA) + '</div>' + graficoSG(d) +
+                '<div class="fpm-detalhe-sub">' + escapeHtml(ROTULO_SG_EIXO + ' (' + (prod ? ROTULO_SG_PROD_COL : ROTULO_SG_LIM_MEDIO) + ').') + '</div>' + tabelaSG(d) + '</div>';
+        }
+        function abrirSG(uid) {
+            var d = _dadosSG[uid];
+            if (!d) return;
+            var m = d.moeda || '', prod = d.modo === 'produtividade';
+            var html = topoTelaFSP(d.titulo || '', d, '<button type="button" class="botao-opcao" style="margin: 0;" onclick="exportarSG(this, \'' + uid + '\')">' + escapeHtml(ROTULO_FPM_BE_EXPORTAR) + '</button>');
+            html += '<div class="fpm-detalhe-sub">' + escapeHtml(prod ? ROTULO_SG_NOTA_PROD : ROTULO_SG_NOTA_LIM) + '</div>' + graficoSG(d) + tabelaSG(d);
+            (d.por_periodo || []).forEach(function(x) {
+                html += '<div class="fpm-custo-secao">' + escapeHtml(ROTULO_SG_PERIODO + ' ' + x.periodo + ' · MCT ' + m + numFPM(x.mct_base, 0) + ' · ' +
+                    (prod ? ROTULO_SG_SOMBRA_H + ' ' + m + numFPM(x.sombra_hora, 0) + '/h · ' + ROTULO_SG_HORAS + ' ' + numFPM(x.limite_horas, 1) + ' · ' + ROTULO_SG_OCUP + ' ' + (x.ocupacao === null ? '—' : numFPM(x.ocupacao, 1) + '%')
+                          : ROTULO_SG_SOMBRA_MEDIA + ' ' + m + numFPM(x.sombra, 2) + '/un · ' + ROTULO_SG_LIMITE + ' ' + numFPM(x.limite, 0) + ' · ' + ROTULO_SG_VOLUME + ' ' + numFPM(x.volume, 0))) + '</div>' +
+                    tabelaAR([[ROTULO_SG_VARIACAO, 1], [ROTULO_SG_EXATO, 1], [ROTULO_SG_ESTIM, 1], [ROTULO_SG_FAIXA, 1]], (x.pontos || []).map(function(p) {
+                        return [escapeHtml(pctSEN(p[0])), escapeHtml(p[1] === null ? ROTULO_SG_SEM_SOL : (p[1] > 0.5 ? '+' : '') + m + numFPM(p[1], 0)),
+                                escapeHtml((p[2] > 0.5 ? '+' : '') + m + numFPM(p[2], 0)), escapeHtml(p[3] ? ROTULO_SG_OK : ROTULO_SG_FORA_CURTO)];
+                    }));
+            });
+            telaFSP(html);
+        }
+        function exportarSG(botao, uid) {
+            var d = _dadosSG[uid];
+            if (!d) return;
+            var m = (d.moeda || '').trim(), prod = d.modo === 'produtividade';
+            var cab = [[d.titulo || ''], [(d.cenario || '') + ' · ' + (d.periodo || '')], [prod ? ROTULO_SG_NOTA_PROD : ROTULO_SG_NOTA_LIM], []];
+            var abas = [{ nome: 'Resumo', linhas: cab.concat([[ROTULO_SG_VARIACAO + ' (%)', prod ? ROTULO_SG_PROD_MEDIA : ROTULO_SG_LIM_MEDIO, ROTULO_SG_EXATO + ' (' + m + ')', ROTULO_SG_ESTIM + ' (' + m + ')', ROTULO_SG_FORA + ' (' + ROTULO_SG_PERIODOS + ')', ROTULO_SG_SEM_SOL + ' (' + ROTULO_SG_PERIODOS + ')'].concat(prod ? [ROTULO_SG_OCUP + ' (%)'] : [])])
+                .concat((d.pontos || []).map(function(p) { return [p.d, prod ? p.produtividade : p.limite, p.exato, p.estimativa, p.fora_faixa, p.sem_solucao].concat(prod ? [p.ocupacao] : []); })),
+                larguras: [14, 22, 22, 22, 16, 16, 12] }];
+            var det = [];
+            (d.por_periodo || []).forEach(function(x) {
+                (x.pontos || []).forEach(function(p) { det.push([x.periodo, p[0], x.mct_base, prod ? x.sombra_hora : x.sombra, prod ? x.limite_horas : x.limite, p[1], p[2], p[3] ? ROTULO_SG_OK : ROTULO_SG_FORA_CURTO]); });
+            });
+            abas.push({ nome: 'Por período', linhas: cab.concat([[ROTULO_SG_PERIODO, ROTULO_SG_VARIACAO + ' (%)', 'MCT (' + m + ')', prod ? ROTULO_SG_SOMBRA_H : ROTULO_SG_SOMBRA_MEDIA, prod ? ROTULO_SG_HORAS : ROTULO_SG_LIMITE, ROTULO_SG_EXATO, ROTULO_SG_ESTIM, ROTULO_SG_FAIXA]]).concat(det),
+                larguras: [12, 14, 18, 18, 16, 20, 20, 14] });
+            exportarPlanilhaFPM(botao, ['sensibilidade_ganho', d.modo, d.periodo || ''], abas);
+        }
+
         function montarSensibilidadeSEN(d) {
             var uid = 'sen' + (++_contadorSEN);
             _dadosSEN[uid] = d;
@@ -4517,14 +4831,14 @@
                     var ocTxt = p.ocupacao !== null && p.ocupacao !== undefined ? numFPM(p.ocupacao, 0) + '%' : '—';
                     var desc = inv && d._modoDesc && p.delta_desc !== null && p.delta_desc !== undefined;
                     var parcial = inv && d.periodos && p.inviavel < d.periodos ? ' ' + p.inviavel + '/' + d.periodos : '';
-                    var l1 = base ? ROTULO_SEN_BASE : (inv ? (desc ? '(' + abrevSEN(d, p.delta_desc) + ')' : ROTULO_SEN_SEM_SOL + parcial) : abrevSEN(d, p.delta || 0));
-                    var v0 = inv && (p.violacoes || [])[0];
-                    var l2 = inv ? (desc ? ROTULO_SEN_DESC_CURTO : (v0 ? ROTULO_SEN_FALTA + ': ' + cortarFPM(v0.nome, 12) : '—')) : ROTULO_SEN_OCUP_CURTA + ' ' + ocTxt;
+                    // 🌟 20/10/2026: sem solução = só "sem solução" e quantos períodos (do total) ficaram sem solução
+                    var l1 = base ? ROTULO_SEN_BASE : (inv ? (desc ? '(' + abrevSEN(d, p.delta_desc) + ')' : ROTULO_SEN_SEM_SOL) : abrevSEN(d, p.delta || 0));
+                    var l2 = inv ? (desc ? ROTULO_SEN_DESC_CURTO : p.inviavel + '/' + (d.periodos || '?') + ' ' + ROTULO_SEN_PERIODOS_CURTO) : ROTULO_SEN_OCUP_CURTA + ' ' + ocTxt;
                     celulas += '<rect x="' + x + '" y="' + y + '" width="' + (cw - 2) + '" height="' + (ch - 2) + '" rx="3" fill="' +
                         (inv ? 'url(#sen-hach)' : cor(p.delta || 0)) + '"' + (base ? ' stroke="#003366" stroke-width="2"' : '') + '/>';
                     textos += '<g style="cursor: default;"><title>' + escapeHtml(dicaPontoSEN(d, p)) + '</title>' +
                         '<rect x="' + x + '" y="' + y + '" width="' + (cw - 2) + '" height="' + (ch - 2) + '" fill="transparent"/>' +
-                        '<text x="' + (x + cw / 2 - 1) + '" y="' + (y + 16) + '" font-size="' + (inv && !desc ? 9.5 : 10.5) + '" text-anchor="middle" fill="' + (inv ? '#5d6d7e' : '#1d2f40') + '"' + (base ? ' font-weight="bold"' : '') + '>' +
+                        '<text x="' + (x + cw / 2 - 1) + '" y="' + (y + 16) + '" font-size="10.5" text-anchor="middle" fill="' + (inv ? '#5d6d7e' : '#1d2f40') + '"' + (base ? ' font-weight="bold"' : '') + '>' +
                         escapeHtml(l1) + '</text>' +
                         '<text x="' + (x + cw / 2 - 1) + '" y="' + (y + 30) + '" font-size="9" text-anchor="middle" fill="' + (inv ? '#7b241c' : (p.ocupacao >= 99.5 ? '#7b241c' : '#34495e')) + '">' +
                         escapeHtml(l2) + '</text></g>';
@@ -5557,7 +5871,8 @@
             var cadaRotulo = Math.max(1, Math.ceil(n / 12));
             lista.forEach(function(x, i) {
                 if (i % cadaRotulo === 0 || i === n - 1)
-                    s += '<text x="' + px(i) + '" y="' + (H - base + 16) + '" font-size="10" text-anchor="middle" fill="#6b7a86">' + escapeHtml(x.mes) + '</text>';
+                    s += '<text x="' + px(i) + '" y="' + (H - base + 16) + '" font-size="10" text-anchor="middle" fill="#6b7a86">' + escapeHtml(x.mes) + '</text>' +
+                        (x.mes2 ? '<text x="' + px(i) + '" y="' + (H - base + 29) + '" font-size="9.5" text-anchor="middle" fill="#2c3e50">' + escapeHtml(x.mes2) + '</text>' : '');
             });
             series.forEach(function(sr) {
                 var cor = FPM_COR_EVO[sr[0]];
@@ -6173,10 +6488,11 @@
                 s += '<line x1="' + esq + '" y1="' + py(v) + '" x2="' + (esq + larg) + '" y2="' + py(v) + '" stroke="#e6e9ec" stroke-width="1"/>' +
                     '<text x="' + (esq - 6) + '" y="' + (py(v) + 4) + '" font-size="10" text-anchor="end" fill="#6b7a86">' + escapeHtml(numFPM(v, casas)) + '</text>';
             }
-            var cadaRotulo = Math.max(1, Math.ceil(n / 12));
+            var cadaRotulo = lista.rotulosTodos ? 1 : Math.max(1, Math.ceil(n / 12));
             lista.forEach(function(x, i) {
                 if (i % cadaRotulo === 0 || i === n - 1)
-                    s += '<text x="' + px(i) + '" y="' + (H - base + 16) + '" font-size="10" text-anchor="middle" fill="#6b7a86">' + escapeHtml(x.mes) + '</text>';
+                    s += '<text x="' + px(i) + '" y="' + (H - base + 16) + '" font-size="10" text-anchor="middle" fill="#6b7a86">' + escapeHtml(x.mes) + '</text>' +
+                        (x.mes2 ? '<text x="' + px(i) + '" y="' + (H - base + 29) + '" font-size="9.5" text-anchor="middle" fill="#2c3e50">' + escapeHtml(x.mes2) + '</text>' : '');
             });
             series.forEach(function(sr) {
                 var cor = FPM_COR_SERIE[sr[0]] || '#2c3e50';
@@ -7190,7 +7506,15 @@
             if (ids.length === 0) return;
             f.setAttribute('data-enviado', '1');
             f.querySelectorAll('input, button').forEach(function(el) { el.disabled = true; });
-            rotuloExibicaoOverride = (f.getAttribute('data-tipo-rotulo') === 'fluxos' ? ROTULO_FLUXOS_SEL : ROTULO_PRODUTOS_SEL) + ' (' + ids.length + ')';
+            var bFora = document.querySelector('.botao-confirmar-sel[data-sel="' + id + '"]');
+            if (bFora) bFora.disabled = true;
+            var tr = f.getAttribute('data-tipo-rotulo');
+            rotuloExibicaoOverride = (tr === 'fluxos' ? ROTULO_FLUXOS_SEL : (tr === 'limites' ? ROTULO_LIMITES_SEL : ROTULO_PRODUTOS_SEL)) + ' (' + ids.length + ')';
+            if (tr === 'limites' && ids.length === 1) {
+                var cart = f.querySelector('.caixa-sel:checked');
+                cart = cart && cart.closest('.cartao-sel');
+                if (cart) rotuloExibicaoOverride = cart.getAttribute('data-codigo') || rotuloExibicaoOverride;
+            }
             escolherOpcao(JSON.stringify({ produtos: ids }));
         }
 

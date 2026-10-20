@@ -25,6 +25,8 @@ ACOES = [
     ('Cenário', 'ciclo_completo', 'Cenário - Ciclo Completo (Limpar+Otimizar+Consolidar)'),
     ('Cenário', 'analise_resultados', 'Cenário - Análise dos Resultados'),
     ('Cenário', 'sensibilidade_custo_produtividade', 'Cenário - Sensibilidade Custo x Produtividade'),
+    ('Cenário', 'sensibilidade_ganho_produtividade', 'Cenário - Sensibilidade Ganho Margem x Produtividade'),
+    ('Cenário', 'sensibilidade_ganho_limite', 'Cenário - Sensibilidade Ganho Margem x Limite Comercial'),
     ('Cenário', 'excluir', 'Cenário - Excluir'),
     ('Cenário', 'exportar_excel', 'Cenário - Exportar Excel Resultados Financeiros do Cenário Ativo'),
     ('Cenário', 'exportar_dados_otimizacao', 'Cenário - Exportar Dados de Otimização do Cenário Ativo'),

@@ -29,6 +29,8 @@ from .fluxo_criar_cenario import (
     iniciar_fluxo_montar_fluxo_producao_mensal,
     iniciar_fluxo_balanco_subprodutos,
     iniciar_fluxo_analise_resultados,
+    iniciar_fluxo_sens_ganho_produtividade,
+    iniciar_fluxo_sens_ganho_limite,
     iniciar_fluxo_sensibilidade,
     eh_pedido_outra_visao_fpm, abrir_outra_visao_fpm,
     iniciar_fluxo_criar_equipamento,
@@ -321,6 +323,16 @@ def _detectar_intencao_criar_equipamento(mensagem):
 # e ggf mencionados juntos, em qualquer ordem, ou o nome da categoria).
 # 🌟 NOVO: "Custo Ferbasa - Montar Fluxo de Produção pela Produção Mensal" (só consulta). Exige "montar" + "fluxo" +
 # "produção mensal" -- checado ANTES dos outros detectores de Custo Ferbasa.
+def _detectar_intencao_sens_ganho_produtividade(mensagem):
+    """🌟 NOVO (20/10/2026): "Cenário - Sensibilidade Ganho Margem x Produtividade"."""
+    return bool(re.search(r'ganho\s+(de\s+)?margem\s*x\s*produtividade', mensagem or "", re.IGNORECASE))
+
+
+def _detectar_intencao_sens_ganho_limite(mensagem):
+    """🌟 NOVO (20/10/2026): "Cenário - Sensibilidade Ganho Margem x Limite Comercial"."""
+    return bool(re.search(r'ganho\s+(de\s+)?margem\s*x\s*limites?\s+comercia', mensagem or "", re.IGNORECASE))
+
+
 def _detectar_intencao_sensibilidade(mensagem):
     """🌟 NOVO (18/10/2026): "Cenário - Sensibilidade Custo x Produtividade"."""
     return bool(re.search(r'sensibilidade.{0,20}custo|custo\s*x\s*produtividade', mensagem or "", re.IGNORECASE))
@@ -1279,6 +1291,20 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
         _salvar_historico(usuario, mensagem_usuario, resposta)
         return resposta, []
 
+    # 🌟 NOVO (20/10/2026): Sensibilidade Ganho Margem x Produtividade / x Limite Comercial (Cenário) -- só consulta.
+    if _detectar_intencao_sens_ganho_produtividade(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Cenário', 'sensibilidade_ganho_produtividade'):
+        if esta_em_fluxo:
+            cancelar_fluxo_ativo(usuario)
+        resposta = iniciar_fluxo_sens_ganho_produtividade(usuario)
+        _salvar_historico(usuario, mensagem_usuario, resposta)
+        return resposta, []
+    if _detectar_intencao_sens_ganho_limite(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Cenário', 'sensibilidade_ganho_limite'):
+        if esta_em_fluxo:
+            cancelar_fluxo_ativo(usuario)
+        resposta = iniciar_fluxo_sens_ganho_limite(usuario)
+        _salvar_historico(usuario, mensagem_usuario, resposta)
+        return resposta, []
+
     # 🌟 NOVO (18/10/2026): Sensibilidade Custo x Produtividade (Cenário) -- só consulta.
     if _detectar_intencao_sensibilidade(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Cenário', 'sensibilidade_custo_produtividade'):
         if esta_em_fluxo:
@@ -1869,7 +1895,11 @@ INSTRUCAO_COMENTARIO_ANALISE_RESULTADOS = (
     "maior que 0 (ex.: 100% / 100%); para cada um a otimização foi REFEITA com a faixa 0-100% e 'ganho_exato' é o valor "
     "exato (não estimativa). Se essa lista vier preenchida, comente a restrição numa seção própria (se vier vazia, omita "
     "a seção 5): se o ganho for maior que zero, diga quanto "
-    "a obrigação custa e para quanto a ocupação cairia; se for zero, diga que a obrigação não custa margem.")
+    "a obrigação custa e para quanto a ocupação cairia; se for zero, diga que a obrigação não custa margem."
+    " GANHO COM 1%: para equipamento gargalo, além do preço sombra por hora, cite 'ganho_com_produtividade_mais_1pct' "
+    "(ganho na MCT se a produtividade aumentar 1%, que equivale a 1% a mais nas horas do limite); para limites comerciais "
+    "e de insumo cite 'ganho_com_1pct' (+1% no máximo ou -1% no mínimo). Prefira esses valores ao preço sombra por hora, "
+    "porque as horas do período são fixas.")
 )
 
 

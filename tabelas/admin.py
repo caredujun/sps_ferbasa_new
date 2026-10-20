@@ -61,6 +61,10 @@ class TbIndicadoresDaugtherAdmin(admin.TabularInline):
     model = TbIndicadoresDaugther
     form = TbIndicadoresDaugtherFormAdmin
 
+    # 🌟 NOVO (20/10/2026): gráfico de barras com a evolução do indicador ao lado dos valores (static/grafico_valores_inline.js)
+    class Media:
+        js = ('grafico_valores_inline.js',)
+
     # Não permite delete
     def has_delete_permission(self, request, obj=None):
         return False
@@ -739,7 +743,8 @@ class TbCambioDaugtherAdmin(admin.TabularInline):
     }
 
     class Media:
-        js = ('jquery.mask.min.js', 'custom.js')
+        # 🌟 20/10/2026: + gráfico de barras com a evolução do câmbio ao lado dos valores
+        js = ('jquery.mask.min.js', 'custom.js', 'grafico_valores_inline.js')
 
     # Não permite delete
     def has_delete_permission(self, request, obj=None):
@@ -1072,6 +1077,10 @@ class TbImpostoRendaDaugtherAdmin(admin.TabularInline):
     readonly_fields = ('display_order',)
 
     model = TbImpostoRendaDaugther
+
+    # 🌟 NOVO (20/10/2026): gráfico de barras com a evolução dos valores ao lado da tabela (static/grafico_valores_inline.js)
+    class Media:
+        js = ('grafico_valores_inline.js',)
     form = TbImpostoRendaDaugtherFormAdmin
 
     # Não permite delete
@@ -1222,7 +1231,8 @@ class TbTaxaDescontoDaugtherAdmin(admin.TabularInline):
     form = TbTaxaDescontoDaugtherFormAdmin
 
     class Media:
-        js = ('jquery.mask.min.js', 'custom.js')
+        # 🌟 20/10/2026: + gráfico de barras com a evolução dos valores ao lado da tabela
+        js = ('jquery.mask.min.js', 'custom.js', 'grafico_valores_inline.js')
 
     # Não permite delete
     def has_delete_permission(self, request, obj=None):
@@ -1352,7 +1362,8 @@ class TbCustoFixoDaugtherAdmin(admin.TabularInline):
     form = TbCustoFixoDaugtherFormAdmin
 
     class Media:
-        js = ('jquery.mask.min.js', 'custom.js')
+        # 🌟 20/10/2026: + gráfico de barras com a evolução dos valores ao lado da tabela
+        js = ('jquery.mask.min.js', 'custom.js', 'grafico_valores_inline.js')
 
     # Não permite delete
     def has_delete_permission(self, request, obj=None):
@@ -1411,6 +1422,10 @@ class TbDepreAmortiDaugtherAdmin(admin.TabularInline):
     readonly_fields = ('display_order', 'valor_moeda_empresa',)
 
     model = TbDepreAmortiDaugther
+
+    # 🌟 NOVO (20/10/2026): gráfico de barras com a evolução dos valores ao lado da tabela (static/grafico_valores_inline.js)
+    class Media:
+        js = ('grafico_valores_inline.js',)
     form = TbDepreAmortiDaugtherFormAdmin
 
     # Não permite delete
@@ -1468,6 +1483,10 @@ class TbCapexDaugtherAdmin(admin.TabularInline):
     readonly_fields = ('display_order', 'valor_moeda_empresa',)
 
     model = TbCapexDaugther
+
+    # 🌟 NOVO (20/10/2026): gráfico de barras com a evolução dos valores ao lado da tabela (static/grafico_valores_inline.js)
+    class Media:
+        js = ('grafico_valores_inline.js',)
     form = TbCapexDaugtherFormAdmin
 
     # Não permite delete
@@ -1921,7 +1940,8 @@ class TbCustoItemPrecoDaugtherAdmin(admin.TabularInline):
     form = TbCustoItemPrecoDaugtherFormAdmin
 
     class Media:
-        js = ('jquery.mask.min.js', 'custom.js')
+        # 🌟 20/10/2026: + gráficos (abas: Valor Preço, Pagamento, Valor Inbound, Pagamento, Estoque) ao lado da tabela
+        js = ('jquery.mask.min.js', 'custom.js', 'grafico_valores_inline.js')
 
     # Não permite delete
     def has_delete_permission(self, request, obj=None):
