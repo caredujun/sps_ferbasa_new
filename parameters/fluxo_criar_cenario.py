@@ -3791,8 +3791,20 @@ def _sgl_texto_limite(cenario, limites, moeda='', aviso=''):
         imagens = _sgl_imagens(limites)
     except Exception:
         imagens = [{} for _ in limites]
+    from otimizacao.sensibilidade_shadow import detalhes_limite
+    ordens = _sg_ordens(cenario)
+    rot = lambda o: _dau_order_para_periodo(cenario, o)
+    detalhes = {}
+    for l in limites:
+        k = (l['tipo'], l['id'])
+        if k not in detalhes:
+            try:
+                detalhes[k] = detalhes_limite(cenario.id, ordens, l['tipo'], l['id'], rot)
+            except Exception:
+                detalhes[k] = []
     cartoes = [{'id': k + 1, 'nome': l['nome'], 'tipo': l['tipo'], 'lado': l['lado'], 'periodos': l['periodos'],
-                'sombra_media': l['sombra_media'], 'limite_medio': l['limite_medio'], **imagens[k]} for k, l in enumerate(limites)]
+                'sombra_media': l['sombra_media'], 'limite_medio': l['limite_medio'],
+                'por_periodo': detalhes.get((l['tipo'], l['id']), []), **imagens[k]} for k, l in enumerate(limites)]
     return (aviso + f"Cenário **{cenario.numero_sequencial}/{cenario.cen_nome}**. Estes são os produtos/mercados onde os "
             "limites comerciais seguraram a margem: preço sombra maior que zero em pelo menos um período (do maior para o "
             "menor). Marque UM e confirme. Se foi o limite máximo que segurou a margem, vou calcular quanto a margem de "

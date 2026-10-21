@@ -1282,6 +1282,9 @@
         {% trans "Limite mínimo" as ROTULO_SGL_MINIMO %}
         {% trans "Limite máximo" as ROTULO_SGL_MAXIMO %}
         {% trans "Confirmar Produto/Mercado" as ROTULO_SGL_CONFIRMAR %}
+        {% trans "Volume recomendado" as ROTULO_SGL_VOLUME %}
+        {% trans "sem limite" as ROTULO_SGL_SEM_LIMITE %}
+        {% trans "em destaque, os períodos em que o limite segurou a margem" as ROTULO_SGL_DICA_PRESO %}
         {% trans "Preço sombra médio" as ROTULO_SGL_SOMBRA %}
         {% trans "período(s)" as ROTULO_SGL_PERIODOS %}
         {% trans "Amarelo: o limite mínimo segurou a margem. Vermelho: o limite máximo segurou a margem." as ROTULO_SGL_LEGENDA %}
@@ -1972,6 +1975,9 @@
         var ROTULO_SGL_MINIMO = "{{ ROTULO_SGL_MINIMO|escapejs }}";
         var ROTULO_SGL_MAXIMO = "{{ ROTULO_SGL_MAXIMO|escapejs }}";
         var ROTULO_SGL_CONFIRMAR = "{{ ROTULO_SGL_CONFIRMAR|escapejs }}";
+        var ROTULO_SGL_VOLUME = "{{ ROTULO_SGL_VOLUME|escapejs }}";
+        var ROTULO_SGL_SEM_LIMITE = "{{ ROTULO_SGL_SEM_LIMITE|escapejs }}";
+        var ROTULO_SGL_DICA_PRESO = "{{ ROTULO_SGL_DICA_PRESO|escapejs }}";
         var ROTULO_SGL_SOMBRA = "{{ ROTULO_SGL_SOMBRA|escapejs }}";
         var ROTULO_SGL_PERIODOS = "{{ ROTULO_SGL_PERIODOS|escapejs }}";
         var ROTULO_SGL_LEGENDA = "{{ ROTULO_SGL_LEGENDA|escapejs }}";
@@ -4549,7 +4555,7 @@
             });
             html += '</div><div class="sene-legenda">' + escapeHtml(ROTULO_SENE_LEG_CHEIO + ' 100% · ' + ROTULO_SENE_LEG_FOLGA + ' 100%') + '</div>';
             if (d.confirmar && !hist) {
-                html += '<div class="barra-selecao barra-selecao-topo"><button type="button" class="botao-opcao botao-confirmar-sene" data-sene="' + uid + '" disabled onclick="confirmarEquipSENE(\'' + uid + '\')">' +
+                html += '<div class="barra-selecao barra-selecao-topo"><button type="button" class="botao-opcao botao-confirmar-sene" data-sene="' + uid + '" disabled style="display: none;" onclick="confirmarEquipSENE(\'' + uid + '\')">' +
                     escapeHtml(ROTULO_SENE_CONFIRMAR) + '</button></div>';
                 setTimeout(function() {
                     var bloco = document.getElementById(uid), b = bloco && bloco.querySelector('.botao-confirmar-sene');
@@ -4565,7 +4571,9 @@
             bloco.querySelectorAll('.cartao-equipamento').forEach(function(c) { c.classList.toggle('sene-escolhido', Number(c.getAttribute('data-i')) === i); });
             bloco.setAttribute('data-escolhido', String(i));
             var b = document.querySelector('.botao-confirmar-sene[data-sene="' + uid + '"]');
-            if (b) b.disabled = false;
+            var eq = ((_dadosSENE[uid] || {}).equipamentos || [])[i];
+            // 🌟 21/10/2026: o botão diz o que vai ser analisado
+            if (b) { b.disabled = false; b.style.display = ''; b.textContent = ROTULO_SENE_CONFIRMAR + (eq ? ': ' + eq.codigo : ''); }
         }
         function confirmarEquipSENE(uid) {
             var bloco = document.getElementById(uid);
@@ -4646,7 +4654,9 @@
             (d.limites || []).forEach(function(l, i) {
                 var min = l.lado === 'min';
                 var dica = (l.periodos || []).join(', ');
-                html += '<div class="cartao-equipamento ' + (min ? 'sgl-min' : 'sgl-max') + (hist ? ' cartao-desativado' : '') + '" role="button" tabindex="0" data-i="' + i + '" title="' + escapeAttr(dica) + '" ' +
+                html += '<div class="cartao-equipamento ' + (min ? 'sgl-min' : 'sgl-max') + (hist ? ' cartao-desativado' : '') + '" role="button" tabindex="0" data-i="' + i + '" ' +
+                        'onmouseenter="mostrarDicaSGL(event, \'' + uid + '\', ' + i + ')" onmousemove="moverDicaSENE(event)" onmouseleave="esconderDicaSENE()" ' +
+                        'onfocus="mostrarDicaSGL(event, \'' + uid + '\', ' + i + ')" onblur="esconderDicaSENE()" ' +
                         'onclick="marcarLimiteSGL(\'' + uid + '\', ' + i + ')" onkeydown="if (event.key === \'Enter\' || event.key === \' \') { event.preventDefault(); marcarLimiteSGL(\'' + uid + '\', ' + i + '); }">' +
                         '<span class="sgl-lado">' + escapeHtml(min ? ROTULO_SGL_MINIMO : ROTULO_SGL_MAXIMO) + '</span>' +
                         '<div class="sgl-imagens">' + imagemSGL(l.img_produto, l.produto) + (l.tipo === 'PM' ? imagemSGL(l.img_mercado, l.mercado) : '') + '</div>' +
@@ -4656,7 +4666,7 @@
                     '</div>';
             });
             html += '</div><div class="sene-legenda">' + escapeHtml(ROTULO_SGL_LEGENDA) + '</div>' +
-                '<div class="barra-selecao barra-selecao-topo sgl-barra"><button type="button" class="botao-opcao botao-confirmar-sgl" data-sgl="' + uid + '" disabled onclick="confirmarLimiteSGL(\'' + uid + '\')">' +
+                '<div class="barra-selecao barra-selecao-topo sgl-barra"><button type="button" class="botao-opcao botao-confirmar-sgl" data-sgl="' + uid + '" disabled style="display: none;" onclick="confirmarLimiteSGL(\'' + uid + '\')">' +
                 escapeHtml(ROTULO_SGL_CONFIRMAR) + '</button></div></div>';
             if (!hist) setTimeout(function() {
                 var bloco = document.getElementById(uid), b = bloco && bloco.querySelector('.botao-confirmar-sgl');
@@ -4672,7 +4682,33 @@
             bloco.querySelectorAll('.cartao-equipamento').forEach(function(c) { c.classList.toggle('sgl-escolhido', Number(c.getAttribute('data-i')) === i); });
             bloco.setAttribute('data-escolhido', String(i));
             var b = document.querySelector('.botao-confirmar-sgl[data-sgl="' + uid + '"]');
-            if (b) b.disabled = false;
+            var l = ((_dadosSGL[uid] || {}).limites || [])[i];
+            // 🌟 21/10/2026: o botão diz o que vai ser analisado
+            if (b) {
+                b.disabled = false; b.style.display = '';
+                b.textContent = ROTULO_SGL_CONFIRMAR + (l ? ': ' + (l.produto && l.mercado ? l.produto + ' / ' + l.mercado : (l.produto || l.nome)) +
+                    ' (' + (l.lado === 'min' ? ROTULO_SGL_MINIMO : ROTULO_SGL_MAXIMO).toLowerCase() + ')' : '');
+            }
+        }
+        function mostrarDicaSGL(ev, uid, i) {
+            var d = _dadosSGL[uid], l = d && (d.limites || [])[i];
+            if (!l) return;
+            var presos = {};
+            (l.periodos || []).forEach(function(p) { presos[p] = 1; });
+            var corPreso = l.lado === 'min' ? '#8a6d00' : '#b02a37';
+            var linhas = (l.por_periodo || []).map(function(p) {
+                var preso = presos[p[0]];
+                return '<tr' + (preso ? ' style="font-weight: bold; color: ' + corPreso + ';"' : '') + '><td>' + escapeHtml(p[0]) + '</td><td>' + numFPM(p[1], 0) + '</td><td>' +
+                    (p[2] >= 9999999 ? escapeHtml(ROTULO_SGL_SEM_LIMITE) : numFPM(p[2], 0)) + '</td><td>' + numFPM(p[3], 0) + '</td></tr>';
+            }).join('');
+            var el = dicaElSENE();
+            el.innerHTML = '<b>' + escapeHtml(l.produto && l.mercado ? l.produto + ' / ' + l.mercado : (l.produto || l.nome)) + '</b><br>' +
+                escapeHtml((l.lado === 'min' ? ROTULO_SGL_MINIMO : ROTULO_SGL_MAXIMO) + ' · ' + ROTULO_SGL_DICA_PRESO) +
+                '<table><thead><tr><th>' + escapeHtml(ROTULO_SENE_PERIODO) + '</th><th>' + escapeHtml(ROTULO_SGL_MINIMO) + '</th><th>' + escapeHtml(ROTULO_SGL_MAXIMO) + '</th><th>' +
+                escapeHtml(ROTULO_SGL_VOLUME) + '</th></tr></thead><tbody>' + (linhas || '<tr><td colspan="4">—</td></tr>') + '</tbody></table>';
+            el.style.display = 'block';
+            if (ev && ev.type === 'focus') { var r = ev.target.getBoundingClientRect(); posicionarDicaSENE(r.right, r.top); }
+            else moverDicaSENE(ev);
         }
         function confirmarLimiteSGL(uid) {
             var bloco = document.getElementById(uid), d = _dadosSGL[uid];
@@ -4681,6 +4717,7 @@
             var l = (d.limites || [])[i];
             if (!l) return;
             bloco.setAttribute('data-enviado', '1');
+            esconderDicaSENE();
             bloco.querySelectorAll('.cartao-equipamento').forEach(function(c) { if (Number(c.getAttribute('data-i')) !== i) c.classList.add('cartao-desativado'); });
             var b = document.querySelector('.botao-confirmar-sgl[data-sgl="' + uid + '"]');
             if (b) b.disabled = true;
@@ -6386,6 +6423,7 @@
             membrosAgrupFPM(d, nid).forEach(function(id) {
                 ((d.custo_mensal_op || {})[id] || []).forEach(function(x) { prod[x[0]] = (prod[x[0]] || 0) + x[1]; });
                 (((d.itens_mensal_op || {})[id] || {})[codigo] || []).forEach(function(x) {
+                    if (sinal && x[1] * sinal <= 0) return;     // 🌟 21/10/2026: só o lado pedido (consumido ou gerado)
                     var r = porMes[x[0]] = porMes[x[0]] || [x[0], 0, 0, 0];
                     r[1] += x[1]; r[2] += x[2]; r[3] += x[3];
                 });
@@ -6676,12 +6714,13 @@
                     });
                     var it = (d.itens_mensal_op || {})[id] || {};
                     Object.keys(it).forEach(function(c) {
-                        var r = itens[c];
-                        if (!r) {
-                            var x = itemDoNoFPM(porId[id] || {}, c);
-                            r = itens[c] = { codigo: c, descricao: x[4] || '', unidade: x[5] || '', q: {}, t: {}, v: {} };
-                        }
+                        // 🌟 21/10/2026: consumido e gerado (subproduto) do mesmo item em linhas separadas -- não se anulam
                         it[c].forEach(function(y) {
+                            var k = y[1] < 0 ? c + '|sp' : c, r = itens[k];
+                            if (!r) {
+                                var x = itemDoNoFPM(porId[id] || {}, c);
+                                r = itens[k] = { codigo: c, descricao: x[4] || '', unidade: x[5] || '', q: {}, t: {}, v: {} };
+                            }
                             r.q[y[0]] = (r.q[y[0]] || 0) + y[1]; r.t[y[0]] = (r.t[y[0]] || 0) + y[2]; r.v[y[0]] = (r.v[y[0]] || 0) + y[3];
                         });
                     });
@@ -6712,7 +6751,7 @@
                 Object.keys(it.q).forEach(function(k) { qT += it.q[k]; });
                 var sinal = qT >= 0 ? 1 : -1;
                 var qB = soma(it.q, b0, b1) * sinal, qC = soma(it.q, c0, c1) * sinal;
-                var x = { codigo: c, descricao: it.descricao, unidade: it.unidade, sub: sinal < 0, espB: qB / PB, espC: qC / PC,
+                var x = { codigo: it.codigo, descricao: it.descricao, unidade: it.unidade, sub: sinal < 0, espB: qB / PB, espC: qC / PC,
                           tB: soma(it.t, b0, b1), tC: soma(it.t, c0, c1), vB: soma(it.v, b0, b1), vC: soma(it.v, c0, c1), qB: qB, qC: qC };
                 if (!x.tB && !x.tC && !x.qB && !x.qC) return;
                 ['t', 'v'].forEach(function(m) {

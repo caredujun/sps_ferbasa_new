@@ -44,6 +44,29 @@ def _num(v):
     return float(v) if v is not None else 0.0
 
 
+_NEG = 'neg'
+
+
+def _separar_negativos(consumo, valores, itens_consumo):
+    """🌟 NOVO (21/10/2026): resolve as chaves (_NEG, id) de montar_grafo. Equipamento que também consumiu o item
+    (qtde > 0): o gerado fica no id NEGATIVO (-id), com o mesmo cadastro do item em itens_consumo (código, descrição,
+    unidade) -- caixa de subproduto própria ('sub:-id'). Senão: soma no próprio id, exatamente como antes."""
+    for op in list(consumo):
+        itens = consumo[op]
+        for chave in [k for k in itens if isinstance(k, tuple)]:
+            cid = chave[1]
+            q = itens.pop(chave)
+            v = valores[op].pop(chave, None) if chave in valores[op] else None
+            destino = -cid if itens.get(cid, 0.0) > 0 else cid
+            if destino != cid:
+                itens_consumo[destino] = itens_consumo[cid]
+            itens[destino] = itens.get(destino, 0.0) + q
+            if v is not None:
+                r = valores[op][destino]
+                r[0] += v[0]
+                r[1] += v[1]
+
+
 def montar_grafo(linhas, itens_producao, itens_consumo, ids_selecionados, ggf_linhas=None, pct_var_ggf=None,
                  agrupar_finais=True):
     """
@@ -68,6 +91,11 @@ def montar_grafo(linhas, itens_producao, itens_consumo, ids_selecionados, ggf_li
     ordens_com_producao = defaultdict(set)      # op -> {(ano_mes, ordem)} com produção (pra casar o GGF distribuído)
     pct_var_ggf = pct_var_ggf or {}
     grupos = {}
+    # 🌟 CORRIGIDO (21/10/2026): o mesmo item CONSUMIDO (qtde > 0) e GERADO como subproduto (qtde < 0, sequência 35) no
+    # mesmo equipamento -- ex.: Tiço de Carvão no Biorredutor -- se anulava na soma e sumia do desenho (nem MP nem SP).
+    # Agora o negativo é somado à parte (chave NEG + id) e, se o equipamento também consumiu o item, vira uma entrada
+    # própria (id negativo, com o mesmo cadastro do item). Sem consumo positivo, volta a ser o próprio id (como antes).
+    itens_consumo = dict(itens_consumo)
     for l in linhas:
         op = (l['pro_men_item_producao_id'], l['pro_men_grupo_maquina_id'])
         grupos[l['pro_men_grupo_maquina_id']] = l.get('grupo') or {'codigo': str(l['pro_men_grupo_maquina_id']), 'nome': ''}
@@ -76,17 +104,19 @@ def montar_grafo(linhas, itens_producao, itens_consumo, ids_selecionados, ggf_li
         if chave_prod not in ja_contado:
             ja_contado.add(chave_prod)
             producao[op] += _num(l['pro_men_qtde_produzida'])
-        consumo[op][l['pro_men_item_consumo_id']] += _num(l['pro_men_qtde_consumo'])
+        cid_l = l['pro_men_item_consumo_id'] if _num(l['pro_men_qtde_consumo']) >= 0 else (_NEG, l['pro_men_item_consumo_id'])
+        consumo[op][cid_l] += _num(l['pro_men_qtde_consumo'])
         # Valor da linha, como na procedure custo_variavel_adicionado: total = (material + GGF) x qtde; variável =
         # material x qtde + a parte variável do GGF (% do item de produção com o mesmo código do item consumido).
         qtd, material, ggf = _num(l['pro_men_qtde_consumo']), _num(l.get('pro_men_valor_material')), _num(l.get('pro_men_valor_ggf'))
         pct = pct_var_ggf.get(itens_consumo[l['pro_men_item_consumo_id']]['codigo'], 0.0) if ggf > 0 else 0.0
         if _num(l['pro_men_qtde_produzida']) > 0:      # como na procedure: só linhas com produção
-            reg = valores[op][l['pro_men_item_consumo_id']]
+            reg = valores[op][cid_l]
             reg[0] += (material + ggf) * qtd
             reg[1] += material * qtd + ggf * qtd * (pct if pct > 0 else 0.0) / 100.0
         if _num(l['pro_men_qtde_produzida']) > 0:
             ordens_com_producao[op].add((l['pro_men_ano_mes'], l['pro_men_ordem_producao']))
+    _separar_negativos(consumo, valores, itens_consumo)
 
     operacoes_por_codigo = defaultdict(list)    # código do item produzido -> [op, ...]
     for op in producao:
@@ -332,8 +362,11 @@ def montar_grafo(linhas, itens_producao, itens_consumo, ids_selecionados, ggf_li
         produzido = sum(producao[o] for o in operacoes_por_codigo.get(codigo, []))
         neste_fluxo, outros, geradores = 0.0, {}, {}
         for op, itens in consumo.items():
-            qtd = sum(itens.get(cid, 0.0) for cid in cons_ids_por_codigo[codigo])
-            if qtd < 0:
+            # 🌟 21/10/2026: gerado (negativo) e consumido (positivo) contam separados -- não se anulam
+            qs = [itens.get(cid, 0.0) for cid in cons_ids_por_codigo[codigo]]
+            gerado_op = sum(q for q in qs if q < 0)
+            qtd = sum(q for q in qs if q > 0)
+            if gerado_op < 0:
                 # 🌟 NOVO: consumo negativo = o item foi GERADO como subproduto nesse equipamento (ex.: parte da produção
                 # de outro produto, fora de especificação, desviada para este item -- o negativo é a bonificação no
                 # custo do equipamento). Entra no balanço como entrada, ao lado do produzido.
@@ -341,8 +374,7 @@ def montar_grafo(linhas, itens_producao, itens_consumo, ids_selecionados, ggf_li
                 reg = geradores.setdefault(prod['codigo'], {'produto': prod['codigo'], 'descricao': prod['descricao'],
                                                             'grupos': set(), 'qtd': 0.0})
                 reg['grupos'].add(grupos[op[1]]['codigo'])
-                reg['qtd'] += -qtd
-                continue
+                reg['qtd'] += -gerado_op
             if qtd == 0:
                 continue
             if op in ops_no_fluxo:
@@ -1463,7 +1495,7 @@ def _itens_mensais_ops(linhas, itens_consumo, pct_var_ggf):
     🌟 NOVO (16/10/2026): por mês e equipamento, cada item consumido (pelo CÓDIGO): [qtde, valor total, valor variável]
     -- a mesma conta de montar_grafo (qtde de todas as linhas; valor só das linhas com produção > 0). Qtde negativa =
     subproduto (valores negativos = crédito). Usado na evolução mensal de cada matéria-prima / subproduto.
-    Devolve {(mês, op): {código: [qtde, total, variável]}}.
+    Devolve {(mês, op): {(código, gerado?): [qtde, total, variável]}}.
     """
     pct_var_ggf = pct_var_ggf or {}
     acc = {}
@@ -1476,9 +1508,10 @@ def _itens_mensais_ops(linhas, itens_consumo, pct_var_ggf):
         por_item = acc.get((l['pro_men_ano_mes'], op))
         if por_item is None:
             por_item = acc[(l['pro_men_ano_mes'], op)] = {}
-        r = por_item.get(codigo)
+        # 🌟 21/10/2026: chave (código, gerado?) -- consumido e gerado no mesmo mês não se anulam
+        r = por_item.get((codigo, qtd < 0))
         if r is None:
-            r = por_item[codigo] = [0.0, 0.0, 0.0]
+            r = por_item[(codigo, qtd < 0)] = [0.0, 0.0, 0.0]
         r[0] += qtd
         if _num(l['pro_men_qtde_produzida']) > 0:
             mat, ggf = _num(l.get('pro_men_valor_material')), _num(l.get('pro_men_valor_ggf'))
@@ -1497,7 +1530,7 @@ def _itens_mensais_compacta(acc, ids_ops, meses):
         if nid not in ids_ops or mes not in idx:
             continue
         destino = saida.setdefault(nid, {})
-        for codigo, (q, t, v) in por_item.items():
+        for (codigo, _g), (q, t, v) in por_item.items():
             destino.setdefault(codigo, []).append([idx[mes], round(q, 4), round(t, 2), round(v, 2)])
     for por_item in saida.values():
         for lista in por_item.values():
@@ -1776,7 +1809,7 @@ def montar_rotas_reais(linhas, itens_producao, itens_consumo, ids_selecionados, 
                     return
                 f = fatores_mes.get(m, {})
                 destino = itens_evol.setdefault(nid, {})
-                for codigo, (q, t, v) in por_item.items():
+                for (codigo, _g), (q, t, v) in por_item.items():
                     fc = f.get(codigo, 1.0) if q > 0 else 1.0
                     destino.setdefault(codigo, []).append([idx_mes[m], round(q * k_m, 4), round(t * fc * k_m, 2), round(v * fc * k_m, 2)])
             for n in grafo['nos']:

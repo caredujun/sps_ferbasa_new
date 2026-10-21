@@ -73,8 +73,49 @@ def calcula_regressao_linear_multipla(id_regressao_linear_multipla):
     '''
 
 
+# 🌟 NOVO (21/10/2026): multi-empresa nas importações de Produção Mensal e Distribuição GGF Mensal. As tarefas rodam no
+# Celery, onde não há usuário logado -- o preenchimento automático da empresa (_atribuir_empresa_se_necessario, no
+# models.py) não funciona e os registros criados ficavam com empresa vazia (somem das telas do Admin, que filtram pela
+# empresa). Agora a empresa do usuário que pediu a importação vem como parâmetro: tudo é procurado SÓ nessa empresa e
+# tudo que é criado é gravado com ela. Sem empresa (tarefa antiga ainda na fila), funciona como antes.
+class _ObjetosDaEmpresa:
+    def __init__(self, modelo, empresa_id):
+        self.modelo, self.empresa_id = modelo, empresa_id
+
+    def _qs(self):
+        qs = self.modelo.objects.all()
+        return qs.filter(empresa_id=self.empresa_id) if self.empresa_id is not None else qs
+
+    def all(self):
+        return self._qs()
+
+    def filter(self, *args, **kwargs):
+        return self._qs().filter(*args, **kwargs)
+
+    def get(self, *args, **kwargs):
+        return self._qs().get(*args, **kwargs)
+
+    def create(self, **kwargs):
+        if self.empresa_id is not None:
+            kwargs.setdefault('empresa_id', self.empresa_id)
+        return self.modelo.objects.create(**kwargs)
+
+
+def _objetos_empresa(empresa_id):
+    return {m: _ObjetosDaEmpresa(m, empresa_id) for m in (TbEstabelecimentos, TbGruposMaquinas, TbItensProducao, TbItensConsumo, TbProducaoMensal, TbContaContabil, TbCentroCusto, TbContaContabilCentroCusto, TbDistribuicaoGGFMensal)}
+
+
+def _empresa_do_usuario(usuario_id):
+    from django.contrib.auth import get_user_model
+    usuario = get_user_model().objects.filter(id=usuario_id).first()
+    perfil = getattr(usuario, 'perfilusuario', None) if usuario else None
+    return perfil.empresa_efetiva_id() if perfil else None
+
+
+
 @shared_task
-def importar_excel_producao_mensal_celery():
+def importar_excel_producao_mensal_celery(empresa_id=None):
+    O = _objetos_empresa(empresa_id)     # 🌟 21/10/2026: procura e grava só na empresa do usuário
     # Nao usamos o try pois estamos executando em segundo plano e não temos como retornar mensagens (pelo menos até sabermos como fazer isso ...)
     aws_id = AWS_ACCESS_KEY_ID
     aws_secret = AWS_SECRET_ACCESS_KEY
@@ -119,7 +160,7 @@ def importar_excel_producao_mensal_celery():
 
             if i > 1 and sheet.cell(row=i, column=1).value != None:  # Temos informação na linha
                 # print(sheet.cell(row=i, column=1).value)
-                if sheet.cell(row=i, column=10).value > 0 and sheet.cell(row=i,
+                if (sheet.cell(row=i, column=10).value or 0) > 0 and sheet.cell(row=i,
                                                                          column=11) != None:  # Porque a linha 1 é o cabeçalho
 
                     # Só vamos considerar se qtde_produzida for maior que zero e foi informado item de consumo
@@ -142,47 +183,49 @@ def importar_excel_producao_mensal_celery():
                         v_descricao_item_consumo = ''
                         v_unidade_item_consumo = ''
                         v_tipo_item_consumo = ''
+                        v_sequencia = 0
                     else:
                         v_descricao_item_consumo = sheet.cell(row=i, column=12).value[0:60].upper()
                         v_unidade_item_consumo = sheet.cell(row=i, column=13).value.upper()
                         v_tipo_item_consumo = sheet.cell(row=i, column=22).value.upper()
+                        v_sequencia = sheet.cell(row=i, column=23).value
 
                         # Verificando estabelecimento
-                    if TbEstabelecimentos.objects.filter(est_codigo=v_codigo_estabelecimento).count() > 0:  # Existe
-                        v_id_estabelecimento = TbEstabelecimentos.objects.get(est_codigo=v_codigo_estabelecimento).id
+                    if O[TbEstabelecimentos].filter(est_codigo=v_codigo_estabelecimento).count() > 0:  # Existe
+                        v_id_estabelecimento = O[TbEstabelecimentos].get(est_codigo=v_codigo_estabelecimento).id
                         # Vamos atualizar o novo nome se for diferente
-                        objeto = TbEstabelecimentos.objects.get(est_codigo=v_codigo_estabelecimento)
+                        objeto = O[TbEstabelecimentos].get(est_codigo=v_codigo_estabelecimento)
                         if objeto.est_nome != sheet.cell(row=i, column=3).value.upper():
                             objeto.est_nome = sheet.cell(row=i, column=3).value.upper()
                             objeto.save()
                     else:
                         # Não existe. Vamos criar e pegar o id
-                        n = TbEstabelecimentos.objects.create(est_codigo=v_codigo_estabelecimento.upper(),
+                        n = O[TbEstabelecimentos].create(est_codigo=v_codigo_estabelecimento.upper(),
                                                               est_nome=sheet.cell(row=i, column=3).value.upper())
                         n.save()
                         v_id_estabelecimento = n.id
 
                     # Verificando grupo máquina
-                    if TbGruposMaquinas.objects.filter(gru_maq_codigo=v_codigo_grupo_maquina).count() > 0:  # Existe
-                        v_id_grupo_maquina = TbGruposMaquinas.objects.get(gru_maq_codigo=v_codigo_grupo_maquina).id
+                    if O[TbGruposMaquinas].filter(gru_maq_codigo=v_codigo_grupo_maquina).count() > 0:  # Existe
+                        v_id_grupo_maquina = O[TbGruposMaquinas].get(gru_maq_codigo=v_codigo_grupo_maquina).id
                         # Vamos atualizar o novo nome se for diferente
-                        objeto = TbGruposMaquinas.objects.get(gru_maq_codigo=v_codigo_grupo_maquina)
+                        objeto = O[TbGruposMaquinas].get(gru_maq_codigo=v_codigo_grupo_maquina)
                         if objeto.gru_maq_nome != sheet.cell(row=i, column=6).value.upper():
                             objeto.gru_maq_nome = sheet.cell(row=i, column=6).value.upper()
                             objeto.save()
                     else:
                         # Não existe. Vamos criar e pegar o id
-                        n = TbGruposMaquinas.objects.create(gru_maq_codigo=v_codigo_grupo_maquina.upper(),
+                        n = O[TbGruposMaquinas].create(gru_maq_codigo=v_codigo_grupo_maquina.upper(),
                                                             gru_maq_nome=sheet.cell(row=i, column=6).value.upper()
                                                             )
                         n.save()
                         v_id_grupo_maquina = n.id
 
                     # Verificando item de produção
-                    if TbItensProducao.objects.filter(ite_pro_codigo=v_codigo_item_producao).count() > 0:  # Existe
-                        v_id_item_producao = TbItensProducao.objects.get(ite_pro_codigo=v_codigo_item_producao).id
+                    if O[TbItensProducao].filter(ite_pro_codigo=v_codigo_item_producao).count() > 0:  # Existe
+                        v_id_item_producao = O[TbItensProducao].get(ite_pro_codigo=v_codigo_item_producao).id
                         # Vamos atualizar a nova descrição se for diferente
-                        objeto = TbItensProducao.objects.get(ite_pro_codigo=v_codigo_item_producao)
+                        objeto = O[TbItensProducao].get(ite_pro_codigo=v_codigo_item_producao)
                         if objeto.ite_pro_descricao != sheet.cell(row=i, column=8).value[0:60].upper():
                             objeto.ite_pro_descricao = sheet.cell(row=i, column=8).value[0:60].upper()
                             objeto.save()
@@ -191,77 +234,84 @@ def importar_excel_producao_mensal_celery():
                             objeto.save()
                     else:
                         # Não existe. Vamos criar e pegar o id
-                        n = TbItensProducao.objects.create(ite_pro_codigo=v_codigo_item_producao.upper(),
+                        n = O[TbItensProducao].create(ite_pro_codigo=v_codigo_item_producao.upper(),
                                                            ite_pro_descricao=sheet.cell(row=i, column=8).value[
                                                                0:60].upper(),
                                                            ite_pro_unidade=sheet.cell(row=i, column=9).value.upper())
                         n.save()
                         v_id_item_producao = n.id
 
-                # Verificando item de consumo
-                if TbItensConsumo.objects.filter(ite_con_codigo=v_codigo_item_consumo).count() > 0:  # Existe
-                    v_id_item_consumo = TbItensConsumo.objects.get(ite_con_codigo=v_codigo_item_consumo).id
-                    # Vamos atualizar a nova descrição se for diferente
-                    objeto = TbItensConsumo.objects.get(ite_con_codigo=v_codigo_item_consumo)
-                    if objeto.ite_con_descricao != v_descricao_item_consumo:
-                        objeto.ite_con_descricao = v_descricao_item_consumo
-                        objeto.save()
-                    if objeto.ite_con_unidade != v_unidade_item_consumo:
-                        objeto.ite_con_unidade = v_unidade_item_consumo
-                        objeto.save()
-                    if objeto.ite_con_tipo != v_tipo_item_consumo:
-                        objeto.ite_con_tipo = v_tipo_item_consumo
-                        objeto.save()
-                else:
-                    # Não existe. Vamos criar e pegar o id
-                    n = TbItensConsumo.objects.create(ite_con_codigo=v_codigo_item_consumo.upper(),
-                                                      ite_con_descricao=v_descricao_item_consumo,
-                                                      ite_con_unidade=v_unidade_item_consumo,
-                                                      ite_con_tipo=v_tipo_item_consumo)
-                    n.save()
-                    v_id_item_consumo = n.id
-
-                # Vamos ver se já existe na tabela de produção mensal
-                if TbProducaoMensal.objects.filter(pro_men_ano_mes=v_ano_mes,
-                                                   pro_men_estabelecimento_id=v_id_estabelecimento,
-                                                   pro_men_grupo_maquina_id=v_id_grupo_maquina,
-                                                   pro_men_ordem_producao=v_ordem_producao,
-                                                   pro_men_item_producao=v_id_item_producao,
-                                                   pro_men_item_consumo=v_id_item_consumo).count() == 0:  # Não existe. Vamos criar o registro
-
-                    # Vamos veriricar se campo pro_men_valor_material é caracter. Se sim passamos para numérico
-                    # Isso é para evitar erro pois algumas vezes esse campo na planilha está vindo como caracter
-                    if type(sheet.cell(row=i, column=16).value) is str:
-                        valor_material = sheet.cell(row=i, column=16).value.replace(',', '.')
+                    # 🌟 CORRIGIDO (21/10/2026): este bloco e a gravação na Produção Mensal estavam FORA do
+                    # "if qtde_produzida > 0" -- numa linha com quantidade zero, gravava com os valores da linha
+                    # anterior. Agora fica tudo dentro do if (igual à rotina do Agente IA).
+                    # Verificando item de consumo
+                    if O[TbItensConsumo].filter(ite_con_codigo=v_codigo_item_consumo).count() > 0:  # Existe
+                        v_id_item_consumo = O[TbItensConsumo].get(ite_con_codigo=v_codigo_item_consumo).id
+                        # Vamos atualizar a nova descrição se for diferente
+                        objeto = O[TbItensConsumo].get(ite_con_codigo=v_codigo_item_consumo)
+                        if objeto.ite_con_descricao != v_descricao_item_consumo:
+                            objeto.ite_con_descricao = v_descricao_item_consumo
+                            objeto.save()
+                        if objeto.ite_con_unidade != v_unidade_item_consumo:
+                            objeto.ite_con_unidade = v_unidade_item_consumo
+                            objeto.save()
+                        if objeto.ite_con_tipo != v_tipo_item_consumo:
+                            objeto.ite_con_tipo = v_tipo_item_consumo
+                            objeto.save()
                     else:
-                        valor_material = sheet.cell(row=i, column=16).value
+                        # Não existe. Vamos criar e pegar o id
+                        n = O[TbItensConsumo].create(ite_con_codigo=v_codigo_item_consumo.upper(),
+                                                          ite_con_descricao=v_descricao_item_consumo,
+                                                          ite_con_unidade=v_unidade_item_consumo,
+                                                          ite_con_tipo=v_tipo_item_consumo)
+                        n.save()
+                        v_id_item_consumo = n.id
 
-                    TbProducaoMensal.objects.create(
-                        pro_men_ano_mes=v_ano_mes,
-                        pro_men_estabelecimento_id=v_id_estabelecimento,
-                        pro_men_grupo_maquina_id=v_id_grupo_maquina,
-                        pro_men_ordem_producao=v_ordem_producao,
-                        pro_men_item_producao_id=v_id_item_producao,
-                        pro_men_qtde_produzida=sheet.cell(row=i, column=10).value,
-                        pro_men_item_consumo_id=v_id_item_consumo,
-                        pro_men_qtde_consumo=sheet.cell(row=i, column=14).value,
-                        pro_men_valor_material=valor_material,
-                        pro_men_valor_ggf=sheet.cell(row=i, column=17).value,
-                        pro_men_valor_ultima_entrada=sheet.cell(row=i, column=21).value
-                    )
-                else:  # Já existe. Vamos atualizar os novos valores
-                    objeto = TbProducaoMensal.objects.get(pro_men_ano_mes=v_ano_mes,
-                                                          pro_men_estabelecimento_id=v_id_estabelecimento,
-                                                          pro_men_grupo_maquina_id=v_id_grupo_maquina,
-                                                          pro_men_ordem_producao=v_ordem_producao,
-                                                          pro_men_item_producao=v_id_item_producao,
-                                                          pro_men_item_consumo=v_id_item_consumo)  # Pegamos todo o registro
-                    objeto.pro_men_qtde_produzida = sheet.cell(row=i, column=10).value
-                    objeto.pro_men_qtde_consumo = sheet.cell(row=i, column=14).value
-                    objeto.pro_men_valor_material = sheet.cell(row=i, column=16).value
-                    objeto.pro_men_valor_ggf = sheet.cell(row=i, column=17).value
-                    objeto.pro_men_valor_ultima_entrada = sheet.cell(row=i, column=21).value
-                    objeto.save()
+                    # Vamos ver se já existe na tabela de produção mensal
+                    if O[TbProducaoMensal].filter(pro_men_ano_mes=v_ano_mes,
+                                                       pro_men_estabelecimento_id=v_id_estabelecimento,
+                                                       pro_men_grupo_maquina_id=v_id_grupo_maquina,
+                                                       pro_men_ordem_producao=v_ordem_producao,
+                                                       pro_men_item_producao=v_id_item_producao,
+                                                       pro_men_sequencia=v_sequencia,
+                                                       pro_men_item_consumo=v_id_item_consumo).count() == 0:  # Não existe. Vamos criar o registro
+
+                        # Vamos veriricar se campo pro_men_valor_material é caracter. Se sim passamos para numérico
+                        # Isso é para evitar erro pois algumas vezes esse campo na planilha está vindo como caracter
+                        if type(sheet.cell(row=i, column=16).value) is str:
+                            valor_material = sheet.cell(row=i, column=16).value.replace(',', '.')
+                        else:
+                            valor_material = sheet.cell(row=i, column=16).value
+
+                        O[TbProducaoMensal].create(
+                            pro_men_ano_mes=v_ano_mes,
+                            pro_men_estabelecimento_id=v_id_estabelecimento,
+                            pro_men_grupo_maquina_id=v_id_grupo_maquina,
+                            pro_men_ordem_producao=v_ordem_producao,
+                            pro_men_item_producao_id=v_id_item_producao,
+                            pro_men_qtde_produzida=sheet.cell(row=i, column=10).value,
+                            pro_men_item_consumo_id=v_id_item_consumo,
+                            pro_men_sequencia=v_sequencia,
+                            pro_men_qtde_consumo=sheet.cell(row=i, column=14).value,
+                            pro_men_valor_material=valor_material,
+                            pro_men_valor_ggf=sheet.cell(row=i, column=17).value,
+                            pro_men_valor_ultima_entrada=sheet.cell(row=i, column=21).value
+                        )
+                    else:  # Já existe. Vamos atualizar os novos valores
+                        objeto = O[TbProducaoMensal].get(pro_men_ano_mes=v_ano_mes,
+                                                              pro_men_estabelecimento_id=v_id_estabelecimento,
+                                                              pro_men_grupo_maquina_id=v_id_grupo_maquina,
+                                                              pro_men_ordem_producao=v_ordem_producao,
+                                                              pro_men_item_producao=v_id_item_producao,
+                                                              pro_men_item_consumo=v_id_item_consumo,
+                                                              pro_men_sequencia=v_sequencia) # Pegamos todo o registro
+
+                        objeto.pro_men_qtde_produzida = sheet.cell(row=i, column=10).value
+                        objeto.pro_men_qtde_consumo = sheet.cell(row=i, column=14).value
+                        objeto.pro_men_valor_material = sheet.cell(row=i, column=16).value
+                        objeto.pro_men_valor_ggf = sheet.cell(row=i, column=17).value
+                        objeto.pro_men_valor_ultima_entrada = sheet.cell(row=i, column=21).value
+                        objeto.save()
 
         # Comentamos pois estamos executando em segundo plano e não temos como retornar mensagens (pelo menos até sabermos como fazer isso ...)
         # messages.success(self, 'Tabela Produção Mensal foi atualizada com sucesso!')
@@ -277,7 +327,8 @@ def importar_excel_producao_mensal_celery():
 
 
 @shared_task
-def importar_excel_distribuicao_ggf_mensal_celery():
+def importar_excel_distribuicao_ggf_mensal_celery(empresa_id=None):
+    O = _objetos_empresa(empresa_id)     # 🌟 21/10/2026: procura e grava só na empresa do usuário
     # Nao usamos o try pois estamos executando em segundo plano e não temos como retornar mensagens (pelo menos até sabermos como fazer isso ...)
     aws_id = AWS_ACCESS_KEY_ID
     aws_secret = AWS_SECRET_ACCESS_KEY
@@ -343,41 +394,41 @@ def importar_excel_distribuicao_ggf_mensal_celery():
                 v_descricao_cc = str(sheet.cell(row=i, column=15).value).upper()
 
                 # Verificando estabelecimento
-                if TbEstabelecimentos.objects.filter(est_codigo=v_codigo_estabelecimento).count() > 0:  # Existe
-                    v_id_estabelecimento = TbEstabelecimentos.objects.get(est_codigo=v_codigo_estabelecimento).id
+                if O[TbEstabelecimentos].filter(est_codigo=v_codigo_estabelecimento).count() > 0:  # Existe
+                    v_id_estabelecimento = O[TbEstabelecimentos].get(est_codigo=v_codigo_estabelecimento).id
                     # Vamos atualizar o novo nome se for diferente
-                    objeto = TbEstabelecimentos.objects.get(est_codigo=v_codigo_estabelecimento)
+                    objeto = O[TbEstabelecimentos].get(est_codigo=v_codigo_estabelecimento)
                     if objeto.est_nome != sheet.cell(row=i, column=3).value.upper():
                         objeto.est_nome = sheet.cell(row=i, column=3).value.upper()
                         objeto.save()
                 else:
                     # Não existe. Vamos criar e pegar o id
-                    n = TbEstabelecimentos.objects.create(est_codigo=v_codigo_estabelecimento.upper(),
+                    n = O[TbEstabelecimentos].create(est_codigo=v_codigo_estabelecimento.upper(),
                                                           est_nome=sheet.cell(row=i, column=3).value.upper())
                     n.save()
                     v_id_estabelecimento = n.id
 
                 # Verificando grupo máquina
-                if TbGruposMaquinas.objects.filter(gru_maq_codigo=v_codigo_grupo_maquina).count() > 0:  # Existe
-                    v_id_grupo_maquina = TbGruposMaquinas.objects.get(gru_maq_codigo=v_codigo_grupo_maquina).id
+                if O[TbGruposMaquinas].filter(gru_maq_codigo=v_codigo_grupo_maquina).count() > 0:  # Existe
+                    v_id_grupo_maquina = O[TbGruposMaquinas].get(gru_maq_codigo=v_codigo_grupo_maquina).id
                     # Vamos atualizar o novo nome se for diferente
-                    objeto = TbGruposMaquinas.objects.get(gru_maq_codigo=v_codigo_grupo_maquina)
+                    objeto = O[TbGruposMaquinas].get(gru_maq_codigo=v_codigo_grupo_maquina)
                     if objeto.gru_maq_nome != sheet.cell(row=i, column=6).value.upper():
                         objeto.gru_maq_nome = sheet.cell(row=i, column=6).value.upper()
                         objeto.save()
                 else:
                     # Não existe. Vamos criar e pegar o id
-                    n = TbGruposMaquinas.objects.create(gru_maq_codigo=v_codigo_grupo_maquina.upper(),
+                    n = O[TbGruposMaquinas].create(gru_maq_codigo=v_codigo_grupo_maquina.upper(),
                                                         gru_maq_nome=sheet.cell(row=i, column=6).value.upper()
                                                         )
                     n.save()
                     v_id_grupo_maquina = n.id
 
                 # Verificando item de produção
-                if TbItensProducao.objects.filter(ite_pro_codigo=v_codigo_item_producao).count() > 0:  # Existe
-                    v_id_item_producao = TbItensProducao.objects.get(ite_pro_codigo=v_codigo_item_producao).id
+                if O[TbItensProducao].filter(ite_pro_codigo=v_codigo_item_producao).count() > 0:  # Existe
+                    v_id_item_producao = O[TbItensProducao].get(ite_pro_codigo=v_codigo_item_producao).id
                     # Vamos atualizar a nova descrição se for diferente
-                    objeto = TbItensProducao.objects.get(ite_pro_codigo=v_codigo_item_producao)
+                    objeto = O[TbItensProducao].get(ite_pro_codigo=v_codigo_item_producao)
                     if objeto.ite_pro_descricao != sheet.cell(row=i, column=8).value[0:60].upper():
                         objeto.ite_pro_descricao = sheet.cell(row=i, column=8).value[0:60].upper()
                         objeto.save()
@@ -386,7 +437,7 @@ def importar_excel_distribuicao_ggf_mensal_celery():
                         objeto.save()
                 else:
                     # Não existe. Vamos criar e pegar o id
-                    n = TbItensProducao.objects.create(ite_pro_codigo=v_codigo_item_producao.upper(),
+                    n = O[TbItensProducao].create(ite_pro_codigo=v_codigo_item_producao.upper(),
                                                        ite_pro_descricao=sheet.cell(row=i, column=8).value[
                                                            0:60].upper(),
                                                        ite_pro_unidade=sheet.cell(row=i, column=9).value.upper())
@@ -409,17 +460,17 @@ def importar_excel_distribuicao_ggf_mensal_celery():
                 descricao_cc = sheet.cell(row=i, column=14).value[index_lowercase:].upper()[0:60]
                 '''
 
-                if TbContaContabil.objects.filter(con_con_codigo=v_codigo_conta).count() > 0:  # Existe
-                    v_id_conta = TbContaContabil.objects.get(con_con_codigo=v_codigo_conta).id
+                if O[TbContaContabil].filter(con_con_codigo=v_codigo_conta).count() > 0:  # Existe
+                    v_id_conta = O[TbContaContabil].get(con_con_codigo=v_codigo_conta).id
 
-                    objeto = TbContaContabil.objects.get(con_con_codigo=v_codigo_conta)
+                    objeto = O[TbContaContabil].get(con_con_codigo=v_codigo_conta)
                     if objeto.con_con_descricao != v_descricao_conta:
                         objeto.con_con_descricao = v_descricao_conta
                         objeto.save()
 
                 else:
                     # Não existe. Vamos criar e pegar o id
-                    n = TbContaContabil.objects.create(con_con_codigo=v_codigo_conta.upper(),
+                    n = O[TbContaContabil].create(con_con_codigo=v_codigo_conta.upper(),
                                                        con_con_descricao=v_descricao_conta
                                                        )
                     n.save()
@@ -427,18 +478,18 @@ def importar_excel_distribuicao_ggf_mensal_celery():
 
                 # Verificando centro de custo
                 # Referencia '2' significa centro de custos a partir de 2026 inclusive
-                if TbCentroCusto.objects.filter(cen_cus_codigo=v_codigo_cc,
+                if O[TbCentroCusto].filter(cen_cus_codigo=v_codigo_cc,
                                                 cen_cus_referencia='2').count() > 0:  # Existe
-                    v_id_cc = TbCentroCusto.objects.get(cen_cus_codigo=v_codigo_cc, cen_cus_referencia='2').id
+                    v_id_cc = O[TbCentroCusto].get(cen_cus_codigo=v_codigo_cc, cen_cus_referencia='2').id
 
-                    objeto = TbCentroCusto.objects.get(cen_cus_codigo=v_codigo_cc, cen_cus_referencia='2')
+                    objeto = O[TbCentroCusto].get(cen_cus_codigo=v_codigo_cc, cen_cus_referencia='2')
                     if objeto.cen_cus_descricao != v_descricao_cc:
                         objeto.cen_cus_descricao = v_descricao_cc
                         objeto.save()
 
                 else:
                     # Não existe. Vamos criar e pegar o id
-                    n = TbCentroCusto.objects.create(cen_cus_codigo=v_codigo_cc.upper(),
+                    n = O[TbCentroCusto].create(cen_cus_codigo=v_codigo_cc.upper(),
                                                      cen_cus_descricao=v_descricao_cc,
                                                      cen_cus_referencia='2'
                                                      )
@@ -446,23 +497,23 @@ def importar_excel_distribuicao_ggf_mensal_celery():
                     v_id_cc = n.id
 
                 # Verificando conta contábil, centro de custo e estabelecimento
-                if TbContaContabilCentroCusto.objects.filter(con_con_cen_cus_conta_id=v_id_conta,
+                if O[TbContaContabilCentroCusto].filter(con_con_cen_cus_conta_id=v_id_conta,
                                                              con_con_cen_cus_cc_id=v_id_cc,
                                                              con_con_cen_cus_estabelecimento_id=v_id_estabelecimento).count() > 0:  # Existe
 
-                    v_id_conta_cc = TbContaContabilCentroCusto.objects.get(con_con_cen_cus_conta_id=v_id_conta,
+                    v_id_conta_cc = O[TbContaContabilCentroCusto].get(con_con_cen_cus_conta_id=v_id_conta,
                                                                            con_con_cen_cus_cc_id=v_id_cc,
                                                                            con_con_cen_cus_estabelecimento_id=v_id_estabelecimento).id
 
                     '''
                     # Vamos ver se a descrição é diferente da cadastrada
-                    objeto = TbContaContabilCentroCusto.objects.get(con_con_cen_cus_conta_id=v_id_conta, con_con_cen_cus_cc_id=v_id_cc, con_con_cen_cus_estabelecimento_id=v_id_estabelecimento)
+                    objeto = O[TbContaContabilCentroCusto].get(con_con_cen_cus_conta_id=v_id_conta, con_con_cen_cus_cc_id=v_id_cc, con_con_cen_cus_estabelecimento_id=v_id_estabelecimento)
                     if objeto.con_con_cen_cus_descricao != sheet.cell(row=i, column=14).value[0:80].upper():
                         objeto.con_con_cen_cus_descricao = sheet.cell(row=i, column=14).value[0:80].upper()
                         objeto.save()
                     '''
                 else:  # Não existe. Vamos criar e pegar o id
-                    n = TbContaContabilCentroCusto.objects.create(con_con_cen_cus_conta_id=v_id_conta,
+                    n = O[TbContaContabilCentroCusto].create(con_con_cen_cus_conta_id=v_id_conta,
                                                                   con_con_cen_cus_cc_id=v_id_cc,
                                                                   con_con_cen_cus_estabelecimento_id=v_id_estabelecimento,
                                                                   con_con_cen_cus_tipo='A'
@@ -471,14 +522,14 @@ def importar_excel_distribuicao_ggf_mensal_celery():
                     v_id_conta_cc = n.id
 
                 # Vamos ver se já existe na tabela de distribuição GGF mensal
-                if TbDistribuicaoGGFMensal.objects.filter(dis_ggf_men_ano_mes=v_ano_mes,
+                if O[TbDistribuicaoGGFMensal].filter(dis_ggf_men_ano_mes=v_ano_mes,
                                                           dis_ggf_men_estabelecimento_id=v_id_estabelecimento,
                                                           dis_ggf_men_grupo_maquina_id=v_id_grupo_maquina,
                                                           dis_ggf_men_ordem_producao=v_ordem_producao,
                                                           dis_ggf_men_item_producao=v_id_item_producao,
                                                           dis_ggf_men_conta_cc=v_id_conta_cc).count() == 0:  # Não existe. Vamos criar o registro
                     print('Não existe')
-                    TbDistribuicaoGGFMensal.objects.create(dis_ggf_men_ano_mes=v_ano_mes,
+                    O[TbDistribuicaoGGFMensal].create(dis_ggf_men_ano_mes=v_ano_mes,
                                                            dis_ggf_men_estabelecimento_id=v_id_estabelecimento,
                                                            dis_ggf_men_grupo_maquina_id=v_id_grupo_maquina,
                                                            dis_ggf_men_ordem_producao=v_ordem_producao,
@@ -490,7 +541,7 @@ def importar_excel_distribuicao_ggf_mensal_celery():
                                                            )
                 else:  # Já existe. Vamos atualizar os novos valores
                     print('Existe')
-                    objeto = TbDistribuicaoGGFMensal.objects.get(dis_ggf_men_ano_mes=v_ano_mes,
+                    objeto = O[TbDistribuicaoGGFMensal].get(dis_ggf_men_ano_mes=v_ano_mes,
                                                                  dis_ggf_men_estabelecimento_id=v_id_estabelecimento,
                                                                  dis_ggf_men_grupo_maquina_id=v_id_grupo_maquina,
                                                                  dis_ggf_men_ordem_producao=v_ordem_producao,
@@ -699,7 +750,7 @@ def _validar_periodo_minimo(sheet, nome_tabela):
         )
 
 
-def _processar_planilha_producao_mensal(sheet):
+def _processar_planilha_producao_mensal(sheet, empresa_id=None):
     """
     Processa uma planilha (Excel OU CSV, já carregada via
     _carregar_planilha_de_arquivo) no layout de Produção Mensal.
@@ -717,6 +768,7 @@ def _processar_planilha_producao_mensal(sheet):
     algo que ainda não existia -- o resultado final (o que é criado,
     atualizado, e os valores gravados) é EXATAMENTE o mesmo de antes.
     """
+    O = _objetos_empresa(empresa_id)     # 🌟 21/10/2026: procura e grava só na empresa do usuário
     total_colunas = sheet.max_column
     total_linhas = sheet.max_row
     lista_colunas = [sheet.cell(row=1, column=i).value for i in range(1, total_colunas + 1)]
@@ -728,14 +780,14 @@ def _processar_planilha_producao_mensal(sheet):
         )
     _validar_periodo_minimo(sheet, 'Produção Mensal')      # 🌟 NOVO (15/10/2026)
 
-    cache_estabelecimentos = {e.est_codigo: e for e in TbEstabelecimentos.objects.all()}
-    cache_grupos_maquina = {g.gru_maq_codigo: g for g in TbGruposMaquinas.objects.all()}
-    cache_itens_producao = {p.ite_pro_codigo: p for p in TbItensProducao.objects.all()}
-    cache_itens_consumo = {c.ite_con_codigo: c for c in TbItensConsumo.objects.all()}
+    cache_estabelecimentos = {e.est_codigo: e for e in O[TbEstabelecimentos].all()}
+    cache_grupos_maquina = {g.gru_maq_codigo: g for g in O[TbGruposMaquinas].all()}
+    cache_itens_producao = {p.ite_pro_codigo: p for p in O[TbItensProducao].all()}
+    cache_itens_consumo = {c.ite_con_codigo: c for c in O[TbItensConsumo].all()}
     cache_producao_mensal = {
         (p.pro_men_ano_mes, p.pro_men_estabelecimento_id, p.pro_men_grupo_maquina_id,
-         p.pro_men_ordem_producao, p.pro_men_item_producao_id, p.pro_men_item_consumo_id): p
-        for p in TbProducaoMensal.objects.all()
+         p.pro_men_ordem_producao, p.pro_men_item_producao_id, p.pro_men_item_consumo_id, p.pro_men_sequencia): p
+        for p in O[TbProducaoMensal].all()     # 🌟 21/10/2026: a sequência faz parte da chave
     }
 
     total_criadas = 0
@@ -756,14 +808,18 @@ def _processar_planilha_producao_mensal(sheet):
                 v_ordem_producao = str(sheet.cell(row=i, column=4).value).replace('.', '').upper()[0:9]
                 v_codigo_item_producao = str(sheet.cell(row=i, column=7).value).replace('.', '').upper()
                 v_codigo_item_consumo = str(sheet.cell(row=i, column=11).value).replace('.', '').upper()
+                # 🌟 21/10/2026: + sequência (coluna 23, campo pro_men_sequencia) -- mesma regra da rotina manual:
+                # sem descrição do item de consumo, sequência 0
                 if sheet.cell(row=i, column=12).value is None:
                     v_descricao_item_consumo = ''
                     v_unidade_item_consumo = ''
                     v_tipo_item_consumo = ''
+                    v_sequencia = 0
                 else:
                     v_descricao_item_consumo = sheet.cell(row=i, column=12).value[0:60].upper()
                     v_unidade_item_consumo = sheet.cell(row=i, column=13).value.upper()
                     v_tipo_item_consumo = sheet.cell(row=i, column=22).value.upper()
+                    v_sequencia = sheet.cell(row=i, column=23).value
 
                 # Estabelecimento (cache -- 0 consultas se já visto antes)
                 objeto = cache_estabelecimentos.get(v_codigo_estabelecimento)
@@ -774,7 +830,7 @@ def _processar_planilha_producao_mensal(sheet):
                         objeto.save()
                     v_id_estabelecimento = objeto.id
                 else:
-                    n = TbEstabelecimentos.objects.create(est_codigo=v_codigo_estabelecimento, est_nome=nome_planilha)
+                    n = O[TbEstabelecimentos].create(est_codigo=v_codigo_estabelecimento, est_nome=nome_planilha)
                     cache_estabelecimentos[v_codigo_estabelecimento] = n
                     v_id_estabelecimento = n.id
 
@@ -787,7 +843,7 @@ def _processar_planilha_producao_mensal(sheet):
                         objeto.save()
                     v_id_grupo_maquina = objeto.id
                 else:
-                    n = TbGruposMaquinas.objects.create(gru_maq_codigo=v_codigo_grupo_maquina,
+                    n = O[TbGruposMaquinas].create(gru_maq_codigo=v_codigo_grupo_maquina,
                                                         gru_maq_nome=nome_planilha)
                     cache_grupos_maquina[v_codigo_grupo_maquina] = n
                     v_id_grupo_maquina = n.id
@@ -808,7 +864,7 @@ def _processar_planilha_producao_mensal(sheet):
                         objeto.save()
                     v_id_item_producao = objeto.id
                 else:
-                    n = TbItensProducao.objects.create(ite_pro_codigo=v_codigo_item_producao,
+                    n = O[TbItensProducao].create(ite_pro_codigo=v_codigo_item_producao,
                                                        ite_pro_descricao=descricao_planilha,
                                                        ite_pro_unidade=unidade_planilha)
                     cache_itens_producao[v_codigo_item_producao] = n
@@ -831,7 +887,7 @@ def _processar_planilha_producao_mensal(sheet):
                         objeto.save()
                     v_id_item_consumo = objeto.id
                 else:
-                    n = TbItensConsumo.objects.create(ite_con_codigo=v_codigo_item_consumo,
+                    n = O[TbItensConsumo].create(ite_con_codigo=v_codigo_item_consumo,
                                                       ite_con_descricao=v_descricao_item_consumo,
                                                       ite_con_unidade=v_unidade_item_consumo,
                                                       ite_con_tipo=v_tipo_item_consumo)
@@ -839,7 +895,7 @@ def _processar_planilha_producao_mensal(sheet):
                     v_id_item_consumo = n.id
 
                 chave = (v_ano_mes, v_id_estabelecimento, v_id_grupo_maquina, v_ordem_producao, v_id_item_producao,
-                         v_id_item_consumo)
+                         v_id_item_consumo, v_sequencia)
                 objeto = cache_producao_mensal.get(chave)
 
                 if type(sheet.cell(row=i, column=16).value) is str:
@@ -848,7 +904,7 @@ def _processar_planilha_producao_mensal(sheet):
                     valor_material = sheet.cell(row=i, column=16).value
 
                 if objeto is None:
-                    n = TbProducaoMensal.objects.create(
+                    n = O[TbProducaoMensal].create(
                         pro_men_ano_mes=v_ano_mes,
                         pro_men_estabelecimento_id=v_id_estabelecimento,
                         pro_men_grupo_maquina_id=v_id_grupo_maquina,
@@ -856,6 +912,7 @@ def _processar_planilha_producao_mensal(sheet):
                         pro_men_item_producao_id=v_id_item_producao,
                         pro_men_qtde_produzida=sheet.cell(row=i, column=10).value,
                         pro_men_item_consumo_id=v_id_item_consumo,
+                        pro_men_sequencia=v_sequencia,
                         pro_men_qtde_consumo=sheet.cell(row=i, column=14).value,
                         pro_men_valor_material=valor_material,
                         pro_men_valor_ggf=sheet.cell(row=i, column=17).value,
@@ -875,7 +932,7 @@ def _processar_planilha_producao_mensal(sheet):
     return {'total_criadas': total_criadas, 'total_atualizadas': total_atualizadas}
 
 
-def _processar_planilha_distribuicao_ggf_mensal(sheet):
+def _processar_planilha_distribuicao_ggf_mensal(sheet, empresa_id=None):
     """
     Processa uma planilha (Excel OU CSV) no layout de Distribuição GGF
     Mensal. MESMA lógica de negócio de
@@ -888,6 +945,7 @@ def _processar_planilha_distribuicao_ggf_mensal(sheet):
     registros de Distribuição GGF já existentes) em memória UMA VEZ,
     em vez de consultar o banco várias vezes por linha do arquivo.
     """
+    O = _objetos_empresa(empresa_id)     # 🌟 21/10/2026: procura e grava só na empresa do usuário
     total_colunas = sheet.max_column
     total_linhas = sheet.max_row
     lista_colunas = [sheet.cell(row=1, column=i).value for i in range(1, total_colunas + 1)]
@@ -899,21 +957,21 @@ def _processar_planilha_distribuicao_ggf_mensal(sheet):
         )
     _validar_periodo_minimo(sheet, 'Distribuição GGF Mensal')      # 🌟 NOVO (15/10/2026)
 
-    cache_estabelecimentos = {e.est_codigo: e for e in TbEstabelecimentos.objects.all()}
-    cache_grupos_maquina = {g.gru_maq_codigo: g for g in TbGruposMaquinas.objects.all()}
-    cache_itens_producao = {p.ite_pro_codigo: p for p in TbItensProducao.objects.all()}
-    cache_contas = {c.con_con_codigo: c for c in TbContaContabil.objects.all()}
+    cache_estabelecimentos = {e.est_codigo: e for e in O[TbEstabelecimentos].all()}
+    cache_grupos_maquina = {g.gru_maq_codigo: g for g in O[TbGruposMaquinas].all()}
+    cache_itens_producao = {p.ite_pro_codigo: p for p in O[TbItensProducao].all()}
+    cache_contas = {c.con_con_codigo: c for c in O[TbContaContabil].all()}
     # 🌟 Só os de referência '2', igual ao filtro original -- outras
     # referências não devem ser reaproveitadas aqui de jeito nenhum.
-    cache_centros_custo = {c.cen_cus_codigo: c for c in TbCentroCusto.objects.filter(cen_cus_referencia='2')}
+    cache_centros_custo = {c.cen_cus_codigo: c for c in O[TbCentroCusto].filter(cen_cus_referencia='2')}
     cache_conta_cc = {
         (r.con_con_cen_cus_conta_id, r.con_con_cen_cus_cc_id, r.con_con_cen_cus_estabelecimento_id): r
-        for r in TbContaContabilCentroCusto.objects.all()
+        for r in O[TbContaContabilCentroCusto].all()
     }
     cache_distribuicao_ggf = {
         (d.dis_ggf_men_ano_mes, d.dis_ggf_men_estabelecimento_id, d.dis_ggf_men_grupo_maquina_id,
          d.dis_ggf_men_ordem_producao, d.dis_ggf_men_item_producao_id, d.dis_ggf_men_conta_cc_id): d
-        for d in TbDistribuicaoGGFMensal.objects.all()
+        for d in O[TbDistribuicaoGGFMensal].all()
     }
 
     total_criadas = 0
@@ -944,7 +1002,7 @@ def _processar_planilha_distribuicao_ggf_mensal(sheet):
                     objeto.save()
                 v_id_estabelecimento = objeto.id
             else:
-                n = TbEstabelecimentos.objects.create(est_codigo=v_codigo_estabelecimento, est_nome=nome_planilha)
+                n = O[TbEstabelecimentos].create(est_codigo=v_codigo_estabelecimento, est_nome=nome_planilha)
                 cache_estabelecimentos[v_codigo_estabelecimento] = n
                 v_id_estabelecimento = n.id
 
@@ -957,7 +1015,7 @@ def _processar_planilha_distribuicao_ggf_mensal(sheet):
                     objeto.save()
                 v_id_grupo_maquina = objeto.id
             else:
-                n = TbGruposMaquinas.objects.create(gru_maq_codigo=v_codigo_grupo_maquina, gru_maq_nome=nome_planilha)
+                n = O[TbGruposMaquinas].create(gru_maq_codigo=v_codigo_grupo_maquina, gru_maq_nome=nome_planilha)
                 cache_grupos_maquina[v_codigo_grupo_maquina] = n
                 v_id_grupo_maquina = n.id
 
@@ -977,7 +1035,7 @@ def _processar_planilha_distribuicao_ggf_mensal(sheet):
                     objeto.save()
                 v_id_item_producao = objeto.id
             else:
-                n = TbItensProducao.objects.create(ite_pro_codigo=v_codigo_item_producao,
+                n = O[TbItensProducao].create(ite_pro_codigo=v_codigo_item_producao,
                                                    ite_pro_descricao=descricao_planilha,
                                                    ite_pro_unidade=unidade_planilha)
                 cache_itens_producao[v_codigo_item_producao] = n
@@ -991,7 +1049,7 @@ def _processar_planilha_distribuicao_ggf_mensal(sheet):
                     objeto.save()
                 v_id_conta = objeto.id
             else:
-                n = TbContaContabil.objects.create(con_con_codigo=v_codigo_conta, con_con_descricao=v_descricao_conta)
+                n = O[TbContaContabil].create(con_con_codigo=v_codigo_conta, con_con_descricao=v_descricao_conta)
                 cache_contas[v_codigo_conta] = n
                 v_id_conta = n.id
 
@@ -1003,7 +1061,7 @@ def _processar_planilha_distribuicao_ggf_mensal(sheet):
                     objeto.save()
                 v_id_cc = objeto.id
             else:
-                n = TbCentroCusto.objects.create(cen_cus_codigo=v_codigo_cc, cen_cus_descricao=v_descricao_cc,
+                n = O[TbCentroCusto].create(cen_cus_codigo=v_codigo_cc, cen_cus_descricao=v_descricao_cc,
                                                  cen_cus_referencia='2')
                 cache_centros_custo[v_codigo_cc] = n
                 v_id_cc = n.id
@@ -1014,7 +1072,7 @@ def _processar_planilha_distribuicao_ggf_mensal(sheet):
             if objeto is not None:
                 v_id_conta_cc = objeto.id
             else:
-                n = TbContaContabilCentroCusto.objects.create(con_con_cen_cus_conta_id=v_id_conta,
+                n = O[TbContaContabilCentroCusto].create(con_con_cen_cus_conta_id=v_id_conta,
                                                               con_con_cen_cus_cc_id=v_id_cc,
                                                               con_con_cen_cus_estabelecimento_id=v_id_estabelecimento,
                                                               con_con_cen_cus_tipo='A')
@@ -1026,7 +1084,7 @@ def _processar_planilha_distribuicao_ggf_mensal(sheet):
             objeto = cache_distribuicao_ggf.get(chave)
 
             if objeto is None:
-                n = TbDistribuicaoGGFMensal.objects.create(
+                n = O[TbDistribuicaoGGFMensal].create(
                     dis_ggf_men_ano_mes=v_ano_mes,
                     dis_ggf_men_estabelecimento_id=v_id_estabelecimento,
                     dis_ggf_men_grupo_maquina_id=v_id_grupo_maquina,
@@ -1163,7 +1221,7 @@ def importar_producao_mensal_de_relatorio_celery(self, relatorio_id, usuario_id)
         # interrompida no meio (ex: worker reiniciado), o Postgres desfaz
         # tudo que já tinha sido gravado, em vez de deixar dados pela metade.
         with transaction.atomic():
-            resultado = _processar_planilha_producao_mensal(sheet)
+            resultado = _processar_planilha_producao_mensal(sheet, _empresa_do_usuario(usuario_id))
     except ValueError as e:
         _apagar_arquivo_atualizacao_por_id(relatorio_id)
         _atualizar_status_importacao_cf(usuario_id, 'erro', str(e))
@@ -1192,7 +1250,7 @@ def importar_distribuicao_ggf_mensal_de_relatorio_celery(self, relatorio_id, usu
         # interrompida no meio (ex: worker reiniciado), o Postgres desfaz
         # tudo que já tinha sido gravado, em vez de deixar dados pela metade.
         with transaction.atomic():
-            resultado = _processar_planilha_distribuicao_ggf_mensal(sheet)
+            resultado = _processar_planilha_distribuicao_ggf_mensal(sheet, _empresa_do_usuario(usuario_id))
     except ValueError as e:
         _apagar_arquivo_atualizacao_por_id(relatorio_id)
         _atualizar_status_importacao_cf(usuario_id, 'erro', str(e))

@@ -402,19 +402,20 @@ class TbContaContabilCentroCusto(models.Model):
 
 
 class TbProducaoMensal(models.Model):
-    pro_men_ano_mes = models.CharField(max_length=7, null=False, blank=False, verbose_name=_('Ano/Mês'))
-    pro_men_estabelecimento = models.ForeignKey(TbEstabelecimentos, on_delete=models.CASCADE, verbose_name=_('Estabelecimento'))
-    pro_men_grupo_maquina = models.ForeignKey(TbGruposMaquinas, on_delete=models.CASCADE, verbose_name=_('Grupo Máquina'))
-    pro_men_ordem_producao = models.CharField(max_length=9, null=False, blank=False, verbose_name=_('Ordem Produção'))
-    pro_men_item_producao = models.ForeignKey(TbItensProducao, on_delete=models.CASCADE, verbose_name=_('Item Produção'))
-    pro_men_qtde_produzida = models.DecimalField(max_digits=15, decimal_places=2, verbose_name=_('Qtde Produzida'))
-    pro_men_item_consumo = models.ForeignKey(TbItensConsumo, on_delete=models.CASCADE, verbose_name=_('Item Consumo'))
-    pro_men_qtde_consumo = models.DecimalField(max_digits=15, null=True, decimal_places=2, verbose_name=_('Qtde Consumo'))
-    pro_men_valor_material = models.DecimalField(max_digits=15, null=True, decimal_places=2, verbose_name=_('Valor Material'))
-    pro_men_valor_ggf = models.DecimalField(max_digits=15, null=True, decimal_places=2, verbose_name=_('Valor GGF'))
+    pro_men_ano_mes              = models.CharField(max_length=7, null=False, blank=False, verbose_name=_('Ano/Mês'))
+    pro_men_estabelecimento      = models.ForeignKey(TbEstabelecimentos, on_delete=models.CASCADE, verbose_name=_('Estabelecimento'))
+    pro_men_grupo_maquina        = models.ForeignKey(TbGruposMaquinas, on_delete=models.CASCADE, verbose_name=_('Grupo Máquina'))
+    pro_men_ordem_producao       = models.CharField(max_length=9, null=False, blank=False, verbose_name=_('Ordem Produção'))
+    pro_men_item_producao        = models.ForeignKey(TbItensProducao, on_delete=models.CASCADE, verbose_name=_('Item Produção'))
+    pro_men_qtde_produzida       = models.DecimalField(max_digits=15, decimal_places=2, verbose_name=_('Qtde Produzida'))
+    pro_men_item_consumo         = models.ForeignKey(TbItensConsumo, on_delete=models.CASCADE, verbose_name=_('Item Consumo'))
+    pro_men_qtde_consumo         = models.DecimalField(max_digits=15, null=True, decimal_places=2, verbose_name=_('Qtde Consumo'))
+    pro_men_valor_material       = models.DecimalField(max_digits=15, null=True, decimal_places=2, verbose_name=_('Valor Material'))
+    pro_men_valor_ggf            = models.DecimalField(max_digits=15, null=True, decimal_places=2, verbose_name=_('Valor GGF'))
     pro_men_valor_ultima_entrada = models.DecimalField(max_digits=10, null=True, decimal_places=2, verbose_name=_('Valor Última Entrada'))
-    pro_men_observacao = models.TextField(verbose_name=_('Observação'), blank=True, null=True)
-    empresa = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name=_('Empresa'))
+    pro_men_sequencia            = models.DecimalField(max_digits=3, null=True, blank=True, decimal_places=0, verbose_name=_('Sequência'))
+    pro_men_observacao           = models.TextField(verbose_name=_('Observação'), blank=True, null=True)
+    empresa                      = models.ForeignKey(TbEmpresa, null=True, blank=True, on_delete=models.PROTECT, verbose_name=_('Empresa'))
 
     def __str__(self):
         return ''
@@ -423,7 +424,7 @@ class TbProducaoMensal(models.Model):
         verbose_name = _('    Produção Mensal')
         verbose_name_plural = _('    Produção Mensal')
         ordering = ['pro_men_ano_mes', 'pro_men_item_producao']
-        unique_together = ('pro_men_ano_mes', 'pro_men_estabelecimento', 'pro_men_grupo_maquina', 'pro_men_ordem_producao', 'pro_men_item_producao', 'pro_men_item_consumo')
+        unique_together = ('pro_men_ano_mes', 'pro_men_estabelecimento', 'pro_men_grupo_maquina', 'pro_men_ordem_producao', 'pro_men_item_producao', 'pro_men_item_consumo', 'pro_men_sequencia')
 
     def save(self, *args, **kwargs):
         _atribuir_empresa_se_necessario(self)

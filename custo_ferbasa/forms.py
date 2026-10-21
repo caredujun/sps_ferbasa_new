@@ -115,6 +115,7 @@ class TbProducaoMensalFormAdmin(forms.ModelForm):
             self.fields['pro_men_valor_ggf'].widget.attrs['style'] = 'width: 80px;'
             self.fields['pro_men_valor_ggf'].label = _('Valor GGF')
             self.fields['pro_men_valor_ultima_entrada'].widget.attrs['style'] = 'width: 80px;'
+            self.fields['pro_men_sequencia'].widget.attrs['style'] = 'width: 30px;'
             self.fields['pro_men_valor_ultima_entrada'].label = _('Valor Última Entrada')
         except:
             pass

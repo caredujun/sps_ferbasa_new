@@ -573,7 +573,9 @@ class TbProducaoMensalAdmin(_CustoFerbasaAdminMixin, admin.ModelAdmin):
 
     def importar_excel(self, request, queryset):
 
-        importar_excel_producao_mensal_celery.delay()
+        perfil = getattr(request.user, 'perfilusuario', None)     # 🌟 21/10/2026: importa na empresa do usuário
+        empresa_id = perfil.empresa_efetiva_id() if perfil else None
+        importar_excel_producao_mensal_celery.delay(empresa_id)
         messages.success(request, _('Tabela Produção Mensal sendo atualizada em segundo plano!'))
 
     importar_excel.short_description = _('Importar Arquivo Excel da AWS')
@@ -679,7 +681,9 @@ class TbDistribuicaoGGFMensalAdmin(_CustoFerbasaAdminMixin, admin.ModelAdmin):
 
     def importar_excel(self, request, queryset):
 
-        importar_excel_distribuicao_ggf_mensal_celery.delay()
+        perfil = getattr(request.user, 'perfilusuario', None)     # 🌟 21/10/2026: importa na empresa do usuário
+        empresa_id = perfil.empresa_efetiva_id() if perfil else None
+        importar_excel_distribuicao_ggf_mensal_celery.delay(empresa_id)
         messages.success(request, _('Distribuição GGF Mensal sendo atualizada em segundo plano!'))
 
     importar_excel.short_description = _('Importar Arquivo Excel da AWS')
