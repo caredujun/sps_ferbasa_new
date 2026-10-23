@@ -92,7 +92,7 @@ def montar_grafo(linhas, itens_producao, itens_consumo, ids_selecionados, ggf_li
     pct_var_ggf = pct_var_ggf or {}
     grupos = {}
     # 🌟 CORRIGIDO (21/10/2026): o mesmo item CONSUMIDO (qtde > 0) e GERADO como subproduto (qtde < 0, sequência 35) no
-    # mesmo equipamento -- ex.: Tiço de Carvão no Biorredutor -- se anulava na soma e sumia do desenho (nem MP nem SP).
+    # mesmo equipamento -- se anulava na soma e sumia do desenho (nem MP nem SP).
     # Agora o negativo é somado à parte (chave NEG + id) e, se o equipamento também consumiu o item, vira uma entrada
     # própria (id negativo, com o mesmo cadastro do item). Sem consumo positivo, volta a ser o próprio id (como antes).
     itens_consumo = dict(itens_consumo)

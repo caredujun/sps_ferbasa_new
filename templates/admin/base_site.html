@@ -9,6 +9,8 @@
 {% block extrahead %}
 {{ block.super }}
 <script src="{% static 'grafico_valores_inline.js' %}" defer></script>
+{# 🌟 NOVO (22/10/2026): clicar numa imagem (lista, formulário, tabelas filhas) abre em tela maior -- static/imagem_ampliada.js #}
+<script src="{% static 'imagem_ampliada.js' %}" defer></script>
 {% endblock extrahead %}
 
 {% block title %}

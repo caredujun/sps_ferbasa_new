@@ -597,8 +597,9 @@ admin.site.register(TbOtimizacaoProduto, TbOtimizacaoProdutoAdmin)
 
 
 class TbProdutoMercadoFluxoDaugtherAdmin(admin.TabularInline):
-    fields = ('display_order', 'dau_valor_1', 'dau_valor_7', 'dau_valor_2', 'dau_valor_3', 'dau_valor_11', 'equipamento_gargalo', 'dau_valor_4', 'dau_valor_5', 'dau_valor_8', 'dau_valor_9', 'dau_valor_6', 'dau_valor_10')
-    readonly_fields = ('display_order', 'dau_valor_1', 'dau_valor_2', 'dau_valor_3', 'dau_valor_4', 'dau_valor_5', 'dau_valor_6', 'dau_valor_7', 'dau_valor_8', 'dau_valor_9', 'dau_valor_10', 'dau_valor_11', 'equipamento_gargalo')
+    # 🌟 22/10/2026: + Produção (dau_valor_12) e Vendas sem antecipação (dau_valor_13) -- produção antecipada
+    fields = ('display_order', 'dau_valor_1', 'dau_valor_7', 'dau_valor_2', 'dau_valor_12', 'dau_valor_13', 'dau_valor_3', 'dau_valor_11', 'equipamento_gargalo', 'dau_valor_4', 'dau_valor_5', 'dau_valor_8', 'dau_valor_9', 'dau_valor_6', 'dau_valor_10')
+    readonly_fields = ('display_order', 'dau_valor_1', 'dau_valor_2', 'dau_valor_3', 'dau_valor_4', 'dau_valor_5', 'dau_valor_6', 'dau_valor_7', 'dau_valor_8', 'dau_valor_9', 'dau_valor_10', 'dau_valor_11', 'dau_valor_12', 'dau_valor_13', 'equipamento_gargalo')
 
     model = TbProdutoMercadoFluxoDaugther
     form = TbProdutoMercadoFluxoDaugtherFormAdmin
@@ -2652,3 +2653,99 @@ class TbOtimizacaoShadowAdmin(admin.ModelAdmin):
 
 # Registrando
 admin.site.register(TbOtimizacaoShadow, TbOtimizacaoShadowAdmin)
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# 🌟 NOVO (22/10/2026): Produção Antecipada -- resultado com e sem antecipação por produto, gravado pelo Otimizar.
+# Só consulta (quem grava é o Otimizar).
+# ---------------------------------------------------------------------------------------------------------------
+class TbOtimizacaoAntecipacaoDaugtherAdmin(admin.TabularInline):
+    fields = ('display_order', 'dau_valor_1', 'dau_valor_2', 'dau_valor_3', 'dau_valor_4', 'dau_valor_11', 'dau_valor_5', 'dau_valor_6', 'dau_valor_7',
+              'dau_valor_8', 'dau_valor_9', 'dau_valor_10')
+    readonly_fields = fields
+    model = TbOtimizacaoAntecipacaoDaugther
+    extra = 0
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+class TbOtimizacaoAntecipacaoAdmin(admin.ModelAdmin):
+    fields = (('oti_ant_produto', 'oti_ant_horizonte'), ('oti_ant_estoque_inicial', 'oti_ant_estoque_final'),
+              ('oti_ant_margem_sem', 'oti_ant_margem_com', 'ganho'), ('oti_ant_custo_financeiro', 'oti_ant_aplicado'),
+              'oti_ant_observacao', 'oti_ant_data')
+    readonly_fields = ('oti_ant_produto', 'oti_ant_horizonte', 'oti_ant_estoque_inicial', 'oti_ant_estoque_final',
+                       'oti_ant_margem_sem', 'oti_ant_margem_com', 'ganho', 'oti_ant_custo_financeiro', 'oti_ant_aplicado',
+                       'oti_ant_observacao', 'oti_ant_data')
+    list_display = ('oti_ant_produto', 'oti_ant_horizonte', 'oti_ant_estoque_inicial', 'oti_ant_estoque_final',
+                    'oti_ant_margem_sem', 'oti_ant_margem_com', 'ganho', 'oti_ant_custo_financeiro', 'oti_ant_aplicado', 'oti_ant_data')
+    list_filter = ('oti_ant_aplicado',)
+    search_fields = ['oti_ant_produto__pro_codigo']
+    inlines = [TbOtimizacaoAntecipacaoDaugtherAdmin]
+
+    def get_queryset(self, request):
+        cen_ativo = TbCenarios.objects.get(cen_ativo=True).id
+        return super().get_queryset(request).filter(tbcenarios=cen_ativo)
+
+    def get_actions(self, request):
+        actions = super().get_actions(request)
+        actions.pop('delete_selected', None)
+        return actions
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+admin.site.register(TbOtimizacaoAntecipacao, TbOtimizacaoAntecipacaoAdmin)
+
+
+# 🌟 NOVO (22/10/2026): resultado consolidado com e sem produção antecipada (somente leitura)
+class TbOtimizacaoAntecipacaoResultadoDaugtherAdmin(admin.TabularInline):
+    fields = ('display_order', 'dau_valor_1', 'dau_valor_2', 'diferenca')
+    readonly_fields = fields
+    model = TbOtimizacaoAntecipacaoResultadoDaugther
+    extra = 0
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+class TbOtimizacaoAntecipacaoResultadoAdmin(admin.ModelAdmin):
+    fields = ('oti_ant_res_indicador', ('oti_ant_res_sem', 'oti_ant_res_com', 'diferenca'), 'total_tipo', 'oti_ant_res_data')
+    readonly_fields = ('oti_ant_res_indicador', 'oti_ant_res_sem', 'oti_ant_res_com', 'diferenca', 'total_tipo', 'oti_ant_res_data')
+    list_display = ('oti_ant_res_indicador', 'oti_ant_res_sem', 'oti_ant_res_com', 'diferenca', 'total_tipo', 'oti_ant_res_data')
+    list_display_links = ('oti_ant_res_indicador',)
+    inlines = [TbOtimizacaoAntecipacaoResultadoDaugtherAdmin]
+
+    def get_queryset(self, request):
+        cen_ativo = TbCenarios.objects.get(cen_ativo=True).id
+        return super().get_queryset(request).filter(tbcenarios=cen_ativo)
+
+    def get_actions(self, request):
+        actions = super().get_actions(request)
+        actions.pop('delete_selected', None)
+        return actions
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+admin.site.register(TbOtimizacaoAntecipacaoResultado, TbOtimizacaoAntecipacaoResultadoAdmin)

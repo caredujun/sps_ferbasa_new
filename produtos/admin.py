@@ -66,20 +66,35 @@ class TbProdutoFluxoProducaoDaugtherAdmin(admin.TabularInline):
 
 class TbProdutosAdmin(admin.ModelAdmin):
     fields = (('id', 'pro_codigo', 'pro_descricao', 'pro_ativo'), ('total_mercados', 'total_fluxos_ativos', 'total_fluxos', 'total_equipamentos_usados'),
-              ('pro_unidade_producao', 'pro_familia'), ('pro_imagem', 'pro_imagem_tag'), 'pro_observacao',
+              ('pro_unidade_producao', 'pro_familia'),
+              ('pro_horizonte_estoque', 'pro_estoque_inicial', 'pro_estoque_final'),   # 🌟 22/10/2026: produção antecipada
+              ('pro_imagem', 'pro_imagem_tag'), 'pro_observacao',
               'equipamentos_producao', 'escolhidos_igual_fluxos', 'equipamentos_usados_tag',
               'fluxos_producao_acesso')
-    list_display = ['id', 'pro_codigo', 'pro_descricao', 'pro_ativo', 'pro_unidade_producao', 'pro_imagem',
-                    'pro_imagem_tag', 'escolhidos_igual_fluxos', 'total_mercados', 'total_fluxos_ativos', 'total_fluxos',
+    # 🌟 22/10/2026: sem o campo "Imagem" (o arquivo); a miniatura (pro_imagem_tag) continua. Os três campos da produção
+    # antecipada aparecem e são editáveis direto na lista.
+    list_display = ['id', 'pro_codigo', 'pro_descricao', 'pro_ativo', 'pro_unidade_producao',
+                    'pro_horizonte_estoque', 'pro_estoque_inicial', 'pro_estoque_final',
+                    'pro_imagem_lista', 'escolhidos_igual_fluxos', 'total_mercados', 'total_fluxos_ativos', 'total_fluxos',
                     'total_equipamentos_usados']
-    list_editable = ['pro_ativo']
+    list_editable = ['pro_ativo', 'pro_horizonte_estoque', 'pro_estoque_inicial', 'pro_estoque_final']
     list_filter = ('pro_codigo','pro_ativo')
     list_display_links = ['id', 'pro_codigo']
-    readonly_fields = ['id', 'pro_imagem_tag', 'total_mercados', 'total_fluxos_ativos', 'total_fluxos', 'total_equipamentos_usados', 'escolhidos_igual_fluxos', 'equipamentos_usados_tag', 'fluxos_producao_acesso']
+    readonly_fields = ['id', 'pro_imagem_tag', 'pro_imagem_lista', 'total_mercados', 'total_fluxos_ativos', 'total_fluxos', 'total_equipamentos_usados', 'escolhidos_igual_fluxos', 'equipamentos_usados_tag', 'fluxos_producao_acesso']
     search_fields = ['pro_codigo', ]
 
     model = TbProdutos
     form = TbProdutosFormAdmin
+
+    # 🌟 22/10/2026: miniatura PEQUENA na lista (a de 270x150 continua no formulário). Proporção mantida; clicar amplia
+    # (imagem_ampliada.js).
+    def pro_imagem_lista(self, obj):
+        if obj.pro_imagem:
+            return format_html('<img src="{}" alt="{}" style="max-width: 64px; max-height: 36px; width: auto; height: auto; '
+                               'object-fit: contain; display: block;" />', obj.pro_imagem.url, obj.pro_codigo or '')
+        return '-'
+
+    pro_imagem_lista.short_description = 'Imagem'
 
     actions = ['exportar_excel', 'importar_excel', 'ativar_produto', 'desativar_produto']
 
@@ -433,6 +448,45 @@ class TbProdutosAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         cen_ativo = TbCenarios.objects.get(cen_ativo=True).id
         return super(TbProdutosAdmin, self).get_queryset(request).filter(tbcenarios=cen_ativo)
+
+    # 🌟 NOVO (22/10/2026): código e descrição do produto ficam fixos à esquerda na lista; só os demais campos rolam
+    class Media:
+        js = ('lista_colunas_fixas.js',)
+        css = {'all': ('produtos_lista.css',)}
+
+    # 🌟 NOVO (22/10/2026): "Horizonte Máx. Estoque" na unidade do cenário ativo (meses, trimestres ou anos)
+    @staticmethod
+    def _ajustar_rotulo_horizonte():
+        cen = TbCenarios.objects.filter(cen_ativo=True).first()
+        unidade = {'Mensal': 'meses', 'Trimestral': 'trimestres', 'Anual': 'anos'}.get(getattr(cen, 'cen_tipo', None), 'períodos')
+        campo = TbProdutos._meta.get_field('pro_horizonte_estoque')
+        campo.verbose_name = f'Horizonte Máx. Estoque ({unidade})'
+        campo.help_text = (f'Quantos {unidade}, no máximo, o produto pode ficar em estoque entre a produção e a venda. '
+                           '0 = não antecipa a produção.')
+        return campo.verbose_name, campo.help_text
+
+    # 🌟 NOVO (22/10/2026): campos editáveis da lista com largura do texto do cabeçalho (não a largura padrão do admin)
+    LARGURA_CAMPOS_LISTA = {'pro_horizonte_estoque': '6em', 'pro_estoque_inicial': '7.5em', 'pro_estoque_final': '7em'}
+
+    def get_changelist_form(self, request, **kwargs):
+        form = super().get_changelist_form(request, **kwargs)
+        for nome, largura in self.LARGURA_CAMPOS_LISTA.items():
+            campo = form.base_fields.get(nome)
+            if campo is not None:
+                campo.widget.attrs['style'] = f'width: {largura}; min-width: 0; box-sizing: border-box; text-align: right;'
+        return form
+
+    def changelist_view(self, request, extra_context=None):
+        self._ajustar_rotulo_horizonte()
+        return super().changelist_view(request, extra_context)
+
+    def get_form(self, request, obj=None, **kwargs):
+        rotulo, ajuda = self._ajustar_rotulo_horizonte()
+        form = super().get_form(request, obj, **kwargs)
+        if 'pro_horizonte_estoque' in form.base_fields:
+            form.base_fields['pro_horizonte_estoque'].label = rotulo
+            form.base_fields['pro_horizonte_estoque'].help_text = ajuda
+        return form
 
     inlines = [TbProdutoFluxoProducaoDaugtherAdmin]
 

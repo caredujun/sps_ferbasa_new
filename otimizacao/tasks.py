@@ -262,3 +262,4 @@ def sensibilidade_ganho_margem_chat_celery(self, usuario_id, visao, dados):
     resposta = montar_analise_otimizacao_em_segundo_plano(usuario_id, visao, dados)
     print(f"[otimizacao][{visao}] pronta em {_time.time() - comeco:.1f}s ({len(resposta or '')} caracteres)")
     return resposta
+

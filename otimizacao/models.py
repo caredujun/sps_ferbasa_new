@@ -437,6 +437,11 @@ class TbProdutoMercadoFluxoDaugther(models.Model):
     dau_valor_9  = models.DecimalField(max_digits=18, decimal_places=2, verbose_name='Parcela Inbound', default=0.00)
     dau_valor_10 = models.DecimalField(max_digits=18, decimal_places=2, verbose_name='Parcela Manutenção', default=0.00)
     dau_valor_11 = models.DecimalField(max_digits=18, decimal_places=2, verbose_name='Margem Horária', default=0.00)
+    # 🌟 NOVO (22/10/2026): produção antecipada (otimizacao/antecipacao.py). dau_valor_2 continua sendo a VENDA do período;
+    # a PRODUÇÃO pode ser diferente (produzido antes para vender depois). dau_valor_13 = vendas do Otimizar com os
+    # períodos isolados (sem antecipação), para comparar. null=True: as linhas criadas pelas procedures ficam NULL.
+    dau_valor_12 = models.DecimalField(max_digits=18, decimal_places=0, null=True, blank=True, verbose_name='Produção', default=0)
+    dau_valor_13 = models.DecimalField(max_digits=18, decimal_places=0, null=True, blank=True, verbose_name='Vendas s/ Antecip.', default=0)
     flag = models.BooleanField(blank=True, null=True, default=False, verbose_name='Controle')
     # Este campo (flag) é somente para controle.
     # Se for igual a zero significa que é lixo. Deixamos na tabela pois pode voltar a ser utilizado
@@ -2864,3 +2869,144 @@ class TbOtimizacaoShadow(models.Model):
         verbose_name = _('Sombra da Otimização Simplex')
         verbose_name_plural = _('Sombras da Otimização Simplex')
         ordering = ['oti_shadow_tipo', 'oti_shadow_restricao', 'dau_order']
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# 🌟 NOVO (22/10/2026): PRODUÇÃO ANTECIPADA -- gravado pelo Otimizar (parameters.tasks, otimizacao/antecipacao.py) para
+# cada produto do cenário com horizonte de estoque, estoque inicial ou estoque final: o resultado COM e SEM antecipação.
+# ---------------------------------------------------------------------------------------------------------------
+class TbOtimizacaoAntecipacao(models.Model):
+    oti_ant_produto = models.ForeignKey(TbProdutos, on_delete=models.CASCADE, verbose_name='Produto')
+    oti_ant_horizonte = models.IntegerField(default=0, verbose_name='Horizonte (períodos)')
+    oti_ant_estoque_inicial = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name='Estoque Inicial')
+    oti_ant_estoque_final = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name='Estoque Final')
+    oti_ant_margem_sem = models.DecimalField(max_digits=20, decimal_places=2, default=0, verbose_name='Margem s/ Antecip.')
+    oti_ant_margem_com = models.DecimalField(max_digits=20, decimal_places=2, default=0, verbose_name='Margem c/ Antecip.')
+    oti_ant_custo_financeiro = models.DecimalField(max_digits=20, decimal_places=2, default=0, verbose_name='Custo Financeiro Estoque')
+    oti_ant_aplicado = models.BooleanField(default=False, verbose_name='Resultado c/ Antecip. Aplicado')
+    oti_ant_observacao = models.TextField(blank=True, null=True, verbose_name='Observação')
+    oti_ant_data = models.DateTimeField(auto_now=True, verbose_name='Calculado em')
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
+    id_origem = models.IntegerField(blank=True, null=True)
+
+    def __str__(self):
+        return str(self.oti_ant_produto)
+
+    def ganho(self):
+        # margem com antecipação - custo financeiro do estoque (despesa financeira) - margem sem antecipação. Pode ser
+        # negativo num produto que cedeu capacidade para outro antecipar (o total do cenário é que tem que ganhar).
+        return (self.oti_ant_margem_com or 0) - (self.oti_ant_custo_financeiro or 0) - (self.oti_ant_margem_sem or 0)
+
+    ganho.short_description = 'Ganho (c/ - custo fin. - s/)'
+
+    class Meta:
+        verbose_name = _('Produção Antecipada')
+        verbose_name_plural = _('Produção Antecipada')
+        ordering = ['oti_ant_produto']
+
+
+class TbOtimizacaoAntecipacaoDaugther(models.Model):
+    dau_order = models.IntegerField(verbose_name='Ano/Mês')
+    dau_valor_1 = models.DecimalField(max_digits=18, decimal_places=0, default=0, verbose_name='Vendas s/ Antecip.')
+    dau_valor_2 = models.DecimalField(max_digits=18, decimal_places=0, default=0, verbose_name='Vendas c/ Antecip.')
+    dau_valor_3 = models.DecimalField(max_digits=18, decimal_places=0, default=0, verbose_name='Produção c/ Antecip.')
+    dau_valor_4 = models.DecimalField(max_digits=18, decimal_places=0, default=0, verbose_name='Estoque Final do Período')
+    dau_valor_5 = models.DecimalField(max_digits=20, decimal_places=2, default=0, verbose_name='Custo Financeiro (Despesa)')
+    dau_valor_6 = models.DecimalField(max_digits=20, decimal_places=2, default=0, verbose_name='Margem s/ Antecip.')
+    dau_valor_7 = models.DecimalField(max_digits=20, decimal_places=2, default=0, verbose_name='Margem c/ Antecip.')
+    # usados pelo Consolidar (consolida_resultados) quando o resultado com antecipação foi aplicado: ajuste das parcelas do
+    # custo das vendas do período que foram produzidas antes (custo do período da produção - do período da venda) e o
+    # valor do estoque no fim do período (entra no estoque de Produtos Finais / capital de giro)
+    dau_valor_8 = models.DecimalField(max_digits=20, decimal_places=2, default=0, verbose_name='Ajuste Custo Itens')
+    dau_valor_9 = models.DecimalField(max_digits=20, decimal_places=2, default=0, verbose_name='Ajuste Custo Inbound')
+    dau_valor_10 = models.DecimalField(max_digits=20, decimal_places=2, default=0, verbose_name='Ajuste Custo Manutenção')
+    dau_valor_11 = models.DecimalField(max_digits=20, decimal_places=2, default=0, verbose_name='Valor do Estoque')
+    flag = models.BooleanField(blank=True, null=True, default=True, verbose_name='Controle')
+    mae = models.ForeignKey('TbOtimizacaoAntecipacao', on_delete=models.CASCADE, verbose_name='Mãe')
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
+
+    def __str__(self):
+        return ''
+
+    def display_order(self):
+        from parameters.fluxo_criar_cenario import _dau_order_para_periodo
+        cen = TbCenarios.objects.filter(id=self.tbcenarios_id).first()
+        try:
+            return _dau_order_para_periodo(cen, self.dau_order) if cen else str(self.dau_order)
+        except Exception:
+            return str(self.dau_order)
+
+    display_order.short_description = 'Período'
+
+    class Meta:
+        verbose_name = _('Detalhe')
+        verbose_name_plural = _('Detalhes')
+        ordering = ['dau_order']
+
+
+# 🌟 NOVO (22/10/2026): RESULTADO CONSOLIDADO com e sem produção antecipada. Quando o Otimizar aplica o resultado com
+# antecipação, o Consolidar (consolida_resultados) é rodado DUAS vezes numa área temporária (desfeita em seguida, nada do
+# cenário muda): uma com o resultado dos períodos isolados (sem antecipação) e outra com o resultado aplicado. Os
+# indicadores (receita, custos, margem, EBITDA, estoques, capital de giro, OFCF) ficam aqui para comparar. A despesa
+# financeira do estoque antecipado (WACC) é informativa -- não é descontada do EBITDA nem do OFCF (o estoque já entra no
+# capital de giro).
+class TbOtimizacaoAntecipacaoResultado(models.Model):
+    oti_ant_res_ordem = models.IntegerField(default=0, verbose_name='Ordem')
+    oti_ant_res_indicador = models.CharField(max_length=100, verbose_name='Indicador')
+    # 'F' = fluxo do período (total = soma dos períodos); 'S' = saldo no fim do período (total = saldo do último período)
+    oti_ant_res_tipo = models.CharField(max_length=1, default='F', verbose_name='Tipo')
+    oti_ant_res_sem = models.DecimalField(max_digits=20, decimal_places=2, default=0, verbose_name='Sem Antecipação')
+    oti_ant_res_com = models.DecimalField(max_digits=20, decimal_places=2, default=0, verbose_name='Com Antecipação')
+    oti_ant_res_data = models.DateTimeField(auto_now=True, verbose_name='Calculado em')
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
+    id_origem = models.IntegerField(blank=True, null=True)
+
+    def __str__(self):
+        return self.oti_ant_res_indicador
+
+    def diferenca(self):
+        return (self.oti_ant_res_com or 0) - (self.oti_ant_res_sem or 0)
+
+    diferenca.short_description = 'Diferença (c/ - s/)'
+
+    def total_tipo(self):
+        return 'Soma dos períodos' if self.oti_ant_res_tipo == 'F' else 'Saldo do último período'
+
+    total_tipo.short_description = 'Total'
+
+    class Meta:
+        verbose_name = _('Resultado Consolidado c/ e s/ Antecipação')
+        verbose_name_plural = _('Resultado Consolidado c/ e s/ Antecipação')
+        ordering = ['oti_ant_res_ordem']
+
+
+class TbOtimizacaoAntecipacaoResultadoDaugther(models.Model):
+    dau_order = models.IntegerField(verbose_name='Ano/Mês')
+    dau_valor_1 = models.DecimalField(max_digits=20, decimal_places=2, default=0, verbose_name='Sem Antecipação')
+    dau_valor_2 = models.DecimalField(max_digits=20, decimal_places=2, default=0, verbose_name='Com Antecipação')
+    flag = models.BooleanField(blank=True, null=True, default=True, verbose_name='Controle')
+    mae = models.ForeignKey('TbOtimizacaoAntecipacaoResultado', on_delete=models.CASCADE, verbose_name='Mãe')
+    tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
+
+    def __str__(self):
+        return ''
+
+    def diferenca(self):
+        return (self.dau_valor_2 or 0) - (self.dau_valor_1 or 0)
+
+    diferenca.short_description = 'Diferença (c/ - s/)'
+
+    def display_order(self):
+        from parameters.fluxo_criar_cenario import _dau_order_para_periodo
+        cen = TbCenarios.objects.filter(id=self.tbcenarios_id).first()
+        try:
+            return _dau_order_para_periodo(cen, self.dau_order) if cen else str(self.dau_order)
+        except Exception:
+            return str(self.dau_order)
+
+    display_order.short_description = 'Período'
+
+    class Meta:
+        verbose_name = _('Detalhe')
+        verbose_name_plural = _('Detalhes')
+        ordering = ['dau_order']

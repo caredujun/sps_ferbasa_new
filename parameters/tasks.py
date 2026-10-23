@@ -551,15 +551,278 @@ def otimizar_cenario_celery(self, periodo, cen_ativo, total_variaveis):
         t.save()
 
         if TbCenariosDaugther.objects.filter(Q(flag=1) | Q(flag=0), mae_id=cen_ativo, otimizar=1).count() == TbCenariosDaugther.objects.filter(mae_id=cen_ativo, otimizar=1).count():
+            # 🌟 ALTERADO (22/10/2026): antes de marcar o cenário como otimizado, roda a PRODUÇÃO ANTECIPADA (todos os
+            # períodos juntos) -- ver _finalizar_otimizacao_cenario
+            _finalizar_otimizacao_cenario(cen_ativo)
 
-            t = TbCenarios.objects.get(id=cen_ativo)
-            t.flag = 3
-            t.save()
 
-            cursor = connection.cursor()
-            sql = "call public.media_preco_custo_margem_horaria_venda_zerada(" + str(cen_ativo) + ")"
-            cursor.execute(sql)
-            cursor.close()
+# ---------------------------------------------------------------------------------------------------------------
+# 🌟 NOVO (22/10/2026): PRODUÇÃO ANTECIPADA (otimizacao/antecipacao.py). Quando o ÚLTIMO período termina, os períodos
+# otimizados são resolvidos JUNTOS (produzir num período para vender num período à frente, para os produtos com
+# horizonte de estoque > 0 em TbProdutos). Se a margem aumentar (ou se houver estoque inicial/final informado), o
+# resultado com antecipação substitui o do Otimizar: vendas, produção, equipamentos, insumos, conjuntos e preços sombra.
+# Sempre grava a comparação com e sem antecipação (TbOtimizacaoAntecipacao). Qualquer erro aqui mantém o resultado do
+# Otimizar (períodos isolados) -- a otimização nunca deixa de terminar por causa da antecipação.
+# ---------------------------------------------------------------------------------------------------------------
+def _finalizar_otimizacao_cenario(cen_ativo):
+    with transaction.atomic():
+        # trava o cenário: se dois períodos terminarem ao mesmo tempo, só um faz a antecipação
+        cen = TbCenarios.objects.select_for_update().get(id=cen_ativo)
+        if cen.flag == 3:
+            return
+        try:
+            with transaction.atomic():
+                _aplicar_producao_antecipada(cen)
+        except Exception as erro:
+            import traceback
+            traceback.print_exc()
+            print(f"[otimizar][antecipacao] cenário {cen_ativo}: mantido o resultado sem antecipação ({erro!r})")
+            try:
+                with transaction.atomic():
+                    _gravar_resumo_antecipacao(cen, None, f'Erro ao calcular a antecipação: {erro}')
+            except Exception:
+                pass
+        cen.flag = 3
+        cen.save()
+
+    cursor = connection.cursor()
+    sql = "call public.media_preco_custo_margem_horaria_venda_zerada(" + str(cen_ativo) + ")"
+    cursor.execute(sql)
+    cursor.close()
+
+
+# campos de resultado que salva_resultados_order acumula -- zerados antes de gravar o resultado com antecipação
+_RESET_RESULTADOS = [
+    ("otimizacao_tbprodutomercadofluxodaugther", "dau_valor_2 = 0, dau_valor_12 = 0"),
+    ("otimizacao_tbotimizacaoprodutodaugther", "dau_valor_3 = 0, dau_valor_5 = 0, dau_valor_6 = 0, dau_valor_7 = 0"),
+    ("otimizacao_tbprodutomercadodaugther", "dau_valor_3 = 0, dau_valor_5 = 0, dau_valor_6 = 0, dau_valor_7 = 0"),
+    ("otimizacao_tbotimizacaocustoitemdaugther", "dau_valor_3 = 0"),
+    ("otimizacao_tbotimizacaoequipamentosdaugther", "dau_valor_2 = 0, dau_valor_4 = 0, dau_valor_6 = 0"),
+    ("otimizacao_tbotimizacaoequipamentosordemdaugther", "dau_valor_1 = 0, dau_valor_2 = 0"),
+    ("otimizacao_tbotimizacaoconjuntoequipamentosdaugther", "dau_valor_3 = 0"),
+]
+
+
+def _nome_restricoes_do_modelo(info):
+    """nome_restricao_array (o mesmo que otimizar_cenario_celery monta) a partir das linhas do modelo -- um item por par
+    de linhas (mínimo, máximo), na mesma ordem."""
+    nomes = []
+    for k in range(0, len(info), 2):
+        tipo, rid = info[k][0], info[k][1]
+        if tipo == 'E':
+            nomes.append([TbOtimizacaoEquipamentos.objects.get(id=rid).oti_equ_equipamento, 'E', rid])
+        elif tipo == 'CE':
+            nomes.append([TbOtimizacaoConjuntoEquipamentos.objects.get(id=rid).oti_con_equ_descricao, 'CE', rid])
+        elif tipo == 'P':
+            nomes.append([TbOtimizacaoProduto.objects.get(id=rid).oti_pro_produto, 'P', rid])
+        elif tipo == 'PM':
+            pm = TbProdutoMercado.objects.get(id=rid)
+            nomes.append([str(pm.pro_mer_produto) + '/' + str(pm.pro_mer_mercado), 'PM', rid])
+        else:
+            id_custo_item_preco = TbOtimizacaoCustoItem.objects.get(id=rid).oti_cus_ite_item_id
+            id_custo_item = TbCustoItemPreco.objects.get(id=id_custo_item_preco).cus_ite_pre_item_id
+            nomes.append([TbCustoItem.objects.get(id=id_custo_item).cus_ite_nome, 'IC', rid, rid])
+    return nomes
+
+
+class _ModeloMarginals:
+    """O pedaço de um resultado do linprog que extrair_shadow_prices lê (ineqlin.marginals / residual)."""
+    def __init__(self, marginals, residual):
+        class _I:
+            pass
+        self.ineqlin = _I()
+        self.ineqlin.marginals = marginals
+        self.ineqlin.residual = residual
+
+
+def _aplicar_producao_antecipada(cen):
+    from otimizacao.antecipacao import otimizar_com_antecipacao
+    cen_ativo = cen.id
+    ordens = sorted(TbCenariosDaugther.objects.filter(mae_id=cen_ativo, otimizar=1, flag=1).values_list('dau_order', flat=True))
+    res = otimizar_com_antecipacao(cen_ativo, ordens)
+    consolidado_sem = None
+    if res.get('aplicado'):
+        ords = res['ordens']
+        # 🌟 22/10/2026: Consolidar com o resultado dos períodos isolados (ainda gravado) -- área temporária, desfeita
+        consolidado_sem = _consolidado_temporario(cen_ativo, ords, sem_antecipacao=True)
+        cursor = connection.cursor()
+        for tabela, campos in _RESET_RESULTADOS:
+            cursor.execute(f"update {tabela} set {campos} where tbcenarios_id = %s and dau_order = any(%s)", [cen_ativo, ords])
+        ids_vars = res['ids_vars']
+        for a, o in enumerate(ords):
+            for j, var_id in enumerate(ids_vars):
+                v = round(float(res['vendas'][a, j]), 0)
+                p = round(float(res['producao'][a, j]), 0)
+                if v > 0 or p > 0:
+                    cursor.execute("call public.salva_resultados_order_antecipacao(%s, %s, %s, %s, %s)", [cen_ativo, var_id, v, p, o])
+            cursor.execute("call public.calcula_media_preco_custo_margem_horaria(%s, %s)", [cen_ativo, o])
+        # vendas sem antecipação (o Otimizar com os períodos isolados), para comparar
+        valores = [(var_id, o, round(float(res['vendas_iso'][a, j]), 0)) for a, o in enumerate(ords) for j, var_id in enumerate(ids_vars)]
+        _atualizar_em_lote(cursor, "otimizacao_tbprodutomercadofluxodaugther", "dau_valor_13", cen_ativo, valores)
+        cursor.close()
+        # preços sombra do modelo integrado (os registros do Otimizar são reaproveitados: flag = False e regravados)
+        qs_mae = TbProdutoMercadoFluxo.objects.filter(tbcenarios_id=cen_ativo, flag=True).order_by('pro_mer_flu_variavel')
+        TbOtimizacaoShadow.objects.filter(tbcenarios_id=cen_ativo, dau_order__in=ords).update(flag=False)
+        for a, (o, m) in enumerate(res['mods']):
+            extrair_shadow_prices(_ModeloMarginals(res['marginals'][a], res['residual'][a]), _nome_restricoes_do_modelo(m['info']),
+                                  cen_ativo, o - 1, res['ranging'][a], qs_mae, commit=False)
+        TbOtimizacaoShadow.objects.filter(tbcenarios_id=cen_ativo, dau_order__in=ords, flag=False).delete()
+    else:
+        # sem antecipação: produção = venda, e "vendas sem antecipação" = as vendas do Otimizar
+        cursor = connection.cursor()
+        cursor.execute("""update otimizacao_tbprodutomercadofluxodaugther set dau_valor_12 = dau_valor_2, dau_valor_13 = dau_valor_2
+                          where tbcenarios_id = %s and dau_order = any(%s)""", [cen_ativo, ordens])
+        cursor.close()
+    _gravar_resumo_antecipacao(cen, res, res.get('motivo') or '')
+    if consolidado_sem is not None:
+        # 🌟 22/10/2026: Consolidar com o resultado aplicado (com antecipação) -- área temporária, desfeita -- e a comparação
+        consolidado_com = _consolidado_temporario(cen_ativo, res['ordens'], sem_antecipacao=False)
+        if consolidado_com is not None:
+            _gravar_resultado_consolidado(cen, res, consolidado_sem, consolidado_com)
+    print(f"[otimizar][antecipacao] cenário {cen_ativo}: aplicado={res.get('aplicado')} ganho={res.get('ganho')} "
+          f"({res.get('segundos')} s) {res.get('motivo') or ''}")
+
+
+# 🌟 NOVO (22/10/2026): indicadores do Consolidar (parameters_tbcenariosdaugther.dau_valor_N) comparados com e sem
+# antecipação -- (ordem, nome, tipo, N). Tipo 'F' = fluxo do período (total = soma); 'S' = saldo no fim do período (total =
+# último período). N = None: despesa financeira do estoque antecipado (vem do Otimizar, não do Consolidar).
+_INDICADORES_CONSOLIDADO = [
+    (1, 'Receita de vendas', 'F', 1),
+    (2, 'Custo variável (itens)', 'F', 2),
+    (3, 'Custo inbound', 'F', 3),
+    (4, 'Custo outbound', 'F', 4),
+    (5, 'Custo manutenção', 'F', 5),
+    (6, 'Margem de contribuição', 'F', 6),
+    (7, 'Custo fixo', 'F', 7),
+    (8, 'EBITDA', 'F', 8),
+    (9, 'Despesa financeira do estoque antecipado (informativa, não descontada)', 'F', None),
+    (10, 'Estoque MP (insumos)', 'S', 12),
+    (11, 'Estoque WIP', 'S', 13),
+    (12, 'Estoque produtos finais', 'S', 14),
+    (13, 'Estoque total', 'S', 15),
+    (14, 'Contas a receber', 'S', 16),
+    (15, 'Contas a pagar', 'S', 17),
+    (16, 'Capital de giro (OWCR)', 'S', 18),
+    (17, 'OFCF', 'F', 20),
+]
+
+
+class _DesfazerConsolidado(Exception):
+    pass
+
+
+def _consolidado_temporario(cen_ativo, ords, sem_antecipacao):
+    """Roda o Consolidar (consolida_resultados) num savepoint, lê os indicadores por período e DESFAZ tudo (o resultado
+    consolidado do cenário fica como estava). sem_antecipacao=True: com o resultado dos períodos isolados ainda gravado --
+    produção = vendas e sem os ajustes de custo / estoque de uma antecipação anterior. Devolve {dau_order: [v1..v20]} ou
+    None se o Consolidar falhar (a comparação fica sem ser gravada; a otimização segue)."""
+    lido = {}
+    try:
+        with transaction.atomic():      # savepoint: tudo o que o Consolidar gravar é desfeito no raise abaixo
+            with connection.cursor() as cur:
+                if sem_antecipacao:
+                    cur.execute("update otimizacao_tbprodutomercadofluxodaugther set dau_valor_12 = dau_valor_2 "
+                                "where tbcenarios_id = %s and dau_order = any(%s)", [cen_ativo, list(ords)])
+                    cur.execute("update otimizacao_tbotimizacaoantecipacao set oti_ant_aplicado = false where tbcenarios_id = %s", [cen_ativo])
+                cur.execute("call public.consolida_resultados(%s)", [cen_ativo])
+                cur.execute("select dau_order, " + ", ".join(f"dau_valor_{k}" for k in range(1, 21)) +
+                            " from parameters_tbcenariosdaugther where mae_id = %s and dau_order = any(%s)", [cen_ativo, list(ords)])
+                lido = {r[0]: [float(x or 0) for x in r[1:]] for r in cur.fetchall()}
+            raise _DesfazerConsolidado()
+    except _DesfazerConsolidado:
+        return lido
+    except Exception as erro:
+        print(f"[otimizar][antecipacao] cenário {cen_ativo}: Consolidar temporário ({'sem' if sem_antecipacao else 'com'}) falhou: {erro!r}")
+        return None
+
+
+def _gravar_resultado_consolidado(cen, res, sem, com):
+    from otimizacao.models import TbOtimizacaoAntecipacaoResultado, TbOtimizacaoAntecipacaoResultadoDaugther
+    ords = [o for o in res['ordens'] if o in sem and o in com]
+    if not ords:
+        return
+    fin = {}
+    for arr in (res.get('custo_fin_pp') or {}).values():
+        for a, o in enumerate(res['ordens']):
+            fin[o] = fin.get(o, 0.0) + float(arr[a])
+    filhas = []
+    for ordem, nome, tipo, n in _INDICADORES_CONSOLIDADO:
+        if n is None:
+            vs = {o: 0.0 for o in ords}
+            vc = {o: fin.get(o, 0.0) for o in ords}
+        else:
+            vs = {o: sem[o][n - 1] for o in ords}
+            vc = {o: com[o][n - 1] for o in ords}
+        if tipo == 'F':
+            ts, tc = sum(vs.values()), sum(vc.values())
+        else:
+            ts, tc = vs[ords[-1]], vc[ords[-1]]
+        mae = TbOtimizacaoAntecipacaoResultado.objects.create(
+            oti_ant_res_ordem=ordem, oti_ant_res_indicador=nome, oti_ant_res_tipo=tipo,
+            oti_ant_res_sem=round(ts, 2), oti_ant_res_com=round(tc, 2), tbcenarios_id=cen.id)
+        for o in ords:
+            filhas.append(TbOtimizacaoAntecipacaoResultadoDaugther(dau_order=o, mae=mae, tbcenarios_id=cen.id,
+                                                                    dau_valor_1=round(vs[o], 2), dau_valor_2=round(vc[o], 2)))
+    TbOtimizacaoAntecipacaoResultadoDaugther.objects.bulk_create(filhas)
+
+
+def _atualizar_em_lote(cursor, tabela, campo, cen_ativo, valores):
+    """update tabela set campo = valor para cada (mae_id, dau_order, valor) -- em blocos (um comando por bloco)."""
+    for k in range(0, len(valores), 1000):
+        bloco = valores[k:k + 1000]
+        if not bloco:
+            continue
+        sql = (f"update {tabela} as d set {campo} = v.valor from (values " + ", ".join(["(%s, %s, %s)"] * len(bloco)) +
+               ") as v(mae_id, dau_order, valor) where d.mae_id = v.mae_id and d.dau_order = v.dau_order and d.tbcenarios_id = %s")
+        params = [x for t in bloco for x in t] + [cen_ativo]
+        cursor.execute(sql, params)
+
+
+def _gravar_resumo_antecipacao(cen, res, observacao=''):
+    """TbOtimizacaoAntecipacao / Daugther: por produto com horizonte, estoque inicial ou final -- com e sem antecipação."""
+    from otimizacao.models import TbOtimizacaoAntecipacao, TbOtimizacaoAntecipacaoDaugther, TbOtimizacaoAntecipacaoResultado
+    TbOtimizacaoAntecipacao.objects.filter(tbcenarios_id=cen.id).delete()
+    TbOtimizacaoAntecipacaoResultado.objects.filter(tbcenarios_id=cen.id).delete()   # 🌟 22/10/2026: a comparação antiga sai
+    prods = (res or {}).get('produtos')
+    if prods is None:
+        from otimizacao.antecipacao import parametros_produtos
+        prods = parametros_produtos(cen.id)
+    alvo = {p: v for p, v in prods.items() if v['horizonte'] > 0 or v['ei'] > 0 or v['ef'] > 0}
+    if not alvo:
+        return
+    tem_resultado = bool(res) and 'vendas' in res
+    ords = (res or {}).get('ordens') or []
+    for p, v in alvo.items():
+        ms = float((res or {}).get('margem_iso_produto', {}).get(p, 0.0)) if tem_resultado else 0.0
+        mc = float((res or {}).get('margem_int_produto', {}).get(p, 0.0)) if tem_resultado else 0.0
+        cfp = (res or {}).get('custo_fin_pp', {}).get(p) if tem_resultado else None
+        mae = TbOtimizacaoAntecipacao.objects.create(
+            oti_ant_produto_id=p, oti_ant_horizonte=v['horizonte'], oti_ant_estoque_inicial=v['ei'], oti_ant_estoque_final=v['ef'],
+            oti_ant_margem_sem=round(ms, 2), oti_ant_margem_com=round(mc, 2),
+            oti_ant_custo_financeiro=round(float(cfp.sum()) if cfp is not None else 0.0, 2),
+            oti_ant_aplicado=bool((res or {}).get('aplicado')), oti_ant_observacao=observacao, tbcenarios_id=cen.id)
+        if not tem_resultado:
+            continue
+        mask = res['produto_v'] == p
+        est = res['estoque'].get(p)
+        mi, mt = res['margem_iso_pp'].get(p), res['margem_int_pp'].get(p)
+        aj, ve = res.get('ajuste_custo', {}).get(p), res.get('valor_estoque', {}).get(p)
+        filhas = []
+        for a, o in enumerate(ords):
+            filhas.append(TbOtimizacaoAntecipacaoDaugther(
+                dau_order=o, mae=mae, tbcenarios_id=cen.id,
+                dau_valor_1=round(float(res['vendas_iso'][a][mask].sum()), 0),
+                dau_valor_2=round(float(res['vendas'][a][mask].sum()), 0),
+                dau_valor_3=round(float(res['producao'][a][mask].sum()), 0),
+                dau_valor_4=round(float(est[a]), 0) if est is not None else 0,
+                dau_valor_5=round(float(cfp[a]), 2) if cfp is not None else 0,
+                dau_valor_6=round(float(mi[a]), 2) if mi is not None else 0,
+                dau_valor_7=round(float(mt[a]), 2) if mt is not None else 0,
+                dau_valor_8=round(float(aj[0, a]), 2) if aj is not None else 0,
+                dau_valor_9=round(float(aj[1, a]), 2) if aj is not None else 0,
+                dau_valor_10=round(float(aj[2, a]), 2) if aj is not None else 0,
+                dau_valor_11=round(float(ve[a]), 2) if ve is not None else 0))
+        TbOtimizacaoAntecipacaoDaugther.objects.bulk_create(filhas)
 
 
 def classificar_gargalo(idx_concorrente, n_var, j, nome_restricao_array):
@@ -574,7 +837,8 @@ def classificar_gargalo(idx_concorrente, n_var, j, nome_restricao_array):
     return "COMPARTILHADO"
 
 
-def extrair_shadow_prices(model_linear, nome_restricao_array, cen_ativo, i, ranging, qs_mae=None):
+def extrair_shadow_prices(model_linear, nome_restricao_array, cen_ativo, i, ranging, qs_mae=None, commit=True):
+    # 🌟 22/10/2026: commit=False quando chamado de dentro de um bloco atomic (produção antecipada)
 
     shadow = {
         'restricoes': model_linear.ineqlin.marginals,
@@ -688,7 +952,8 @@ def extrair_shadow_prices(model_linear, nome_restricao_array, cen_ativo, i, rang
             task_shadow.dau_texto_2 = concorrente_reduzir
             task_shadow.dau_texto_3 = concorrente_aumentar
             task_shadow.save()
-            transaction.commit()
+            if commit:
+                transaction.commit()
         else:
             TbOtimizacaoShadow.objects.create(
                 flag=True,

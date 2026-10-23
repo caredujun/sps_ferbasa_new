@@ -96,6 +96,18 @@ class TbProdutos(models.Model):  # NÃO TEM CAMPO DO CENÁRIO. SERÁ USADO POR T
     pro_familia = models.ForeignKey(TbFamiliaProduto, on_delete=models.CASCADE, verbose_name='Família', limit_choices_to=limit_choices_to_empresa_ativa)
     pro_imagem = models.ImageField(upload_to='produtos', null=True, blank=True, verbose_name='Imagem')
     pro_observacao = models.TextField(verbose_name='Observação', blank=True, null=True)
+    # 🌟 NOVO (22/10/2026): produção antecipada no Otimizar (otimizacao/antecipacao.py). null=True: as linhas criadas
+    # pelas procedures do banco (que não conhecem esses campos) ficam NULL, lido como zero.
+    pro_horizonte_estoque = models.PositiveIntegerField(null=True, blank=True, default=0,
+                                                        verbose_name='Horizonte Máx. Estoque (períodos)',
+                                                        help_text='Quantos períodos, no máximo, o produto pode ficar em estoque '
+                                                                  'entre a produção e a venda. 0 = não antecipa a produção.')
+    pro_estoque_inicial = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True, default=0,
+                                              verbose_name='Estoque Inicial',
+                                              help_text='Disponível para vender a partir do 1º período (na unidade do produto).')
+    pro_estoque_final = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True, default=0,
+                                            verbose_name='Estoque Final',
+                                            help_text='Estoque que tem que sobrar EXATAMENTE no fim do último período.')
     tbcenarios = models.ForeignKey(TbCenarios, on_delete=models.CASCADE, verbose_name='Cenário')
     id_origem = models.IntegerField(blank=True, null=True)  # Origem no caso de duplicação de tabela
 
@@ -369,6 +381,8 @@ class TbProdutos(models.Model):  # NÃO TEM CAMPO DO CENÁRIO. SERÁ USADO POR T
 
         if count >= 1:
             raise ValidationError('Produto ' + self.pro_codigo + ' já cadastrado para esse cenário!')
+        if (self.pro_estoque_inicial or 0) < 0 or (self.pro_estoque_final or 0) < 0:
+            raise ValidationError('Estoque inicial e final não podem ser negativos!')
 
     class Meta:
         verbose_name = _('  Produto')

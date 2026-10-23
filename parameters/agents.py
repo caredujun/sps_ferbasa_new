@@ -1834,9 +1834,14 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
 PADRAO_COMENTARIO_ANALISE_CUSTO = re.compile(r'^\[COMENTARIO_ANALISE_CUSTO:([A-Za-z0-9+/=_-]+)\]\s*$', re.DOTALL)
 LIMITE_JSON_COMENTARIO_ANALISE = 12000
 
+REGRA_GENERICA = (
+    "\n\nREGRA GERAL: a análise é genérica -- NUNCA cite nomes de empresas, de grupos ou de clientes, nem use exemplos "
+    "de um ramo específico. Use só os nomes de equipamentos, produtos, mercados e itens que vierem no JSON."
+)
+
+
 INSTRUCAO_COMENTARIO_ANALISE_CUSTO = (
-    "Você é um analista sênior de custos industriais de uma produtora de ferroligas (Ferbasa: minas, carvoarias, "
-    "fornos elétricos, britagem). Você recebe um JSON com a decomposição EXATA da variação do custo por unidade de um "
+    "Você é um analista sênior de custos industriais. Você recebe um JSON com a decomposição EXATA da variação do custo por unidade de um "
     "equipamento/produto entre um período base e um período de comparação, pelo valor contábil: custo total, variável "
     "e fixo/outros; para os principais itens, o consumo específico e o custo por unidade do item nos dois períodos e os "
     "efeitos consumo (mudança do consumo específico) e preço (mudança do custo por unidade do item); o GGF distribuído "
@@ -1851,7 +1856,7 @@ INSTRUCAO_COMENTARIO_ANALISE_CUSTO = (
     "jeito, não invente números). Não afirme causas externas como fato (mercado, câmbio, fornecedor): se sugerir, diga "
     "que é hipótese a verificar. Itens marcados como 'produzido_no_fluxo' têm o custo vindo de outro equipamento do "
     "fluxo: diga que a causa do preço deve ser vista na análise desse equipamento. Valores em R$ com vírgula decimal."
-)
+) + REGRA_GENERICA
 
 
 # 🌟 NOVO (18/10/2026): comentário da IA na "Análise de Resultados" do cenário (mesmo mecanismo: a tela manda um resumo
@@ -1900,14 +1905,14 @@ INSTRUCAO_COMENTARIO_ANALISE_RESULTADOS = (
     "(ganho na MCT se a produtividade aumentar 1%, que equivale a 1% a mais nas horas do limite); para limites comerciais "
     "e de insumo cite 'ganho_com_1pct' (+1% no máximo ou -1% no mínimo). Prefira esses valores ao preço sombra por hora, "
     "porque as horas do período são fixas.")
-)
+) + REGRA_GENERICA
 
 
 PADRAO_COMENTARIO_SENSIBILIDADE = re.compile(r'^\[COMENTARIO_SENSIBILIDADE:([A-Za-z0-9+/=_-]+)\]\s*$', re.DOTALL)
 INSTRUCAO_COMENTARIO_SENSIBILIDADE = (
     "Você é um consultor sênior de planejamento industrial. Você recebe um JSON com uma análise de sensibilidade feita "
     "com o MESMO modelo de programação linear (Rotina de Otimização) que maximiza a MARGEM DE CONTRIBUIÇÃO TOTAL (MCT) do cenário: o "
-    "custo variável ACUMULADO ATÉ um equipamento, inclusive (o adicionado por ele mais o de tudo que os equipamentos "
+    "custo variável ACUMULADO ATÉ A SAÍDA de um equipamento (o custo adicionado NELE mais o de tudo que os equipamentos "
     "upstream mandam para ele no fluxo), foi variado (delta_custo, %) junto com a produtividade dele "
     "(delta_produtividade, %) e, para cada combinação, o modelo foi otimizado de novo em todos os períodos (o mix pode "
     "mudar). Combinações 'sem solução' são aquelas em que os limites mínimos do cenário (venda mínima, produção mínima, "
@@ -1925,8 +1930,35 @@ INSTRUCAO_COMENTARIO_SENSIBILIDADE = (
     "5. **Recomendação e cuidados**.\n\n"
     "REGRAS OBRIGATÓRIAS: use SOMENTE os números do JSON, exatamente como estão (já vêm formatados, com a moeda e os "
     "separadores: copie assim). O custo fixo NÃO está na MCT: se a mudança altera custo fixo, diga que isso deve ser "
-    "somado à parte. Não invente causas técnicas: se sugerir, diga que é hipótese a verificar."
-)
+    "somado à parte. Não invente causas técnicas: se sugerir, diga que é hipótese a verificar.\n\n"
+    # 🌟 22/10/2026: restrições que ficaram no limite
+    "RESTRIÇÕES NO LIMITE: as mesmas restrições do Otimizar valem em todas as combinações -- equipamentos GARGALO, "
+    "CONJUNTOS DE EQUIPAMENTOS (limite de PRODUÇÃO do conjunto), limites de "
+    "produto, produto/mercado e insumo. Equipamento que NÃO é gargalo não limita e NÃO deve ser comentado. "
+    "restricoes_no_limite diz quais ficaram no limite (na base e em quantas combinações) e cada combinação traz as suas. "
+    "Se um conjunto de equipamentos (ou outra restrição) está no limite nas combinações de ganho de produtividade, diga "
+    "claramente que o ganho de produtividade do equipamento analisado fica travado por ela "
+    "e que, para capturar o ganho, seria preciso aumentar aquele limite. Cite os equipamentos do conjunto.\n\n"
+    # 🌟 22/10/2026: para onde vai o volume
+    "EQUIPAMENTOS SIMILARES: equipamentos_similares são os gargalos dos fluxos ALTERNATIVOS dos mesmos produtos; "
+    "fluxos_relacionados traz o volume base de cada fluxo; em cada combinação, similares_e_volume_vs_base mostra a "
+    "ocupação dos similares (base → combinação) e quanto volume cada fluxo ganhou ou perdeu. Use isso para explicar de "
+    "onde vem o ganho. Ganhar produtividade num equipamento cheio (100%) dá MAIS CAPACIDADE: mais volume produzido e "
+    "vendido. Se os similares também estão a 100%, NÃO há outro lugar para produzir esse volume -- o ganho de "
+    "produtividade do equipamento analisado é justamente a forma de ter volume a mais, e isso VALORIZA o ganho (nunca "
+    "diga que, por os similares estarem cheios, o ganho de produtividade não traz margem). O ganho também pode vir de "
+    "tirar volume de um similar de margem menor. Perder produtividade num equipamento com folga só não custa margem se "
+    "o volume couber nos similares. Diga isso com os números do JSON. Não comente equipamentos fora dessa lista.\n\n"
+    # 🌟 23/10/2026: a conclusão sobre produtividade vem calculada -- a IA não pode contradizê-la por raciocínio próprio
+    "CONCLUSÃO CALCULADA (OBRIGATÓRIO): conclusao_produtividade_calculada, ganho_de_produtividade_com_custo_igual e "
+    "perda_de_produtividade_com_custo_igual são o resultado da Rotina de Otimização (variacao_mct_com_custo_igual = "
+    "variação da MCT só com a produtividade mudando; delta_custo_que_empata = até quanto o custo pode subir (ou tem que "
+    "cair) para a MCT ficar igual à base). As seções 1, 2 e 3 têm que concordar com esses números: se a variação da MCT "
+    "com mais produtividade é positiva, diga que ganhar produtividade aumenta a margem, cite os valores e diga até "
+    "quanto de aumento de custo compensa; só diga que o ganho não traz margem se esses números forem zero ou negativos, "
+    "e então cite a restrição que trava (restricoes_no_limite). Nunca tire uma conclusão a partir da ocupação dos "
+    "similares que contradiga os números."
+) + REGRA_GENERICA
 
 
 def _comentario_analise_custo(mensagem_usuario, usuario):

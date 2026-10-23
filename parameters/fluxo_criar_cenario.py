@@ -3654,6 +3654,20 @@ def _sen_montar(estado, dados):
     texto = (f"**{titulo}** · cenário {cenario.numero_sequencial}/{cenario.cen_nome} · {periodo}\n\n"
              f"Margem de contribuição total (base, refeita): **{moeda}{br(r['base'])}** · {r['periodos']} período(s) · "
              f"{len(r['pontos'])} combinações em {r['segundos']} s")
+    if r.get('modelo_integrado'):
+        texto += "\n\n📦 Cenário com **produção antecipada** aplicada pelo Otimizar: cada combinação foi calculada com todos os períodos juntos (produzir antes para vender depois, com estoque)."
+    # 🌟 22/10/2026: restrições do modelo que ficaram no limite (gargalos, conjuntos de equipamentos, limites comerciais)
+    restr = r.get('restricoes_no_limite') or []
+    ce = [x for x in restr if x['tipo'] == 'CE']
+    if restr:
+        def _rot(x):
+            return x['rotulo'] + (f" [{', '.join(x['membros'])}]" if x.get('membros') else '')
+        texto += ("\n\nRestrições que ficaram no limite (detalhes na tela cheia): " +
+                  "; ".join(f"{_rot(x)} -- {x['combinacoes']} combinação(ões), {x['periodos_base']} período(s) na base" for x in restr[:6]) +
+                  (f"; e mais {len(restr) - 6}" if len(restr) > 6 else '') + ".")
+    if ce:
+        texto += ("\n\n⚠️ Conjunto de equipamentos no limite: nessas combinações o ganho de produtividade do equipamento fica "
+                  "travado pelo limite de produção do conjunto.")
     payload = {'tipo_fluxo': 'sensibilidade', 'titulo': titulo, 'periodo': periodo, 'moeda': moeda,
                'cenario': f"{cenario.numero_sequencial}/{cenario.cen_nome}", 'equipamento': nomes[0],
                'fluxos': nomes[1:], 'mct_gravada': mct_gravada, **r}
@@ -3865,6 +3879,18 @@ def _sg_montar(estado, dados, modo):
     br = lambda v: f"{v:,.0f}".replace(',', '.')
     texto = (f"**{titulo}** · cenário {cenario.numero_sequencial}/{cenario.cen_nome} · {periodo}\n\n"
              f"Margem de contribuição total (base, refeita): **{moeda}{br(r['mct_base'])}** · {r['periodos']} período(s)")
+    if r.get('modelo_integrado'):
+        texto += "\n\n📦 Cenário com **produção antecipada** aplicada pelo Otimizar: cada variação foi calculada com todos os períodos juntos (produzir antes para vender depois, com estoque)."
+    # 🌟 22/10/2026: restrições do modelo que ficaram no limite (ex.: conjunto de equipamentos no máximo trava o ganho)
+    restr = r.get('restricoes_no_limite') or []
+    if restr:
+        texto += ("\n\nRestrições que ficaram no limite (detalhes na tela cheia): " +
+                  "; ".join(x['rotulo'] + (f" [{', '.join(x['membros'])}]" if x.get('membros') else '') +
+                            f" -- {x['combinacoes']} variação(ões)" for x in restr[:6]) +
+                  (f"; e mais {len(restr) - 6}" if len(restr) > 6 else '') + ".")
+        if any(x['tipo'] == 'CE' for x in restr):
+            texto += ("\n\n⚠️ Conjunto de equipamentos no limite: nessas variações o ganho de produtividade fica travado "
+                      "pelo limite de produção do conjunto.")
     payload = {'tipo_fluxo': 'sens_ganho', 'modo': modo, 'titulo': titulo, 'periodo': periodo, 'moeda': moeda,
                'cenario': f"{cenario.numero_sequencial}/{cenario.cen_nome}", **extra, **r}
     return texto + "\n\n" + _equ_marcador('FLUXO_PRODUCAO_MENSAL', payload)

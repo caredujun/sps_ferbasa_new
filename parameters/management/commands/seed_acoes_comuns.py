@@ -41,6 +41,11 @@ ACOES = [
 ]
 
 
+ACOES_REMOVIDAS = [
+    ('Cenário', 'producao_antecipada'),
+]
+
+
 class Command(BaseCommand):
     help = 'Cadastra, corrige os nomes e habilita as Ações Comuns para as empresas.'
 
@@ -64,6 +69,13 @@ class Command(BaseCommand):
                 self.stdout.write(f'Já existia: {acao}')
 
             acoes_catalogo.append(acao)
+
+        # 🌟 22/10/2026: ações retiradas do catálogo (a "Análise de Produção Antecipada" passou a ser feita pelo próprio
+        # Otimizar) -- apaga o cadastro e a habilitação nas empresas
+        for categoria, chave in ACOES_REMOVIDAS:
+            apagadas, _det = AcaoComum.objects.filter(categoria=categoria, chave=chave).delete()
+            if apagadas:
+                self.stdout.write(f'Removida: {categoria} / {chave}')
 
         total_empresas = 0
         for empresa in TbEmpresa.objects.all():

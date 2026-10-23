@@ -1,11 +1,14 @@
 <!DOCTYPE html>
 {% load i18n %}
+{% load static %}
 <html lang="{{ LANGUAGE_CODE }}">
 <head>
     <meta charset="UTF-8">
     <title>{% trans "Assistente de IA Integrado" %}</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.js"></script>
+    {# 🌟 NOVO (22/10/2026): lupa nas imagens dos cartões (equipamento, produto, mercado) -- abre a imagem em tela maior #}
+    <script src="{% static 'imagem_ampliada.js' %}" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/l10n/pt.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
     <!-- 🌟 NOVO: exportar gráficos como imagem (o mesmo usado no editor de fluxo) -->
@@ -1168,7 +1171,7 @@
         {% trans "MCT base (refeita pelo modelo)" as ROTULO_SEN_MCT_BASE %}
         {% trans "gravada pelo Otimizar" as ROTULO_SEN_GRAVADA %}
         {% trans "Ocupação do equipamento (base)" as ROTULO_SEN_OCUP_BASE %}
-        {% trans "Custo variável acumulado até o equipamento (base)" as ROTULO_SEN_CUSTO_EQ %}
+        {% trans "Custo variável acumulado até a saída do equipamento (base)" as ROTULO_SEN_CUSTO_EQ %}
         {% trans "no período, no mix ótimo; adicionado pelo próprio equipamento" as ROTULO_SEN_CUSTO_EQ_SUB %}
         {% trans "Fluxos selecionados" as ROTULO_FLUXOS_SEL %}
         {% trans "Limites selecionados" as ROTULO_LIMITES_SEL %}
@@ -1201,7 +1204,7 @@
         {% trans "Reduzir custo perdendo produtividade" as ROTULO_SEN_Q_REDUZIR %}
         {% trans "Aumentar custo ganhando produtividade" as ROTULO_SEN_Q_AUMENTAR %}
         {% trans "Variação da produtividade" as ROTULO_SEN_EIXO_PROD %}
-        {% trans "Variação do custo variável até o equipamento" as ROTULO_SEN_EIXO_CUSTO %}
+        {% trans "Variação do custo variável até a saída do equipamento" as ROTULO_SEN_EIXO_CUSTO %}
         {% trans "sem solução em %s período(s) (limites mínimos não atendidos)" as ROTULO_SEN_INVIAVEL %}
         {% trans "Ocupação" as ROTULO_SEN_OCUP %}
         {% trans "base" as ROTULO_SEN_BASE %}
@@ -1209,15 +1212,47 @@
         {% trans "Custo fixo" as ROTULO_SEN_DFIXO %}
         {% trans "Variação do EBITDA" as ROTULO_SEN_DEBITDA %}
         {% trans "Fora da faixa calculada (de menos 30 a mais 30 por cento): o valor foi limitado à borda." as ROTULO_SEN_FORA_GRADE %}
-        {% trans "Cada combinação foi otimizada de novo (o mesmo modelo do Otimizar, em todos os períodos otimizados): a variação de custo vale sobre o custo variável acumulado até o equipamento, inclusive (o adicionado por ele mais o de tudo que os equipamentos upstream mandam para ele no fluxo) e muda a margem de cada produto que passa por ele; a produtividade muda as horas por unidade (a capacidade). O mix pode mudar — deixar de vender produto de margem negativa, outro equipamento virar gargalo, um limite de mercado passar a segurar. O custo fixo não está na MCT: use a calculadora para incluí-lo." as ROTULO_SEN_NOTA %}
+        {% trans "Cada combinação foi otimizada de novo (o mesmo modelo do Otimizar, em todos os períodos otimizados): a variação de custo vale sobre o custo variável acumulado até a saída do equipamento (o custo adicionado nele mais o de tudo que os equipamentos upstream mandam para ele no fluxo) e muda a margem de cada produto que passa por ele; a produtividade muda as horas por unidade (a capacidade). O mix pode mudar — deixar de vender produto de margem negativa, outro equipamento virar gargalo, um limite de mercado passar a segurar. O custo fixo não está na MCT: use a calculadora para incluí-lo." as ROTULO_SEN_NOTA %}
         {% trans "Conferência do modelo: MCT base refeita %1 x gravada pelo Otimizar %2 (diferença %3)." as ROTULO_SEN_CONFERE %}
+        {% trans "Não" as ROTULO_SEN_NAO_TXT %}
+        {% trans "Sim" as ROTULO_SEN_SIM_TXT %}
+        {% trans "Equipamento" as ROTULO_SEN_EQUIP_COL %}
+        {% trans "Para onde vai o volume: equipamentos similares e fluxos" as ROTULO_SIM_TIT %}
+        {% trans "Similares: equipamentos gargalo que aparecem nos fluxos alternativos dos mesmos produtos, e não nos fluxos que passam pelo equipamento analisado. Quando o equipamento analisado ganha ou perde capacidade, a otimização pode tirar volume dos similares ou mandar volume para eles. Volume de cada fluxo na unidade do produto final, somado nos períodos." as ROTULO_SIM_NOTA %}
+        {% trans "Clique numa célula do mapa para ver aqui a combinação." as ROTULO_SIM_CLIQUE %}
+        {% trans "Nenhum equipamento gargalo nos fluxos alternativos dos mesmos produtos." as ROTULO_SIM_SEM %}
+        {% trans "Equipamento similar" as ROTULO_SIM_EQUIP %}
+        {% trans "Ocupação na base" as ROTULO_SIM_OC_BASE %}
+        {% trans "Ocupação na combinação" as ROTULO_SIM_OC_COMB %}
+        {% trans "Fluxo" as ROTULO_SIM_FLUXO %}
+        {% trans "Passa pelo equipamento analisado" as ROTULO_SIM_PASSA %}
+        {% trans "Volume na base" as ROTULO_SIM_VOL_BASE %}
+        {% trans "Volume na combinação" as ROTULO_SIM_VOL_COMB %}
+        {% trans "Diferença" as ROTULO_SIM_DIF %}
+        {% trans "Combinação" as ROTULO_SIM_COMB %}
+        {% trans "Similares" as ROTULO_SIM_SIMILARES %}
+        {% trans "Volume por fluxo" as ROTULO_SIM_VOLUME %}
+        {% trans "Equipamento analisado" as ROTULO_SIM_ANALISADO %}
+        {% trans "Combinação com períodos sem solução: valores só dos períodos com solução." as ROTULO_SIM_PARCIAL %}
+        {% trans "Combinação sem solução em todos os períodos." as ROTULO_SIM_SEM_SOL %}
+        {% trans "Restrições que ficaram no limite" as ROTULO_SEN_RESTR %}
+        {% trans "As mesmas restrições do Otimizar valem em todas as combinações: equipamentos gargalo (horas), conjuntos de equipamentos (limite de produção do conjunto: não muda com a produtividade do equipamento analisado), limites de produto, de produto/mercado e de insumo. Equipamento que não é gargalo não limita, como no Otimizar. Quando uma delas está no limite, ganhar produtividade no equipamento analisado não aumenta a margem além do que ela deixa." as ROTULO_SEN_NOTA_RESTR %}
+        {% trans "Restrição" as ROTULO_SEN_RESTRICAO %}
+        {% trans "Limite" as ROTULO_SEN_LADO %}
+        {% trans "máximo" as ROTULO_SEN_MAXIMO %}
+        {% trans "mínimo" as ROTULO_SEN_MINIMO_L %}
+        {% trans "Equipamentos do conjunto" as ROTULO_SEN_MEMBROS %}
+        {% trans "Na base (períodos)" as ROTULO_SEN_NA_BASE %}
+        {% trans "Combinações no limite" as ROTULO_SEN_COMB_LIM %}
+        {% trans "No limite" as ROTULO_SEN_LIMITANTES %}
+        {% trans "período(s)" as ROTULO_SEN_PERIODOS_DE %}
         {% trans "Calculadora" as ROTULO_SEN_CALC %}
         {% trans "Variação do custo fixo por período (moeda)" as ROTULO_SEN_DFIXO_CAMPO %}
         {% trans "Calcular" as ROTULO_SEN_CALCULAR %}
         {% trans "Interpolação entre os pontos calculados da grade. Variação do EBITDA = variação da MCT − variação do custo fixo × número de períodos." as ROTULO_SEN_NOTA_CALC %}
         {% trans "Mapa: variação da margem de contribuição total" as ROTULO_SEN_MAPA %}
         {% trans "Curva de equilíbrio" as ROTULO_SEN_EQUILIBRIO %}
-        {% trans "Para cada variação da produtividade, a variação do custo variável acumulado até o equipamento em que a margem de contribuição total fica igual à base. Abaixo da curva (custo menor) a mudança vale a pena; acima, não." as ROTULO_SEN_NOTA_EQ %}
+        {% trans "Para cada variação da produtividade, a variação do custo variável acumulado até a saída do equipamento em que a margem de contribuição total fica igual à base. Abaixo da curva (custo menor) a mudança vale a pena; acima, não." as ROTULO_SEN_NOTA_EQ %}
         {% trans "Variação do custo que empata" as ROTULO_SEN_CUSTO_EQUIL %}
         {% trans "Variação da MCT x produtividade, para três variações de custo" as ROTULO_SEN_CURVAS %}
         {% trans "Ocupação do equipamento em cada combinação" as ROTULO_SEN_TAB_OCUP %}
@@ -1839,6 +1874,38 @@
         var ROTULO_SEN_FORA_GRADE = "{{ ROTULO_SEN_FORA_GRADE|escapejs }}";
         var ROTULO_SEN_NOTA = "{{ ROTULO_SEN_NOTA|escapejs }}";
         var ROTULO_SEN_CONFERE = "{{ ROTULO_SEN_CONFERE|escapejs }}";
+        var ROTULO_SEN_NAO_TXT = "{{ ROTULO_SEN_NAO_TXT|escapejs }}";
+        var ROTULO_SEN_SIM_TXT = "{{ ROTULO_SEN_SIM_TXT|escapejs }}";
+        var ROTULO_SEN_EQUIP_COL = "{{ ROTULO_SEN_EQUIP_COL|escapejs }}";
+        var ROTULO_SIM_TIT = "{{ ROTULO_SIM_TIT|escapejs }}";
+        var ROTULO_SIM_NOTA = "{{ ROTULO_SIM_NOTA|escapejs }}";
+        var ROTULO_SIM_CLIQUE = "{{ ROTULO_SIM_CLIQUE|escapejs }}";
+        var ROTULO_SIM_SEM = "{{ ROTULO_SIM_SEM|escapejs }}";
+        var ROTULO_SIM_EQUIP = "{{ ROTULO_SIM_EQUIP|escapejs }}";
+        var ROTULO_SIM_OC_BASE = "{{ ROTULO_SIM_OC_BASE|escapejs }}";
+        var ROTULO_SIM_OC_COMB = "{{ ROTULO_SIM_OC_COMB|escapejs }}";
+        var ROTULO_SIM_FLUXO = "{{ ROTULO_SIM_FLUXO|escapejs }}";
+        var ROTULO_SIM_PASSA = "{{ ROTULO_SIM_PASSA|escapejs }}";
+        var ROTULO_SIM_VOL_BASE = "{{ ROTULO_SIM_VOL_BASE|escapejs }}";
+        var ROTULO_SIM_VOL_COMB = "{{ ROTULO_SIM_VOL_COMB|escapejs }}";
+        var ROTULO_SIM_DIF = "{{ ROTULO_SIM_DIF|escapejs }}";
+        var ROTULO_SIM_COMB = "{{ ROTULO_SIM_COMB|escapejs }}";
+        var ROTULO_SIM_SIMILARES = "{{ ROTULO_SIM_SIMILARES|escapejs }}";
+        var ROTULO_SIM_VOLUME = "{{ ROTULO_SIM_VOLUME|escapejs }}";
+        var ROTULO_SIM_ANALISADO = "{{ ROTULO_SIM_ANALISADO|escapejs }}";
+        var ROTULO_SIM_PARCIAL = "{{ ROTULO_SIM_PARCIAL|escapejs }}";
+        var ROTULO_SIM_SEM_SOL = "{{ ROTULO_SIM_SEM_SOL|escapejs }}";
+        var ROTULO_SEN_RESTR = "{{ ROTULO_SEN_RESTR|escapejs }}";
+        var ROTULO_SEN_NOTA_RESTR = "{{ ROTULO_SEN_NOTA_RESTR|escapejs }}";
+        var ROTULO_SEN_RESTRICAO = "{{ ROTULO_SEN_RESTRICAO|escapejs }}";
+        var ROTULO_SEN_LADO = "{{ ROTULO_SEN_LADO|escapejs }}";
+        var ROTULO_SEN_MAXIMO = "{{ ROTULO_SEN_MAXIMO|escapejs }}";
+        var ROTULO_SEN_MINIMO_L = "{{ ROTULO_SEN_MINIMO_L|escapejs }}";
+        var ROTULO_SEN_MEMBROS = "{{ ROTULO_SEN_MEMBROS|escapejs }}";
+        var ROTULO_SEN_NA_BASE = "{{ ROTULO_SEN_NA_BASE|escapejs }}";
+        var ROTULO_SEN_COMB_LIM = "{{ ROTULO_SEN_COMB_LIM|escapejs }}";
+        var ROTULO_SEN_LIMITANTES = "{{ ROTULO_SEN_LIMITANTES|escapejs }}";
+        var ROTULO_SEN_PERIODOS_DE = "{{ ROTULO_SEN_PERIODOS_DE|escapejs }}";
         var ROTULO_SEN_CALC = "{{ ROTULO_SEN_CALC|escapejs }}";
         var ROTULO_SEN_DFIXO_CAMPO = "{{ ROTULO_SEN_DFIXO_CAMPO|escapejs }}";
         var ROTULO_SEN_CALCULAR = "{{ ROTULO_SEN_CALCULAR|escapejs }}";
@@ -3521,7 +3588,7 @@
             if (d && d.tipo_fluxo === 'analise_resultados') return montarAnaliseResultadosAR(d);     // 🌟 18/10/2026
             if (d && d.tipo_fluxo === 'sensibilidade') return montarSensibilidadeSEN(d);     // 🌟 18/10/2026
             if (d && d.tipo_fluxo === 'sen_escolha') return montarEscolhaEquipSEN(d);     // 🌟 18/10/2026
-            if (d && d.tipo_fluxo === 'sens_ganho') return montarSensGanhoSG(d);         // 🌟 20/10/2026
+            if (d && d.tipo_fluxo === 'sens_ganho') return montarSensGanhoSG(d);
             if (d && d.tipo_fluxo === 'sgl_escolha') return montarEscolhaLimiteSGL(d);   // 🌟 20/10/2026
             if (d && d.rotas && d.rotas.length) {
                 var wid = 'fpmr' + (++_contadorRotasFPM);
@@ -4733,6 +4800,8 @@
             var m = d.moeda || '', prod = d.modo === 'produtividade', n = d.periodos || 0;
             var cols = [[ROTULO_SG_VARIACAO, 1], [prod ? ROTULO_SG_PROD_COL : ROTULO_SG_LIM_MEDIO, 1], [ROTULO_SG_EXATO, 1], [ROTULO_SG_ESTIM, 1], [ROTULO_SG_DIF, 1], [ROTULO_SG_FAIXA, 1]];
             if (prod) cols.push([ROTULO_SG_OCUP, 1]);
+            var temLim = prod && (d.pontos || []).some(function(p) { return (p.limitantes || []).length; });
+            if (temLim) cols.push([ROTULO_SEN_LIMITANTES]);     // 🌟 22/10/2026: quais restrições ficaram no limite
             var sinal = function(v) { return v === null || v === undefined ? '—' : '<span class="' + (v > 0.5 ? 'fpm-bs-pos' : (v < -0.5 ? 'fpm-bs-neg' : '')) + '">' + escapeHtml((v > 0.5 ? '+' : '') + m + numFPM(v, 0)) + '</span>'; };
             return tabelaAR(cols, (d.pontos || []).map(function(p) {
                 var linha = ['<b>' + escapeHtml(pctSEN(p.d)) + '</b>',
@@ -4741,6 +4810,7 @@
                     sinal(p.estimativa), p.exato === null || p.exato === undefined ? '—' : sinal(p.estimativa - p.exato),
                     escapeHtml(p.fora_faixa ? ROTULO_SG_FORA + ' ' + p.fora_faixa + '/' + n + ' ' + ROTULO_SG_PERIODOS : ROTULO_SG_OK)];
                 if (prod) linha.push(escapeHtml(p.ocupacao === null || p.ocupacao === undefined ? '—' : numFPM(p.ocupacao, 1) + '%'));
+                if (temLim) linha.push(escapeHtml((p.limitantes || []).map(function(l) { return l[0] + ' (' + l[1] + '/' + n + ')'; }).join('; ') || '—'));
                 return linha;
             }));
         }
@@ -4787,6 +4857,35 @@
             var m = d.moeda || '', prod = d.modo === 'produtividade';
             var html = topoTelaFSP(d.titulo || '', d, '<button type="button" class="botao-opcao" style="margin: 0;" onclick="exportarSG(this, \'' + uid + '\')">' + escapeHtml(ROTULO_FPM_BE_EXPORTAR) + '</button>');
             html += '<div class="fpm-detalhe-sub">' + escapeHtml(prod ? ROTULO_SG_NOTA_PROD : ROTULO_SG_NOTA_LIM) + '</div>' + graficoSG(d) + tabelaSG(d);
+            // 🌟 22/10/2026: para onde vai o volume -- uma linha por variação de produtividade
+            if (prod && d.fluxos_rel) {
+                var p0 = (d.pontos || []).filter(function(p) { return p.d === 0; })[0] || {};
+                var sims = d.similares || [], fls = d.fluxos_rel || [];
+                html += '<div class="fpm-custo-secao">' + escapeHtml(ROTULO_SIM_TIT) + '</div><div class="fpm-detalhe-sub">' + escapeHtml(ROTULO_SIM_NOTA) + '</div>';
+                if (!sims.length) html += '<div class="fpm-detalhe-sub">' + escapeHtml(ROTULO_SIM_SEM) + '</div>';
+                html += tabelaAR([[ROTULO_SG_VARIACAO, 1], [ROTULO_SIM_ANALISADO, 1]].concat(sims.map(function(s) { return [s.codigo, 1]; }))
+                        .concat(fls.map(function(f) { return [f.nome + (f.passa ? ' *' : '') + ' (' + ROTULO_SIM_DIF + ')', 1]; })),
+                    (d.pontos || []).map(function(p) {
+                        return ['<b>' + escapeHtml(pctSEN(p.d)) + '</b>', escapeHtml(pctOcSIM(p.ocupacao))]
+                            .concat(sims.map(function(s, i) { return escapeHtml(pctOcSIM((p.oc_sim || [])[i])); }))
+                            .concat(fls.map(function(f, i) {
+                                var b = (p.vol || [])[i], a = (p0.vol || [])[i] || 0;
+                                if (b === null || b === undefined) return '—';
+                                var dif = b - a;
+                                return escapeHtml(numFPM(b, 0)) + ' <span class="' + (dif > 0.5 ? 'fpm-bs-pos' : (dif < -0.5 ? 'fpm-bs-neg' : '')) + '">(' + escapeHtml((dif > 0.5 ? '+' : '') + numFPM(dif, 0)) + ')</span>';
+                            }));
+                    })) + '<div class="fpm-detalhe-sub">* ' + escapeHtml(ROTULO_SIM_PASSA) + '</div>';
+            }
+            // 🌟 22/10/2026: restrições que ficaram no limite (ex.: conjunto de equipamentos no máximo)
+            if (prod) {
+                var restr = linhasRestricoesSEN(d), nOk = (d.pontos || []).filter(function(p) { return !p.sem_solucao; }).length;
+                html += '<div class="fpm-custo-secao">' + escapeHtml(ROTULO_SEN_RESTR) + '</div><div class="fpm-detalhe-sub">' + escapeHtml(ROTULO_SEN_NOTA_RESTR) + '</div>';
+                if (restr.length) html += tabelaAR([[ROTULO_SEN_RESTRICAO], [ROTULO_SEN_TIPO], [ROTULO_SEN_LADO], [ROTULO_SEN_MEMBROS], [ROTULO_SEN_NA_BASE, 1], [ROTULO_SEN_COMB_LIM, 1]],
+                    restr.map(function(r) {
+                        return [escapeHtml(r.nome), escapeHtml(tipoRestricaoSEN(r.tipo)), escapeHtml(r.ladoTxt), escapeHtml(r.membrosTxt || '—'),
+                            escapeHtml(r.periodos_base + '/' + (d.periodos || '?')), escapeHtml(r.combinacoes + '/' + nOk)];
+                    }));
+            }
             (d.por_periodo || []).forEach(function(x) {
                 html += '<div class="fpm-custo-secao">' + escapeHtml(ROTULO_SG_PERIODO + ' ' + x.periodo + ' · MCT ' + m + numFPM(x.mct_base, 0) + ' · ' +
                     (prod ? ROTULO_SG_SOMBRA_H + ' ' + m + numFPM(x.sombra_hora, 0) + '/h · ' + ROTULO_SG_HORAS + ' ' + numFPM(x.limite_horas, 1) + ' · ' + ROTULO_SG_OCUP + ' ' + (x.ocupacao === null ? '—' : numFPM(x.ocupacao, 1) + '%')
@@ -4812,12 +4911,21 @@
             });
             abas.push({ nome: 'Por período', linhas: cab.concat([[ROTULO_SG_PERIODO, ROTULO_SG_VARIACAO + ' (%)', 'MCT (' + m + ')', prod ? ROTULO_SG_SOMBRA_H : ROTULO_SG_SOMBRA_MEDIA, prod ? ROTULO_SG_HORAS : ROTULO_SG_LIMITE, ROTULO_SG_EXATO, ROTULO_SG_ESTIM, ROTULO_SG_FAIXA]]).concat(det),
                 larguras: [12, 14, 18, 18, 16, 20, 20, 14] });
+            if (prod && d.fluxos_rel) abas.push(abaSimilaresSIM(d, cab, (d.pontos || []).map(function(p) { return [[p.d], p]; }), [ROTULO_SG_VARIACAO + ' (%)']));
+            var restrX = prod ? linhasRestricoesSEN(d) : [];
+            if (restrX.length) abas.push({ nome: 'Restrições no limite', linhas: cab.concat([[ROTULO_SEN_NOTA_RESTR],
+                [ROTULO_SEN_RESTRICAO, ROTULO_SEN_TIPO, ROTULO_SEN_LADO, ROTULO_SEN_MEMBROS, ROTULO_SEN_NA_BASE, ROTULO_SEN_COMB_LIM]])
+                .concat(restrX.map(function(r) { return [r.nome, tipoRestricaoSEN(r.tipo), r.ladoTxt, r.membrosTxt, r.periodos_base, r.combinacoes]; }))
+                .concat([[], [ROTULO_SG_VARIACAO + ' (%)', ROTULO_SEN_LIMITANTES]]).concat((d.pontos || []).map(function(p) {
+                    return [p.d, (p.limitantes || []).map(function(l) { return l[0] + ' (' + l[1] + '/' + (d.periodos || '?') + ')'; }).join('; ')]; })),
+                larguras: [40, 26, 10, 50, 16, 18] });
             exportarPlanilhaFPM(botao, ['sensibilidade_ganho', d.modo, d.periodo || ''], abas);
         }
 
         function montarSensibilidadeSEN(d) {
             var uid = 'sen' + (++_contadorSEN);
             _dadosSEN[uid] = d;
+            d._uid = uid;
             var m = d.moeda || '', p0 = pontoSEN(d, 0, 0) || {};
             var tile = function(rot, val, sub) {
                 return '<div class="ar-tile"><div class="ar-tile-rot">' + escapeHtml(rot) + '</div><div class="ar-tile-val">' + escapeHtml(val) + '</div>' +
@@ -4873,7 +4981,8 @@
                     var l2 = inv ? (desc ? ROTULO_SEN_DESC_CURTO : p.inviavel + '/' + (d.periodos || '?') + ' ' + ROTULO_SEN_PERIODOS_CURTO) : ROTULO_SEN_OCUP_CURTA + ' ' + ocTxt;
                     celulas += '<rect x="' + x + '" y="' + y + '" width="' + (cw - 2) + '" height="' + (ch - 2) + '" rx="3" fill="' +
                         (inv ? 'url(#sen-hach)' : cor(p.delta || 0)) + '"' + (base ? ' stroke="#003366" stroke-width="2"' : '') + '/>';
-                    textos += '<g style="cursor: default;"><title>' + escapeHtml(dicaPontoSEN(d, p)) + '</title>' +
+                    textos += '<g style="cursor: ' + (d._uid && d.fluxos_rel ? 'pointer' : 'default') + ';"' +
+                        (d._uid && d.fluxos_rel ? ' onclick="detalheSimSEN(\'' + d._uid + '\', ' + dc + ', ' + dp + ')"' : '') + '><title>' + escapeHtml(dicaPontoSEN(d, p)) + '</title>' +
                         '<rect x="' + x + '" y="' + y + '" width="' + (cw - 2) + '" height="' + (ch - 2) + '" fill="transparent"/>' +
                         '<text x="' + (x + cw / 2 - 1) + '" y="' + (y + 16) + '" font-size="10.5" text-anchor="middle" fill="' + (inv ? '#5d6d7e' : '#1d2f40') + '"' + (base ? ' font-weight="bold"' : '') + '>' +
                         escapeHtml(l1) + '</text>' +
@@ -4892,6 +5001,71 @@
             pts.forEach(function(p) { s += '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="3.5" fill="#003366" fill-opacity="0.75"/>'; });
             s += textos;
             return s + '<text x="' + esq + '" y="' + (H - 12) + '" font-size="11" fill="#34495e">' + escapeHtml(ROTULO_SEN_LEG_MAPA) + '</text></svg>';
+        }
+        // 🌟 22/10/2026: para onde vai o volume -- ocupação dos equipamentos similares (gargalos dos fluxos alternativos dos
+        // mesmos produtos) e volume de cada fluxo, na combinação p x na base p0. Usado na Sensibilidade Custo x
+        // Produtividade (p = ponto da grade) e na Ganho Margem x Produtividade (p = variação).
+        function pctOcSIM(v) { return v === null || v === undefined ? '—' : numFPM(v, 1) + '%'; }
+        function tabelasSimilaresSIM(d, p, p0, rotOcAnalisado) {
+            var sims = d.similares || [], fls = d.fluxos_rel || [], html = '';
+            if (!p || p.vol === undefined) return '';
+            if (p.vol && p.vol.every(function(v) { return v === null; })) return '<div class="fpm-detalhe-sub">' + escapeHtml(ROTULO_SIM_SEM_SOL) + '</div>';
+            var linhasE = [];
+            if (rotOcAnalisado) linhasE.push(['<b>' + escapeHtml(rotOcAnalisado[0]) + '</b>', escapeHtml(ROTULO_SIM_ANALISADO), escapeHtml(pctOcSIM(rotOcAnalisado[1])), escapeHtml(pctOcSIM(rotOcAnalisado[2]))]);
+            sims.forEach(function(s, i) {
+                var a = (p0.oc_sim || [])[i], b = (p.oc_sim || [])[i];
+                var dif = a !== null && a !== undefined && b !== null && b !== undefined ? b - a : null;
+                linhasE.push([escapeHtml(s.codigo), escapeHtml(ROTULO_SIM_EQUIP), escapeHtml(pctOcSIM(a)),
+                    '<span class="' + (dif > 0.05 ? 'fpm-bs-pos' : (dif < -0.05 ? 'fpm-bs-neg' : '')) + '">' + escapeHtml(pctOcSIM(b)) + '</span>']);
+            });
+            html += tabelaAR([[ROTULO_SEN_EQUIP_COL], [ROTULO_SEN_TIPO], [ROTULO_SIM_OC_BASE, 1], [ROTULO_SIM_OC_COMB, 1]], linhasE);
+            if (!sims.length) html += '<div class="fpm-detalhe-sub">' + escapeHtml(ROTULO_SIM_SEM) + '</div>';
+            if (fls.length) html += tabelaAR([[ROTULO_SIM_FLUXO], [ROTULO_SIM_PASSA], [ROTULO_SIM_VOL_BASE, 1], [ROTULO_SIM_VOL_COMB, 1], [ROTULO_SIM_DIF, 1]],
+                fls.map(function(f, i) {
+                    var a = (p0.vol || [])[i], b = (p.vol || [])[i], dif = (b || 0) - (a || 0);
+                    return [escapeHtml(f.nome), escapeHtml(f.passa ? ROTULO_SEN_SIM_TXT : ROTULO_SEN_NAO_TXT), escapeHtml(a === null || a === undefined ? '—' : numFPM(a, 0)),
+                        escapeHtml(b === null || b === undefined ? '—' : numFPM(b, 0)),
+                        '<span class="' + (dif > 0.5 ? 'fpm-bs-pos' : (dif < -0.5 ? 'fpm-bs-neg' : '')) + '">' + escapeHtml((dif > 0.5 ? '+' : '') + numFPM(dif, 0)) + '</span>'];
+                }));
+            return html;
+        }
+        // texto curto para a dica da célula / comentário da IA
+        function resumoSimilaresSIM(d, p, p0) {
+            var sims = d.similares || [], fls = d.fluxos_rel || [], t = [];
+            if (!p || !p.oc_sim) return '';
+            var sTxt = sims.map(function(s, i) { return s.codigo + ' ' + pctOcSIM((p0.oc_sim || [])[i]) + ' → ' + pctOcSIM(p.oc_sim[i]); });
+            if (sTxt.length) t.push(ROTULO_SIM_SIMILARES + ': ' + sTxt.join('; '));
+            var fTxt = [];
+            fls.forEach(function(f, i) {
+                var a = (p0.vol || [])[i] || 0, b = (p.vol || [])[i];
+                if (b === null || b === undefined || Math.abs(b - a) < 0.5) return;
+                fTxt.push(f.nome + ' ' + (b - a > 0 ? '+' : '') + numFPM(b - a, 0));
+            });
+            if (fTxt.length) t.push(ROTULO_SIM_VOLUME + ': ' + fTxt.join('; '));
+            return t.join('\n');
+        }
+        function abaSimilaresSIM(d, cab, pts, rotChaves) {
+            var sims = d.similares || [], fls = d.fluxos_rel || [];
+            var titulo = rotChaves.concat([ROTULO_SIM_ANALISADO + ' (%)']).concat(sims.map(function(s) { return s.codigo + ' (%)'; }))
+                .concat(fls.map(function(f) { return f.nome + (f.passa ? ' *' : ''); }));
+            return { nome: 'Similares e fluxos', linhas: cab.concat([[ROTULO_SIM_NOTA], ['* ' + ROTULO_SIM_PASSA], titulo])
+                .concat(pts.map(function(x) { var p = x[1]; return x[0].concat([p.ocupacao]).concat(p.oc_sim || sims.map(function() { return null; })).concat(p.vol || fls.map(function() { return null; })); })),
+                larguras: rotChaves.map(function() { return 14; }).concat([16]).concat(sims.map(function() { return 12; })).concat(fls.map(function() { return 22; })) };
+        }
+        function detalheSimSEN(uid, dc, dp) {
+            var d = _dadosSEN[uid], el = document.getElementById(uid + '-sim');
+            if (!d || !el) return;
+            var p = pontoSEN(d, dc, dp) || {}, p0 = pontoSEN(d, 0, 0) || {};
+            el.innerHTML = '<div class="fpm-detalhe-sub"><b>' + escapeHtml(ROTULO_SIM_COMB + ': ' + ROTULO_SEN_CUSTO + ' ' + pctSEN(dc) + ' · ' + ROTULO_SEN_PROD + ' ' + pctSEN(dp)) + '</b>' +
+                (p.inviavel && d.periodos && p.inviavel < d.periodos ? ' · ' + escapeHtml(ROTULO_SIM_PARCIAL) : '') + '</div>' +
+                tabelasSimilaresSIM(d, p, p0, [d.equipamento || '', p0.ocupacao, p.ocupacao]);
+        }
+
+        // 🌟 22/10/2026: restrições do modelo (gargalos, conjuntos, limites comerciais, insumos) que ficaram no limite
+        function linhasRestricoesSEN(d) {
+            return (d.restricoes_no_limite || []).map(function(r) {
+                return Object.assign({}, r, { ladoTxt: r.lado === 'max' ? ROTULO_SEN_MAXIMO : ROTULO_SEN_MINIMO_L, membrosTxt: (r.membros || []).join(', ') });
+            });
         }
         function tipoRestricaoSEN(t) {
             return { E: ROTULO_SEN_T_E, CE: ROTULO_SEN_T_CE, P: ROTULO_SEN_T_P, PM: ROTULO_SEN_T_PM, IC: ROTULO_SEN_T_IC }[t] || t;
@@ -4912,6 +5086,10 @@
                 t += ROTULO_SEN_DMCT + ': ' + (p.delta >= 0 ? '+' : '') + m + numFPM(p.delta || 0, 0) + '\nMCT: ' + m + numFPM(p.mct || 0, 0) + '\n';
             }
             if (p.ocupacao !== null && p.ocupacao !== undefined) t += (p.inviavel ? ROTULO_SEN_OCUP_DESC : ROTULO_SEN_OCUP) + ': ' + numFPM(p.ocupacao, 1) + '%';
+            var simTxt = resumoSimilaresSIM(d, p, pontoSEN(d, 0, 0) || {});
+            if (simTxt) t += '\n' + simTxt;
+            if ((p.limitantes || []).length)
+                t += '\n' + ROTULO_SEN_LIMITANTES + ': ' + p.limitantes.map(function(l) { return l[0] + ' (' + l[1] + '/' + (d.periodos || '?') + ' ' + ROTULO_SEN_PERIODOS_DE + ')'; }).join(', ');
             return t;
         }
         // limites mínimos que não cabem, agrupados por restrição (tela cheia e Excel)
@@ -4986,6 +5164,11 @@
                     ' onchange="_dadosSEN[\'' + uid + '\']._modoDesc = this.checked; document.getElementById(\'' + uid + '-mapa\').innerHTML = mapaSEN(_dadosSEN[\'' + uid + '\']);"> ' +
                     escapeHtml(ROTULO_SEN_MODO_DESC) + '</label>' : '') +
                 '<div id="' + uid + '-mapa">' + mapaSEN(d) + '</div>';
+            // 🌟 22/10/2026: para onde vai o volume (similares e fluxos) -- combinação clicada no mapa
+            if (d.fluxos_rel) {
+                html += '<div class="fpm-custo-secao">' + escapeHtml(ROTULO_SIM_TIT) + '</div><div class="fpm-detalhe-sub">' + escapeHtml(ROTULO_SIM_NOTA + ' ' + ROTULO_SIM_CLIQUE) + '</div>' +
+                    '<div id="' + uid + '-sim"></div>';
+            }
             // combinações sem solução: quais mínimos não cabem
             var inv = inviaveisPorRestricaoSEN(d);
             if ((d.pontos || []).some(function(p) { return p.inviavel; })) {
@@ -4994,6 +5177,18 @@
                     inv.map(function(r) {
                         return [escapeHtml(r.nome), escapeHtml(tipoRestricaoSEN(r.tipo)), escapeHtml(String(r.n)), escapeHtml(ROTULO_SEN_PROD + ' ≤ ' + pctSEN(r.dp_max)),
                             escapeHtml(numFPM(r.falta_max, 1) + ' (' + r.periodo + ')'), escapeHtml(numFPM(r.minimo, 1))];
+                    }));
+            }
+
+            // 🌟 22/10/2026: restrições que ficaram no limite (ex.: conjunto de equipamentos no máximo)
+            var restr = linhasRestricoesSEN(d);
+            html += '<div class="fpm-custo-secao">' + escapeHtml(ROTULO_SEN_RESTR) + '</div><div class="fpm-detalhe-sub">' + escapeHtml(ROTULO_SEN_NOTA_RESTR) + '</div>';
+            if (restr.length) {
+                var nComb = (d.pontos || []).filter(function(p) { return !p.inviavel; }).length;
+                html += tabelaAR([[ROTULO_SEN_RESTRICAO], [ROTULO_SEN_TIPO], [ROTULO_SEN_LADO], [ROTULO_SEN_MEMBROS], [ROTULO_SEN_NA_BASE, 1], [ROTULO_SEN_COMB_LIM, 1]],
+                    restr.map(function(r) {
+                        return [escapeHtml(r.nome), escapeHtml(tipoRestricaoSEN(r.tipo)), escapeHtml(r.ladoTxt), escapeHtml(r.membrosTxt || '—'),
+                            escapeHtml(r.periodos_base + '/' + (d.periodos || '?')), escapeHtml(r.combinacoes + '/' + nComb)];
                     }));
             }
 
@@ -5016,6 +5211,10 @@
             }
             telaFSP(html);
             calcularSEN(uid);
+            if (d.fluxos_rel) {
+                var dpIni = (d.grade_prod || []).indexOf(10) >= 0 ? 10 : (d.grade_prod || [0])[(d.grade_prod || [0]).length - 1];
+                detalheSimSEN(uid, 0, dpIni);
+            }
         }
 
         function resumoIASEN(d) {
@@ -5027,18 +5226,55 @@
                     sem_solucao_em_periodos: (p.periodos_inviaveis || []).join(', '),
                     variacao_mct_descumprindo_minimos: p.delta_desc === null || p.delta_desc === undefined ? null : $(p.delta_desc),
                     ocupacao: p.ocupacao === null || p.ocupacao === undefined ? null : numFPM(p.ocupacao, 1) + '%' };
-                return { delta_custo: pctSEN(p.dc), delta_produtividade: pctSEN(p.dp), variacao_mct: $(p.delta), ocupacao: p.ocupacao === null || p.ocupacao === undefined ? null : numFPM(p.ocupacao, 1) + '%' };
+                return { delta_custo: pctSEN(p.dc), delta_produtividade: pctSEN(p.dp), variacao_mct: $(p.delta), ocupacao: p.ocupacao === null || p.ocupacao === undefined ? null : numFPM(p.ocupacao, 1) + '%',
+                         restricoes_no_limite: (p.limitantes || []).map(function(l) { return l[0] + ' (' + l[1] + ' período(s))'; }),
+                         similares_e_volume_vs_base: resumoSimilaresSIM(d, p, p0) || null };
             });
             var inv = inviaveisPorRestricaoSEN(d).slice(0, 8).map(function(r) {
                 return { limite: r.nome, tipo: tipoRestricaoSEN(r.tipo), combinacoes_sem_solucao: r.n, falta_a_partir_de_produtividade: '<= ' + pctSEN(r.dp_max),
                          maior_falta: numFPM(r.falta_max, 1), minimo: numFPM(r.minimo, 1), periodo: r.periodo };
             });
+            // 🌟 23/10/2026: o efeito da PRODUTIVIDADE com o custo igual (0%) e até quanto de custo compensa -- já lido dos
+            // números, para o comentário da IA não concluir pelo "raciocínio" o contrário do que o modelo calculou
+            var soProd = function(sinal) {
+                return (d.grade_prod || []).filter(function(dp) { return sinal > 0 ? dp > 0 : dp < 0; }).map(function(dp) {
+                    var p = pontoSEN(d, 0, dp);
+                    if (!p) return null;
+                    var eqp = (d.equilibrio || []).filter(function(e) { return e.dp === dp; })[0];
+                    return { delta_produtividade: pctSEN(dp), variacao_mct_com_custo_igual: p.inviavel ? 'sem solução (limites mínimos não cabem)' : $(p.delta),
+                             ocupacao: p.ocupacao === null || p.ocupacao === undefined ? null : numFPM(p.ocupacao, 1) + '%',
+                             delta_custo_que_empata: !eqp || eqp.dc === null || eqp.dc === undefined ? 'fora da faixa' : numFPM(eqp.dc, 1) + '%',
+                             restricoes_no_limite: p.inviavel ? [] : (p.limitantes || []).map(function(l) { return l[0] + ' (' + l[1] + ' período(s))'; }) };
+                }).filter(function(x) { return x; });
+            };
+            var ganhoProd = soProd(1), perdaProd = soProd(-1);
+            var positivos = (d.grade_prod || []).filter(function(dp) { var p = pontoSEN(d, 0, dp); return dp > 0 && p && !p.inviavel && p.delta > 0.5; });
+            var conclusao;
+            if (positivos.length) {
+                var dpMax = positivos[positivos.length - 1], pMax = pontoSEN(d, 0, dpMax);
+                conclusao = 'GANHAR produtividade AUMENTA a MCT (calculado pelo modelo, com o custo igual): ' + pctSEN(positivos[0]) + ' de produtividade = ' +
+                    $(pontoSEN(d, 0, positivos[0]).delta) + '; ' + pctSEN(dpMax) + ' = ' + $(pMax.delta) +
+                    '. O equipamento gera volume a mais que o modelo consegue vender com margem positiva. Pode-se aumentar o custo até o "delta_custo_que_empata" de cada linha de ganho_de_produtividade_com_custo_igual e ainda ganhar.';
+            } else if (ganhoProd.length) {
+                conclusao = 'Nos números do modelo, ganhar produtividade com o custo igual NÃO aumenta a MCT: o volume a mais fica travado por outra restrição -- ver restricoes_no_limite das linhas de ganho_de_produtividade_com_custo_igual (ex.: conjunto de equipamentos, limite de venda, insumo). Para capturar o ganho, seria preciso aumentar esse limite.';
+            } else {
+                conclusao = 'A grade não tem variações positivas de produtividade.';
+            }
             return { equipamento: d.equipamento, cenario: d.cenario, periodo: d.periodo, fluxos: d.fluxos && d.fluxos.length ? d.fluxos : 'todos',
+                     conclusao_produtividade_calculada: conclusao,
+                     ganho_de_produtividade_com_custo_igual: ganhoProd,
+                     perda_de_produtividade_com_custo_igual: perdaProd,
                      mct_base: m + numFPM(d.base, 0), ocupacao_base: p0.ocupacao === null || p0.ocupacao === undefined ? null : numFPM(p0.ocupacao, 1) + '%',
-                     base_do_custo_variado: 'custo variável acumulado até o equipamento, inclusive (o próprio equipamento + o que os equipamentos upstream mandam para ele)',
+                     base_do_custo_variado: 'custo variável acumulado até a saída do equipamento (o custo adicionado no próprio equipamento + o que os equipamentos upstream mandam para ele)',
                      custo_variavel_acumulado_ate_o_equipamento_no_periodo: m + numFPM(d.custo_eq_base, 0),
                      custo_variavel_adicionado_pelo_proprio_equipamento_no_periodo: d.custo_proprio_base === undefined ? null : m + numFPM(d.custo_proprio_base, 0),
                      combinacoes_sem_solucao: (d.pontos || []).filter(function(p) { return p.inviavel; }).length,
+                     equipamentos_similares: (d.similares || []).map(function(s, i) { return { equipamento: s.codigo, ocupacao_base: pctOcSIM((p0.oc_sim || [])[i]) }; }),
+                     fluxos_relacionados: (d.fluxos_rel || []).map(function(f, i) { return { fluxo: f.nome, passa_pelo_equipamento_analisado: f.passa, volume_base: (p0.vol || [])[i] === undefined || (p0.vol || [])[i] === null ? null : numFPM(p0.vol[i], 0) }; }),
+                     restricoes_no_limite: linhasRestricoesSEN(d).slice(0, 15).map(function(r) {
+                         return { restricao: r.nome, tipo: tipoRestricaoSEN(r.tipo), limite: r.ladoTxt, equipamentos_do_conjunto: r.membros || [],
+                                  periodos_no_limite_na_base: r.periodos_base + '/' + (d.periodos || '?'), combinacoes_no_limite: r.combinacoes };
+                     }),
                      limites_minimos_que_nao_cabem: inv,
                      curva_equilibrio: (d.equilibrio || []).map(function(e) { return { delta_produtividade: pctSEN(e.dp), delta_custo_que_empata: e.dc === null ? 'fora da faixa' : numFPM(e.dc, 1) + '%' }; }),
                      combinacoes: pts };
@@ -5084,6 +5320,12 @@
                     .concat((d.equilibrio || []).map(function(e) { return [e.dp, e.dc]; })), larguras: [22, 30] },
                 { nome: 'MCT base por período', linhas: cab.concat([['Período', 'MCT (' + m + ')']]).concat(d.base_por_periodo || []), larguras: [14, 20] }
             ];
+            var restrX = linhasRestricoesSEN(d);
+            if (restrX.length) abas.push({ nome: 'Restrições no limite', linhas: cab.concat([[ROTULO_SEN_NOTA_RESTR],
+                [ROTULO_SEN_RESTRICAO, ROTULO_SEN_TIPO, ROTULO_SEN_LADO, ROTULO_SEN_MEMBROS, ROTULO_SEN_NA_BASE, ROTULO_SEN_COMB_LIM]])
+                .concat(restrX.map(function(r) { return [r.nome, tipoRestricaoSEN(r.tipo), r.ladoTxt, r.membrosTxt, r.periodos_base, r.combinacoes]; })),
+                larguras: [40, 26, 10, 50, 16, 18] });
+            if (d.fluxos_rel) abas.push(abaSimilaresSIM(d, cab, (d.pontos || []).map(function(p) { return [[p.dc, p.dp], p]; }), [ROTULO_SEN_CUSTO + ' (%)', ROTULO_SEN_PROD + ' (%)']));
             var semSol = (d.pontos || []).filter(function(p) { return p.inviavel; });
             if (semSol.length) {
                 var det = [];
