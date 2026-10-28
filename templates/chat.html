@@ -54,6 +54,11 @@
         @keyframes pulsar-microfone { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
 
         .pdf-item { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding: 8px; border-radius: 4px; background: #fdfdfd; border: 1px solid #eee; font-size: 13px; cursor: pointer; }
+        /* 🌟 25/10/2026: excluir arquivo dos Relatórios */
+        .pdf-item > span { flex: 1 1 auto; min-width: 0; word-break: break-word; }
+        .pdf-excluir { flex: 0 0 auto; margin-left: auto; border: 0; background: transparent; cursor: pointer; font-size: 14px; padding: 2px 4px; opacity: 0.45; border-radius: 4px; }
+        .pdf-excluir:hover { opacity: 1; background: #fdecea; }
+        .pdf-excluir:disabled { opacity: 0.2; cursor: default; }
         .arquivo-atualizacao-item { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding: 8px; border-radius: 4px; background: #fdfdfd; border: 1px solid #eee; font-size: 13px; }
         .pdf-item input { cursor: pointer; }
         .badge-fonte { display: inline-block; background: #e3f2fd; color: #0d47a1; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-top: 5px; border: 1px solid #bbdefb; }
@@ -238,7 +243,8 @@
         .fpm-overlay-titulo { flex: 1 1 200px; min-width: 0; color: #003366; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .fpm-overlay-barra .botao-opcao { margin: 0; }
         .fpm-overlay-barra .fpm-btn-fechar { background: #417690; color: #fff; }
-        .fpm-overlay-exp-fechar { display: inline-flex; flex-direction: column; align-items: stretch; gap: 6px; margin-left: auto; }
+        .fpm-overlay-exp-fechar { display: inline-grid; grid-template-columns: auto auto; align-items: stretch; gap: 6px; margin-left: auto; }
+        .fpm-overlay-exp-fechar .botao-opcao { white-space: nowrap; }
         .fpm-overlay-dica { padding: 4px 14px; font-size: 11px; color: #777; }
         .fpm-overlay-area { flex: 1; min-height: 0; cursor: grab; overflow: hidden; }
         .fpm-overlay-area.arrastando { cursor: grabbing; }
@@ -321,6 +327,13 @@
         .fpm-bs-det table { margin-bottom: 6px; width: auto; min-width: 640px; }
         .fpm-bs-det .fpm-bs-tit { font-weight: bold; color: #34495e; margin: 4px 0 2px 0; }
         .fpm-bs-tag { font-size: 11px; color: #7f8c8d; }
+        /* 🌟 23/10/2026: próxima restrição/variável -- passar o mouse mostra o número e a descrição da variável */
+        .ar-var { border-bottom: 1px dotted #7f8c8d; cursor: help; }
+        .ar-var:hover { color: #1d6fa5; border-bottom-color: #1d6fa5; }
+        #ar-var-pop { position: fixed; z-index: 2147483000; max-width: 460px; background: #fff; color: #2c3e50; border: 1px solid #b0bec5;
+                      border-radius: 6px; box-shadow: 0 6px 20px rgba(0,0,0,0.22); padding: 8px 10px; font: 12px/1.45 Arial, sans-serif; pointer-events: none; display: none; }
+        #ar-var-pop .ar-var-pop-tit { font-weight: bold; color: #417690; margin-bottom: 4px; }
+        #ar-var-pop .ar-var-pop-lin b { color: #34495e; }
         .fpm-bs-tot td { font-weight: bold; border-top: 2px solid #cfd8dc; }
         .fpm-tabela .num { text-align: right; white-space: nowrap; }
         .fpm-lista { border-top: 1px solid #eee; padding: 8px 10px 10px; }
@@ -353,6 +366,16 @@
         .fpm-custo-principal { border-color: #16a085; background: #e8f6f3; }
         .fpm-custo-principal b { color: #0e6655; }
         .fpm-tabela-custo th:first-child { width: 40%; }
+        /* 🌟 27/10/2026: detalhe do custo de produção no círculo C (itens, gerados, GGF por tipo e fechamento) */
+        .fpm-dc-rolagem { overflow-x: auto; max-width: 100%; margin-bottom: 6px; }
+        .fpm-dc-tabela { border-collapse: collapse; font-size: 12px; }
+        .fpm-dc-tabela th, .fpm-dc-tabela td { border: 1px solid #d9d9d9; padding: 3px 6px; }
+        .fpm-dc-tabela th { background: #eef3f9; text-align: center; white-space: normal; min-width: 64px; max-width: 140px; vertical-align: bottom; }
+        .fpm-dc-tabela td { white-space: nowrap; }
+        .fpm-dc-tabela td.num { text-align: right; font-variant-numeric: tabular-nums; }
+        .fpm-dc-tabela td.esp { font-weight: bold; }
+        .fpm-dc-tabela tr.tot td { font-weight: bold; background: #f4f6f8; }
+        .fpm-dc-secao { font-weight: bold; color: #0056b3; margin: 10px 0 4px; font-size: 13px; }
         .fpm-custo-rodape { margin-top: 6px; }
         .fpm-custo-secao { margin: 12px 0 4px; font-weight: bold; color: #003366; font-size: 12px; }
         .fpm-escada-botoes { margin-top: 10px; }
@@ -365,6 +388,8 @@
         .fpm-evolucao-leg { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11px; color: #3d4b57; margin: 2px 0 4px; }
         .fpm-evolucao-leg span { display: inline-flex; align-items: center; gap: 5px; }
         .fpm-escada-botoes .botao-opcao + .botao-opcao { margin-left: 6px; }
+        .fpm-escada-botoes.fpm-botoes-linha { display: flex; flex-wrap: nowrap; gap: 6px; overflow-x: auto; }
+        .fpm-escada-botoes.fpm-botoes-linha .botao-opcao { margin: 0; white-space: nowrap; padding: 4px 9px; font-size: 11.5px; flex: 0 0 auto; }
         .fpm-escada-abas { display: inline-flex; border: 1px solid #cfd6dc; border-radius: 5px; overflow: hidden; margin-bottom: 6px; }
         .fpm-escada-aba { border: none; background: #fff; padding: 4px 12px; font-size: 12px; cursor: pointer; color: #34495e; }
         .fpm-escada-aba + .fpm-escada-aba { border-left: 1px solid #cfd6dc; }
@@ -380,6 +405,19 @@
            [Reorganizar] [Tela cheia] [Exportar]. */
         .fpm-botoes { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
         .fpm-botoes-linha { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px 10px; }
+        /* 🌟 25/10/2026: botões do fluxo numa linha só */
+        .fpm-botoes-compactos { flex-wrap: nowrap; gap: 6px; }
+        .fpm-botoes-compactos .botao-opcao, .fpm-overlay-barra .fpm-btn-compacto { font-size: 12px !important; padding: 5px 10px !important; white-space: nowrap; margin: 0 !important; }
+        /* 🌟 24/10/2026: Perguntar ao Agente IA (Montar Fluxo) */
+        #fpm-perg-tela { position: fixed; inset: 0; z-index: 99000; background: rgba(15, 23, 32, 0.55); display: none; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; }
+        #fpm-perg-tela .fpm-perg-caixa { background: #fff; border-radius: 8px; box-shadow: 0 10px 34px rgba(0,0,0,0.35); width: min(980px, 96vw); max-height: 92vh;
+                                         display: flex; flex-direction: column; padding: 14px 16px; box-sizing: border-box; gap: 6px; }
+        #fpm-perg-tela .fpm-perg-topo { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 15px; color: #1d2f40; }
+        #fpm-perg-tela .fpm-perg-historico { flex: 1 1 auto; overflow-y: auto; min-height: 60px; border-top: 1px solid #e0e6eb; padding-top: 6px; }
+        #fpm-perg-tela .fpm-perg-item { margin: 6px 0 14px 0; }
+        #fpm-perg-tela .fpm-perg-q { background: #eef4f8; border-radius: 6px; padding: 6px 9px; margin-bottom: 6px; font-size: 13px; }
+        #fpm-perg-tela .fpm-perg-texto { width: 100%; box-sizing: border-box; font: 13px Arial, sans-serif; padding: 7px 9px; border: 1px solid #b0bec5; border-radius: 6px; resize: vertical; }
+        #fpm-perg-tela .fpm-perg-botoes { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
         .fpm-topo .fpm-botoes .botao-opcao { margin: 0; }
         .fpm-topo .fpm-qtd-equip { background: #f7f9fb; border: 1px solid #dfe5ea; border-radius: 18px; padding: 3px 4px 3px 12px; }
         .fpm-qtd-equip input { width: 62px; padding: 3px 4px; border: 1px solid #cfd6dc; border-radius: 4px; font-size: 12px; text-align: right; }
@@ -607,6 +645,27 @@
         body.modo-embutido #input-box { min-width: 0; padding: 9px; font-size: 13px; }
         body.modo-embutido #btn-microfone { padding: 8px 10px; }
         body.modo-embutido #btn-enviar { padding: 8px 10px; }
+        /* 🌟 NOVO (27/10/2026): "Custo Produção x Custo Consumo" (Custo Ferbasa) */
+        .cpc-caixa { margin-top: 10px; }
+        .cpc-topo { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+        .cpc-titulo { font-weight: bold; color: #0056b3; }
+        .cpc-rolagem { overflow-x: auto; max-width: 100%; }
+        .cpc-tabela { border-collapse: collapse; font-size: 12px; white-space: nowrap; }
+        .cpc-tabela th, .cpc-tabela td { border: 1px solid #d9d9d9; padding: 4px 7px; }
+        .cpc-tabela th { background: #eef3f9; text-align: center; }
+        .cpc-tabela th.cpc-grupo-prod { background: #dbe8f7; }
+        .cpc-tabela th.cpc-grupo-cons { background: #e3f3e8; }
+        .cpc-tabela td.cpc-num { text-align: right; font-variant-numeric: tabular-nums; }
+        .cpc-tabela td.cpc-esp { font-weight: bold; }
+        .cpc-tabela td.cpc-sep, .cpc-tabela th.cpc-sep { border-left: 2px solid #8aa1bd; }
+        .cpc-tabela tr.cpc-total td { font-weight: bold; background: #f4f6f8; }
+        .cpc-legenda { font-size: 11px; color: #666; margin-top: 6px; white-space: normal; }
+        .cpc-link-mes { color: #0056b3; text-decoration: underline; cursor: pointer; }
+        .cpc-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 6000; display: flex; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; }
+        .cpc-modal-caixa { background: #fff; border-radius: 8px; max-width: min(1100px, 96vw); max-height: 90vh; overflow: auto; padding: 16px 20px; position: relative; box-shadow: 0 10px 36px rgba(0,0,0,0.4); }
+        .cpc-modal-caixa h3 { margin: 14px 0 6px; font-size: 14px; color: #0056b3; }
+        .cpc-modal .cpc-tabela th { white-space: normal; min-width: 70px; max-width: 150px; vertical-align: bottom; }
+        .cpc-modal-fechar { position: absolute; top: 6px; right: 10px; background: none; border: 0; font-size: 26px; cursor: pointer; color: #555; }
     </style>
 </head>
 <body class="{% if modo_embutido %}modo-embutido{% endif %}">
@@ -641,6 +700,7 @@
                     <label class="pdf-item">
                         <input type="checkbox" class="pdf-checkbox" value="{{ pdf.id }}">
                         <span>{{ pdf.titulo }}</span>
+                        <button type="button" class="pdf-excluir" data-id="{{ pdf.id }}" title="{% trans 'Excluir este arquivo' %}">🗑</button>
                     </label>
                 {% empty %}
                     <p style="color: gray; font-size: 13px;"><em>{% trans "Nenhum PDF cadastrado no Admin." %}</em></p>
@@ -782,7 +842,7 @@
                 </select>
             </div>
 
-            {% if acoes_habilitadas.cf_atualizar_producao_ggf_mensal or acoes_habilitadas.cf_atualizar_consumo_especifico_custo_variavel or acoes_habilitadas.cf_montar_fluxo_producao_mensal or acoes_habilitadas.cf_fluxo_balanco_subprodutos %}
+            {% if acoes_habilitadas.cf_atualizar_producao_ggf_mensal or acoes_habilitadas.cf_atualizar_consumo_especifico_custo_variavel or acoes_habilitadas.cf_montar_fluxo_producao_mensal or acoes_habilitadas.cf_fluxo_balanco_subprodutos or acoes_habilitadas.cf_custo_producao_x_consumo %}
             <div class="grupo-acoes-dropdown">
                 <label for="dropdown-custo-ferbasa">{% trans "Custo Ferbasa" %}</label>
                 <select id="dropdown-custo-ferbasa" class="select-acao-comum" onchange="dispararAcaoDropdown(this)">
@@ -791,6 +851,7 @@
                     {% if acoes_habilitadas.cf_atualizar_consumo_especifico_custo_variavel %}<option value="atualizar consumo específico e custo variável">{% trans "Atualizar Consumo Específico e Custo Variável" %}</option>{% endif %}
                     {% if acoes_habilitadas.cf_montar_fluxo_producao_mensal %}<option value="montar fluxo de produção pela produção mensal">{% trans "Montar Fluxo de Produção Base Produção Mensal" %}</option>{% endif %}
                     {% if acoes_habilitadas.cf_fluxo_balanco_subprodutos %}<option value="fluxo/balanço de subprodutos">{% trans "Fluxo/Balanço de Subprodutos" %}</option>{% endif %}
+                    {% if acoes_habilitadas.cf_custo_producao_x_consumo %}<option value="custo produção x custo consumo">{% trans "Custo Produção x Custo Consumo" %}</option>{% endif %}
                 </select>
             </div>
             {% endif %}
@@ -1293,6 +1354,19 @@
         {% trans "Valor" as ROTULO_AR_COL_VALOR %}
         {% trans "Margem de contribuição total por período" as ROTULO_AR_MCT_PERIODO %}
         {% trans "Conferência: soma das margens dos produtos/mercados = %1 (diferença para a margem consolidada: %2)." as ROTULO_AR_CONFERE %}
+        {# 🌟 23/10/2026: de onde vem a diferença da conferência; dica da próxima restrição/variável; ocupação sem conjuntos #}
+        {% trans "Desta diferença, {1} vem da produção antecipada: o Consolidar custeia as vendas produzidas antes com o custo do período em que foram produzidas, e a margem dos produtos/mercados usa o custo do período da venda. Restante (arredondamentos): {2}." as ROTULO_AR_CONFERE_ANT %}
+        {% trans "Sem produção antecipada aplicada: a diferença deve vir dos arredondamentos (preço e custo médios por produto/mercado gravados com 2 casas decimais e valores do Consolidar sem casas decimais)." as ROTULO_AR_CONFERE_ARRED %}
+        {% trans "Variável" as ROTULO_AR_VAR_NUM %}
+        {% trans "Produto" as ROTULO_AR_VAR_PRODUTO %}
+        {% trans "Mercado" as ROTULO_AR_VAR_MERCADO %}
+        {% trans "Fluxo de produção" as ROTULO_AR_VAR_FLUXO %}
+        {% trans "Restrição" as ROTULO_AR_VAR_REST %}
+        {% trans "Limite" as ROTULO_AR_VAR_LADO %}
+        {% trans "Próxima restrição ou variável que passa a limitar se o limite mudar" as ROTULO_AR_VAR_TITULO %}
+        {% trans "Passe o mouse sobre a próxima restrição para ver a descrição da variável (produto, mercado e fluxo de produção)." as ROTULO_AR_VAR_DICA %}
+        {% trans "Os equipamentos que fazem parte de um conjunto de equipamentos não aparecem aqui: a ocupação deles está na tabela Equipamentos/Conjunto, logo abaixo." as ROTULO_AR_NOTA_OCUP_CONJ %}
+        {% trans "da MCT" as ROTULO_AR_DA_MCT %}
         {% trans "Margem total = vendas × (preço − custo variável), somada nos períodos. Margem por hora (CMH) = margem por hora do equipamento gargalo do fluxo — é ela que decide o mix quando a capacidade é o limite. No máximo / no mínimo: em quantos períodos as vendas ficaram presas no limite de vendas." as ROTULO_AR_NOTA_PRODUTOS %}
         {% trans "Produtos/mercados que mais geram margem" as ROTULO_AR_TOP_PM %}
         {% trans "Maior margem por hora (CMH)" as ROTULO_AR_TOP_CMH %}
@@ -1493,6 +1567,29 @@
         {% trans "Distribuição de Custo Variável do Produto" as ROTULO_GC_DIST_TITULO %}
         {% trans "Custo Por Equipamento" as ROTULO_GC_ESCADA_TITULO %}
         {% trans "Exportar Gráfico" as ROTULO_GC_EXPORTAR %}
+        {# 🌟 24/10/2026: Montar Fluxo -- Exportar Dados / Perguntar ao Agente IA #}
+        {% trans "Exportar Dados" as ROTULO_FPM_DD_EXPORTAR %}
+        {% trans "Exporta para Excel todos os dados deste fluxo: custo do produto final (período e mês a mês), equipamentos, consumos e consumo específico (período e mês a mês), contribuição de cada equipamento no custo e balanço dos itens." as ROTULO_FPM_DD_EXPORTAR_DICA %}
+        {% trans "Período" as ROTULO_FPM_DD_PERIODO %}
+        {% trans "meses" as ROTULO_FPM_DD_MESES %}
+        {% trans "Moeda" as ROTULO_FPM_DD_MOEDA %}
+        {% trans "valores contábeis da Produção Mensal" as ROTULO_FPM_DD_BASE %}
+        {% trans "Sem dados neste fluxo." as ROTULO_FPM_DD_SEM_DADOS %}
+        {% trans "Média do período" as ROTULO_FPM_DD_MEDIA_PERIODO %}
+        {% trans "Média por ano (ponderada pela produção do produto final)" as ROTULO_FPM_PERG_POR_ANO %}
+        {% trans "Mês a mês" as ROTULO_FPM_PERG_POR_MES %}
+        {% trans "custo por unidade" as ROTULO_FPM_PERG_CUSTO_UN %}
+        {% trans "Não foi possível desenhar o gráfico que a IA mandou." as ROTULO_FPM_PERG_GRAF_ERRO %}
+        {% trans "Soma" as ROTULO_FPM_DD_SOMA %}
+        {% trans "por unidade do produto final" as ROTULO_FPM_DD_POR_UN_FINAL %}
+        {% trans "Perguntar ao Agente IA" as ROTULO_FPM_PERG_BOTAO %}
+        {% trans "Faça uma pergunta sobre este fluxo: o Agente IA responde com os dados dele (mesmo período e mesma visão), sem precisar exportar nem anexar relatório." as ROTULO_FPM_PERG_DICA %}
+        {% trans "Perguntar ao Agente IA sobre este fluxo" as ROTULO_FPM_PERG_TITULO %}
+        {% trans "O Agente IA responde só com os dados deste fluxo (os mesmos do Exportar Dados). Ctrl+Enter envia." as ROTULO_FPM_PERG_NOTA %}
+        {% trans "Ex.: Por que o custo do produto aumentou? Qual foi o consumo específico de energia na produção do produto?" as ROTULO_FPM_PERG_EXEMPLO %}
+        {% trans "Perguntar" as ROTULO_FPM_PERG_ENVIAR %}
+        {% trans "Você" as ROTULO_FPM_PERG_VOCE %}
+        {% trans "Dados grandes: {1} linha(s) menos ligadas à pergunta ficaram de fora da análise da IA (o Exportar Dados tem tudo)." as ROTULO_FPM_PERG_PARCIAL %}
         {% trans "Gerando…" as ROTULO_GC_GERANDO %}
         {% trans "Erro ao gerar a imagem do gráfico." as ROTULO_GC_ERRO_EXPORTAR %}
         {% trans "fluxo(s) de produção -- custo variável médio entre" as ROTULO_GC_FLUXOS_ENTRE %}
@@ -1953,6 +2050,18 @@
         var ROTULO_AR_COL_VALOR = "{{ ROTULO_AR_COL_VALOR|escapejs }}";
         var ROTULO_AR_MCT_PERIODO = "{{ ROTULO_AR_MCT_PERIODO|escapejs }}";
         var ROTULO_AR_CONFERE = "{{ ROTULO_AR_CONFERE|escapejs }}";
+        var ROTULO_AR_CONFERE_ANT = "{{ ROTULO_AR_CONFERE_ANT|escapejs }}";
+        var ROTULO_AR_CONFERE_ARRED = "{{ ROTULO_AR_CONFERE_ARRED|escapejs }}";
+        var ROTULO_AR_VAR_NUM = "{{ ROTULO_AR_VAR_NUM|escapejs }}";
+        var ROTULO_AR_VAR_PRODUTO = "{{ ROTULO_AR_VAR_PRODUTO|escapejs }}";
+        var ROTULO_AR_VAR_MERCADO = "{{ ROTULO_AR_VAR_MERCADO|escapejs }}";
+        var ROTULO_AR_VAR_FLUXO = "{{ ROTULO_AR_VAR_FLUXO|escapejs }}";
+        var ROTULO_AR_VAR_REST = "{{ ROTULO_AR_VAR_REST|escapejs }}";
+        var ROTULO_AR_VAR_LADO = "{{ ROTULO_AR_VAR_LADO|escapejs }}";
+        var ROTULO_AR_VAR_TITULO = "{{ ROTULO_AR_VAR_TITULO|escapejs }}";
+        var ROTULO_AR_VAR_DICA = "{{ ROTULO_AR_VAR_DICA|escapejs }}";
+        var ROTULO_AR_NOTA_OCUP_CONJ = "{{ ROTULO_AR_NOTA_OCUP_CONJ|escapejs }}";
+        var ROTULO_AR_DA_MCT = "{{ ROTULO_AR_DA_MCT|escapejs }}";
         var ROTULO_AR_NOTA_PRODUTOS = "{{ ROTULO_AR_NOTA_PRODUTOS|escapejs }}";
         var ROTULO_AR_TOP_PM = "{{ ROTULO_AR_TOP_PM|escapejs }}";
         var ROTULO_AR_TOP_CMH = "{{ ROTULO_AR_TOP_CMH|escapejs }}";
@@ -2153,6 +2262,28 @@
         var ROTULO_GC_DIST_TITULO = "{{ ROTULO_GC_DIST_TITULO|escapejs }}";
         var ROTULO_GC_ESCADA_TITULO = "{{ ROTULO_GC_ESCADA_TITULO|escapejs }}";
         var ROTULO_GC_EXPORTAR = "{{ ROTULO_GC_EXPORTAR|escapejs }}";
+        var ROTULO_FPM_DD_EXPORTAR = "{{ ROTULO_FPM_DD_EXPORTAR|escapejs }}";
+        var ROTULO_FPM_DD_EXPORTAR_DICA = "{{ ROTULO_FPM_DD_EXPORTAR_DICA|escapejs }}";
+        var ROTULO_FPM_DD_PERIODO = "{{ ROTULO_FPM_DD_PERIODO|escapejs }}";
+        var ROTULO_FPM_DD_MESES = "{{ ROTULO_FPM_DD_MESES|escapejs }}";
+        var ROTULO_FPM_DD_MOEDA = "{{ ROTULO_FPM_DD_MOEDA|escapejs }}";
+        var ROTULO_FPM_DD_BASE = "{{ ROTULO_FPM_DD_BASE|escapejs }}";
+        var ROTULO_FPM_DD_SEM_DADOS = "{{ ROTULO_FPM_DD_SEM_DADOS|escapejs }}";
+        var ROTULO_FPM_DD_MEDIA_PERIODO = "{{ ROTULO_FPM_DD_MEDIA_PERIODO|escapejs }}";
+        var ROTULO_FPM_PERG_POR_ANO = "{{ ROTULO_FPM_PERG_POR_ANO|escapejs }}";
+        var ROTULO_FPM_PERG_POR_MES = "{{ ROTULO_FPM_PERG_POR_MES|escapejs }}";
+        var ROTULO_FPM_PERG_CUSTO_UN = "{{ ROTULO_FPM_PERG_CUSTO_UN|escapejs }}";
+        var ROTULO_FPM_PERG_GRAF_ERRO = "{{ ROTULO_FPM_PERG_GRAF_ERRO|escapejs }}";
+        var ROTULO_FPM_DD_SOMA = "{{ ROTULO_FPM_DD_SOMA|escapejs }}";
+        var ROTULO_FPM_DD_POR_UN_FINAL = "{{ ROTULO_FPM_DD_POR_UN_FINAL|escapejs }}";
+        var ROTULO_FPM_PERG_BOTAO = "{{ ROTULO_FPM_PERG_BOTAO|escapejs }}";
+        var ROTULO_FPM_PERG_DICA = "{{ ROTULO_FPM_PERG_DICA|escapejs }}";
+        var ROTULO_FPM_PERG_TITULO = "{{ ROTULO_FPM_PERG_TITULO|escapejs }}";
+        var ROTULO_FPM_PERG_NOTA = "{{ ROTULO_FPM_PERG_NOTA|escapejs }}";
+        var ROTULO_FPM_PERG_EXEMPLO = "{{ ROTULO_FPM_PERG_EXEMPLO|escapejs }}";
+        var ROTULO_FPM_PERG_ENVIAR = "{{ ROTULO_FPM_PERG_ENVIAR|escapejs }}";
+        var ROTULO_FPM_PERG_VOCE = "{{ ROTULO_FPM_PERG_VOCE|escapejs }}";
+        var ROTULO_FPM_PERG_PARCIAL = "{{ ROTULO_FPM_PERG_PARCIAL|escapejs }}";
         var ROTULO_GC_GERANDO = "{{ ROTULO_GC_GERANDO|escapejs }}";
         var ROTULO_GC_ERRO_EXPORTAR = "{{ ROTULO_GC_ERRO_EXPORTAR|escapejs }}";
         var ROTULO_GC_FLUXOS_ENTRE = "{{ ROTULO_GC_FLUXOS_ENTRE|escapejs }}";
@@ -3584,6 +3715,300 @@
         // 🌟 NOVO: fluxo REAL por rota -- o servidor manda d.rotas (um grafo por equipamento que produz o produto final);
         // uma aba por rota, desenhada só quando é aberta. Sem d.rotas, é o fluxo de sempre.
         var _rotasFPM = {}, _contadorRotasFPM = 0;
+        // 🌟 NOVO (27/10/2026): "Custo Ferbasa - Custo Produção x Custo Consumo" -- tabela mês a mês (produção x consumo,
+        // total, variável e fixo/outros: valor e por unidade) desenhada do marcador [CUSTO_PRODUCAO_CONSUMO:...], com
+        // "Exportar Excel" (mesma biblioteca do Montar Fluxo, carregada só no clique).
+        var _dadosCPC = {}, _contadorCPC = 0;
+        var COLUNAS_CPC = [['qtde', 'Qtde', false], ['total', 'Custo total (R$)', false], ['total_un', 'Custo total (R$/un)', true],
+                           ['variavel', 'Variável (R$)', false], ['variavel_un', 'Variável (R$/un)', true],
+                           ['fixo', 'Fixo/Outros (R$)', false], ['fixo_un', 'Fixo/Outros (R$/un)', true]];
+        function rotuloColunaCPC(d, c) {
+            var m = (d.moeda || 'R$'), u = d.unidade || 'un';
+            return c[1].replace('R$/un', m + '/' + u).replace('R$', m).replace('Qtde', 'Qtde (' + u + ')');
+        }
+        function numeroCPC(v, casas) {
+            if (v === null || v === undefined || !isFinite(v)) return '—';
+            if (Math.abs(v) < 0.5 * Math.pow(10, -casas)) v = 0;          // sem "-0,0000"
+            return Number(v).toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: casas });
+        }
+        function montarCustoProducaoConsumo(d) {
+            var uid = 'cpc' + (++_contadorCPC);
+            _dadosCPC[uid] = d;
+            var cab1 = '<tr><th rowspan="2">Mês</th><th colspan="' + COLUNAS_CPC.length + '" class="cpc-grupo-prod cpc-sep">Produção</th>' +
+                       '<th colspan="' + COLUNAS_CPC.length + '" class="cpc-grupo-cons cpc-sep">Consumo</th></tr>';
+            var cab2 = '<tr>';
+            ['producao', 'consumo'].forEach(function() {
+                COLUNAS_CPC.forEach(function(c, i) { cab2 += '<th' + (i === 0 ? ' class="cpc-sep"' : '') + '>' + escapeHtml(rotuloColunaCPC(d, c)) + '</th>'; });
+            });
+            cab2 += '</tr>';
+            var linha = function(r, classe) {
+                // 🌟 27/10/2026: o mês é um link -- abre os equipamentos que produziram e os que consumiram o item
+                var idx = (d.meses || []).indexOf(r);
+                var h = '<tr' + (classe ? ' class="' + classe + '"' : '') + '><td>' + (r.equip ? '<span class="cpc-link-mes" title="Ver os equipamentos que produziram e os que consumiram" onclick="abrirEquipCPC(\'' + uid + '\', ' + idx + ')">' + escapeHtml(r.mes) + '</span>' : escapeHtml(r.mes)) + '</td>';
+                ['producao', 'consumo'].forEach(function(lado) {
+                    COLUNAS_CPC.forEach(function(c, i) {
+                        var v = r[lado] ? r[lado][c[0]] : null;
+                        h += '<td class="cpc-num' + (c[2] ? ' cpc-esp' : '') + (i === 0 ? ' cpc-sep' : '') + '">' + numeroCPC(v, c[2] ? 4 : 2) + '</td>';
+                    });
+                });
+                return h + '</tr>';
+            };
+            var corpo = (d.meses || []).map(function(r) { return linha(r); }).join('');
+            if (d.total) corpo += linha(d.total, 'cpc-total');
+            var itens = (d.itens || []).map(function(i) { return i.codigo + (i.descricao ? ' — ' + i.descricao : ''); }).join('; ');
+            return '<div class="cpc-caixa"><div class="cpc-topo"><div><div class="cpc-titulo">' + escapeHtml(d.titulo || 'Custo Produção x Custo Consumo') + '</div>' +
+                   '<div style="font-size:12px;color:#555;">' + escapeHtml(itens) + ' · ' + escapeHtml(d.periodo || '') + '</div></div>' +
+                   '<button type="button" class="botao-opcao" onclick="exportarCustoProducaoConsumo(\'' + uid + '\', this)">Exportar Excel</button></div>' +
+                   '<div class="cpc-rolagem"><table class="cpc-tabela"><thead>' + cab1 + cab2 + '</thead><tbody>' + corpo + '</tbody></table></div>' +
+                   '<div class="cpc-legenda">Valor contábil da Produção Mensal. Produção = todos os equipamentos que produzem o item: (valor material + valor GGF) × qtde consumida ' +
+                   'das linhas com produção + GGF distribuído das ordens com produção. Consumo = linhas em que o item foi consumido (consumo positivo): ' +
+                   '(valor material + valor GGF) × qtde consumida. Variável: material + parte variável do GGF; Fixo/Outros = total − variável. ' +
+                   'Os valores por unidade (em negrito) são médias ponderadas pelas quantidades' + ((d.itens || []).length > 1 ? ', somando os itens escolhidos' : '') +
+                   '; a linha "Período" é o período inteiro.' + (d.unidades_diferentes ? ' Atenção: os itens têm unidades diferentes.' : '') + '</div></div>';
+        }
+        // 🌟 NOVO (27/10/2026): equipamentos que produziram e que consumiram o item no mês (idx) ou no período (idx -1)
+        function linhasEquipCPC(d, r) {
+            var p = [], c = [], qp = r.producao ? r.producao.qtde : 0, qc = r.consumo ? r.consumo.qtde : 0;
+            ((r.equip || {}).producao || []).forEach(function(x) { p.push({ eq: x[0], nome: x[1], q: x[2], t: x[3], v: x[4], pct: qp ? x[2] / qp * 100 : null,
+                                                                        consumos: x.length > 5 ? x[5] : null, ggf: x.length > 6 ? x[6] : null }); });
+            ((r.equip || {}).consumo || []).forEach(function(x) { c.push({ eq: x[0], nome: x[1], item: x[2], item_desc: x[3], q: x[4], t: x[5], v: x[6], pct: qc ? x[4] / qc * 100 : null,
+                                                                       prod: x.length > 7 ? x[7] : null, esp: (x.length > 7 && x[7]) ? x[4] / x[7] : null,
+                                                                       consumos: x.length > 8 ? x[8] : null }); });
+            return { producao: p, consumo: c };
+        }
+        function abrirEquipCPC(uid, idx) {
+            var d = _dadosCPC[uid];
+            if (!d) return;
+            var r = idx < 0 ? d.total : d.meses[idx];
+            var L = linhasEquipCPC(d, r), m = (d.moeda || 'R$'), u = d.unidade || 'un';
+            var un = function(x, q) { return q ? x / q : null; };
+            var cols = function(x) {
+                return '<td class="cpc-num">' + numeroCPC(x.q, 2) + '</td><td class="cpc-num">' + numeroCPC(x.pct, 1) + '</td><td class="cpc-num">' + numeroCPC(x.t, 2) +
+                       '</td><td class="cpc-num cpc-esp">' + numeroCPC(un(x.t, x.q), 4) + '</td><td class="cpc-num cpc-esp">' + numeroCPC(un(x.v, x.q), 4) +
+                       '</td><td class="cpc-num cpc-esp">' + numeroCPC(un(x.t - x.v, x.q), 4) + '</td>';
+            };
+            var cabNum = '<th>Qtde (' + escapeHtml(u) + ')</th><th>% da qtde</th><th>Custo total (' + escapeHtml(m) + ')</th><th>Custo total (' + escapeHtml(m + '/' + u) +
+                         ')</th><th>Variável (' + escapeHtml(m + '/' + u) + ')</th><th>Fixo/Outros (' + escapeHtml(m + '/' + u) + ')</th>';
+            var totLinha = function(lado, rot, colspan) {
+                var x = r[lado] || {};
+                return '<tr class="cpc-total"><td colspan="' + colspan + '">' + rot + '</td>' + cols({ q: x.qtde, pct: x.qtde ? 100 : null, t: x.total, v: x.variavel }) + '</tr>';
+            };
+            var html = '<div class="cpc-modal-caixa"><button type="button" class="cpc-modal-fechar" title="Fechar" onclick="this.closest(\'.cpc-modal\').remove()">&times;</button>' +
+                       '<div class="cpc-titulo">' + escapeHtml(d.titulo || '') + ' — ' + escapeHtml(idx < 0 ? 'Período ' + (d.periodo || '') : r.mes) + '</div>' +
+                       '<div style="margin:6px 0 4px;"><button type="button" class="botao-opcao" onclick="exportarEquipCPC(\'' + uid + '\', ' + idx + ', this)">Exportar Excel</button></div>';
+            html += '<h3>Equipamentos que produziram</h3><div class="cpc-rolagem"><table class="cpc-tabela"><thead><tr><th>Equipamento</th>' + cabNum + '</tr></thead><tbody>';
+            L.producao.forEach(function(x, j) {
+                // 🌟 27/10/2026: o equipamento produtor é um link -- os itens consumidos e o GGF que formam o custo de produção
+                var rotEq = escapeHtml(x.eq + (x.nome ? ' — ' + x.nome : ''));
+                if (x.consumos) rotEq = '<span class="cpc-link-mes" title="Ver os itens consumidos e o GGF que formam o custo de produção" onclick="abrirConsumosCPC(\'' + uid + '\', ' + idx + ', ' + j + ', \'p\')">' + rotEq + '</span>';
+                html += '<tr><td>' + rotEq + '</td>' + cols(x) + '</tr>';
+            });
+            if (!L.producao.length) html += '<tr><td colspan="7" style="color:#777">Sem produção.</td></tr>';
+            html += totLinha('producao', 'Total produção', 1) + '</tbody></table></div>';
+            // 🌟 27/10/2026: produção do equipamento consumidor e o consumo específico do item (qtde consumida / qtde produzida)
+            html += '<h3>Equipamentos que consumiram</h3><div class="cpc-rolagem"><table class="cpc-tabela"><thead><tr><th>Equipamento</th><th>Item que produz</th>' +
+                    '<th>Produção do equipamento</th><th>Consumo específico (' + escapeHtml(u) + ' / un. produzida)</th>' + cabNum + '</tr></thead><tbody>';
+            L.consumo.forEach(function(x, j) {
+                // 🌟 27/10/2026: o equipamento consumidor é um link -- tudo o que ele consumiu no mês/período
+                var rotEq = escapeHtml(x.eq + (x.nome ? ' — ' + x.nome : ''));
+                if (x.consumos) rotEq = '<span class="cpc-link-mes" title="Ver tudo o que este equipamento consumiu" onclick="abrirConsumosCPC(\'' + uid + '\', ' + idx + ', ' + j + ')">' + rotEq + '</span>';
+                html += '<tr><td>' + rotEq + '</td><td>' + escapeHtml(x.item + (x.item_desc ? ' — ' + x.item_desc : '')) + '</td>' +
+                        '<td class="cpc-num">' + numeroCPC(x.prod, 2) + '</td><td class="cpc-num cpc-esp">' + numeroCPC(x.esp, 4) + '</td>' + cols(x) + '</tr>';
+            });
+            if (!L.consumo.length) html += '<tr><td colspan="10" style="color:#777">Sem consumo.</td></tr>';
+            html += totLinha('consumo', 'Total consumo', 4) + '</tbody></table></div>';
+            html += '<div class="cpc-legenda">Produção: custo de cada equipamento que produziu o item (valor contábil: materiais + GGF do item consumido + GGF distribuído). ' +
+                    'Consumo: valor com que o item entrou no consumo de cada equipamento (valor material + valor GGF da linha da Produção Mensal). ' +
+                    'Produção do equipamento = tudo o que ele produziu do item indicado no mês (todas as ordens); consumo específico = qtde consumida ÷ produção do equipamento. Fixo/Outros = total − variável.</div></div>';
+            var fundo = document.createElement('div');
+            fundo.className = 'cpc-modal';
+            fundo.innerHTML = html;
+            fundo.addEventListener('click', function(ev) { if (ev.target === fundo) fundo.remove(); });
+            document.body.appendChild(fundo);
+        }
+        // 🌟 NOVO (27/10/2026): tudo o que o equipamento consumidor consumiu (o item escolhido na ação fica destacado)
+        // lado 'c' = equipamento consumidor (tudo o que ele consumiu); 'p' = equipamento produtor do item escolhido (os itens
+        // consumidos e o GGF distribuído que formam o custo de produção -- a soma é o custo de produção da tabela)
+        function dadosConsumosCPC(d, idx, j, lado) {
+            var r = idx < 0 ? d.total : d.meses[idx];
+            var prod = lado === 'p';
+            var x = prod ? linhasEquipCPC(d, r).producao[j] : linhasEquipCPC(d, r).consumo[j];
+            var escolhidos = {};
+            (d.itens || []).forEach(function(i) { escolhidos[String(i.codigo).trim().toUpperCase()] = true; });
+            var P = (prod ? x.q : x.prod) || 0;
+            var itens = (x.consumos || []).map(function(c) {
+                return { cod: c[0], desc: c[1], un: c[2], gerado: !!c[3], q: c[4], t: c[5], v: c[6], escolhido: !!escolhidos[String(c[0]).trim().toUpperCase()],
+                         esp: P ? c[4] / P : null, unit: c[4] ? c[5] / c[4] : null, unit_v: c[4] ? c[6] / c[4] : null, unit_f: c[4] ? (c[5] - c[6]) / c[4] : null,
+                         t_un: P ? c[5] / P : null, v_un: P ? c[6] / P : null, f_un: P ? (c[5] - c[6]) / P : null };
+            });
+            var ggf = (prod && x.ggf ? x.ggf : []).map(function(g) {
+                return { rot: g[0], t: g[1], v: g[2], t_un: P ? g[1] / P : null, v_un: P ? g[2] / P : null, f_un: P ? (g[1] - g[2]) / P : null };
+            });
+            var produz = prod ? (d.itens || []).map(function(i) { return i.codigo + (i.descricao ? ' — ' + i.descricao : ''); }).join('; ')
+                              : x.item + (x.item_desc ? ' — ' + x.item_desc : '');
+            return { r: r, x: x, itens: itens, P: P, ggf: ggf, prod: prod, produz: produz };
+        }
+        function abrirConsumosCPC(uid, idx, j, lado) {
+            var d = _dadosCPC[uid];
+            if (!d) return;
+            lado = lado || 'c';
+            var D = dadosConsumosCPC(d, idx, j, lado), x = D.x, m = (d.moeda || 'R$');
+            var titulo = x.eq + (x.nome ? ' — ' + x.nome : '') + ' · produz ' + D.produz + ' · ' + (idx < 0 ? 'Período ' + (d.periodo || '') : D.r.mes);
+            var cab = '<tr><th>Item</th><th>Unidade</th><th>Qtde</th><th>Consumo específico (por un. produzida)</th><th>Custo total (' + escapeHtml(m) + ')</th>' +
+                      '<th>Custo unitário total do item (' + escapeHtml(m) + '/un. do item)</th><th>Custo unitário variável do item (' + escapeHtml(m) + '/un. do item)</th>' +
+                      '<th>Custo unitário fixo/outros do item (' + escapeHtml(m) + '/un. do item)</th><th>Custo total (' + escapeHtml(m) + '/un. produzida)</th>' +
+                      '<th>Variável (' + escapeHtml(m) + '/un. produzida)</th><th>Fixo/Outros (' + escapeHtml(m) + '/un. produzida)</th></tr>';
+            var linhaItem = function(c) {
+                return '<tr' + (c.escolhido ? ' style="background:#fff7d6;"' : '') + '><td>' + escapeHtml(c.cod + (c.desc ? ' — ' + c.desc : '')) + (c.escolhido ? ' <b>(item escolhido)</b>' : '') + '</td>' +
+                       '<td>' + escapeHtml(c.un) + '</td><td class="cpc-num">' + numeroCPC(c.q, 2) + '</td><td class="cpc-num cpc-esp">' + numeroCPC(c.esp, 4) + '</td>' +
+                       '<td class="cpc-num">' + numeroCPC(c.t, 2) + '</td><td class="cpc-num">' + numeroCPC(c.unit, 4) + '</td><td class="cpc-num">' + numeroCPC(c.unit_v, 4) +
+                       '</td><td class="cpc-num">' + numeroCPC(c.unit_f, 4) + '</td><td class="cpc-num cpc-esp">' + numeroCPC(c.t_un, 4) +
+                       '</td><td class="cpc-num cpc-esp">' + numeroCPC(c.v_un, 4) + '</td><td class="cpc-num cpc-esp">' + numeroCPC(c.f_un, 4) + '</td></tr>';
+            };
+            var bloco = function(lista, rotTotal) {
+                var h = lista.map(linhaItem).join('');
+                var T = lista.reduce(function(a, c) { return [a[0] + c.t, a[1] + c.v]; }, [0, 0]);
+                if (lista.length) h += '<tr class="cpc-total"><td colspan="4">' + rotTotal + '</td><td class="cpc-num">' + numeroCPC(T[0], 2) + '</td><td></td><td></td><td></td><td class="cpc-num">' +
+                                       numeroCPC(D.P ? T[0] / D.P : null, 4) + '</td><td class="cpc-num">' + numeroCPC(D.P ? T[1] / D.P : null, 4) + '</td><td class="cpc-num">' +
+                                       numeroCPC(D.P ? (T[0] - T[1]) / D.P : null, 4) + '</td></tr>';
+                return h;
+            };
+            var cons = D.itens.filter(function(c) { return !c.gerado; }), ger = D.itens.filter(function(c) { return c.gerado; });
+            var html = '<div class="cpc-modal-caixa"><button type="button" class="cpc-modal-fechar" title="Fechar" onclick="this.closest(\'.cpc-modal\').remove()">&times;</button>' +
+                       '<div class="cpc-titulo">' + escapeHtml(titulo) + '</div>' +
+                       '<div style="font-size:12px;color:#555;margin:4px 0;">Produção do equipamento: <b>' + numeroCPC(D.P, 2) + '</b></div>' +
+                       '<div style="margin:6px 0 4px;"><button type="button" class="botao-opcao" onclick="exportarConsumosCPC(\'' + uid + '\', ' + idx + ', ' + j + ', this, \'' + lado + '\')">Exportar Excel</button></div>' +
+                       '<h3>Itens consumidos</h3><div class="cpc-rolagem"><table class="cpc-tabela"><thead>' + cab + '</thead><tbody>' +
+                       (cons.length ? bloco(cons, 'Total consumido') : '<tr><td colspan="11" style="color:#777">Sem consumo.</td></tr>') + '</tbody></table></div>';
+            if (ger.length) html += '<h3>Itens gerados (subprodutos / desvios: consumo negativo)</h3><div class="cpc-rolagem"><table class="cpc-tabela"><thead>' + cab + '</thead><tbody>' +
+                                    bloco(ger, 'Total gerado (crédito)') + '</tbody></table></div>';
+            if (D.prod) {
+                // 🌟 27/10/2026: GGF distribuído (por tipo de conta) e o fechamento = custo de produção da tabela
+                var tg = [0, 0];
+                html += '<h3>GGF distribuído no equipamento (ordens com produção)</h3><div class="cpc-rolagem"><table class="cpc-tabela"><thead><tr><th>Tipo da Conta x CC</th>' +
+                        '<th>GGF total (' + escapeHtml(m) + ')</th><th>Parte variável (' + escapeHtml(m) + ')</th><th>% variável</th><th>Custo total (' + escapeHtml(m) + '/un. produzida)</th>' +
+                        '<th>Variável (' + escapeHtml(m) + '/un. produzida)</th><th>Fixo/Outros (' + escapeHtml(m) + '/un. produzida)</th></tr></thead><tbody>';
+                D.ggf.forEach(function(g) {
+                    tg[0] += g.t; tg[1] += g.v;
+                    html += '<tr><td>' + escapeHtml(g.rot) + '</td><td class="cpc-num">' + numeroCPC(g.t, 2) + '</td><td class="cpc-num">' + numeroCPC(g.v, 2) + '</td><td class="cpc-num">' + numeroCPC(g.t ? g.v / g.t * 100 : null, 2) + '%</td><td class="cpc-num cpc-esp">' +
+                            numeroCPC(g.t_un, 4) + '</td><td class="cpc-num cpc-esp">' + numeroCPC(g.v_un, 4) + '</td><td class="cpc-num cpc-esp">' + numeroCPC(g.f_un, 4) + '</td></tr>';
+                });
+                if (!D.ggf.length) html += '<tr><td colspan="7" style="color:#777">Sem GGF distribuído.</td></tr>';
+                else html += '<tr class="cpc-total"><td>Total GGF</td><td class="cpc-num">' + numeroCPC(tg[0], 2) + '</td><td class="cpc-num">' + numeroCPC(tg[1], 2) + '</td><td class="cpc-num">' + numeroCPC(tg[0] ? tg[1] / tg[0] * 100 : null, 2) + '%</td><td class="cpc-num">' +
+                             numeroCPC(D.P ? tg[0] / D.P : null, 4) + '</td><td class="cpc-num">' + numeroCPC(D.P ? tg[1] / D.P : null, 4) + '</td><td class="cpc-num">' + numeroCPC(D.P ? (tg[0] - tg[1]) / D.P : null, 4) + '</td></tr>';
+                html += '</tbody></table></div>';
+                var ti = D.itens.reduce(function(a, c) { return [a[0] + c.t, a[1] + c.v]; }, [0, 0]);
+                var CT = ti[0] + tg[0], CV = ti[1] + tg[1];
+                html += '<h3>Custo de produção do equipamento</h3><div class="cpc-rolagem"><table class="cpc-tabela"><thead><tr><th></th><th>Total (' + escapeHtml(m) + ')</th><th>Variável (' + escapeHtml(m) +
+                        ')</th><th>Fixo/Outros (' + escapeHtml(m) + ')</th><th>Custo total (' + escapeHtml(m) + '/un. produzida)</th><th>Variável (' + escapeHtml(m) + '/un. produzida)</th><th>Fixo/Outros (' + escapeHtml(m) + '/un. produzida)</th></tr></thead><tbody>' +
+                        '<tr class="cpc-total"><td>Itens consumidos + gerados + GGF distribuído</td><td class="cpc-num">' + numeroCPC(CT, 2) + '</td><td class="cpc-num">' + numeroCPC(CV, 2) +
+                        '</td><td class="cpc-num">' + numeroCPC(CT - CV, 2) + '</td><td class="cpc-num">' + numeroCPC(D.P ? CT / D.P : null, 4) + '</td><td class="cpc-num">' + numeroCPC(D.P ? CV / D.P : null, 4) +
+                        '</td><td class="cpc-num">' + numeroCPC(D.P ? (CT - CV) / D.P : null, 4) + '</td></tr></tbody></table></div>';
+                if (Math.abs(CT - (x.t || 0)) > 0.01) html += '<div class="cpc-legenda" style="color:#a94442;">A soma (' + numeroCPC(CT, 2) + ') não fecha com o custo de produção da tabela (' + numeroCPC(x.t, 2) + ').</div>';
+                html += '<div class="cpc-legenda">Valor contábil: itens consumidos nas linhas com produção deste equipamento para o(s) item(ns) escolhido(s) (valor material + valor GGF do item) e GGF distribuído ' +
+                        'das ordens com produção (parte variável pelo tipo da Conta x CC: V = %, F = 100 − %, O = 0). Consumo específico = qtde ÷ produção do equipamento. A soma é o custo de produção mostrado na tabela.</div></div>';
+            } else {
+                html += '<div class="cpc-legenda">Valor contábil das linhas da Produção Mensal deste equipamento (todas as ordens com produção). Consumo específico = qtde ÷ produção do equipamento; ' +
+                        'custo unitário do item = custo ÷ qtde do item (total, variável e fixo/outros); custo por un. produzida = custo ÷ produção do equipamento (o custo do produto gerado no equipamento). O GGF distribuído no equipamento não entra aqui (só o que foi consumido). Em amarelo, o(s) item(ns) escolhido(s) na ação.</div></div>';
+            }
+            var fundo = document.createElement('div');
+            fundo.className = 'cpc-modal';
+            fundo.innerHTML = html;
+            fundo.addEventListener('click', function(ev) { if (ev.target === fundo) fundo.remove(); });
+            document.body.appendChild(fundo);
+        }
+        function exportarConsumosCPC(uid, idx, j, botao, lado) {
+            var d = _dadosCPC[uid];
+            if (!d) return;
+            var D = dadosConsumosCPC(d, idx, j, lado || 'c'), x = D.x, m = (d.moeda || 'R$'), vz = function(v) { return v === null || v === undefined ? '' : v; };
+            var linhas = [[x.eq + (x.nome ? ' — ' + x.nome : '') + ' · produz ' + D.produz],
+                          [(idx < 0 ? 'Período ' + (d.periodo || '') : D.r.mes) + ' · Produção do equipamento: ' + D.P], [],
+                          ['Tipo', 'Item', 'Descrição', 'Unidade', 'Item escolhido', 'Qtde', 'Consumo específico', 'Custo total (' + m + ')',
+                           'Custo unitário total do item (' + m + '/un. do item)', 'Custo unitário variável do item (' + m + '/un. do item)',
+                           'Custo unitário fixo/outros do item (' + m + '/un. do item)',
+                           'Custo total (' + m + '/un. produzida)', 'Variável (' + m + '/un. produzida)', 'Fixo/Outros (' + m + '/un. produzida)']];
+            [false, true].forEach(function(gerado) {
+                var lista = D.itens.filter(function(c) { return c.gerado === gerado; });
+                if (!lista.length) return;
+                var T = [0, 0];
+                lista.forEach(function(c) {
+                    T[0] += c.t; T[1] += c.v;
+                    linhas.push([c.gerado ? 'Gerado' : 'Consumido', c.cod, String(c.desc || '').replace(/[\r\n]+/g, ' '), c.un, c.escolhido ? 'Sim' : '', c.q, vz(c.esp), c.t,
+                                 vz(c.unit), vz(c.unit_v), vz(c.unit_f), vz(c.t_un), vz(c.v_un), vz(c.f_un)]);
+                });
+                linhas.push([gerado ? 'Total gerado (crédito)' : 'Total consumido', '', '', '', '', '', '', T[0], '', '', '',
+                             D.P ? T[0] / D.P : '', D.P ? T[1] / D.P : '', D.P ? (T[0] - T[1]) / D.P : '']);
+            });
+            if (D.prod) {        // 🌟 GGF distribuído e o custo de produção do equipamento
+                var tg = [0, 0];
+                D.ggf.forEach(function(g) {
+                    tg[0] += g.t; tg[1] += g.v;
+                    linhas.push(['GGF distribuído', g.rot, '', '', '', '', '', g.t, '', '', '', vz(g.t_un), vz(g.v_un), vz(g.f_un)]);
+                });
+                var ti = D.itens.reduce(function(a, c) { return [a[0] + c.t, a[1] + c.v]; }, [0, 0]);
+                var CT = ti[0] + tg[0], CV = ti[1] + tg[1];
+                linhas.push(['Custo de produção', 'Itens + gerados + GGF', '', '', '', D.P, '', CT, '', '', '', D.P ? CT / D.P : '', D.P ? CV / D.P : '', D.P ? (CT - CV) / D.P : '']);
+            }
+            exportarPlanilhaFPM(botao, [D.prod ? 'custo_producao' : 'consumos', x.eq, D.prod ? (d.itens || []).map(function(i) { return i.codigo; }).join('_') : x.item, idx < 0 ? 'periodo' : D.r.mes], [{ nome: 'Consumos', linhas: linhas,
+                                larguras: [12, 14, 40, 8, 10, 14, 14, 16, 18, 18, 18, 18, 18, 18],
+                                formatos: ['@', '@', '@', '@', '@', '#,##0.00', '#,##0.000000', '#,##0.00', '#,##0.0000', '#,##0.0000', '#,##0.0000', '#,##0.0000', '#,##0.0000', '#,##0.0000'] }]);
+        }
+        document.addEventListener('keydown', function(ev) {
+            if (ev.key !== 'Escape') return;
+            var abertos = document.querySelectorAll('.cpc-modal');
+            if (abertos.length) abertos[abertos.length - 1].remove();
+        });
+        function linhasExcelEquipCPC(d, r) {
+            var L = linhasEquipCPC(d, r), un = function(x, q) { return q ? x / q : ''; }, saida = [];
+            var m = (d.moeda || 'R$'), u = d.unidade || 'un';
+            saida.push(['Mês', 'Lado', 'Equipamento', 'Nome do equipamento', 'Item que produz (consumo)', 'Produção do equipamento (consumo)', 'Consumo específico (consumo)',
+                        'Qtde (' + u + ')', '% da qtde', 'Custo total (' + m + ')', 'Custo total (' + m + '/' + u + ')', 'Variável (' + m + '/' + u + ')', 'Fixo/Outros (' + m + '/' + u + ')']);
+            L.producao.forEach(function(x) { saida.push([r.mes, 'Produção', x.eq, x.nome, '', '', '', x.q, x.pct === null ? '' : x.pct, x.t, un(x.t, x.q), un(x.v, x.q), un(x.t - x.v, x.q)]); });
+            L.consumo.forEach(function(x) { saida.push([r.mes, 'Consumo', x.eq, x.nome, x.item + (x.item_desc ? ' — ' + x.item_desc : ''), x.prod === null ? '' : x.prod, x.esp === null ? '' : x.esp,
+                                                        x.q, x.pct === null ? '' : x.pct, x.t, un(x.t, x.q), un(x.v, x.q), un(x.t - x.v, x.q)]); });
+            return saida;
+        }
+        var FORMATOS_EQUIP_CPC = ['@', '@', '@', '@', '@', '#,##0.00', '#,##0.0000', '#,##0.00', '#,##0.0', '#,##0.00', '#,##0.0000', '#,##0.0000', '#,##0.0000'];
+        var LARGURAS_EQUIP_CPC = [10, 10, 14, 30, 34, 18, 16, 14, 10, 16, 16, 16, 16];
+        function exportarEquipCPC(uid, idx, botao) {
+            var d = _dadosCPC[uid];
+            if (!d) return;
+            var r = idx < 0 ? d.total : d.meses[idx];
+            var linhas = [[(d.titulo || '') + ' — ' + (idx < 0 ? 'Período ' + (d.periodo || '') : r.mes)], []].concat(linhasExcelEquipCPC(d, r));
+            exportarPlanilhaFPM(botao, ['custo_producao_x_consumo_equipamentos', idx < 0 ? 'periodo' : r.mes], [{ nome: 'Equipamentos', linhas: linhas,
+                                larguras: LARGURAS_EQUIP_CPC, formatos: FORMATOS_EQUIP_CPC }]);
+        }
+
+        function exportarCustoProducaoConsumo(uid, botao) {
+            var d = _dadosCPC[uid];
+            if (!d) return;
+            var cab = [];
+            ['Produção', 'Consumo'].forEach(function(lado) { COLUNAS_CPC.forEach(function(c) { cab.push(lado + ' — ' + rotuloColunaCPC(d, c)); }); });
+            var linhas = [[d.titulo || 'Custo Produção x Custo Consumo'],
+                          ['Itens: ' + (d.itens || []).map(function(i) { return i.codigo + (i.descricao ? ' — ' + i.descricao : ''); }).join('; ')],
+                          ['Período: ' + (d.periodo || '')], [], ['Mês'].concat(cab)];
+            var linha = function(r) {
+                var l = [r.mes];
+                ['producao', 'consumo'].forEach(function(lado) { COLUNAS_CPC.forEach(function(c) { var v = r[lado] ? r[lado][c[0]] : null; l.push(v === null || v === undefined ? '' : v); }); });
+                return l;
+            };
+            (d.meses || []).forEach(function(r) { linhas.push(linha(r)); });
+            if (d.total) linhas.push(linha(d.total));
+            linhas.push([]);
+            linhas.push(['Valor contábil da Produção Mensal. Por unidade = médias ponderadas pelas quantidades. Fixo/Outros = total − variável.']);
+            var formatos = ['@'];
+            ['p', 'c'].forEach(function() { COLUNAS_CPC.forEach(function(c) { formatos.push(c[2] ? '#,##0.0000' : '#,##0.00'); }); });
+            // 🌟 27/10/2026: segunda aba com os equipamentos que produziram e que consumiram, mês a mês e no período
+            var eq = [];
+            (d.meses || []).concat(d.total ? [d.total] : []).forEach(function(r, k) {
+                var ls = linhasExcelEquipCPC(d, r);
+                eq = eq.concat(k === 0 ? ls : ls.slice(1));
+            });
+            exportarPlanilhaFPM(botao, ['custo_producao_x_consumo', (d.itens || []).map(function(i) { return i.codigo; }).join('_'), d.periodo || ''],
+                                [{ nome: 'Produção x Consumo', linhas: linhas, larguras: [10].concat(cab.map(function() { return 20; })), formatos: formatos },
+                                 { nome: 'Por equipamento', linhas: eq, larguras: LARGURAS_EQUIP_CPC, formatos: FORMATOS_EQUIP_CPC }]);
+        }
+
         function montarFluxoProducaoMensal(d) {
             if (d && d.tipo_fluxo === 'analise_resultados') return montarAnaliseResultadosAR(d);     // 🌟 18/10/2026
             if (d && d.tipo_fluxo === 'sensibilidade') return montarSensibilidadeSEN(d);     // 🌟 18/10/2026
@@ -3645,9 +4070,13 @@
                 '<span class="fpm-dica-circulos">' + escapeHtml(modoSub ? ROTULO_FSP_DICA : ROTULO_FPM_DICA_CIRCULOS) + (d.rota_real ? ' ' + escapeHtml(ROTULO_FPM_DICA_CIRCULOS_MV) : '') + '<br>' + escapeHtml(ROTULO_FPM_DICA_MOVER) + '</span>' +
                 '<span class="fpm-botoes"><span class="fpm-botoes-linha">' + htmlQtdEquipFPM(uid) +
                 '<button type="button" class="botao-opcao fpm-btn-outros" data-uid="' + uid + '" onclick="alternarListaFPM(\'' + uid + '\')">' + escapeHtml(textoBotaoListaFPM(d)) + '</button></span>' +
-                '<span class="fpm-botoes-linha"><button type="button" class="botao-opcao" onclick="reorganizarFPM(\'' + uid + '\')">' + escapeHtml(ROTULO_FPM_REORGANIZAR) + '</button>' +
+                // 🌟 25/10/2026: uma linha só (fonte menor): Reorganizar, Esconder valores, Tela cheia, Perguntar ao Agente IA,
+                // Exportar Dados, Exportar Gráfico
+                '<span class="fpm-botoes-linha fpm-botoes-compactos"><button type="button" class="botao-opcao" onclick="reorganizarFPM(\'' + uid + '\')">' + escapeHtml(ROTULO_FPM_REORGANIZAR) + '</button>' +
                 '<button type="button" class="botao-opcao fpm-btn-rotulos" data-uid="' + uid + '" onclick="alternarRotulosFPM(\'' + uid + '\')">' + escapeHtml(textoBotaoRotulosFPM(d)) + '</button>' +
                 '<button type="button" class="botao-opcao" onclick="abrirTelaCheiaFPM(\'' + uid + '\')">' + escapeHtml(ROTULO_FPM_TELA_CHEIA) + '</button>' +
+                (!modoSub ? '<button type="button" class="botao-opcao" title="' + escapeAttr(ROTULO_FPM_PERG_DICA) + '" onclick="abrirPerguntaFPM(\'' + uid + '\')">' + escapeHtml(ROTULO_FPM_PERG_BOTAO) + '</button>' +
+                    '<button type="button" class="botao-opcao" title="' + escapeAttr(ROTULO_FPM_DD_EXPORTAR_DICA) + '" onclick="exportarDadosFPM(\'' + uid + '\', this)">' + escapeHtml(ROTULO_FPM_DD_EXPORTAR) + '</button>' : '') +
                 '<button type="button" class="botao-opcao fpm-exportar" onclick="exportarFluxoFPM(\'' + uid + '\', this)">' + escapeHtml(ROTULO_GC_EXPORTAR) + '</button></span>' +
                 (modoSub ? '<span class="fpm-botoes-linha"><button type="button" class="botao-opcao" onclick="abrirBalancoFSP(\'' + uid + '\')">' + escapeHtml(ROTULO_FSP_BOTAO_BALANCO) + '</button>' +
                     '<button type="button" class="botao-opcao" onclick="exportarFSP(this, \'' + uid + '\')">' + escapeHtml(ROTULO_FSP_EXPORTAR_BALANCO) + '</button></span>' : '') +
@@ -4184,6 +4613,84 @@
             return html;
         }
 
+        // 🌟 23/10/2026: "Próxima restrição: Var: #1; #137; Rest: ..." -- passar o mouse mostra a DESCRIÇÃO da variável
+        // (produto, mercado e fluxo de produção). O Otimizar grava 'Var: Var #N' (N = posição da variável no modelo).
+        function numeroVarAR(c) { var m = /^Var:?\s*(?:Var\s*)?#\s*(\d+)\s*$/.exec(c || ''); return m ? m[1] : null; }
+        function linhasDicaVarAR(i) {
+            var L = [];
+            if (i && i.tipo === 'variavel') {
+                if (i.produto) L.push([ROTULO_AR_VAR_PRODUTO, i.produto]);
+                if (i.mercado) L.push([ROTULO_AR_VAR_MERCADO, i.mercado]);
+                if (i.fluxo) L.push([ROTULO_AR_VAR_FLUXO, i.fluxo]);
+            } else if (i && i.tipo === 'restricao') {
+                L.push([ROTULO_AR_VAR_REST, i.restricao]);
+                if (i.lado) L.push([ROTULO_AR_VAR_LADO, i.lado]);
+            }
+            return L;
+        }
+        function dicaVarAR(d, c) {
+            var i = (d.variaveis || {})[c], L = linhasDicaVarAR(i);
+            if (!L.length) L.push([ROTULO_AR_VAR_REST, c]);
+            return JSON.stringify(L);
+        }
+        function spanVarAR(d, c, rotulo) {
+            return '<span class="ar-var" data-ar-var="' + escapeAttr(dicaVarAR(d, c)) + '">' + escapeHtml(rotulo) + '</span>';
+        }
+        function concorrentesAR(d, lista, prefixo) {
+            if (!lista || !lista.length) return '';
+            var jaVar = false;
+            var itens = lista.map(function(c) {
+                var nv = numeroVarAR(c);
+                if (nv === null) return spanVarAR(d, c, c);
+                var t = jaVar ? '' : 'Var: ';
+                jaVar = true;
+                return escapeHtml(t) + spanVarAR(d, c, '#' + nv);
+            });
+            return '<div class="fpm-bs-tag">' + (prefixo ? escapeHtml(prefixo) + ' · ' : '') + escapeHtml(ROTULO_AR_CONCORRE + ': ') + itens.join('; ') + '</div>';
+        }
+        // texto para a IA: 'Var: Var #137' -> 'Var #137' (a IA escreve assim e o comentário ganha a dica)
+        function concorrentesIAAR(lista) {
+            return (lista || []).map(function(c) { var nv = numeroVarAR(c); return nv === null ? c : 'Var #' + nv; });
+        }
+        // no comentário da IA (HTML já montado): 'Var #1', 'Var: #1; #137', 'Var #1, #137 e #111' -> cada número com a dica
+        function linkVarIAAR(d, html) {
+            var info = d.variaveis_numero || {};
+            var sp = function(n) {
+                var L = linhasDicaVarAR(info[n]);
+                if (!L.length) return '#' + n;
+                return '<span class="ar-var" data-ar-var="' + escapeAttr(JSON.stringify(L)) + '">#' + n + '</span>';
+            };
+            return html.replace(/Var(?::\s*Var)?:?\s*#\s*(\d+)((?:\s*(?:[,;]|\be\b)\s*(?:Var\s*)?#\s*\d+)*)/g, function(todo, n1, resto) {
+                return 'Var ' + sp(n1) + resto.replace(/#\s*(\d+)/g, function(_x, n) { return sp(n); });
+            });
+        }
+        (function() {
+            var pop = null;
+            function mostrar(alvo, ev) {
+                if (!pop) { pop = document.createElement('div'); pop.id = 'ar-var-pop'; document.body.appendChild(pop); }
+                var linhas = [];
+                try { linhas = JSON.parse(alvo.getAttribute('data-ar-var') || '[]'); } catch (e) { linhas = []; }
+                pop.innerHTML = '<div class="ar-var-pop-tit">' + escapeHtml(ROTULO_AR_VAR_TITULO) + '</div>' + linhas.map(function(p) {
+                    return '<div class="ar-var-pop-lin"><b>' + escapeHtml(p[0]) + ':</b> ' + escapeHtml(p[1] || '') + '</div>';
+                }).join('');
+                pop.style.display = 'block';
+                posicionar(ev);
+            }
+            function posicionar(ev) {
+                if (!pop || pop.style.display !== 'block') return;
+                var x = ev.clientX + 14, y = ev.clientY + 16, w = pop.offsetWidth, h = pop.offsetHeight;
+                if (x + w > window.innerWidth - 8) x = Math.max(8, ev.clientX - w - 14);
+                if (y + h > window.innerHeight - 8) y = Math.max(8, ev.clientY - h - 12);
+                pop.style.left = x + 'px'; pop.style.top = y + 'px';
+            }
+            document.addEventListener('mouseover', function(ev) {
+                var alvo = ev.target && ev.target.closest ? ev.target.closest('[data-ar-var]') : null;
+                if (alvo) mostrar(alvo, ev); else if (pop) pop.style.display = 'none';
+            });
+            document.addEventListener('mousemove', posicionar);
+            document.addEventListener('scroll', function() { if (pop) pop.style.display = 'none'; }, true);
+        })();
+
         function tabelaAR(cols, linhas) {
             return '<div class="fpm-bs-rolagem"><table class="fpm-tabela fpm-bs-tab"><thead><tr>' + cols.map(function(c, i) {
                 return '<th' + (c[1] ? ' class="num"' : '') + '>' + escapeHtml(c[0]) + '</th>';
@@ -4203,7 +4710,7 @@
             return tabelaAR([[ROTULO_AR_COL_TIPO], [ROTULO_AR_COL_RESTRICAO], [ROTULO_AR_COL_LIMITE], [ROTULO_AR_COL_O_QUE], [ROTULO_AR_COL_PERIODOS, 1],
                              [ROTULO_AR_COL_SOMBRA, 1], [ROTULO_AR_COL_G1 + '%', 1], [ROTULO_AR_COL_GANHO, 1]],
                 lista.map(function(a) {
-                    return [escapeHtml(a.tipo), escapeHtml(a.nome) + (a.concorrentes && a.concorrentes.length ? '<div class="fpm-bs-tag">' + escapeHtml(ROTULO_AR_CONCORRE + ': ' + a.concorrentes.join('; ')) + '</div>' : ''),
+                    return [escapeHtml(a.tipo), escapeHtml(a.nome) + concorrentesAR(d, a.concorrentes),
                             escapeHtml(a.lado === 'max' ? ROTULO_AR_MAXIMO : ROTULO_AR_MINIMO) + (a.gargalo ? '<div class="fpm-bs-tag">' + escapeHtml(a.gargalo) + '</div>' : ''),
                             escapeHtml(a.o_que_fazer || a.acao), escapeHtml(String(a.periodos)),
                             escapeHtml(a.exato ? '(' + ROTULO_AR_EXATO + ')' : (d.moeda || '') + numFPM(a.sombra_media, 2) + '/' + (a.unidade || ROTULO_AR_UN)),
@@ -4217,11 +4724,12 @@
             if (!lista.length) return '';
             var max = Math.max.apply(null, lista.map(function(x) { return Math.abs(x.v); })) || 1;
             var temNeg = lista.some(function(x) { return x.v < 0; });
-            var L = 1100, rotL = 440, valL = 130, h = 20, barL = L - rotL - valL - 10, zero = rotL + (temNeg ? barL / 2 : 0), esc = (temNeg ? barL / 2 : barL) / max;
+            var maiorTxt = Math.max.apply(null, lista.map(function(x) { return String(x.txt || fmt(x.v)).length; }));
+            var L = 1100, rotL = 360, valL = Math.min(420, Math.max(130, Math.ceil(maiorTxt * 6.4) + 12)), h = 20, barL = L - rotL - valL - 10, zero = rotL + (temNeg ? barL / 2 : 0), esc = (temNeg ? barL / 2 : barL) / max;
             var s = '<svg viewBox="0 0 ' + L + ' ' + (lista.length * (h + 6) + 6) + '" width="100%" style="max-width: ' + L + 'px; display: block;" font-family="Arial, sans-serif">';
             lista.forEach(function(x, i) {
                 var y = 6 + i * (h + 6), w = Math.abs(x.v) * esc, x0 = x.v >= 0 ? zero : zero - w;
-                s += '<text x="' + (rotL - 6) + '" y="' + (y + 14) + '" font-size="11" text-anchor="end" fill="#2c3e50">' + escapeHtml(cortarFPM(x.rot, 62)) + '<title>' + escapeHtml(x.rot) + '</title></text>' +
+                s += '<text x="' + (rotL - 6) + '" y="' + (y + 14) + '" font-size="11" text-anchor="end" fill="#2c3e50">' + escapeHtml(cortarFPM(x.rot, 56)) + '<title>' + escapeHtml(x.rot) + '</title></text>' +
                     '<rect x="' + x0 + '" y="' + y + '" width="' + Math.max(w, 1) + '" height="' + h + '" rx="3" fill="' + (x.v < 0 ? '#c0392b' : (x.cor || cor)) + '"/>' +
                     '<text x="' + (L - valL + 4) + '" y="' + (y + 14) + '" font-size="11" fill="#2c3e50">' + escapeHtml(x.txt || fmt(x.v)) + '</text>';
             });
@@ -4268,10 +4776,18 @@
                     barrasAR((r.mct_mensal || []).map(function(x) { return { rot: x[0], v: x[1] }; }), function(v) { return m + numFPM(v, 0); }, '#16a085');
                 var dif = (r.soma_margem_pm || 0) - (r.mct || 0);
                 html += nota(ROTULO_AR_CONFERE.replace('%1', m + numFPM(r.soma_margem_pm || 0, 0)).replace('%2', m + numFPM(dif, 0)));
+                // 🌟 23/10/2026: quanto da diferença vem da produção antecipada (o Consolidar soma o ajuste ao CUSTO, então a
+                // MCT consolidada fica menor nesse valor) e o que sobra (arredondamentos)
+                var aj = r.ajuste_antecipacao || 0;
+                if (Math.abs(aj) >= 0.5) html += nota(ROTULO_AR_CONFERE_ANT.replace('{1}', m + numFPM(aj, 0)).replace('{2}', m + numFPM(dif - aj, 0)));
+                else if (Math.abs(dif) >= 0.5) html += nota(ROTULO_AR_CONFERE_ARRED);
             } else if (aba === 'produtos') {
                 var pm = d.produtos_mercados || [], pr = d.produtos || [];
                 html += nota(ROTULO_AR_NOTA_PRODUTOS);
-                html += '<div class="fpm-custo-secao">' + escapeHtml(ROTULO_AR_TOP_PM) + '</div>' + barrasAR(pm.slice(0, 15).map(function(x) { return { rot: x.nome, v: x.margem }; }), function(v) { return m + numFPM(v, 0); }, '#2e86de');
+                // 🌟 23/10/2026: com o percentual de cada produto/mercado na margem de contribuição total
+                html += '<div class="fpm-custo-secao">' + escapeHtml(ROTULO_AR_TOP_PM) + '</div>' + barrasAR(pm.slice(0, 15).map(function(x) {
+                    return { rot: x.nome, v: x.margem, txt: m + numFPM(x.margem, 0) + (r.mct ? ' (' + numFPM(100 * x.margem / r.mct, 1) + '% ' + ROTULO_AR_DA_MCT + ')' : '') };
+                }), function(v) { return m + numFPM(v, 0); }, '#2e86de');
                 var cmh = pm.filter(function(x) { return x.cmh !== null && x.vendas > 0; }).slice().sort(function(a, b) { return b.cmh - a.cmh; });
                 if (cmh.length) html += '<div class="fpm-custo-secao">' + escapeHtml(ROTULO_AR_TOP_CMH) + '</div>' + barrasAR(cmh.slice(0, 15).map(function(x) { return { rot: x.nome, v: x.cmh }; }), function(v) { return m + numFPM(v, 0) + '/h'; }, '#8e44ad');
                 var colsV = [[ROTULO_AR_COL_NOME], [ROTULO_AR_COL_VENDAS, 1], [ROTULO_AR_COL_PRECO, 1], [ROTULO_AR_COL_CV, 1], [ROTULO_AR_COL_MARGEM_UN, 1], [ROTULO_AR_COL_MARGEM, 1], [ROTULO_AR_COL_CMH, 1], [ROTULO_AR_COL_NO_MAX, 1], [ROTULO_AR_COL_NO_MIN, 1]];
@@ -4303,7 +4819,8 @@
                     barrasAR(garg.slice(0, 15).map(function(x) { return { rot: rotG(x), v: x.sombra_hora, cor: corG(x), txt: m + numFPM(x.sombra_hora, 0) + '/h' + (x.ganho_1pct > 0 ? ' · ' + ROTULO_AR_SOMBRA_E_1PCT + '%: ' + m + numFPM(x.ganho_1pct, 0) : '') }; }), function(v) { return m + numFPM(v, 0) + '/h'; }, '#e67e22') +
                     nota(ROTULO_AR_NOTA_G1);
                 html += '<div class="fpm-custo-secao">' + escapeHtml(ROTULO_AR_OCUPACAO) + '</div>' +
-                    barrasAR(eq.filter(function(x) { return x.ocupacao !== null; }).slice().sort(function(a, b) { return b.ocupacao - a.ocupacao; }).slice(0, 20)
+                    nota(ROTULO_AR_NOTA_OCUP_CONJ) +
+                    barrasAR(eq.filter(function(x) { return x.ocupacao !== null && !(x.conjuntos || []).length; }).slice().sort(function(a, b) { return b.ocupacao - a.ocupacao; }).slice(0, 20)
                         .map(function(x) { return { rot: rotG(x), v: x.ocupacao, cor: x.e_gargalo ? '#2e86de' : '#95a5a6' }; }), function(v) { return numFPM(v, 1) + '%'; }, '#2e86de') +
                     nota(ROTULO_AR_LEG_GARGALO);
                 // Equipamentos/Conjunto: limite de produção e, dentro, a ocupação de cada equipamento
@@ -4317,17 +4834,17 @@
                             return '<div style="white-space: nowrap;">' + escapeHtml(e.nome) + ': <b>' + escapeHtml(e.ocupacao === null || e.ocupacao === undefined ? '—' : numFPM(e.ocupacao, 1) + '%') + '</b> ' +
                                 '<span class="fpm-bs-tag" style="display: inline;">' + escapeHtml(e.e_gargalo ? ROTULO_AR_E_GARGALO + (e.p_gargalo ? ' · ' + m + numFPM(e.sombra_hora, 0) + '/h' : '') : ROTULO_AR_NAO_GARGALO) + '</span></div>';
                         }).join('');
-                        return [escapeHtml(c.nome) + (c.concorrentes && c.concorrentes.length ? '<div class="fpm-bs-tag">' + escapeHtml(ROTULO_AR_CONCORRE + ': ' + c.concorrentes.join('; ')) + '</div>' : ''),
+                        return [escapeHtml(c.nome) + concorrentesAR(d, c.concorrentes),
                                 escapeHtml(numAR(c.producao, 0)), escapeHtml(numAR(c.maximo, 0)), escapeHtml(c.utilizacao === null || c.utilizacao === undefined ? '—' : numFPM(c.utilizacao, 1) + '%'),
                                 escapeHtml(c.p_max + '/' + c.periodos), escapeHtml(c.p_max ? m + numFPM(c.s_max_medio, 2) + '/' + ROTULO_AR_UN : '—'), g1AR(d, c.g1_max),
                                 ganhoTextoAR(d, { ganho: c.ganho_max, sem_limite: c.ganho_max_sem_limite }), escapeHtml(c.p_min + '/' + c.periodos), membros || '—'];
                     }));
                 html += secaoOcupMinAR(d);
-                html += '<div class="fpm-custo-secao">' + escapeHtml(ROTULO_AR_COL_EQUIP) + '</div>' +
+                html += '<div class="fpm-custo-secao">' + escapeHtml(ROTULO_AR_COL_EQUIP) + '</div>' + nota(ROTULO_AR_VAR_DICA) +
                     tabelaAR([[ROTULO_AR_COL_EQUIP], [ROTULO_AR_COL_GARGALO_CAD], [ROTULO_AR_COL_HORAS_DISP, 1], [ROTULO_AR_COL_HORAS_USO, 1], [ROTULO_AR_COL_OCUP, 1], [ROTULO_AR_COL_PER_100, 1],
                                   [ROTULO_AR_COL_SOMBRA_H, 1], [ROTULO_AR_COL_G1_PROD + '%', 1], [ROTULO_AR_COL_GANHO, 1], [ROTULO_AR_COL_MARGEM_PASSA, 1], [ROTULO_AR_COL_MCT_H, 1]],
                     eq.map(function(x) {
-                        return [escapeHtml(x.nome) + (x.gargalo ? '<div class="fpm-bs-tag">' + escapeHtml(x.gargalo + (x.concorrentes.length ? ' · ' + ROTULO_AR_CONCORRE + ': ' + x.concorrentes.join('; ') : '')) + '</div>' : '') +
+                        return [escapeHtml(x.nome) + (x.gargalo ? (x.concorrentes.length ? concorrentesAR(d, x.concorrentes, x.gargalo) : '<div class="fpm-bs-tag">' + escapeHtml(x.gargalo) + '</div>') : concorrentesAR(d, x.concorrentes)) +
                                     ((x.conjuntos || []).length ? '<div class="fpm-bs-tag">' + escapeHtml(ROTULO_AR_COL_CONJUNTO + ': ' + x.conjuntos.join('; ')) + '</div>' : ''),
                                 escapeHtml(x.e_gargalo ? ROTULO_AR_SIM : ROTULO_AR_NAO),
                                 escapeHtml(numAR(x.loading, 0)), escapeHtml(numAR(x.horas, 0)), escapeHtml(x.ocupacao === null ? '—' : numFPM(x.ocupacao, 1) + '%'),
@@ -4338,25 +4855,25 @@
                     })) + mais(eq.length, d.equipamentos_n);
             } else if (aba === 'comerciais' || aba === 'conjuntos') {
                 var listas = aba === 'comerciais' ? [[ROTULO_AR_TAB_LIM_PM, d.limites_pm || []], [ROTULO_AR_TAB_LIM_P, d.limites_p || []]] : [[ROTULO_AR_TAB_LIM_CE, d.limites_ce || []]];
-                html += nota(aba === 'comerciais' ? ROTULO_AR_NOTA_COMERCIAIS : ROTULO_AR_NOTA_CONJUNTOS) + nota(ROTULO_AR_NOTA_G1_COM);
+                html += nota(aba === 'comerciais' ? ROTULO_AR_NOTA_COMERCIAIS : ROTULO_AR_NOTA_CONJUNTOS) + nota(ROTULO_AR_NOTA_G1_COM) + nota(ROTULO_AR_VAR_DICA);
                 listas.forEach(function(par) {
                     html += '<div class="fpm-custo-secao">' + escapeHtml(par[0]) + '</div>';
                     if (!par[1].length) { html += '<div class="fpm-detalhe-vazio">' + escapeHtml(ROTULO_AR_SEM_RESTRICOES) + '</div>'; return; }
                     html += tabelaAR([[ROTULO_AR_COL_NOME], [ROTULO_AR_COL_NO_MAX, 1], [ROTULO_AR_COL_SOMBRA_MAX, 1], [ROTULO_AR_COL_G1_MAX + '%', 1], [ROTULO_AR_COL_GANHO_MAX, 1], [ROTULO_AR_COL_NO_MIN, 1], [ROTULO_AR_COL_SOMBRA_MIN, 1], [ROTULO_AR_COL_G1_MIN + '%', 1], [ROTULO_AR_COL_GANHO_MIN, 1]],
                         par[1].map(function(x) {
-                            return [escapeHtml(x.nome) + (x.concorrentes.length ? '<div class="fpm-bs-tag">' + escapeHtml(ROTULO_AR_CONCORRE + ': ' + x.concorrentes.join('; ')) + '</div>' : ''),
+                            return [escapeHtml(x.nome) + concorrentesAR(d, x.concorrentes),
                                     escapeHtml(x.p_max + '/' + x.periodos), escapeHtml(x.p_max ? m + numFPM(x.s_max_medio, 2) + '/' + ROTULO_AR_UN : '—'), g1AR(d, x.g1_max, x.g1_max_limitado), ganhoTextoAR(d, { ganho: x.ganho_max, sem_limite: x.ganho_max_sem_limite }),
                                     escapeHtml(x.p_min + '/' + x.periodos), escapeHtml(x.p_min ? m + numFPM(x.s_min_medio, 2) + '/' + ROTULO_AR_UN : '—'), g1AR(d, x.g1_min, x.g1_min_limitado), ganhoTextoAR(d, { ganho: x.ganho_min, sem_limite: x.ganho_min_sem_limite })];
                         }));
                 });
             } else if (aba === 'insumos') {
                 var ins = d.insumos || [];
-                html += nota(ROTULO_AR_NOTA_INSUMOS) + nota(ROTULO_AR_NOTA_G1_INS);
+                html += nota(ROTULO_AR_NOTA_INSUMOS) + nota(ROTULO_AR_NOTA_G1_INS) + nota(ROTULO_AR_VAR_DICA);
                 if (!ins.length) html += '<div class="fpm-detalhe-vazio">' + escapeHtml(ROTULO_AR_SEM_RESTRICOES) + '</div>';
                 else html += tabelaAR([[ROTULO_AR_COL_INSUMO], [ROTULO_AR_COL_CONSUMO, 1], [ROTULO_AR_COL_CMIN, 1], [ROTULO_AR_COL_CMAX, 1], [ROTULO_AR_COL_NO_MAX, 1], [ROTULO_AR_COL_SOMBRA_MAX, 1], [ROTULO_AR_COL_G1_MAX + '%', 1], [ROTULO_AR_COL_GANHO_MAX, 1],
                                        [ROTULO_AR_COL_NO_MIN, 1], [ROTULO_AR_COL_SOMBRA_MIN, 1], [ROTULO_AR_COL_G1_MIN + '%', 1], [ROTULO_AR_COL_GANHO_MIN, 1]],
                     ins.map(function(x) {
-                        return [escapeHtml(x.nome) + (x.concorrentes.length ? '<div class="fpm-bs-tag">' + escapeHtml(ROTULO_AR_CONCORRE + ': ' + x.concorrentes.join('; ')) + '</div>' : '') +
+                        return [escapeHtml(x.nome) + concorrentesAR(d, x.concorrentes) +
                                     ((x.minimos_presos || []).length ? '<div class="fpm-bs-tag">' + escapeHtml(ROTULO_AR_PRESO_MIN + ': ' + x.minimos_presos.map(function(q) { return q.periodo + ' (' + ROTULO_AR_MINIMO + ' ' + numFPM(q.minimo, 0) + ')'; }).join(', ')) + '</div>' : '') +
                                     ((x.maximos_atingidos || []).length ? '<div class="fpm-bs-tag">' + escapeHtml(ROTULO_AR_NO_MAXIMO_TAG + ': ' + x.maximos_atingidos.map(function(q) { return q.periodo + ' (' + numFPM(q.maximo, 0) + ')'; }).join(', ')) + '</div>' : ''),
                                 escapeHtml(numAR(x.consumo, 0)), escapeHtml(numAR(x.cmin, 0)), escapeHtml(numAR(x.cmax, 0)), escapeHtml(String(x.p_max)),
@@ -4364,7 +4881,7 @@
                                 escapeHtml(String(x.p_min)), escapeHtml(x.p_min ? m + numFPM(x.s_min_medio, 2) + '/' + ROTULO_AR_UN : '—'), g1AR(d, x.g1_min), ganhoTextoAR(d, { ganho: x.ganho_min, sem_limite: x.ganho_min_sem_limite })];
                     }));
             } else if (aba === 'analisar') {
-                html += nota(ROTULO_AR_NOTA_ANALISAR);
+                html += nota(ROTULO_AR_NOTA_ANALISAR) + nota(ROTULO_AR_VAR_DICA);
                 var top = (d.analisar || []).filter(function(a) { return a.ganho > 0; }).slice(0, 15);
                 if (top.length) html += barrasAR(top.map(function(a) { return { rot: a.tipo + ': ' + a.nome + ' (' + (a.lado === 'max' ? ROTULO_AR_MAXIMO : ROTULO_AR_MINIMO) + ')', v: a.ganho }; }), function(v) { return m + numFPM(v, 0); }, '#e67e22');
                 html += tabelaAnalisarAR(d, d.analisar || []) + mais((d.analisar || []).length, d.analisar_n);
@@ -4384,22 +4901,22 @@
                 '<button type="button" class="botao-opcao" style="margin: 0;" onclick="pedirComentarioIAAR(this, \'' + uid + '\')">' + escapeHtml(ROTULO_AR_IA_BOTAO) + '</button>') +
                 '<div class="ar-abas">' + AR_ABAS.map(function(a) {
                     return '<button type="button" class="botao-opcao' + (a === aba ? ' ar-aba-ativa' : '') + '" onclick="abrirAnaliseAR(\'' + uid + '\', \'' + a + '\')">' + escapeHtml(nomes[a]) + '</button>';
-                }).join('') + '</div>' + (aba === 'ia' ? '<div class="ar-ia-cheia">' + (d._ia ? iaHtmlAR(d._ia) :
+                }).join('') + '</div>' + (aba === 'ia' ? '<div class="ar-ia-cheia">' + (d._ia ? iaHtmlAR(d._ia, d) :
                     '<div class="fpm-detalhe-vazio">' + escapeHtml(ROTULO_AR_IA_VAZIO) + '</div><button type="button" class="botao-opcao" onclick="pedirComentarioIAAR(this, \'' + uid + '\')">' +
                     escapeHtml(ROTULO_AR_IA_BOTAO) + '</button>') + '</div>' : abaAR(d, aba));
             telaFSP(html);
         }
 
-        function iaHtmlAR(texto) {
+        function iaHtmlAR(texto, d) {
             return '<div class="fpm-av-ia"><div class="fpm-custo-secao">' + escapeHtml(ROTULO_FPM_AV_IA) + '</div><div class="fpm-detalhe-sub">' + escapeHtml(ROTULO_FPM_AV_IA_NOTA) + '</div>' +
-                '<div class="fpm-av-ia-texto">' + markdownSimplesFPM(texto) + '</div></div>';
+                '<div class="fpm-av-ia-texto">' + (d ? linkVarIAAR(d, markdownSimplesFPM(texto)) : markdownSimplesFPM(texto)) + '</div></div>';
         }
 
         // Resumo pequeno (JSON) para a IA -- só o principal, para caber no limite da Groq
         // 🌟 19/10/2026: o servidor corta o JSON em 12.000 caracteres (limite de tokens da IA); aqui as listas menos
         // importantes encolhem antes, para o JSON nunca chegar cortado no meio
         function cortarResumoIAAR(o) {
-            var LIM = 11500, ordem = ['o_que_analisar', 'produtos_mercados_mais_margem', 'equipamentos', 'equipamentos_conjunto', 'insumos', 'vendidos_com_margem_negativa'];
+            var LIM = 11500, ordem = ['o_que_analisar', 'produtos_mercados_mais_margem', 'equipamentos', 'equipamentos_conjunto', 'insumos', 'vendidos_com_margem_negativa', 'equipamentos_gargalo_100pct'];
             var tam = function() { return JSON.stringify(o).length; }, guarda = 0;
             while (tam() > LIM && guarda++ < 200) {
                 var maior = null;
@@ -4423,7 +4940,14 @@
                 cenario: d.titulo, periodo: d.periodo, periodos: r.periodos, moeda: (d.moeda || '').trim(),
                 resumo: { receita: $(r.receita), custo_variavel: $(r.custo_variavel), mct: $(r.mct), custo_fixo: $(r.custo_fixo), ebitda: $(r.ebitda) },
                 produtos_mercados_mais_margem: (d.produtos_mercados || []).slice(0, 10).map(function(x) {
-                    return { nome: x.nome, vendas: n(x.vendas) + ' ' + (x.unidade || ''), margem_total: $(x.margem), margem_un: $(x.margem_un, 2), cmh: x.cmh === null ? null : $(x.cmh) + '/h', periodos_no_maximo: x.no_max, periodos_no_minimo: x.no_min, periodos: x.periodos };
+                    // 🌟 23/10/2026: % da MCT e o mínimo DEFINIDO (definido não é o mesmo que preso no mínimo)
+                    return { nome: x.nome, vendas: n(x.vendas) + ' ' + (x.unidade || ''), margem_total: $(x.margem),
+                             percentual_da_mct: r.mct ? n(100 * x.margem / r.mct, 1) + '%' : null, margem_un: $(x.margem_un, 2),
+                             cmh: x.cmh === null ? null : $(x.cmh) + '/h', periodos_no_maximo: x.no_max, periodos_preso_no_minimo: x.no_min, periodos: x.periodos,
+                             venda_minima_definida: x.periodos_com_minimo ? n(x.minimo_definido) + ' ' + (x.unidade || '') + ' (soma de ' + x.periodos_com_minimo + ' período(s))' : 'sem mínimo definido',
+                             leitura_minimo: !x.periodos_com_minimo ? 'Sem venda mínima definida.' :
+                                 (x.no_min ? 'Vendas PRESAS no mínimo em ' + x.no_min + ' período(s): reduzir o mínimo pode aumentar a MCT.' :
+                                  'Tem venda mínima definida, mas as vendas ficaram ACIMA do mínimo em todos os períodos: o mínimo não está limitando (não está preso); reduzi-lo não muda a MCT.') };
                 }),
                 ocupacao_minima_forcada: ((d.minimos_equipamentos || {}).equipamentos || []).slice(0, 8).map(function(x) {
                     return { equipamento: x.nome, faixa_atual: numFPM(x.omin, 0) + '% a ' + numFPM(x.omax, 0) + '%', periodos: x.periodos,
@@ -4439,11 +4963,16 @@
                              equipamentos: (c.membros || []).map(function(e) { return e.nome + ' ' + (e.ocupacao === null ? '—' : n(e.ocupacao, 1) + '%') + (e.e_gargalo ? ' (gargalo)' : ' (não gargalo)'); }) };
                 }),
                 vendidos_com_margem_negativa: (d.vendidos_negativos || []).slice(0, 6).map(function(x) { return { nome: x.nome, vendas: n(x.vendas) + ' ' + (x.unidade || ''), margem_total: $(x.margem) }; }),
-                equipamentos: (d.equipamentos || []).slice(0, 10).map(function(x) {
+                // 🌟 23/10/2026: a lista COMPLETA dos gargalos a 100% (só os nomes) -- a lista detalhada abaixo é parcial
+                equipamentos_gargalo_100pct: (d.equipamentos || []).filter(function(x) { return x.e_gargalo && x.periodos_100 > 0; }).map(function(x) {
+                    return x.nome + ' (' + x.periodos_100 + '/' + x.periodos + ' períodos a 100%)';
+                }),
+                total_equipamentos_gargalo_100pct: (d.equipamentos || []).filter(function(x) { return x.e_gargalo && x.periodos_100 > 0; }).length,
+                equipamentos: (d.equipamentos || []).filter(function(x) { return x.p_gargalo > 0; }).slice(0, 15).map(function(x) {
                     return { nome: x.nome, gargalo_no_cadastro: x.e_gargalo ? 'sim (tem limite de capacidade)' : 'não (sem limite de horas no modelo; ocupação acima de 100% não é problema do modelo)',
                              conjuntos: x.conjuntos || [], ocupacao: x.ocupacao === null ? null : n(x.ocupacao, 1) + '%', periodos_gargalo: x.p_gargalo,
                              ganho_com_produtividade_mais_1pct: x.ganho_1pct > 0 ? $(x.ganho_1pct) + ' (soma dos períodos em que foi gargalo' + (x.horas_1pct ? '; 1% = ' + n(x.horas_1pct, 1) + ' h a mais por período' : '') + ')' : null, periodos: x.periodos, sombra_hora: $(x.sombra_hora) + '/h', ganho_potencial: $(x.ganho_max),
-                             margem_que_passa: $(x.margem_passa), tipo_gargalo: x.gargalo, concorrentes: x.concorrentes };
+                             margem_que_passa: $(x.margem_passa), tipo_gargalo: x.gargalo, proxima_restricao_que_limita: concorrentesIAAR(x.concorrentes) };
                 }),
                 // 🌟 19/10/2026: insumos e limites com a LEITURA já pronta (sentido sem ambiguidade): mínimo ativo = o modelo
                 // consome porque é obrigado -> reduzir o mínimo; máximo ativo = falta insumo -> aumentar o máximo.
@@ -4463,6 +4992,9 @@
                 }),
                 o_que_analisar: (d.analisar || []).slice(0, 15).map(function(a) {
                     return { tipo: a.tipo, restricao: a.nome, limite_ativo: a.lado === 'max' ? 'máximo' : 'mínimo',
+                             gargalo_no_cadastro: a.tipo_cod === 'E' ? (a.e_gargalo === false ? 'não' : 'sim') : undefined,
+                             ocupacao: a.tipo_cod === 'E' && a.ocupacao !== null && a.ocupacao !== undefined ? n(a.ocupacao, 1) + '%' : undefined,
+                             proxima_restricao_que_limita: (a.concorrentes || []).length ? concorrentesIAAR(a.concorrentes) : undefined,
                              o_que_fazer: a.o_que_fazer || (a.lado === 'max' ? 'AUMENTAR o limite máximo' : 'REDUZIR o limite mínimo'),
                              periodos: a.periodos, quais_periodos: a.periodos_lista || [],
                              sombra_media: a.exato ? 'não se aplica: ganho exato, otimização refeita com o mínimo em 0%' : $(a.sombra_media, 2) + '/' + (a.unidade || 'un') + (a.lado === 'max' ? ' a mais no máximo' : ' a menos no mínimo'),
@@ -4490,7 +5022,7 @@
                     if (!t) { alert(ROTULO_FPM_AV_IA_ERRO); return; }
                     d._ia = t;
                     var noChat = document.getElementById(uid + '-ia');
-                    if (noChat) noChat.innerHTML = iaHtmlAR(t);
+                    if (noChat) noChat.innerHTML = iaHtmlAR(t, d);
                     var tela = document.getElementById('fpm-bs-tela');
                     if (tela && tela.style.display === 'block' && tela.querySelector('.ar-abas')) abrirAnaliseAR(uid, 'ia');
                 })
@@ -5362,8 +5894,11 @@
                     '<button type="button" class="botao-opcao fpm-btn-rotulos">' + escapeHtml(ROTULO_FPM_ESCONDER_ROTULOS) + '</button>' +
                     '<button type="button" class="botao-opcao fpm-btn-ajustar">' + escapeHtml(ROTULO_FPM_AJUSTAR) + '</button>' +
                     '<button type="button" class="botao-opcao fpm-btn-bal-sub" style="display: none;">' + escapeHtml(ROTULO_FSP_BOTAO_BALANCO) + '</button>' +
-                    '<span class="fpm-overlay-exp-fechar">' +        // Fechar logo abaixo do Exportar
+                    // 🌟 25/10/2026: no canto direito, 2 x 2: Exportar Gráfico | Exportar Dados / Perguntar ao Agente IA | Fechar
+                    '<span class="fpm-overlay-exp-fechar">' +
                     '<button type="button" class="botao-opcao fpm-btn-exportar">' + escapeHtml(ROTULO_GC_EXPORTAR) + '</button>' +
+                    '<button type="button" class="botao-opcao fpm-btn-dados" title="' + escapeAttr(ROTULO_FPM_DD_EXPORTAR_DICA) + '">' + escapeHtml(ROTULO_FPM_DD_EXPORTAR) + '</button>' +
+                    '<button type="button" class="botao-opcao fpm-btn-perguntar" title="' + escapeAttr(ROTULO_FPM_PERG_DICA) + '">' + escapeHtml(ROTULO_FPM_PERG_BOTAO) + '</button>' +
                     '<button type="button" class="botao-opcao fpm-btn-fechar">' + escapeHtml(ROTULO_FPM_FECHAR) + '</button></span></div>' +
                     '<div class="fpm-overlay-dica">' + escapeHtml(ROTULO_FPM_DICA_ZOOM) + '</div><div class="fpm-overlay-area"></div>' +
                     '<div class="fpm-overlay-detalhe"></div><div class="fpm-lista fpm-overlay-lista"></div>';
@@ -5381,6 +5916,8 @@
                 sobre.querySelector('.fpm-btn-lista').onclick = function() { alternarListaFPM(sobre.getAttribute('data-uid')); };
                 sobre.querySelector('.fpm-btn-exportar').onclick = function() { exportarFluxoFPM(sobre.getAttribute('data-uid'), this); };
                 sobre.querySelector('.fpm-btn-bal-sub').onclick = function() { abrirBalancoFSP(sobre.getAttribute('data-uid')); };
+                sobre.querySelector('.fpm-btn-perguntar').onclick = function() { abrirPerguntaFPM(sobre.getAttribute('data-uid')); };
+                sobre.querySelector('.fpm-btn-dados').onclick = function() { exportarDadosFPM(sobre.getAttribute('data-uid'), this); };
                 document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && sobre.style.display === 'flex') fecharTelaCheiaFPM(); });
                 var area = sobre.querySelector('.fpm-overlay-area');
                 var arrasto = null;
@@ -5409,6 +5946,8 @@
             }
             sobre.setAttribute('data-uid', uid);
             sobre.querySelector('.fpm-btn-bal-sub').style.display = _dadosFPM[uid].tipo_fluxo === 'subprodutos' ? '' : 'none';   // 🌟 17/10/2026
+            ['.fpm-btn-perguntar', '.fpm-btn-dados'].forEach(function(c) { sobre.querySelector(c).style.display = _dadosFPM[uid].tipo_fluxo === 'subprodutos' ? 'none' : ''; });
+            sobre.querySelector('.fpm-overlay-exp-fechar').style.gridTemplateColumns = _dadosFPM[uid].tipo_fluxo === 'subprodutos' ? 'auto' : '';
             // 🌟 CORRIGIDO: garante os botões da tela cheia ativos (se algo os travou antes)
             sobre.querySelectorAll('.fpm-overlay-barra .botao-opcao').forEach(function(b) {
                 b.disabled = false; b.style.opacity = ''; b.style.cursor = '';
@@ -5999,6 +6538,91 @@
             caixa.style.display = 'block';
         }
 
+        // 🌟 NOVO (27/10/2026): no círculo C, o detalhe que justifica o custo de produção do equipamento -- itens consumidos,
+        // itens gerados (crédito), GGF distribuído por tipo da Conta x CC e o fechamento (= custo do equipamento).
+        // Itens de no.cx: [código, qtde (positiva), total, variável, descrição, unidade]; GGF de no.cx.gg: [tipo, total, variável].
+        function dadosDetalheCustoFPM(d, no) {
+            var cx = no.cx || {}, c = no.custo || {}, P = cx.p || c.producao || 0;
+            var item = function(x, gerado) {
+                var q = gerado ? -Math.abs(x[1]) : x[1], t = x[2], v = x[3];
+                return { cod: x[0], desc: String(x[4] || '').replace(/\s+/g, ' ').trim(), un: x[5] || '', q: q, t: t, v: v, gerado: gerado,
+                         esp: P ? q / P : null, unit: q ? t / q : null, unit_v: q ? v / q : null, unit_f: q ? (t - v) / q : null,
+                         t_un: P ? t / P : null, v_un: P ? v / P : null, f_un: P ? (t - v) / P : null };
+            };
+            var cons = (cx.i || []).map(function(x) { return item(x, false); }).sort(function(a, b) { return Math.abs(b.t) - Math.abs(a.t); });
+            var ger = (cx.g || []).map(function(x) { return item(x, true); }).sort(function(a, b) { return Math.abs(b.t) - Math.abs(a.t); });
+            var ggf = (cx.gg || []).map(function(g) { return { rot: g[0], t: g[1], v: g[2] }; });
+            if (!cx.gg && c.ggf && P) ggf = [{ rot: ROTULO_FPM_C_GGF, t: c.ggf.total * P, v: c.ggf.variavel * P }];      // visão sem o detalhe por tipo
+            var soma = function(l) { return l.reduce(function(a, x) { return [a[0] + x.t, a[1] + x.v]; }, [0, 0]); };
+            var tc = soma(cons), tgr = soma(ger), tgg = soma(ggf);
+            return { P: P, cons: cons, ger: ger, ggf: ggf, tc: tc, tgr: tgr, tgg: tgg, CT: tc[0] + tgr[0] + tgg[0], CV: tc[1] + tgr[1] + tgg[1] };
+        }
+        function detalheCustoHtmlFPM(d, no) {
+            var D = dadosDetalheCustoFPM(d, no), m = (d.moeda || '').trim() || 'R$', u = no.unidade || 'un', P = D.P;
+            var n = function(v, c) { if (v === null || v === undefined || !isFinite(v)) return '—'; if (Math.abs(v) < 0.5 * Math.pow(10, -c)) v = 0; return numFPM(v, c); };
+            var por = function(v) { return P ? v / P : null; };
+            var cab = '<tr><th>Item</th><th>Unidade</th><th>Qtde</th><th>Consumo específico (por ' + escapeHtml(u) + ' produzida)</th><th>Custo total (' + escapeHtml(m) + ')</th>' +
+                      '<th>Custo unitário total do item (' + escapeHtml(m) + '/un. do item)</th><th>Custo unitário variável do item (' + escapeHtml(m) + '/un. do item)</th>' +
+                      '<th>Custo unitário fixo/outros do item (' + escapeHtml(m) + '/un. do item)</th><th>Custo total (' + escapeHtml(m + '/' + u) + ')</th>' +
+                      '<th>Variável (' + escapeHtml(m + '/' + u) + ')</th><th>Fixo/Outros (' + escapeHtml(m + '/' + u) + ')</th></tr>';
+            var linha = function(x) {
+                return '<tr><td>' + escapeHtml(x.cod + (x.desc ? ' — ' + x.desc : '')) + '</td><td>' + escapeHtml(x.un) + '</td><td class="num">' + n(x.q, 2) + '</td><td class="num esp">' + n(x.esp, 4) +
+                       '</td><td class="num">' + n(x.t, 2) + '</td><td class="num">' + n(x.unit, 4) + '</td><td class="num">' + n(x.unit_v, 4) + '</td><td class="num">' + n(x.unit_f, 4) +
+                       '</td><td class="num esp">' + n(x.t_un, 4) + '</td><td class="num esp">' + n(x.v_un, 4) + '</td><td class="num esp">' + n(x.f_un, 4) + '</td></tr>';
+            };
+            var total = function(rot, T) {
+                return '<tr class="tot"><td colspan="4">' + escapeHtml(rot) + '</td><td class="num">' + n(T[0], 2) + '</td><td></td><td></td><td></td><td class="num">' + n(por(T[0]), 4) +
+                       '</td><td class="num">' + n(por(T[1]), 4) + '</td><td class="num">' + n(por(T[0] - T[1]), 4) + '</td></tr>';
+            };
+            var html = '<div class="fpm-dc-secao">Itens consumidos</div><div class="fpm-dc-rolagem"><table class="fpm-dc-tabela"><thead>' + cab + '</thead><tbody>' +
+                       (D.cons.length ? D.cons.map(linha).join('') + total('Total consumido', D.tc) : '<tr><td colspan="11" style="color:#777">Sem consumo.</td></tr>') + '</tbody></table></div>';
+            if (D.ger.length) html += '<div class="fpm-dc-secao">Itens gerados (subprodutos / desvios: consumo negativo)</div><div class="fpm-dc-rolagem"><table class="fpm-dc-tabela"><thead>' + cab +
+                                      '</thead><tbody>' + D.ger.map(linha).join('') + total('Total gerado (crédito)', D.tgr) + '</tbody></table></div>';
+            html += '<div class="fpm-dc-secao">GGF distribuído no equipamento (ordens com produção)</div><div class="fpm-dc-rolagem"><table class="fpm-dc-tabela"><thead><tr><th>Tipo da Conta x CC</th>' +
+                    '<th>GGF total (' + escapeHtml(m) + ')</th><th>Parte variável (' + escapeHtml(m) + ')</th><th>% variável</th><th>Custo total (' + escapeHtml(m + '/' + u) + ')</th><th>Variável (' + escapeHtml(m + '/' + u) +
+                    ')</th><th>Fixo/Outros (' + escapeHtml(m + '/' + u) + ')</th></tr></thead><tbody>';
+            D.ggf.forEach(function(g) {
+                html += '<tr><td>' + escapeHtml(g.rot) + '</td><td class="num">' + n(g.t, 2) + '</td><td class="num">' + n(g.v, 2) + '</td><td class="num">' + n(g.t ? g.v / g.t * 100 : null, 2) + '%</td><td class="num esp">' + n(por(g.t), 4) +
+                        '</td><td class="num esp">' + n(por(g.v), 4) + '</td><td class="num esp">' + n(por(g.t - g.v), 4) + '</td></tr>';
+            });
+            html += D.ggf.length ? '<tr class="tot"><td>Total GGF</td><td class="num">' + n(D.tgg[0], 2) + '</td><td class="num">' + n(D.tgg[1], 2) + '</td><td class="num">' + n(D.tgg[0] ? D.tgg[1] / D.tgg[0] * 100 : null, 2) + '%</td><td class="num">' + n(por(D.tgg[0]), 4) +
+                                   '</td><td class="num">' + n(por(D.tgg[1]), 4) + '</td><td class="num">' + n(por(D.tgg[0] - D.tgg[1]), 4) + '</td></tr>'
+                                 : '<tr><td colspan="7" style="color:#777">Sem GGF distribuído.</td></tr>';
+            html += '</tbody></table></div>';
+            html += '<div class="fpm-dc-secao">Custo de produção do equipamento</div><div class="fpm-dc-rolagem"><table class="fpm-dc-tabela"><thead><tr><th></th><th>Total (' + escapeHtml(m) + ')</th><th>Variável (' +
+                    escapeHtml(m) + ')</th><th>Fixo/Outros (' + escapeHtml(m) + ')</th><th>Custo total (' + escapeHtml(m + '/' + u) + ')</th><th>Variável (' + escapeHtml(m + '/' + u) + ')</th><th>Fixo/Outros (' +
+                    escapeHtml(m + '/' + u) + ')</th></tr></thead><tbody><tr class="tot"><td>Itens consumidos + gerados + GGF distribuído</td><td class="num">' + n(D.CT, 2) + '</td><td class="num">' + n(D.CV, 2) +
+                    '</td><td class="num">' + n(D.CT - D.CV, 2) + '</td><td class="num">' + n(por(D.CT), 4) + '</td><td class="num">' + n(por(D.CV), 4) + '</td><td class="num">' + n(por(D.CT - D.CV), 4) + '</td></tr></tbody></table></div>';
+            var c = no.custo || {};
+            if (P && c.unit_total !== undefined && Math.abs(por(D.CT) - c.unit_total) > 0.005) {
+                html += '<div class="fpm-detalhe-sub" style="color:#a94442;">A soma (' + n(por(D.CT), 4) + ') não fecha com o custo do equipamento (' + n(c.unit_total, 4) + ').</div>';
+            }
+            html += '<div class="fpm-detalhe-sub">Valor contábil: itens consumidos e gerados nas linhas com produção (valor material + valor GGF do item) e GGF distribuído das ordens com produção ' +
+                    '(parte variável pelo tipo da Conta x CC: V = %, F = 100 − %, O = 0). Consumo específico = qtde ÷ produção do equipamento. A soma é o custo do equipamento.</div>';
+            return html;
+        }
+        function exportarDetalheCustoFPM(botao, uid, nid) {
+            var d = _dadosFPM[uid], no = d && (d.nos || []).filter(function(x) { return x.id === nid; })[0];
+            if (!no) return;
+            var D = dadosDetalheCustoFPM(d, no), m = (d.moeda || '').trim() || 'R$', u = no.unidade || 'un', P = D.P, vz = function(v) { return v === null || v === undefined || !isFinite(v) ? '' : v; };
+            var por = function(v) { return P ? v / P : ''; };
+            var linhas = [[no.grupo_codigo + (no.grupo_nome ? ' — ' + no.grupo_nome : '') + ' · produz ' + no.item_codigo + (no.item_descricao ? ' — ' + no.item_descricao : '')],
+                          [(d.periodo || '') + ' · Produção do equipamento: ' + P + ' ' + u], [],
+                          ['Tipo', 'Item', 'Descrição', 'Unidade', 'Qtde', 'Consumo específico', 'Custo total (' + m + ')', 'Custo unitário total do item (' + m + '/un. do item)',
+                           'Custo unitário variável do item (' + m + '/un. do item)', 'Custo unitário fixo/outros do item (' + m + '/un. do item)',
+                           'Custo total (' + m + '/' + u + ')', 'Variável (' + m + '/' + u + ')', 'Fixo/Outros (' + m + '/' + u + ')']];
+            [[D.cons, 'Consumido', 'Total consumido', D.tc], [D.ger, 'Gerado', 'Total gerado (crédito)', D.tgr]].forEach(function(b) {
+                if (!b[0].length) return;
+                b[0].forEach(function(x) { linhas.push([b[1], x.cod, x.desc, x.un, x.q, vz(x.esp), x.t, vz(x.unit), vz(x.unit_v), vz(x.unit_f), vz(x.t_un), vz(x.v_un), vz(x.f_un)]); });
+                linhas.push([b[2], '', '', '', '', '', b[3][0], '', '', '', por(b[3][0]), por(b[3][1]), por(b[3][0] - b[3][1])]);
+            });
+            D.ggf.forEach(function(g) { linhas.push(['GGF distribuído', g.rot + ' (' + (g.t ? (g.v / g.t * 100).toFixed(2).replace('.', ',') : '0') + '% variável)', '', '', '', '', g.t, '', '', '', por(g.t), por(g.v), por(g.t - g.v)]); });
+            linhas.push(['Custo de produção', 'Itens + gerados + GGF', '', '', P, '', D.CT, '', '', '', por(D.CT), por(D.CV), por(D.CT - D.CV)]);
+            exportarPlanilhaFPM(botao, ['custo_producao', no.grupo_codigo, no.item_codigo, d.periodo || ''], [{ nome: 'Custo de produção', linhas: linhas,
+                                larguras: [16, 14, 40, 8, 14, 14, 16, 18, 18, 18, 18, 18, 18],
+                                formatos: ['@', '@', '@', '@', '#,##0.00', '#,##0.000000', '#,##0.00', '#,##0.0000', '#,##0.0000', '#,##0.0000', '#,##0.0000', '#,##0.0000', '#,##0.0000'] }]);
+        }
+
         function mostrarCustoFPM(uid, nid) {
             var d = _dadosFPM[uid];
             var no = d && (d.nos || []).filter(function(n) { return n.id === nid; })[0];
@@ -6026,11 +6650,17 @@
                     return '<tr><td>' + celRotulo + '</td><td class="num">' + v(x.total) + '</td><td class="num">' + v(x.variavel) +
                         '</td><td class="num">' + v(x.total - x.variavel) + '</td></tr>';
                 };
-                html += '<table class="fpm-tabela fpm-tabela-custo"><thead><tr><th></th><th class="num">' + escapeHtml(ROTULO_FPM_C_TOTAL) +
-                    '</th><th class="num">' + escapeHtml(ROTULO_FPM_C_VAR) + '</th><th class="num">' + escapeHtml(ROTULO_FPM_C_FIXO) + '</th></tr></thead><tbody>' +
-                    linha(ROTULO_FPM_C_MAT, c.materiais, 'mat') + linha(ROTULO_FPM_C_SUB, c.sub, 'sub') + linha(ROTULO_FPM_C_GGF, c.ggf) + '</tbody></table>' +
-                    '<div class="fpm-custo-itens" style="display: none;"></div>' +
-                    '<div class="fpm-detalhe-sub fpm-custo-rodape">' + escapeHtml(ROTULO_FPM_PRODUCAO + ': ' + numFPM(c.producao, 2) + ' ' + u + ' · ' +
+                // 🌟 ALTERADO (27/10/2026): no lugar da composição em 3 linhas, o detalhe completo do custo de produção
+                // (itens consumidos, gerados, GGF por tipo e o fechamento) -- quando há os itens do equipamento (no.cx)
+                if (no.cx) {
+                    html += detalheCustoHtmlFPM(d, no);
+                } else {
+                    html += '<table class="fpm-tabela fpm-tabela-custo"><thead><tr><th></th><th class="num">' + escapeHtml(ROTULO_FPM_C_TOTAL) +
+                        '</th><th class="num">' + escapeHtml(ROTULO_FPM_C_VAR) + '</th><th class="num">' + escapeHtml(ROTULO_FPM_C_FIXO) + '</th></tr></thead><tbody>' +
+                        linha(ROTULO_FPM_C_MAT, c.materiais, 'mat') + linha(ROTULO_FPM_C_SUB, c.sub, 'sub') + linha(ROTULO_FPM_C_GGF, c.ggf) + '</tbody></table>' +
+                        '<div class="fpm-custo-itens" style="display: none;"></div>';
+                }
+                html += '<div class="fpm-detalhe-sub fpm-custo-rodape">' + escapeHtml(ROTULO_FPM_PRODUCAO + ': ' + numFPM(c.producao, 2) + ' ' + u + ' · ' +
                         (d.periodo || '') + ' · ' + ROTULO_FPM_C_BASE) + '</div>';
                 // 🌟 NOVO: contribuição deste equipamento no custo de cada produto final (por unidade do produto final)
                 var contribuicoes = mvAbertoFPM(d) && no.cx ? (contribuicoesMVFPM(d).porNo[nid] || []) : (c.contribuicoes || []);
@@ -6045,19 +6675,28 @@
                     });
                     html += '</tbody></table>';
                 }
+                // 🌟 27/10/2026: botão do detalhe do custo de produção -- entra na linha dos botões abaixo
+                var btnCustoEq = no.cx ? '<button type="button" class="botao-opcao" onclick="exportarDetalheCustoFPM(this, \'' + uid + '\', \'' + escapeAttr(nid) + '\')">Exportar Custo Equipamento</button>' : '';
+                var botaoCustoEqUsado = false;
                 // 🌟 NOVO: no produto final, o gráfico em escada (total / variável / fixo-outros)
                 if (c.escada) {
+                    botaoCustoEqUsado = true;
                     // 🌟 NOVO (14/10/2026): + gráfico de linhas da evolução mensal do custo (total, variável, fixo/outros)
                     var temMensal = !!(d.custo_mensal && d.custo_mensal[no.item_codigo]);
                     html += '<div class="fpm-escada-botoes"><button type="button" class="botao-opcao fpm-btn-escada" onclick="alternarEscadaFPM(this, \'' + uid + '\', \'' + escapeAttr(nid) + '\')">' +
                         escapeHtml(ROTULO_FPM_C_ESCADA) + '</button>' +
                         (temMensal ? '<button type="button" class="botao-opcao fpm-btn-evolucao" onclick="alternarEvolucaoFPM(this, \'' + uid + '\', \'' + escapeAttr(nid) + '\')">' +
                             escapeHtml(ROTULO_FPM_C_EVOLUCAO) + '</button>' + '<button type="button" class="botao-opcao fpm-btn-exportar-evol" title="' + escapeAttr(ROTULO_FPM_C_EXPORTAR_EVOL_DICA) + '" onclick="exportarEvolucaoFPM(this, \'' + uid + '\')">' + escapeHtml(ROTULO_FPM_C_EXPORTAR_EVOL) + '</button>' : '') +
-                        '</div><div class="fpm-escada" style="display: none;"></div>' + (temMensal ? '<div class="fpm-evolucao" style="display: none;"></div>' : '');
+                        btnCustoEq + '</div><div class="fpm-escada" style="display: none;"></div>' + (temMensal ? '<div class="fpm-evolucao" style="display: none;"></div>' : '');
                 } else if (d.custo_mensal_op && d.custo_mensal_op[nid] && d.meses) {
+                    botaoCustoEqUsado = true;
                     // 🌟 NOVO (15/10/2026): evolução mensal do custo também nos demais equipamentos
                     html += '<div class="fpm-escada-botoes"><button type="button" class="botao-opcao fpm-btn-evolucao" onclick="alternarEvolucaoFPM(this, \'' + uid + '\', \'' + escapeAttr(nid) + '\')">' +
-                        escapeHtml(ROTULO_FPM_C_EVOLUCAO) + '</button>' + '<button type="button" class="botao-opcao fpm-btn-exportar-evol" title="' + escapeAttr(ROTULO_FPM_C_EXPORTAR_EVOL_DICA) + '" onclick="exportarEvolucaoFPM(this, \'' + uid + '\')">' + escapeHtml(ROTULO_FPM_C_EXPORTAR_EVOL) + '</button>' + '</div><div class="fpm-evolucao" style="display: none;"></div>';
+                        escapeHtml(ROTULO_FPM_C_EVOLUCAO) + '</button>' + '<button type="button" class="botao-opcao fpm-btn-exportar-evol" title="' + escapeAttr(ROTULO_FPM_C_EXPORTAR_EVOL_DICA) + '" onclick="exportarEvolucaoFPM(this, \'' + uid + '\')">' + escapeHtml(ROTULO_FPM_C_EXPORTAR_EVOL) + '</button>' + btnCustoEq + '</div><div class="fpm-evolucao" style="display: none;"></div>';
+                }
+                // 🌟 27/10/2026: "Exportar Excel Custo do Equipamento" vai na MESMA linha dos outros botões (btnCustoEq)
+                if (btnCustoEq && !botaoCustoEqUsado) {
+                    html += '<div class="fpm-escada-botoes">' + btnCustoEq + '</div>';
                 }
                 // 🌟 NOVO (16/10/2026): análise da variação do custo entre dois períodos (causas: consumo, preço, GGF, mix)
                 if (dadosAnaliseFPM(d, nid)) {
@@ -6069,8 +6708,18 @@
             var destino = (sobre && sobre.style.display === 'flex' && sobre.getAttribute('data-uid') === uid)
                 ? sobre.querySelector('.fpm-overlay-detalhe') : document.getElementById(uid + '-detalhe');
             if (!destino) return;
-            destino.classList.remove('fpm-detalhe-largo');
+            destino.classList.toggle('fpm-detalhe-largo', !!(no.cx && c && c.producao > 0));     // 🌟 27/10/2026: tabelas largas
             destino.innerHTML = html;
+            // 🌟 27/10/2026: todos os botões numa linha só (a 1ª linha de botões); as caixas que eles abrem ficam onde estavam
+            var linhasBotoes = destino.querySelectorAll('.fpm-escada-botoes');
+            if (linhasBotoes.length > 1) {
+                var primeira = linhasBotoes[0];
+                primeira.classList.add('fpm-botoes-linha');
+                for (var ib = 1; ib < linhasBotoes.length; ib++) {
+                    while (linhasBotoes[ib].firstChild) primeira.appendChild(linhasBotoes[ib].firstChild);
+                    linhasBotoes[ib].remove();
+                }
+            }
             destino.style.display = 'block';
             if (destino.classList.contains('fpm-detalhe')) destino.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
         }
@@ -6801,6 +7450,610 @@
         }
 
         // ---- Exportar para Excel: um arquivo por gráfico -------------------------------------------------------------
+        // ---------------------------------------------------------------------------------------------------------------
+        // 🌟 NOVO (24/10/2026): "Exportar Dados" e "Perguntar ao Agente IA" no Montar Fluxo de Produção Base Produção
+        // Mensal. As duas usam as MESMAS tabelas, montadas com o que já veio do servidor para este desenho (mesmo período,
+        // mesma visão e, no fluxo por rota, a rota aberta): custo do produto final (período e mês a mês), equipamentos,
+        // consumos (período e mês a mês, com consumo específico), contribuição de cada equipamento no custo do produto
+        // final e balanço dos itens. Valores contábeis da Produção Mensal.
+        // ---------------------------------------------------------------------------------------------------------------
+        // 🌟 NOVO (24/10/2026): CONSUMO DE CADA INSUMO POR UNIDADE DO PRODUTO FINAL, mês a mês. Em cada mês, do produto
+        // final para trás: necessidade do equipamento final = 1 (repartida pela produção, se mais de um equipamento faz o
+        // produto); cada equipamento passa para quem produziu o que ele consumiu a sua necessidade x consumo específico do
+        // item no mês x participação do produtor na produção do item no mês. O insumo que NÃO é produzido no fluxo (matéria-
+        // prima, energia...) entra no produto final pela necessidade do equipamento que o consome x consumo específico dele.
+        // Recirculação (item que volta a um equipamento já no caminho) não é repartida de novo para trás. Média do período =
+        // ponderada pela produção do produto final em cada mês.
+        function insumosPorUnidadeFinalFPM(d) {
+            var meses = d.meses || [], ops = (d.nos || []).filter(function(n) { return n.tipo === 'op'; });
+            var prodM = {}, consM = {}, desc = {}, produtores = {};
+            ops.forEach(function(n) {
+                prodM[n.id] = {};
+                ((d.custo_mensal_op || {})[n.id] || []).forEach(function(x) { prodM[n.id][x[0]] = x[1]; });
+                consM[n.id] = {};
+                Object.keys((d.itens_mensal_op || {})[n.id] || {}).forEach(function(c) {
+                    (d.itens_mensal_op[n.id][c] || []).forEach(function(x) {
+                        if (x[1] > 0) (consM[n.id][c] = consM[n.id][c] || {})[x[0]] = x[1];
+                    });
+                });
+                ((n.cx || {}).i || []).forEach(function(x) { desc[x[0]] = [x[4] || '', x[5] || '']; });
+                (produtores[n.item_codigo] = produtores[n.item_codigo] || []).push(n.id);
+            });
+            var porId = {};
+            ops.forEach(function(n) { porId[n.id] = n; });
+            // quem fornece a cada equipamento (itens produzidos no fluxo) e ordem: do produto final para trás, sem as voltas
+            var fornecedores = {};
+            ops.forEach(function(n) {
+                fornecedores[n.id] = [];
+                Object.keys(consM[n.id]).forEach(function(c) { (produtores[c] || []).forEach(function(p) { if (p !== n.id) fornecedores[n.id].push([c, p]); }); });
+            });
+            var saida = [];
+            var finaisPorCodigo = {};
+            ops.filter(function(n) { return n.final; }).forEach(function(n) { (finaisPorCodigo[n.item_codigo] = finaisPorCodigo[n.item_codigo] || []).push(n.id); });
+            Object.keys(finaisPorCodigo).forEach(function(codFinal) {
+                var finais = finaisPorCodigo[codFinal];
+                var estado = {}, ordem = [], volta = {};
+                var visita = function(id) {
+                    estado[id] = 1;
+                    fornecedores[id].forEach(function(cp) {
+                        if (estado[cp[1]] === 1) { volta[id + '>' + cp[1]] = true; return; }
+                        if (!estado[cp[1]]) visita(cp[1]);
+                    });
+                    estado[id] = 2;
+                    ordem.push(id);
+                };
+                finais.forEach(function(f) { if (!estado[f]) visita(f); });
+                ordem.reverse();                 // consumidores antes dos fornecedores
+                var porInsumo = {}, prodFinal = {};
+                meses.forEach(function(_m, idx) {
+                    var Pf = finais.reduce(function(s, f) { return s + (prodM[f][idx] || 0); }, 0);
+                    if (!(Pf > 0)) return;
+                    prodFinal[idx] = Pf;
+                    var nec = {};
+                    finais.forEach(function(f) { nec[f] = (prodM[f][idx] || 0) / Pf; });
+                    ordem.forEach(function(j) {
+                        var nj = nec[j], Pj = prodM[j][idx] || 0;
+                        if (!nj || !(Pj > 0)) return;
+                        Object.keys(consM[j]).forEach(function(c) {
+                            var q = (consM[j][c] || {})[idx] || 0;
+                            if (!(q > 0)) return;
+                            var esp = q / Pj;
+                            var ps = (produtores[c] || []).filter(function(p) { return p !== j; });
+                            if (ps.length) {
+                                var semVolta = ps.filter(function(p) { return !volta[j + '>' + p]; });
+                                if (!semVolta.length) return;          // recirculação: não reparte de novo para trás
+                                var ativos = semVolta.filter(function(p) { return (prodM[p][idx] || 0) > 0; });
+                                var tot = ativos.reduce(function(s, p) { return s + prodM[p][idx]; }, 0);
+                                if (tot > 0) {
+                                    ativos.forEach(function(p) { nec[p] = (nec[p] || 0) + nj * esp * prodM[p][idx] / tot; });
+                                    return;              // item feito no fluxo: segue para trás
+                                }
+                                // item do fluxo sem produção neste mês (veio de estoque): fica como insumo
+                            }
+                            var r = porInsumo[c] = porInsumo[c] || {};
+                            r[idx] = (r[idx] || 0) + nj * esp;
+                        });
+                    });
+                });
+                var nf = porId[finais[0]];
+                Object.keys(porInsumo).sort().forEach(function(c) {
+                    var serie = porInsumo[c], somaP = 0, somaQ = 0, linhas = [];
+                    Object.keys(prodFinal).map(Number).sort(function(a, b) { return a - b; }).forEach(function(idx) {
+                        var v = serie[idx] || 0;
+                        somaP += prodFinal[idx]; somaQ += v * prodFinal[idx];
+                        linhas.push({ mes: meses[idx], producao: prodFinal[idx], por_un: v });
+                    });
+                    saida.push({ final: codFinal, unidade_final: nf ? nf.unidade : '', insumo: c, descricao: (desc[c] || [''])[0], unidade: (desc[c] || ['', ''])[1],
+                                 meses: linhas, media: somaP > 0 ? somaQ / somaP : null, producao_total: somaP, total: somaQ });
+                });
+            });
+            return saida;
+        }
+
+        function tabelaInsumoFinalFPM(d) {
+            var r2 = function(x) { return x === null || x === undefined || !isFinite(x) ? null : Math.round(x * 100) / 100; };
+            var r6 = function(x) { return x === null || x === undefined || !isFinite(x) ? null : Math.round(x * 1e6) / 1e6; };
+            var linhas = [];
+            insumosPorUnidadeFinalFPM(d).forEach(function(s) {
+                linhas.push([s.final, s.insumo, s.descricao, s.unidade, ROTULO_FPM_DD_MEDIA_PERIODO, r2(s.producao_total), r6(s.media), r2(s.total)]);
+                s.meses.forEach(function(m) { linhas.push([s.final, s.insumo, s.descricao, s.unidade, m.mes, r2(m.producao), r6(m.por_un), r2(m.por_un * m.producao)]); });
+            });
+            return { id: 'insumo_final', aba: 'Insumo por un produto', nome: 'Consumo de cada insumo (não produzido no fluxo) por unidade do produto final, mês a mês, somado em toda a cadeia (necessidade de cada equipamento x consumo específico dele); a linha "' + ROTULO_FPM_DD_MEDIA_PERIODO + '" é a média ponderada pela produção do produto final',
+                     colunas: ['Produto final', 'Insumo', 'Descrição do insumo', 'Unidade do insumo', 'Mês', 'Produção do produto final', 'Consumo por unidade do produto final', 'Consumo total atribuído ao produto'],
+                     linhas: linhas };
+        }
+
+        function tabelasDadosFPM(d) {
+            var T = [], meses = d.meses || [];
+            var r2 = function(x) { return x === null || x === undefined || !isFinite(x) ? null : Math.round(x * 100) / 100; };
+            var r6 = function(x) { return x === null || x === undefined || !isFinite(x) ? null : Math.round(x * 1e6) / 1e6; };
+            var ops = (d.nos || []).filter(function(n) { return n.tipo === 'op'; });
+            var nomeEq = function(n) { return (n.grupo_codigo || '') + (n.grupo_nome ? ' — ' + n.grupo_nome : ''); };
+            var porId = {};
+            ops.forEach(function(n) { porId[n.id] = n; });
+            T.push({ id: 'produto', aba: 'Produto período', nome: 'Produto final — custo do período (por unidade produzida)',
+                     colunas: ['Produto', 'Descrição', 'Unidade', 'Produção', 'Custo total/un', 'Custo variável/un', 'Custo fixo-outros/un'],
+                     linhas: (d.custos_produtos || []).map(function(c) {
+                         return [c.codigo, c.descricao || '', c.unidade || '', r2(c.producao), r2(c.unit_total), r2(c.unit_variavel), r2(c.unit_total - c.unit_variavel)];
+                     }) });
+            var l2 = [];
+            Object.keys(d.custo_mensal || {}).forEach(function(cod) {
+                (d.custo_mensal[cod] || []).forEach(function(x) { l2.push([cod, x.mes, r2(x.producao), r2(x.total), r2(x.variavel), r2(x.total - x.variavel)]); });
+            });
+            T.push({ id: 'produto_mes', aba: 'Produto mês a mês', nome: 'Produto final — custo mês a mês (por unidade produzida)',
+                     colunas: ['Produto', 'Mês', 'Produção', 'Custo total/un', 'Custo variável/un', 'Custo fixo-outros/un'], linhas: l2 });
+            T.push(tabelaInsumoFinalFPM(d));
+            T.push({ id: 'equipamentos', aba: 'Equipamentos', nome: 'Equipamentos do fluxo — produção e custo do período (por unidade produzida)',
+                     colunas: ['Equipamento', 'Item produzido', 'Descrição', 'Unidade', 'Produção', 'Custo total/un', 'Custo variável/un', 'Custo fixo-outros/un',
+                               'Materiais/un', 'Subprodutos/un', 'GGF/un', 'Produto final', 'Movimentação'],
+                     linhas: ops.map(function(n) {
+                         var c = n.custo || {}, mt = (c.materiais || {}).total, sb = (c.sub || {}).total, gg = (c.ggf || {}).total;
+                         return [nomeEq(n), n.item_codigo, n.item_descricao || '', n.unidade || '', r2(n.producao), r2(c.unit_total), r2(c.unit_variavel),
+                                 r2((c.unit_total || 0) - (c.unit_variavel || 0)), r2(mt), r2(sb), r2(gg), n.final ? 'sim' : 'não', ehVazioFPM(n) ? 'sim' : 'não'];
+                     }) });
+            var l4 = [];
+            ops.forEach(function(n) {
+                var cx = n.cx || {}, p = cx.p || n.producao || 0;
+                [['consumo', cx.i || []], ['subproduto gerado', cx.g || []]].forEach(function(par) {
+                    par[1].forEach(function(x) {
+                        l4.push([nomeEq(n), n.item_codigo, par[0], x[0], x[4] || '', x[5] || '', r2(x[1]), p > 0 ? r6(x[1] / p) : null,
+                                 x[1] ? r2(x[2] / x[1]) : null, r2(x[2]), p > 0 ? r2(x[2] / p) : null, p > 0 ? r2(x[3] / p) : null]);
+                    });
+                });
+            });
+            T.push({ id: 'consumos', aba: 'Consumos período', nome: 'Consumos de cada equipamento no período (consumo específico = quantidade / produção do equipamento)',
+                     colunas: ['Equipamento', 'Item produzido', 'Tipo', 'Insumo', 'Descrição do insumo', 'Unidade do insumo', 'Quantidade', 'Consumo específico',
+                               'Custo do insumo/un', 'Valor total', 'Valor por unidade produzida', 'Variável por unidade produzida'],
+                     linhas: l4 });
+            var l5 = [], prodMes = {};
+            Object.keys(d.custo_mensal_op || {}).forEach(function(nid) {
+                var n = porId[nid];
+                if (!n) return;
+                (d.custo_mensal_op[nid] || []).forEach(function(x) {
+                    prodMes[nid + '|' + x[0]] = x[1];
+                    l5.push([meses[x[0]], nomeEq(n), n.item_codigo, r2(x[1]), r2(x[2]), r2(x[3]), r2(x[2] - x[3])]);
+                });
+            });
+            T.push({ id: 'equipamentos_mes', aba: 'Equipamentos mês a mês', nome: 'Equipamentos — produção e custo mês a mês (por unidade produzida)',
+                     colunas: ['Mês', 'Equipamento', 'Item produzido', 'Produção', 'Custo total/un', 'Custo variável/un', 'Custo fixo-outros/un'], linhas: l5 });
+            var l6 = [];
+            Object.keys(d.itens_mensal_op || {}).forEach(function(nid) {
+                var n = porId[nid];
+                if (!n) return;
+                var desc = {};
+                ((n.cx || {}).i || []).concat((n.cx || {}).g || []).forEach(function(x) { desc[x[0]] = [x[4] || '', x[5] || '']; });
+                Object.keys(d.itens_mensal_op[nid] || {}).forEach(function(cod) {
+                    (d.itens_mensal_op[nid][cod] || []).forEach(function(x) {
+                        var p = prodMes[nid + '|' + x[0]] || 0, q = x[1];
+                        l6.push([meses[x[0]], nomeEq(n), n.item_codigo, q < 0 ? 'subproduto gerado' : 'consumo', cod, (desc[cod] || [''])[0], (desc[cod] || ['', ''])[1],
+                                 r2(Math.abs(q)), r2(p), p > 0 ? r6(Math.abs(q) / p) : null, q ? r2(x[2] / q) : null, r2(x[2] * (q < 0 ? -1 : 1))]);
+                    });
+                });
+            });
+            T.push({ id: 'consumos_mes', aba: 'Consumos mês a mês', nome: 'Consumos de cada equipamento mês a mês (consumo específico = quantidade / produção do equipamento no mês)',
+                     colunas: ['Mês', 'Equipamento', 'Item produzido', 'Tipo', 'Insumo', 'Descrição do insumo', 'Unidade do insumo', 'Quantidade', 'Produção do equipamento',
+                               'Consumo específico', 'Custo do insumo/un', 'Valor total'], linhas: l6 });
+            var l7 = [];
+            (d.nos || []).forEach(function(n) {
+                var esc = n.custo && n.custo.escada;
+                if (!esc || !n.final && !n.agrupa_final) return;
+                (esc.barras || []).forEach(function(b) {
+                    l7.push([n.item_codigo, b.nome, b.descricao || '', r6(b.necessidade), b.unidade || '', r2(b.total), r2(b.variavel), r2(b.total - b.variavel)]);
+                });
+            });
+            T.push({ id: 'contribuicao', aba: 'Contribuição custo', nome: 'Contribuição de cada equipamento no custo por unidade do produto final',
+                     colunas: ['Produto final', 'Equipamento · item', 'Descrição', 'Necessidade por unidade do produto final', 'Unidade', 'Contribuição total/un',
+                               'Contribuição variável/un', 'Contribuição fixo-outros/un'], linhas: l7 });
+            var l8 = [], vistos = {};
+            (d.nos || []).forEach(function(n) {
+                var b = n.balanco;
+                if (!b || vistos[n.item_codigo] || (n.tipo !== 'op' && n.tipo !== 'item') || n.consolidado_geral) return;
+                vistos[n.item_codigo] = true;
+                l8.push([n.item_codigo, n.item_descricao || '', n.unidade || '', r2(b.produzido), r2(b.gerado_subproduto || 0), r2(b.neste_fluxo), r2(b.outros_produtos), r2(b.sem_consumo)]);
+            });
+            T.push({ id: 'balanco', aba: 'Balanço itens', nome: 'Balanço de cada item no período (sem consumo = estoque, venda direta ou perdas; negativo = veio de estoque)',
+                     colunas: ['Item', 'Descrição', 'Unidade', 'Produzido', 'Gerado como subproduto', 'Consumo neste fluxo', 'Consumo outros produtos', 'Sem consumo (estoque/perdas)'],
+                     linhas: l8 });
+            return T;
+        }
+
+        function cabecalhoDadosFPM(d) {
+            return [[d.titulo || ''], [ROTULO_FPM_DD_PERIODO + ': ' + (d.periodo || '') + ((d.meses || []).length ? ' (' + d.meses.length + ' ' + ROTULO_FPM_DD_MESES + ')' : '')],
+                    [ROTULO_FPM_DD_MOEDA + ': ' + ((d.moeda || '').trim() || '-') + ' · ' + ROTULO_FPM_DD_BASE]];
+        }
+
+        function exportarDadosFPM(uid, botao) {
+            var d = _dadosFPM[uid];
+            if (!d) return;
+            var cab = cabecalhoDadosFPM(d), T = tabelasDadosFPM(d);
+            var abas = T.map(function(t) {
+                return { nome: t.aba, linhas: cab.concat([[t.nome], [], t.colunas]).concat(t.linhas.length ? t.linhas : [[ROTULO_FPM_DD_SEM_DADOS]]),
+                         larguras: t.colunas.map(function(c, i) { return i === 0 ? 34 : Math.max(12, Math.min(40, c.length + 2)); }),
+                         formatos: t.colunas.map(function(c) { return /específico|Necessidade/.test(c) ? '#,##0.000000' : '#,##0.00'; }) };
+            });
+            exportarPlanilhaFPM(botao, ['dados', d.titulo || 'fluxo', d.periodo || ''], abas);
+        }
+
+        // Seleção para a IA: as tabelas pequenas inteiras e, nas grandes, primeiro as linhas que citam palavras da pergunta
+        // (sem acento, sem diferenciar maiúsculas) e depois as de maior valor -- até o limite de tamanho. O que ficou de
+        // fora é contado (linhas_omitidas) para a IA saber que a tabela não está completa.
+        var FPM_PERG_LIMITE = 12000;      // 🌟 24/10/2026: o limite da IA (tokens por minuto) é bem menor do que parecia
+        var FPM_PERG_PARADAS = ['que', 'qual', 'quais', 'porque', 'por', 'para', 'com', 'sem', 'dos', 'das', 'nos', 'nas', 'uma', 'uns', 'umas', 'foi', 'ser', 'teve',
+                                'tivemos', 'temos', 'tem', 'como', 'onde', 'quando', 'quanto', 'mais', 'menos', 'muito', 'entre', 'sobre', 'este', 'esta', 'esse', 'essa',
+                                'isso', 'aquele', 'aquela', 'produto', 'produtos', 'verifique', 'analise', 'analisar', 'explique', 'mostre', 'periodo', 'mes', 'meses',
+                                'consumo', 'consumos', 'especifico', 'especifica', 'custo', 'custos', 'valor', 'valores', 'medio', 'media', 'mensal', 'evolucao',
+                                'ponderado', 'ponderada', 'total', 'unidade', 'quantidade', 'producao', 'produzir', 'produzido', 'dados', 'tabela', 'grafico',
+                                'aumento', 'aumentou', 'reducao', 'reduziu', 'variacao', 'tivemos', 'houve', 'final', 'insumo', 'insumos', 'item', 'itens',
+                                'mas', 'vide', 'abaixo', 'acima', 'calculou', 'calcular', 'calcule', 'faca', 'fazer', 'monte', 'montar', 'coloque', 'colocar', 'forma',
+                                'anual', 'ano', 'anos', 'consolidado', 'consolidada', 'tambem', 'agora', 'novamente', 'mesmo', 'mesma', 'pode', 'poderia', 'nao',
+                                'sim', 'voce', 'favor', 'gostaria', 'quero', 'preciso', 'base', 'cada', 'todos', 'todas', 'ponderada', 'graficos', 'linha', 'barras']; 
+        function semAcentoFPM(t) { return String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
+        function casaPalavraFPM(textoNormalizado, w) {
+            var toks = textoNormalizado.split(/[^a-z0-9]+/);
+            return toks.some(function(t) { return t === w || (w.length >= 5 && t.indexOf(w) === 0); });
+        }
+        function palavrasPerguntaFPM(pergunta) {
+            return semAcentoFPM(pergunta).split(/[^a-z0-9]+/).filter(function(w) { return w.length >= 3 && FPM_PERG_PARADAS.indexOf(w) < 0; });
+        }
+        // 🌟 24/10/2026: insumos citados na pergunta (código ou descrição), com a série mensal por unidade do produto final e,
+        // quando são vários com a mesma unidade (ex.: as energias), a SOMA deles
+        function insumosCitadosFPM(d, pergunta, codigosAnteriores) {
+            var ws = palavrasPerguntaFPM(pergunta);
+            var todas = insumosPorUnidadeFinalFPM(d);
+            var citados = !ws.length ? [] : todas.filter(function(x) { var t = semAcentoFPM(x.insumo + ' ' + x.descricao); return ws.some(function(w) { return casaPalavraFPM(t, w); }); });
+            if (citados.length > 40) citados = [];          // palavra genérica demais: não ajuda
+            // 🌟 24/10/2026: pergunta de continuação ("faça um gráfico...", "e por ano?") sem citar insumo: os mesmos da pergunta anterior
+            if (!citados.length && codigosAnteriores && codigosAnteriores.length) {
+                citados = todas.filter(function(x) { return codigosAnteriores.indexOf(x.final + '|' + x.insumo) >= 0; });
+            }
+            var grupos = {};
+            citados.forEach(function(x) { var k = x.final + '|' + semAcentoFPM(x.unidade); (grupos[k] = grupos[k] || []).push(x); });
+            Object.keys(grupos).forEach(function(k) {
+                var g = grupos[k];
+                if (g.length < 2) return;
+                var porMes = {}, ordem = [];
+                g.forEach(function(x) { x.meses.forEach(function(m) {
+                    if (!porMes[m.mes]) { porMes[m.mes] = { mes: m.mes, producao: m.producao, por_un: 0 }; ordem.push(m.mes); }
+                    porMes[m.mes].por_un += m.por_un;
+                }); });
+                ordem.sort();
+                var meses = ordem.map(function(m) { return porMes[m]; });
+                var sp = meses.reduce(function(a, m) { return a + m.producao; }, 0), sq = meses.reduce(function(a, m) { return a + m.por_un * m.producao; }, 0);
+                citados.push({ final: g[0].final, unidade_final: g[0].unidade_final, insumo: ROTULO_FPM_DD_SOMA, soma_de: g.map(function(x) { return x.insumo; }),
+                               descricao: ROTULO_FPM_DD_SOMA + ': ' + g.map(function(x) { return x.descricao || x.insumo; }).join(' + '), unidade: g[0].unidade,
+                               meses: meses, media: sp > 0 ? sq / sp : null, producao_total: sp, total: sq });
+            });
+            return citados;
+        }
+        var FPM_PERG_TEMA_CUSTO = ['custo', 'custos', 'preco', 'precos', 'gasto', 'gastos', 'despesa', 'despesas', 'caro', 'barato', 'valor', 'valores', 'margem'];
+        function temaCustoFPM(pergunta) {
+            var t = semAcentoFPM(pergunta);
+            return FPM_PERG_TEMA_CUSTO.some(function(w) { return casaPalavraFPM(t, w); });
+        }
+        // períodos da comparação: anos ou meses citados na pergunta (o primeiro = base, o último = comparação); sem citação,
+        // os últimos 12 meses contra os 12 anteriores (com menos de 24 meses: primeira metade x segunda metade)
+        function periodosComparacaoFPM(d, pergunta) {
+            var meses = d.meses || [], n = meses.length;
+            if (n < 2) return null;
+            var cit = [], re = /\b(20\d\d)(?:\s*[\/\-.]\s*(\d{1,2}))?\b/g, m;
+            while ((m = re.exec(pergunta || '')) !== null) cit.push(m[2] ? m[1] + '/' + ('0' + Number(m[2])).slice(-2) : m[1]);
+            var faixa = function(c) {
+                var idx = meses.map(function(x, i) { return String(x).indexOf(c) === 0 ? i : -1; }).filter(function(i) { return i >= 0; });
+                return idx.length ? [idx[0], idx[idx.length - 1]] : null;
+            };
+            if (cit.length >= 2) {
+                var a = faixa(cit[0]), b = faixa(cit[cit.length - 1]);
+                if (a && b && (a[0] !== b[0] || a[1] !== b[1])) return [a[0], a[1], b[0], b[1]];
+            }
+            if (n >= 24) return [n - 24, n - 13, n - 12, n - 1];
+            var h = Math.floor(n / 2);
+            return [0, h - 1, h, n - 1];
+        }
+        function noFinalFPM(d) {
+            var nos = d.nos || [];
+            return nos.filter(function(n) { return n.agrupa_final && !n.consolidado_geral; })[0] || nos.filter(function(n) { return n.tipo === 'op' && n.final; })[0] || null;
+        }
+        function custoProdutoParaIAFPM(d, pergunta) {
+            var r2 = function(x) { return x === null || x === undefined || !isFinite(x) ? null : Math.round(x * 100) / 100; };
+            var cods = Object.keys(d.custo_mensal || {});
+            if (!cods.length) return null;
+            var cod = cods[0], lista = (d.custo_mensal[cod] || []).filter(function(x) { return x.producao > 0; });
+            var anos = {}, maior = null, menor = null;
+            lista.forEach(function(x) {
+                var a = String(x.mes).slice(0, 4), r = anos[a] = anos[a] || [a, 0, 0, 0, 0];
+                r[1] += x.producao; r[2] += x.total * x.producao; r[3] += x.variavel * x.producao; r[4] += 1;
+                if (!maior || x.total > maior.total) maior = x;
+                if (!menor || x.total < menor.total) menor = x;
+            });
+            var no = noFinalFPM(d), per = periodosComparacaoFPM(d, pergunta), meses = d.meses || [];
+            var decomp = no && per ? resumoAnaliseDadosIAFPM(d, no.id, per) : null;
+            var c0 = (d.custos_produtos || []).filter(function(c) { return c.codigo === cod; })[0] || {};
+            return {
+                produto_final: cod, unidade: c0.unidade || '', moeda: (d.moeda || '').trim(),
+                custo_periodo_inteiro: { producao: r2(c0.producao), total_un: r2(c0.unit_total), variavel_un: r2(c0.unit_variavel), fixo_outros_un: r2((c0.unit_total || 0) - (c0.unit_variavel || 0)) },
+                por_ano_colunas: ['Ano', 'Produção', 'Custo total/un', 'Custo variável/un', 'Custo fixo-outros/un', 'Meses'],
+                por_ano: Object.keys(anos).sort().map(function(a) { var r = anos[a]; return [a, r2(r[1]), r2(r[2] / r[1]), r2(r[3] / r[1]), r2((r[2] - r[3]) / r[1]), r[4]]; }),
+                mes_maior_custo_total_un: maior ? [maior.mes, r2(maior.total), r2(maior.producao)] : null,
+                mes_menor_custo_total_un: menor ? [menor.mes, r2(menor.total), r2(menor.producao)] : null,
+                meses_colunas: ['Mês', 'Produção', 'Custo total/un', 'Custo variável/un'],
+                meses: lista.map(function(x) { return [x.mes, r2(x.producao), r2(x.total), r2(x.variavel)]; }),
+                decomposicao_da_variacao: decomp ? Object.assign({ periodos: 'base ' + meses[per[0]] + ' a ' + meses[per[1]] + ' x comparação ' + meses[per[2]] + ' a ' + meses[per[3]] }, decomp) : null,
+                _grafico: { produto: cod, unidade: c0.unidade || '', meses: lista, anos: Object.keys(anos).sort().map(function(a) { var r = anos[a]; return { mes: a, total: r[2] / r[1], variavel: r[3] / r[1] }; }) }
+            };
+        }
+        function selecionarParaIAFPM(T, pergunta, limite) {
+            var palavras = palavrasPerguntaFPM(pergunta);
+            var ordem = ['produto', 'produto_mes', 'insumo_final', 'equipamentos', 'balanco', 'contribuicao', 'consumos', 'equipamentos_mes', 'consumos_mes'];
+            var inteiras = { produto: 1, produto_mes: 1, equipamentos: 1 };
+            var porId = {};
+            T.forEach(function(t) { porId[t.id] = t; });
+            var saida = ordem.filter(function(k) { return porId[k]; }).map(function(k) { var t = porId[k]; return { id: k, nome: t.nome, colunas: t.colunas, linhas: [], linhas_omitidas: 0, _t: t }; });
+            var tam = 2000;
+            // só as colunas que identificam a linha (equipamento, item, insumo, descrição); palavra que aparece em mais de 40%
+            // das linhas da tabela não ajuda a escolher e não conta
+            var IGNORA = ['Tipo', 'Movimentação', 'Produto final', 'Mês', 'Unidade', 'Unidade do insumo'];
+            var textoLinha = function(t, l) { return semAcentoFPM(l.filter(function(c, i) { return typeof c === 'string' && IGNORA.indexOf(t.colunas[i]) < 0; }).join(' ')); };
+            var uteis = {};
+            T.forEach(function(t) {
+                var n = t.linhas.length || 1, txts = t.linhas.map(function(l) { return textoLinha(t, l); });
+                uteis[t.id] = palavras.filter(function(w) { return txts.filter(function(x) { return casaPalavraFPM(x, w); }).length <= Math.max(3, 0.4 * n); });
+            });
+            var pontuaT = function(t, l) {
+                var ws = uteis[t.id] || [];
+                if (!ws.length) return 0;
+                var txt = textoLinha(t, l);
+                return ws.reduce(function(s, w) { return s + (casaPalavraFPM(txt, w) ? 1 : 0); }, 0);
+            };
+            var valorIdx = function(t) {
+                var i = t.colunas.indexOf('Valor total');
+                return i;
+            };
+            var filas = saida.map(function(s) {
+                var t = s._t, iv = valorIdx(t);
+                var ls = t.linhas.map(function(l, i) { return { l: l, i: i, p: pontuaT(t, l), v: iv >= 0 ? Math.abs(l[iv] || 0) : 0 }; });
+                if (!inteiras[s.id]) ls.sort(function(a, b) { return (b.p - a.p) || (b.v - a.v) || (a.i - b.i); });
+                return ls;
+            });
+            var cabe = function(s, x) {
+                var n = JSON.stringify(x.l).length + 1;
+                if (tam + n > limite) return false;
+                tam += n; s.linhas.push(x); return true;
+            };
+            // 1) tabelas pequenas inteiras; 2) linhas que citam a pergunta; 3) o resto, tabela a tabela
+            saida.forEach(function(s, k) { tam += JSON.stringify(s.colunas).length + s.nome.length + 40; });
+            // custo do produto final (período e mês a mês) vai SEMPRE inteiro -- é pequeno e é a base de quase toda pergunta
+            var obrigatorias = { produto: 1, produto_mes: 1 };
+            saida.forEach(function(s, k) { if (obrigatorias[s.id]) { filas[k].forEach(function(x) { s.linhas.push(x); tam += JSON.stringify(x.l).length + 1; }); filas[k] = []; } });
+            saida.forEach(function(s, k) { if (inteiras[s.id]) filas[k] = filas[k].filter(function(x) { return !cabe(s, x); }); });
+            saida.forEach(function(s, k) { if (!inteiras[s.id]) filas[k] = filas[k].filter(function(x) { return !(x.p > 0 && cabe(s, x)); }); });
+            saida.forEach(function(s, k) { filas[k] = filas[k].filter(function(x) { return !cabe(s, x); }); });
+            // as linhas escolhidas voltam para a ordem original da tabela (mês a mês em ordem de mês)
+            saida.forEach(function(s, k) { s.linhas_omitidas = filas[k].length; s.linhas = s.linhas.sort(function(a, b) { return a.i - b.i; }).map(function(x) { return x.l; }); delete s._t; });
+            return saida;
+        }
+
+        function abrirPerguntaFPM(uid) {
+            var d = _dadosFPM[uid];
+            if (!d) return;
+            var tela = document.getElementById('fpm-perg-tela');
+            if (!tela) {
+                tela = document.createElement('div');
+                tela.id = 'fpm-perg-tela';
+                document.body.appendChild(tela);
+                document.addEventListener('keydown', function(ev) {
+                    var t = document.getElementById('fpm-perg-tela');
+                    if (ev.key === 'Escape' && t && t.style.display === 'flex' && !document.getElementById('img-ampliada')) { t.style.display = 'none'; ev.stopPropagation(); }
+                }, true);
+            }
+            d._perguntas = d._perguntas || [];
+            tela.setAttribute('data-uid', uid);
+            tela.innerHTML = '<div class="fpm-perg-caixa"><div class="fpm-perg-topo"><b>' + escapeHtml(ROTULO_FPM_PERG_TITULO) + '</b>' +
+                '<button type="button" class="fpm-detalhe-fechar" onclick="document.getElementById(\'fpm-perg-tela\').style.display = \'none\';" title="' + escapeAttr(ROTULO_FPM_FECHAR) + '">&times;</button></div>' +
+                '<div class="fpm-detalhe-sub">' + escapeHtml((d.titulo || '') + ' · ' + (d.periodo || '')) + '</div>' +
+                '<div class="fpm-detalhe-sub">' + escapeHtml(ROTULO_FPM_PERG_NOTA) + '</div>' +
+                '<div class="fpm-perg-historico">' + d._perguntas.map(function(q) { return htmlPerguntaFPM(q); }).join('') + '</div>' +
+                '<textarea class="fpm-perg-texto" rows="3" placeholder="' + escapeAttr(ROTULO_FPM_PERG_EXEMPLO) + '"></textarea>' +
+                '<div class="fpm-perg-botoes"><span class="fpm-detalhe-sub fpm-perg-estado"></span>' +
+                '<button type="button" class="botao-opcao" onclick="enviarPerguntaFPM(this)">' + escapeHtml(ROTULO_FPM_PERG_ENVIAR) + '</button></div></div>';
+            tela.style.display = 'flex';
+            var ta = tela.querySelector('.fpm-perg-texto');
+            ta.addEventListener('keydown', function(ev) { if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); enviarPerguntaFPM(tela.querySelector('.fpm-perg-botoes .botao-opcao')); } });
+            ta.focus();
+            var h = tela.querySelector('.fpm-perg-historico');
+            desenharGraficosPerguntaFPM(h);
+            h.scrollTop = h.scrollHeight;
+        }
+
+        // média por ano (ponderada pela produção do produto final), das mesmas séries do gráfico mensal
+        function graficoAnualPerguntaFPM(series, u) {
+            var chaves = ['total', 'variavel', 'fixo'], anos = {}, ordem = [];
+            series.forEach(function(x, i) {
+                x.meses.forEach(function(m) {
+                    var a = String(m.mes).slice(0, 4);
+                    if (!anos[a]) { anos[a] = { mes: a }; ordem.push(a); }
+                    var r = anos[a];
+                    r['p' + i] = (r['p' + i] || 0) + m.producao; r['q' + i] = (r['q' + i] || 0) + m.por_un * m.producao;
+                });
+            });
+            ordem.sort();
+            if (ordem.length < 2) return '';
+            var pontos = ordem.map(function(a) { var r = anos[a]; series.forEach(function(_x, i) { r['s' + i] = r['p' + i] > 0 ? r['q' + i] / r['p' + i] : 0; }); return r; });
+            pontos.rotulosTodos = true;
+            return '<div class="fpm-detalhe-sub"><b>' + escapeHtml(ROTULO_FPM_PERG_POR_ANO) + '</b></div><div style="max-width: 760px;">' + graficoLinhasFPM(pontos, series.map(function(x, i) {
+                return [chaves[i], (x.soma_de ? ROTULO_FPM_DD_SOMA : x.insumo + ' ' + (x.descricao || '')), function(y) { return y['s' + i] || 0; }];
+            }), function(sr) { return sr[1]; }, function(y) {
+                return y.mes + '\n' + series.map(function(x, i) { return (x.soma_de ? ROTULO_FPM_DD_SOMA : x.insumo) + ': ' + numFPM(y['s' + i] || 0, 4) + ' ' + u; }).join('\n');
+            }) + '</div><div class="fpm-detalhe-sub"><b>' + escapeHtml(ROTULO_FPM_PERG_POR_MES) + '</b></div>';
+        }
+
+        // gráfico que a IA mandou num bloco ```chart``` (Chart.js) -- desenhado aqui, na janela da pergunta
+        function textoComGraficosFPM(texto) {
+            var cfgs = [];
+            var limpo = String(texto || '').replace(/```chart\s*([\s\S]*?)```/g, function(_t, j) { cfgs.push(j); return '\n@@GRAFICO' + (cfgs.length - 1) + '@@\n'; });
+            var html = markdownSimplesFPM(limpo);
+            return html.replace(/<p>@@GRAFICO(\d+)@@<\/p>|@@GRAFICO(\d+)@@/g, function(_t, a, b) {
+                var k = Number(a !== undefined ? a : b);
+                return '<div class="fpm-perg-chart" style="max-width: 760px; height: 300px;" data-cfg="' + escapeAttr(cfgs[k] || '') + '"><canvas></canvas></div>';
+            });
+        }
+        function desenharGraficosPerguntaFPM(raiz) {
+            if (!raiz || !window.Chart) return;
+            raiz.querySelectorAll('.fpm-perg-chart').forEach(function(div) {
+                if (div._feito) return;
+                div._feito = true;
+                try {
+                    var cfg = JSON.parse(div.getAttribute('data-cfg') || '{}');
+                    cfg.options = cfg.options || {};
+                    cfg.options.maintainAspectRatio = false;
+                    new Chart(div.querySelector('canvas').getContext('2d'), cfg);
+                } catch (e) {
+                    div.innerHTML = '<div class="fpm-detalhe-sub">' + escapeHtml(ROTULO_FPM_PERG_GRAF_ERRO) + '</div>';
+                    div.style.height = 'auto';
+                }
+            });
+        }
+
+        function graficoCustoPerguntaFPM(q) {
+            var g = q.grafico_custo;
+            if (!g || !g.meses || !g.meses.length) return '';
+            var m = '', u = g.unidade || '';
+            var series = [['total', ROTULO_FPM_C_TOTAL, function(y) { return y.total; }], ['variavel', ROTULO_FPM_C_VAR, function(y) { return y.variavel; }],
+                          ['fixo', ROTULO_FPM_C_FIXO, function(y) { return y.total - y.variavel; }]];
+            var dica = function(y) { return y.mes + '\n' + series.map(function(sr) { return sr[1] + ': ' + numFPM(sr[2](y), 2) + '/' + u; }).join('\n'); };
+            var anos = g.anos.slice();
+            anos.rotulosTodos = true;
+            return '<div class="fpm-custo-secao">' + escapeHtml(g.produto + ' — ' + ROTULO_FPM_PERG_CUSTO_UN + ' (/' + u + ')') + '</div>' +
+                (anos.length > 1 ? '<div class="fpm-detalhe-sub"><b>' + escapeHtml(ROTULO_FPM_PERG_POR_ANO) + '</b></div><div style="max-width: 760px;">' +
+                    graficoLinhasFPM(anos, series, function(sr) { return sr[1]; }, dica) + '</div>' : '') +
+                '<div class="fpm-detalhe-sub"><b>' + escapeHtml(ROTULO_FPM_PERG_POR_MES) + '</b></div><div style="max-width: 760px;">' +
+                graficoLinhasFPM(g.meses, series, function(sr) { return sr[1]; }, dica) + '</div>';
+        }
+
+        function graficoPerguntaFPM(q) {
+            var g = q.grafico;
+            var html = graficoCustoPerguntaFPM(q);
+            if (!g || !g.length) return html;
+            var porFinal = {};
+            g.forEach(function(x) { (porFinal[x.final + '|' + x.unidade] = porFinal[x.final + '|' + x.unidade] || []).push(x); });
+            Object.keys(porFinal).forEach(function(k) {
+                var lista = porFinal[k], soma = lista.filter(function(x) { return x.soma_de; })[0];
+                var indiv = lista.filter(function(x) { return !x.soma_de; }).sort(function(a, b) { return (b.total || 0) - (a.total || 0); });
+                var series = (soma ? [soma] : []).concat(indiv).slice(0, 3);
+                var chaves = ['total', 'variavel', 'fixo'];
+                var meses = {}, ordem = [];
+                series.forEach(function(x, i) { x.meses.forEach(function(m) { if (!meses[m.mes]) { meses[m.mes] = { mes: m.mes }; ordem.push(m.mes); } meses[m.mes]['s' + i] = m.por_un; }); });
+                ordem.sort();
+                var pontos = ordem.map(function(m) { return meses[m]; });
+                var u = (series[0].unidade || '') + '/' + (series[0].unidade_final || '');
+                html += '<div class="fpm-custo-secao">' + escapeHtml(series[0].final + ' — ' + (soma ? soma.descricao : series[0].descricao) + ' (' + u + ' ' + ROTULO_FPM_DD_POR_UN_FINAL + ')') + '</div>' +
+                    '<div class="fpm-detalhe-sub">' + escapeHtml(ROTULO_FPM_DD_MEDIA_PERIODO + ': ' + numFPM(series[0].media || 0, 4) + ' ' + u) + '</div>' +
+                    graficoAnualPerguntaFPM(series, u) +
+                    '<div style="max-width: 760px;">' + graficoLinhasFPM(pontos, series.map(function(x, i) {
+                        return [chaves[i], (x.soma_de ? ROTULO_FPM_DD_SOMA : x.insumo + ' ' + (x.descricao || '')), function(y) { return y['s' + i] || 0; }];
+                    }), function(sr) { return sr[1]; }, function(y) {
+                        return y.mes + '\n' + series.map(function(x, i) { return (x.soma_de ? ROTULO_FPM_DD_SOMA : x.insumo) + ': ' + numFPM(y['s' + i] || 0, 4) + ' ' + u; }).join('\n');
+                    }) + '</div>';
+            });
+            return html;
+        }
+
+        function htmlPerguntaFPM(q) {
+            return '<div class="fpm-perg-item"><div class="fpm-perg-q"><b>' + escapeHtml(ROTULO_FPM_PERG_VOCE) + ':</b> ' + escapeHtml(q.pergunta) + '</div>' + graficoPerguntaFPM(q) +
+                '<div class="fpm-av-ia-texto fpm-perg-r">' + (q.resposta ? textoComGraficosFPM(q.resposta) : '<i>' + escapeHtml(ROTULO_FPM_AV_IA_GERANDO) + '</i>') + '</div>' +
+                (q.omitidas ? '<div class="fpm-detalhe-sub">' + escapeHtml(ROTULO_FPM_PERG_PARCIAL.replace('{1}', numFPM(q.omitidas, 0))) + '</div>' : '') + '</div>';
+        }
+
+        function enviarPerguntaFPM(botao) {
+            var tela = document.getElementById('fpm-perg-tela'), uid = tela && tela.getAttribute('data-uid'), d = uid && _dadosFPM[uid];
+            if (!d) return;
+            var ta = tela.querySelector('.fpm-perg-texto'), pergunta = (ta.value || '').trim();
+            if (!pergunta) { ta.focus(); return; }
+            // 🌟 24/10/2026: tema da pergunta -- custo (preço, gasto, valor...) ou consumo de insumos. Pergunta de continuação
+            // sem tema ("e por ano?", "faça um gráfico") segue o tema e os insumos da pergunta anterior.
+            var ultima = d._perguntas.length ? d._perguntas[d._perguntas.length - 1] : null;
+            var temaCusto = temaCustoFPM(pergunta), conteudo = palavrasPerguntaFPM(pergunta).length > 0;
+            if (!temaCusto && !conteudo && ultima && ultima.tema === 'custo') temaCusto = true;
+            var anterior = null;
+            if (!temaCusto) for (var ia = d._perguntas.length - 1; ia >= 0; ia--) { if ((d._perguntas[ia].codigos || []).length) { anterior = d._perguntas[ia].codigos; break; } }
+            var citados = insumosCitadosFPM(d, pergunta, anterior);
+            var custoIA = temaCusto ? custoProdutoParaIAFPM(d, pergunta) : null;
+            var graficoCusto = custoIA ? custoIA._grafico : null;
+            if (custoIA) delete custoIA._grafico;
+            var r2 = function(x) { return x === null || x === undefined || !isFinite(x) ? null : Math.round(x * 100) / 100; };
+            var r6 = function(x) { return x === null || x === undefined || !isFinite(x) ? null : Math.round(x * 1e6) / 1e6; };
+            // 🌟 24/10/2026 (compacto, para caber no limite da IA): a série PRINCIPAL (a Soma, ou o único insumo citado) vai
+            // mês a mês; todas levam a média do período inteiro, o resumo por ano (média ponderada pela produção), o mês de
+            // maior e o de menor consumo -- já calculados aqui, a IA não precisa refazer
+            var r4 = function(x) { return x === null || x === undefined || !isFinite(x) ? null : Number(Number(x).toPrecision(6)); };   // 6 algarismos
+            var principais = {};
+            citados.forEach(function(x) { var k = x.final + '|' + x.unidade; if (x.soma_de || !principais[k]) principais[k] = x; });
+            var compactos = citados.map(function(x) {
+                var anos = {}, maior = null, menor = null;
+                x.meses.forEach(function(m) {
+                    var a = String(m.mes).slice(0, 4), r = anos[a] = anos[a] || [a, 0, 0, 0];
+                    r[1] += m.producao; r[2] += m.por_un * m.producao; r[3] += 1;
+                    if (m.producao > 0 && (!maior || m.por_un > maior.por_un)) maior = m;
+                    if (m.producao > 0 && (!menor || m.por_un < menor.por_un)) menor = m;
+                });
+                var ehPrincipal = principais[x.final + '|' + x.unidade] === x || x.meses.length <= 24;
+                return { produto_final: x.final, unidade_produto_final: x.unidade_final, insumo: x.insumo, descricao: x.descricao, unidade_insumo: x.unidade,
+                         soma_de: x.soma_de || undefined, primeiro_mes: x.meses.length ? x.meses[0].mes : null, ultimo_mes: x.meses.length ? x.meses[x.meses.length - 1].mes : null,
+                         meses_com_producao: x.meses.length, media_ponderada_periodo_inteiro: r4(x.media), producao_total_do_produto_final: r2(x.producao_total),
+                         consumo_total_atribuido: r2(x.total),
+                         mes_maior: maior ? [maior.mes, r4(maior.por_un)] : null, mes_menor: menor ? [menor.mes, r4(menor.por_un)] : null,
+                         por_ano_colunas: ['Ano', 'Produção do produto final', 'Média ponderada por unidade', 'Meses'],
+                         por_ano: Object.keys(anos).sort().map(function(a) { var r = anos[a]; return [a, r2(r[1]), r[1] > 0 ? r4(r[2] / r[1]) : null, r[3]]; }),
+                         meses_colunas: ehPrincipal ? ['Mês', 'Produção do produto final', 'Consumo por unidade do produto final'] : undefined,
+                         meses: ehPrincipal ? x.meses.map(function(m) { return [m.mes, r2(m.producao), r4(m.por_un)]; }) : undefined };
+            });
+            var tabs = tabelasDadosFPM(d);
+            if (compactos.length) tabs = tabs.filter(function(t) { return t.id !== 'insumo_final'; });
+            var tamCit = JSON.stringify(compactos).length;
+            // com insumos citados, a pergunta é sobre eles: as tabelas gerais vão só com o essencial
+            var sel = selecionarParaIAFPM(tabs, pergunta, (compactos.length || custoIA) ? 3000 : FPM_PERG_LIMITE);
+            var omitidas = sel.reduce(function(s, t) { return s + t.linhas_omitidas; }, 0);
+            var q = { pergunta: pergunta, resposta: '', omitidas: omitidas, grafico: citados.length ? citados : null, tema: temaCusto ? 'custo' : 'consumo', grafico_custo: graficoCusto,
+                      codigos: citados.filter(function(x) { return !x.soma_de; }).map(function(x) { return x.final + '|' + x.insumo; }) };
+            // as últimas perguntas e respostas desta janela vão junto (a IA entende "faça um gráfico disso", "e por ano?")
+            var conversa = d._perguntas.slice(-3).filter(function(x) { return x.resposta; }).map(function(x) {
+                return { pergunta: x.pergunta, resposta: String(x.resposta).replace(/```chart[\s\S]*?```/g, '[gráfico]').slice(0, 1500) };
+            });
+            d._perguntas.push(q);
+            var hist = tela.querySelector('.fpm-perg-historico');
+            hist.insertAdjacentHTML('beforeend', htmlPerguntaFPM(q));
+            hist.scrollTop = hist.scrollHeight;
+            ta.value = '';
+            botao.disabled = true;
+            var estado = tela.querySelector('.fpm-perg-estado');
+            estado.textContent = ROTULO_FPM_AV_IA_GERANDO;
+            var dados = { pergunta: pergunta, fluxo: d.titulo || '', periodo: d.periodo || '', meses: d.meses || [], moeda: (d.moeda || '').trim(),
+                          visao: d.rota_real ? 'fluxo real por rota (só a rota aberta)' : 'fluxo completo consolidado',
+                          base_valores: 'valor contábil da Produção Mensal',
+                          conversa_anterior: conversa.length ? conversa : undefined,
+                          custo_do_produto_final: custoIA || undefined,
+                          insumos_citados_por_unidade_do_produto_final: compactos.length ? compactos : undefined, tabelas: sel };
+            var formData = new FormData();
+            formData.append('mensagem', '[PERGUNTA_FLUXO_PM:' + btoa(unescape(encodeURIComponent(JSON.stringify(dados)))) + ']');
+            var csrf = document.querySelector('[name=csrfmiddlewaretoken]');
+            var fim = function(texto) {
+                q.resposta = texto;
+                botao.disabled = false;
+                estado.textContent = '';
+                var t = document.getElementById('fpm-perg-tela');
+                if (t && t.getAttribute('data-uid') === uid) {
+                    var itens = t.querySelectorAll('.fpm-perg-item'), ult = itens[d._perguntas.indexOf(q)];
+                    if (ult) ult.outerHTML = htmlPerguntaFPM(q);
+                    var h = t.querySelector('.fpm-perg-historico');
+                    desenharGraficosPerguntaFPM(h);
+                    h.scrollTop = h.scrollHeight;
+                }
+            };
+            fetch('/chat/', { method: 'POST', headers: { 'X-CSRFToken': csrf ? csrf.value : '' }, body: formData })
+                .then(function(res) { return res.json(); })
+                .then(function(data) { fim((data && (data.resposta || data.resposta_ia)) || ROTULO_FPM_AV_IA_ERRO); })
+                .catch(function(erro) { console.error('[Perguntar ao Agente IA]', erro); fim(ROTULO_FPM_AV_IA_ERRO); });
+        }
+
         function exportarPlanilhaFPM(botao, nomeArquivo, abas) {
             var texto = botao.textContent;
             botao.textContent = ROTULO_FPM_C_EXPORTANDO;
@@ -7242,7 +8495,12 @@
         // investigar. Os números exatos continuam sendo os das tabelas.
         function resumoAnaliseParaIAFPM(caixa) {
             var uid = caixa.getAttribute('data-uid'), nid = caixa.getAttribute('data-nid'), p = (caixa.getAttribute('data-per') || '').split(',').map(Number);
-            var d = _dadosFPM[uid], D = dadosAnaliseFPM(d, nid);
+            return resumoAnaliseDadosIAFPM(_dadosFPM[uid], nid, p);
+        }
+        // 🌟 24/10/2026: o mesmo resumo, a partir do fluxo, do quadrado e dos períodos (índices de d.meses) -- usado também
+        // pelo "Perguntar ao Agente IA"
+        function resumoAnaliseDadosIAFPM(d, nid, p) {
+            var D = d && dadosAnaliseFPM(d, nid);
             if (!D || p.length !== 4) return null;
             var r = calcAnaliseFPM(D, p[0], p[1], p[2], p[3]);
             if (!r) return null;
@@ -7273,23 +8531,53 @@
                              efeito_preco_recursos: n2((gmC - gmB) * (1 / pmB + 1 / pmC) / 2), lancado_por_mes_base: n2(gmB), lancado_por_mes_comparacao: n2(gmC),
                              variacao_variavel: n2(r.ggf.dv) };
                 })(),
+                // 🌟 27/10/2026: o mix e o desempenho de cada equipamento vêm separados e explicados (a IA misturava os dois:
+                // "a participação aumentou, gerando efeito desempenho"). efeito_mix = só a mudança de participação (negativo =
+                // reduziu o custo); efeito_desempenho = só a mudança do custo/un do próprio equipamento.
                 equipamentos_mix: r.mix.slice().sort(function(a, b) { return Math.abs(b.mixt + b.dest) - Math.abs(a.mixt + a.dest); }).slice(0, 8).map(function(y) {
-                    return { equipamento: y.nome, participacao_base_pct: n2(y.sB * 100), participacao_comparacao_pct: n2(y.sC * 100), custo_base: n2(y.ctB), custo_comparacao: n2(y.ctC),
+                    var baseQ = (r.tB + r.tC) / 2, cm = (y.ctB !== null && y.ctC !== null) ? (y.ctB + y.ctC) / 2 : (y.ctC !== null ? y.ctC : y.ctB);
+                    return { equipamento: y.nome, participacao_base_pct: n2(y.sB * 100), participacao_comparacao_pct: n2(y.sC * 100),
+                             participacao: y.sC > y.sB + 1e-9 ? 'aumentou' : (y.sC < y.sB - 1e-9 ? 'diminuiu' : 'igual'),
+                             custo_un_base: y.ctB === null ? null : n2(y.ctB), custo_un_comparacao: y.ctC === null ? null : n2(y.ctC),
+                             custo_un_proprio: (y.ctB === null || y.ctC === null) ? 'só existe num dos períodos' : (y.ctC > y.ctB ? 'aumentou' : (y.ctC < y.ctB ? 'diminuiu' : 'igual')),
+                             custo_un_medio_em_relacao_ao_quadro: cm === null ? null : (cm < baseQ ? 'abaixo do custo médio (mais barato)' : 'acima do custo médio (mais caro)'),
                              efeito_mix: n2(y.mixt), efeito_desempenho: n2(y.dest) };
-                })
+                }),
+                equipamentos_totais: r.mix.length ? { efeito_mix_total: n2(r.mix.reduce(function(a, y) { return a + y.mixt; }, 0)),
+                                                       efeito_desempenho_total: n2(r.mix.reduce(function(a, y) { return a + y.dest; }, 0)) } : null
             };
         }
 
         function markdownSimplesFPM(t) {
             var linhas = String(t || '').replace(/\r/g, '').split('\n'), html = '', lista = false, tabela = null;
-            var inline = function(x) { return escapeHtml(x).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/(^|[^*])\*([^*]+)\*/g, '$1<i>$2</i>'); };
+            // 🌟 24/10/2026: a IA escreve <br> (quebra de linha dentro da célula da tabela), <b>/<strong> e __negrito__ --
+            // antes saíam como texto. Só essas marcas voltam a ser HTML (o resto continua escapado).
+            var inline = function(x) {
+                return escapeHtml(x)
+                    .replace(/&lt;br\s*\/?&gt;/gi, '<br>')
+                    .replace(/&lt;(\/?)(b|strong)&gt;/gi, function(_t, f) { return '<' + f + 'b>'; })
+                    .replace(/&lt;(\/?)(i|em)&gt;/gi, function(_t, f) { return '<' + f + 'i>'; })
+                    .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+                    .replace(/__(.+?)__/g, '<b>$1</b>')
+                    .replace(/(^|[^*])\*([^*\s][^*]*)\*/g, '$1<i>$2</i>');
+            };
             // 🌟 NOVO (18/10/2026): tabelas em markdown (| a | b |) viram tabela de verdade
             var celulas = function(l) { return l.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(function(c) { return c.trim(); }); };
             var fecharTabela = function() {
                 if (!tabela) return;
-                var num = function(c) { return /^[-+]?(R\$|US\$|\$)?\s*[-+]?[\d.,]+\s*(%|\/h|\/un|[A-Za-z]{0,3})$/.test(c); };
-                html += '<div class="fpm-bs-rolagem"><table class="fpm-tabela fpm-bs-tab"><thead><tr>' + tabela[0].map(function(c) { return '<th>' + inline(c) + '</th>'; }).join('') + '</tr></thead><tbody>' +
-                    tabela.slice(1).map(function(r) { return '<tr>' + r.map(function(c) { return '<td' + (num(c) ? ' class="num"' : '') + '>' + inline(c) + '</td>'; }).join('') + '</tr>'; }).join('') + '</tbody></table></div>';
+                var num = function(c) { return /^[-+−]?(R\$|US\$|\$)?\s*[-+−]?[\d.,]+\s*(%|\/h|\/un|[A-Za-z]{0,3})(\s*\*)?$/.test(c.replace(/\*\*/g, '')); };
+                var vazio = function(c) { return !c || /^[–—\-]$/.test(c); };
+                // 🌟 23/10/2026: a coluna é numérica se a maioria das células preenchidas for número -- título e células
+                // dessa coluna à direita (antes o título ficava à esquerda e o número à direita, desalinhados)
+                var nCol = Math.max.apply(null, tabela.map(function(r) { return r.length; }));
+                var colNum = [];
+                for (var k = 0; k < nCol; k++) {
+                    var cel = tabela.slice(1).map(function(r) { return r[k] || ''; }).filter(function(c) { return !vazio(c); });
+                    colNum.push(cel.length > 0 && cel.filter(num).length >= cel.length / 2);
+                }
+                var cls = function(k) { return colNum[k] ? ' class="num"' : ''; };
+                html += '<div class="fpm-bs-rolagem"><table class="fpm-tabela fpm-bs-tab"><thead><tr>' + tabela[0].map(function(c, k) { return '<th' + cls(k) + '>' + inline(c) + '</th>'; }).join('') + '</tr></thead><tbody>' +
+                    tabela.slice(1).map(function(r) { return '<tr>' + r.map(function(c, k) { return '<td' + cls(k) + '>' + inline(c) + '</td>'; }).join('') + '</tr>'; }).join('') + '</tbody></table></div>';
                 tabela = null;
             };
             linhas.forEach(function(l) {
@@ -8291,6 +9579,39 @@
             uploadStatus.className = 'upload-status ' + (tipo || '');
         }
 
+        // 🌟 25/10/2026: excluir um arquivo dos Relatórios direto no chat (sem ir ao Admin) -- pede confirmação; o servidor
+        // apaga o registro e o arquivo, só da empresa de quem está usando
+        var MSG_PDF_EXCLUIR_DICA = "{% trans 'Excluir este arquivo' as T %}{{ T|escapejs }}";
+        var MSG_PDF_EXCLUIR_CONFIRMA = "{% trans 'Excluir o arquivo dos Relatórios? Ele será apagado do servidor e não poderá ser recuperado.' as T %}{{ T|escapejs }}";
+        var MSG_PDF_EXCLUIR_ERRO = "{% trans 'Não foi possível excluir o arquivo.' as T %}{{ T|escapejs }}";
+        function htmlExcluirPdf(id) {
+            return '<button type="button" class="pdf-excluir" data-id="' + id + '" title="' + escapeAttr(MSG_PDF_EXCLUIR_DICA) + '">🗑</button>';
+        }
+        listaPdfs.addEventListener('click', function(ev) {
+            var b = ev.target && ev.target.closest ? ev.target.closest('.pdf-excluir') : null;
+            if (!b) return;
+            ev.preventDefault();
+            ev.stopPropagation();
+            var item = b.closest('.pdf-item'), titulo = item ? (item.querySelector('span') || {}).textContent : '';
+            if (!confirm(MSG_PDF_EXCLUIR_CONFIRMA + (titulo ? '\n\n' + titulo : ''))) return;
+            var fd = new FormData();
+            fd.append('excluir_relatorio', b.getAttribute('data-id'));
+            var csrf = document.querySelector('[name=csrfmiddlewaretoken]');
+            b.disabled = true;
+            fetch('/chat/', { method: 'POST', headers: { 'X-CSRFToken': csrf ? csrf.value : '' }, body: fd })
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    if (data && data.ok) {
+                        if (item) item.remove();
+                        if (!listaPdfs.querySelector('.pdf-item')) atualizarListaRelatorios();
+                    } else {
+                        b.disabled = false;
+                        alert(MSG_PDF_EXCLUIR_ERRO + (data && data.erro ? '\n' + data.erro : ''));
+                    }
+                })
+                .catch(function() { b.disabled = false; alert(MSG_PDF_EXCLUIR_ERRO); });
+        });
+
         function adicionarItemNaLista(id, titulo) {
             // Remove o placeholder "Nenhum PDF cadastrado" se ele existir
             var placeholder = listaPdfs.querySelector('em');
@@ -8298,7 +9619,7 @@
 
             var label = document.createElement('label');
             label.className = 'pdf-item';
-            label.innerHTML = '<input type="checkbox" class="pdf-checkbox" value="' + id + '" checked><span></span>';
+            label.innerHTML = '<input type="checkbox" class="pdf-checkbox" value="' + id + '" checked><span></span>' + htmlExcluirPdf(id);
             label.querySelector('span').textContent = titulo;
             listaPdfs.prepend(label);
         }
@@ -8325,7 +9646,7 @@
                     relatorios.forEach(function(r) {
                         var label = document.createElement('label');
                         label.className = 'pdf-item';
-                        label.innerHTML = '<input type="checkbox" class="pdf-checkbox" value="' + r.id + '"><span></span>';
+                        label.innerHTML = '<input type="checkbox" class="pdf-checkbox" value="' + r.id + '"><span></span>' + htmlExcluirPdf(r.id);
                         label.querySelector('span').textContent = r.titulo;
                         listaPdfs.appendChild(label);
                     });
@@ -8819,6 +10140,7 @@
             var listaFluxosHtml = data.lista_fluxos ? montarListaFluxos(data.lista_fluxos) : '';
             var graficosCustoFluxoHtml = data.graficos_custo_fluxo ? montarGraficosCustoFluxo(data.graficos_custo_fluxo) : '';
             var fluxoProducaoMensalHtml = data.fluxo_producao_mensal ? montarFluxoProducaoMensal(data.fluxo_producao_mensal) : '';
+            if (data.custo_producao_consumo) fluxoProducaoMensalHtml += montarCustoProducaoConsumo(data.custo_producao_consumo);   // 🌟 27/10/2026
 
             var textoLimpoHTML = processarRespostaCompleta(data.resposta || data.resposta_ia);
             var mensagemAgente = adicionarMensagemAoChat('<div class="chat-box-p" style="color: #2b2b2b;"><strong style="color: #0056b3;">' + ROTULO_AGENTE + ':</strong><div style="margin-top: 5px;">' + textoLimpoHTML + '</div>' + fontesHtml + opcoesHtml + formPeriodoHtml + listaProdutosHtml + listaEquipamentosHtml + formEquipamentoHtml + formOrdensHtml + selecaoProdutosHtml + botoesEscolhaHtml + formConsumosHtml + comparacaoFluxosHtml + listaFluxosHtml + graficosCustoFluxoHtml + fluxoProducaoMensalHtml + '</div>');
@@ -9100,7 +10422,7 @@
                     adicionarMensagemAoChat('<div class="chat-box-p"><strong>' + ROTULO_VOCE_NOME + ':</strong> ' + escapeHtml(String(item.comando_usuario).replace(/\s*\[FPM_VISAO:[^\]]*\]/g, '')) + '</div>', true);   // 🌟 sem o marcador do botão "Ver ... (mesmos itens e período)"
                 }
                 if (item.resposta_ia) {
-                    var textoLimpoHTML = processarRespostaCompleta(String(item.resposta_ia).replace(/\n*\[LISTA_EQUIPAMENTOS\]/g, '').replace(/\n*\[(FORM_(EQUIPAMENTO|ORDENS|CONSUMOS)|SELECAO_PRODUTOS|BOTOES|COMPARACAO_FLUXOS|LISTA_FLUXOS|GRAFICOS_CUSTO_FLUXO|FLUXO_PRODUCAO_MENSAL):[^\]]*\]/g, ''));
+                    var textoLimpoHTML = processarRespostaCompleta(String(item.resposta_ia).replace(/\n*\[LISTA_EQUIPAMENTOS\]/g, '').replace(/\n*\[(FORM_(EQUIPAMENTO|ORDENS|CONSUMOS)|SELECAO_PRODUTOS|BOTOES|COMPARACAO_FLUXOS|LISTA_FLUXOS|GRAFICOS_CUSTO_FLUXO|FLUXO_PRODUCAO_MENSAL|CUSTO_PRODUCAO_CONSUMO):[^\]]*\]/g, ''));
                     // A comparação de fluxos é RESULTADO (não formulário): é redesenhada a partir do marcador guardado no histórico.
                     var comparacaoHistoricoHtml = '';
                     var mComparacao = String(item.resposta_ia).match(/\[COMPARACAO_FLUXOS:([A-Za-z0-9_=-]*)\]/);
@@ -9119,6 +10441,12 @@
                     if (mFpm) {
                         var dadosFpm = decodificarMarcadorBase64(mFpm[1]);
                         if (dadosFpm) { dadosFpm._historico = true; comparacaoHistoricoHtml += montarFluxoProducaoMensal(dadosFpm); }
+                    }
+                    // 🌟 NOVO (27/10/2026): a tabela Custo Produção x Custo Consumo também é RESULTADO
+                    var mCpc = String(item.resposta_ia).match(/\[CUSTO_PRODUCAO_CONSUMO:([A-Za-z0-9_=-]*)\]/);
+                    if (mCpc) {
+                        var dadosCpc = decodificarMarcadorBase64(mCpc[1]);
+                        if (dadosCpc) comparacaoHistoricoHtml += montarCustoProducaoConsumo(dadosCpc);
                     }
                     adicionarMensagemAoChat('<div class="chat-box-p" style="color: #2b2b2b;"><strong style="color: #0056b3;">' + ROTULO_AGENTE + ':</strong><div style="margin-top: 5px;">' + textoLimpoHTML + '</div>' + comparacaoHistoricoHtml + '</div>');
                 }

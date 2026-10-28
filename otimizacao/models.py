@@ -257,6 +257,34 @@ class TbOtimizacaoProdutoDaugther(models.Model):
 
     margem_cont_bruta_media.short_description = 'Margem Cont. Bruta Média'
 
+    # 🌟 NOVO (23/10/2026): produção e estoque no FIM do período -- da produção antecipada gravada pelo Otimizar
+    # (TbOtimizacaoAntecipacaoDaugther). Produto sem horizonte / estoque, ou antecipação não aplicada: produção = vendas e
+    # estoque 0.
+    def _antecipacao_periodo(self):
+        if not hasattr(self, '_cache_antecipacao'):
+            reg = None
+            try:
+                reg = (TbOtimizacaoAntecipacaoDaugther.objects
+                       .filter(tbcenarios_id=self.tbcenarios_id, dau_order=self.dau_order,
+                               mae__oti_ant_produto_id=self.mae.oti_pro_produto_id, mae__oti_ant_aplicado=True)
+                       .only('dau_valor_3', 'dau_valor_4').first())
+            except Exception:
+                reg = None
+            self._cache_antecipacao = reg
+        return self._cache_antecipacao
+
+    def producao_periodo(self):
+        reg = self._antecipacao_periodo()
+        return reg.dau_valor_3 if reg is not None else self.dau_valor_3
+
+    producao_periodo.short_description = 'Produção'
+
+    def estoque_final_periodo(self):
+        reg = self._antecipacao_periodo()
+        return reg.dau_valor_4 if reg is not None else 0
+
+    estoque_final_periodo.short_description = 'Estoque'
+
     # Vamos criar um campo para mostrar o periodo no formato adequado
     def display_order(self):
 

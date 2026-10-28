@@ -477,6 +477,12 @@ def _parte_variavel_ggf(valor, tipo, percentual):
     return valor * pct / 100.0
 
 
+def _rotulo_tipo_ggf(tipo, percentual):
+    """🌟 27/10/2026: rótulo do TIPO da Conta x CC do GGF distribuído (Variável (V) / Fixo (F) / Outros (O)). As contas de
+    um mesmo tipo ficam juntas; o % variável de cada linha é calculado na tela (parte variável / GGF total)."""
+    return {'V': 'Variável (V)', 'F': 'Fixo (F)', 'O': 'Outros (O)'}.get(tipo or '', 'Sem tipo')
+
+
 def calcular_custos(nos, producao, consumo, valores, ordens_com_producao, operacoes_por_codigo, itens_producao,
                     itens_consumo, grupos, ggf_linhas, ids_selecionados):
     """Grava n['custo'] (por unidade produzida) em cada operação do desenho. Devolve (custos dos produtos escolhidos,
@@ -495,12 +501,17 @@ def calcular_custos(nos, producao, consumo, valores, ordens_com_producao, operac
                         fila.append(p)
 
     ggf = defaultdict(lambda: [0.0, 0.0])
+    ggf_tipo = defaultdict(lambda: defaultdict(lambda: [0.0, 0.0]))     # 🌟 27/10/2026: op -> tipo da Conta x CC -> [total, var]
     for g in ggf_linhas:
         op = (g['item_id'], g['grupo_id'])
         if op in ops and (g['ano_mes'], g['ordem']) in ordens_com_producao[op]:
             valor = _num(g['valor'])
+            variavel = _parte_variavel_ggf(valor, g.get('tipo'), g.get('percentual'))
             ggf[op][0] += valor
-            ggf[op][1] += _parte_variavel_ggf(valor, g.get('tipo'), g.get('percentual'))
+            ggf[op][1] += variavel
+            rotulo = _rotulo_tipo_ggf(g.get('tipo'), g.get('percentual'))
+            ggf_tipo[op][rotulo][0] += valor
+            ggf_tipo[op][rotulo][1] += variavel
 
     totais = {}
     for op in ops:
@@ -540,7 +551,9 @@ def calcular_custos(nos, producao, consumo, valores, ordens_com_producao, operac
                 r[1] += abs(qtd)
                 r[2] += t
                 r[3] += v
-            no['cx'] = {'p': producao[op_no], 's': [soma_no[0], soma_no[1]], 'i': list(ins.values()), 'g': list(sub.values())}
+            no['cx'] = {'p': producao[op_no], 's': [soma_no[0], soma_no[1]], 'i': list(ins.values()), 'g': list(sub.values()),
+                        # 🌟 27/10/2026: GGF distribuído por tipo da Conta x CC: [rótulo, total, variável]
+                        'gg': [[rot, t, v] for rot, (t, v) in sorted(ggf_tipo[op_no].items(), key=lambda kv: -abs(kv[1][0]))]}
 
     aviso = _contribuicoes(nos, ops, producao, consumo, valores, operacoes_por_codigo, itens_producao, itens_consumo,
                            grupos, por_unidade, ids_selecionados)
@@ -636,8 +649,14 @@ def _consolidar_agrupamentos_finais(nos):
                         r[2] += x[2]
                         r[3] += x[3]
                 return list(acc.values())
+            gg = {}
+            for cx in cxs:
+                for rot, t, v in cx.get('gg') or []:
+                    r = gg.setdefault(rot, [rot, 0.0, 0.0])
+                    r[1] += t
+                    r[2] += v
             n['cx'] = {'p': sum(cx['p'] for cx in cxs), 's': [sum(cx['s'][0] for cx in cxs), sum(cx['s'][1] for cx in cxs)],
-                       'i': junta('i'), 'g': junta('g')}
+                       'i': junta('i'), 'g': junta('g'), 'gg': list(gg.values())}
 
 
 def _contribuicoes(nos, ops, producao, consumo, valores, operacoes_por_codigo, itens_producao, itens_consumo,
@@ -805,6 +824,50 @@ def carregar_grafo(empresa_id, ids_selecionados, ano_mes_inicio, ano_mes_fim):
     return grafo
 
 
+def _juntar_cadastros_mesmo_codigo(linhas, itens_producao, itens_consumo, grupos, ids_selecionados):
+    """🌟 NOVO (26/10/2026): o mesmo equipamento (grupo de máquina) ou o mesmo item cadastrado mais de uma vez, com o
+    código diferente só por espaços ou maiúsculas/minúsculas (ex.: 'F01LGCM2' e 'F01LGCM2  '), aparecia em DOIS quadros
+    no desenho -- cada quadro é um par (id do item, id do grupo). Agora os cadastros com o mesmo código (sem espaços nas
+    pontas, sem diferenciar maiúsculas) viram um só: as linhas da Produção Mensal (e o GGF distribuído) passam a usar um
+    único id -- o do item escolhido pelo usuário, se for um deles, senão o que tem mais linhas. Os códigos também ficam
+    sem espaços nas pontas (o item consumido casa com o item produzido pelo código). Muda o desenho, não o banco.
+    Guarda os mapas {id: id único} em _juntar_cadastros_mesmo_codigo.ultimo (usados para o GGF)."""
+    from collections import Counter
+    for d in (itens_producao, itens_consumo, grupos):
+        for v in d.values():
+            if v and v.get('codigo') is not None:
+                v['codigo'] = str(v['codigo']).strip()
+    uso_item = Counter(l['pro_men_item_producao_id'] for l in linhas)
+    uso_grupo = Counter(l['pro_men_grupo_maquina_id'] for l in linhas)
+    selecionados = set(ids_selecionados or [])
+
+    def mapa(cadastro, uso, preferidos):
+        por_codigo = defaultdict(list)
+        for i, v in cadastro.items():
+            if v and v.get('codigo'):
+                por_codigo[v['codigo'].upper()].append(i)
+        m, juntados = {}, []
+        for cod, ids in por_codigo.items():
+            if len(ids) < 2:
+                continue
+            principal = next((i for i in ids if i in preferidos), None) or max(ids, key=lambda i: (uso.get(i, 0), -i))
+            for i in ids:
+                if i != principal:
+                    m[i] = principal
+            juntados.append(f"{cadastro[principal]['codigo']} (ids {', '.join(str(i) for i in sorted(ids))} -> {principal})")
+        return m, juntados
+
+    mapa_item, j_item = mapa(itens_producao, uso_item, selecionados)
+    mapa_grupo, j_grupo = mapa(grupos, uso_grupo, set())
+    if mapa_item or mapa_grupo:
+        for l in linhas:
+            l['pro_men_item_producao_id'] = mapa_item.get(l['pro_men_item_producao_id'], l['pro_men_item_producao_id'])
+            l['pro_men_grupo_maquina_id'] = mapa_grupo.get(l['pro_men_grupo_maquina_id'], l['pro_men_grupo_maquina_id'])
+        print("[fluxo_pm] cadastros com o mesmo código juntados -- grupos: " + ('; '.join(j_grupo) or 'nenhum') +
+              " | itens: " + ('; '.join(j_item) or 'nenhum'))
+    _juntar_cadastros_mesmo_codigo.ultimo = (mapa_item, mapa_grupo)
+
+
 def _carregar_periodo(empresa_id, ids_selecionados, ano_mes_inicio, ano_mes_fim):
     """Lê do banco o que montar_grafo precisa (Produção Mensal do período, itens, grupos, GGF distribuído, % variável)."""
     from .models import TbItensProducao, TbItensConsumo, TbGruposMaquinas, TbDistribuicaoGGFMensal
@@ -825,6 +888,7 @@ def _carregar_periodo(empresa_id, ids_selecionados, ano_mes_inicio, ano_mes_fim)
                      for i in TbItensConsumo.objects.filter(id__in=ids_cons).values('id', 'ite_con_codigo', 'ite_con_descricao', 'ite_con_unidade', 'ite_con_tipo')}
     grupos = {g['id']: {'codigo': g['gru_maq_codigo'], 'nome': g['gru_maq_nome']}
               for g in TbGruposMaquinas.objects.filter(id__in=ids_grupo).values('id', 'gru_maq_codigo', 'gru_maq_nome')}
+    _juntar_cadastros_mesmo_codigo(linhas, itens_producao, itens_consumo, grupos, ids_selecionados)
     for l in linhas:
         l['grupo'] = grupos.get(l['pro_men_grupo_maquina_id'])
 
@@ -834,9 +898,11 @@ def _carregar_periodo(empresa_id, ids_selecionados, ano_mes_inicio, ano_mes_fim)
     for codigo, pct in (_da_empresa(TbItensProducao, empresa_id).filter(ite_pro_codigo__in=codigos_consumidos)
                         .values_list('ite_pro_codigo', 'ite_pro_percentual_variavel_ggf')):
         pct_var_ggf[codigo] = _num(pct)
+    mapa_item, mapa_grupo = getattr(_juntar_cadastros_mesmo_codigo, 'ultimo', ({}, {}))
     ggf_linhas = [
         {'ano_mes': g['dis_ggf_men_ano_mes'], 'ordem': g['dis_ggf_men_ordem_producao'],
-         'item_id': g['dis_ggf_men_item_producao_id'], 'grupo_id': g['dis_ggf_men_grupo_maquina_id'],
+         'item_id': mapa_item.get(g['dis_ggf_men_item_producao_id'], g['dis_ggf_men_item_producao_id']),
+         'grupo_id': mapa_grupo.get(g['dis_ggf_men_grupo_maquina_id'], g['dis_ggf_men_grupo_maquina_id']),
          'valor': g['dis_ggf_men_valor'], 'tipo': g['dis_ggf_men_conta_cc__con_con_cen_cus_tipo'],
          'percentual': g['dis_ggf_men_conta_cc__con_con_cen_cus_percentual'],
          'conta_cc_id': g['dis_ggf_men_conta_cc_id'],

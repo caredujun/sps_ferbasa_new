@@ -43,6 +43,8 @@ from .fluxo_criar_cenario import (
     iniciar_fluxo_consumo_especifico,
     existe_arquivo_atualizacao,
 )
+# 🌟 NOVO (27/10/2026): "Custo Ferbasa - Custo Produção x Custo Consumo" (o import também registra as etapas do fluxo)
+from .fluxo_custo_producao_consumo import iniciar_fluxo_custo_producao_x_consumo
 from .contexto_usuario import empresa_tem_acao_comum_habilitada
 
 # Carrega as variáveis de ambiente do arquivo .env localizado na raiz do projeto
@@ -224,6 +226,11 @@ PADRAO_INICIAR_CRIAR_CENARIO = re.compile(
 )
 
 
+def _texto_longo_ou_colado(mensagem):
+    texto = mensagem or ''
+    return len(texto) > 400 or bool(re.search(r'(^|\n|\s)(Agente IA|Voc[eê]|Resposta)\s*:', texto))
+
+
 def _detectar_intencao_criar_cenario(mensagem):
     return bool(PADRAO_INICIAR_CRIAR_CENARIO.search(mensagem or ""))
 
@@ -346,6 +353,12 @@ def _detectar_intencao_analise_resultados(mensagem):
 def _detectar_intencao_balanco_subprodutos(mensagem):
     """🌟 NOVO (17/10/2026): "Custo Ferbasa - Fluxo/Balanço de Subprodutos" (texto do menu ou variações)."""
     return bool(re.search(r'(fluxo|balan[cç]o)\W{0,3}(/\W{0,3}balan[cç]o\W+)?(dos?|de)\s+subprodutos?', mensagem or "", re.IGNORECASE))
+
+
+def _detectar_intencao_custo_producao_x_consumo(mensagem):
+    """🌟 NOVO (27/10/2026): "Custo Ferbasa - Custo Produção x Custo Consumo" (texto do menu ou variações)."""
+    return bool(re.search(r'custo\s+(de\s+|da\s+)?produ[cç][aã]o\s*(x|versus|vs\.?|contra)\s*custo\s+(de\s+|do\s+)?consumo',
+                          mensagem or "", re.IGNORECASE))
 
 
 def _detectar_intencao_montar_fluxo_producao_mensal(mensagem):
@@ -1198,8 +1211,13 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
         _salvar_historico(usuario, mensagem_usuario, resposta)
         return resposta, []
 
+    # 🌟 24/10/2026: mensagem LONGA ou com conversa colada (ex.: o usuário cola respostas anteriores do Agente para
+    # reclamar ou pedir revisão) NÃO dispara Ações Comuns pelas palavras soltas -- "mudanças ... cenário ... período"
+    # num texto colado abria o "mudar período do cenário". Comandos de verdade são frases curtas.
+    texto_comando = '' if _texto_longo_ou_colado(mensagem_usuario) else mensagem_usuario
+
     # 🌟 NOVO: usuário pedindo pra começar o wizard agora
-    if _detectar_intencao_criar_cenario(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Cenário', 'criar'):
+    if _detectar_intencao_criar_cenario(texto_comando) and empresa_tem_acao_comum_habilitada(usuario, 'Cenário', 'criar'):
         if esta_em_fluxo:
             cancelar_fluxo_ativo(usuario)
         resposta = iniciar_fluxo_criar_cenario(usuario)
@@ -1207,7 +1225,7 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
         return resposta, []
 
     # 🌟 NOVO: usuário pedindo pra mudar tipo/período do cenário ativo
-    if _detectar_intencao_mudar_cenario(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Cenário', 'mudar'):
+    if _detectar_intencao_mudar_cenario(texto_comando) and empresa_tem_acao_comum_habilitada(usuario, 'Cenário', 'mudar'):
         if esta_em_fluxo:
             cancelar_fluxo_ativo(usuario)
         resposta = iniciar_fluxo_mudar_cenario(usuario, mensagem_usuario)
@@ -1217,7 +1235,7 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
     # 🌟 NOVO: usuário pedindo pra excluir um ou mais cenários (fora do
     # ativo, e não sendo cenário base -- essa checagem em si é feita
     # dentro do fluxo, aqui só detecta a intenção e começa o wizard)
-    if _detectar_intencao_excluir_cenario(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Cenário', 'excluir'):
+    if _detectar_intencao_excluir_cenario(texto_comando) and empresa_tem_acao_comum_habilitada(usuario, 'Cenário', 'excluir'):
         if esta_em_fluxo:
             cancelar_fluxo_ativo(usuario)
         resposta = iniciar_fluxo_excluir_cenario(usuario)
@@ -1229,7 +1247,7 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
     # Ordem, Custo Item) do cenário ativo -- checado ANTES do export
     # financeiro genérico (mais específico primeiro, senão cairia sempre
     # no financeiro por causa da palavra "exportar" em comum).
-    if _detectar_intencao_exportar_dados_otimizacao(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Cenário', 'exportar_dados_otimizacao'):
+    if _detectar_intencao_exportar_dados_otimizacao(texto_comando) and empresa_tem_acao_comum_habilitada(usuario, 'Cenário', 'exportar_dados_otimizacao'):
         if esta_em_fluxo:
             cancelar_fluxo_ativo(usuario)
         resposta = iniciar_exportar_dados_otimizacao_cenario_ativo(usuario)
@@ -1240,7 +1258,7 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
     # a partir da tabela filha -- pra TODOS os fluxos de produção do
     # cenário ativo, em segundo plano (mesma ação do botão em massa do
     # Admin).
-    if _detectar_intencao_criar_fluxo_no_editor(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Fluxos de Produção', 'criar_no_editor'):
+    if _detectar_intencao_criar_fluxo_no_editor(texto_comando) and empresa_tem_acao_comum_habilitada(usuario, 'Fluxos de Produção', 'criar_no_editor'):
         if esta_em_fluxo:
             cancelar_fluxo_ativo(usuario)
         resposta = iniciar_criar_fluxo_no_editor_cenario_ativo(usuario)
@@ -1248,7 +1266,7 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
         return resposta, []
 
     # 🌟 NOVO: usuário pedindo pra comparar dois fluxos de produção (só consulta).
-    if _detectar_intencao_comparar_fluxos(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Fluxos de Produção', 'comparar_fluxos'):
+    if _detectar_intencao_comparar_fluxos(texto_comando) and empresa_tem_acao_comum_habilitada(usuario, 'Fluxos de Produção', 'comparar_fluxos'):
         if esta_em_fluxo:
             cancelar_fluxo_ativo(usuario)
         resposta = iniciar_fluxo_comparar_fluxos(usuario)
@@ -1256,7 +1274,7 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
         return resposta, []
 
     # 🌟 NOVO: usuário pedindo os gráficos de custo variável de um fluxo (distribuição e escada por equipamento).
-    if _detectar_intencao_custo_variavel_fluxo(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Fluxos de Produção', 'custo_variavel_fluxo'):
+    if _detectar_intencao_custo_variavel_fluxo(texto_comando) and empresa_tem_acao_comum_habilitada(usuario, 'Fluxos de Produção', 'custo_variavel_fluxo'):
         if esta_em_fluxo:
             cancelar_fluxo_ativo(usuario)
         resposta = iniciar_fluxo_custo_variavel_fluxo(usuario)
@@ -1267,7 +1285,7 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
     # do cenário ativo (a partir da cadeia de consumo padrão, não do
     # editor visual) -- lista os produtos, deixa escolher, compara com o
     # que já existe.
-    if _detectar_intencao_criar_fluxos_produto(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Fluxos de Produção', 'criar_fluxos_produto'):
+    if _detectar_intencao_criar_fluxos_produto(texto_comando) and empresa_tem_acao_comum_habilitada(usuario, 'Fluxos de Produção', 'criar_fluxos_produto'):
         if esta_em_fluxo:
             cancelar_fluxo_ativo(usuario)
         resposta = iniciar_fluxo_criar_fluxos_produto(usuario)
@@ -1277,14 +1295,14 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
     # 🌟 NOVO: usuário pedindo pra criar um novo equipamento (categoria "Equipamentos" das
     # Ações Comuns) -- pergunta se quer clonar um equipamento existente e mostra os cartões.
     # 🌟 NOVO: usuário pedindo pra criar uma nova ordem de produção por clone (categoria "Equipamentos").
-    if _detectar_intencao_criar_ordem(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Equipamentos', 'criar_ordem'):
+    if _detectar_intencao_criar_ordem(texto_comando) and empresa_tem_acao_comum_habilitada(usuario, 'Equipamentos', 'criar_ordem'):
         if esta_em_fluxo:
             cancelar_fluxo_ativo(usuario)
         resposta = iniciar_fluxo_criar_ordem(usuario)
         _salvar_historico(usuario, mensagem_usuario, resposta)
         return resposta, []
 
-    if _detectar_intencao_criar_equipamento(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Equipamentos', 'criar'):
+    if _detectar_intencao_criar_equipamento(texto_comando) and empresa_tem_acao_comum_habilitada(usuario, 'Equipamentos', 'criar'):
         if esta_em_fluxo:
             cancelar_fluxo_ativo(usuario)
         resposta = iniciar_fluxo_criar_equipamento(usuario)
@@ -1292,13 +1310,13 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
         return resposta, []
 
     # 🌟 NOVO (20/10/2026): Sensibilidade Ganho Margem x Produtividade / x Limite Comercial (Cenário) -- só consulta.
-    if _detectar_intencao_sens_ganho_produtividade(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Cenário', 'sensibilidade_ganho_produtividade'):
+    if _detectar_intencao_sens_ganho_produtividade(texto_comando) and empresa_tem_acao_comum_habilitada(usuario, 'Cenário', 'sensibilidade_ganho_produtividade'):
         if esta_em_fluxo:
             cancelar_fluxo_ativo(usuario)
         resposta = iniciar_fluxo_sens_ganho_produtividade(usuario)
         _salvar_historico(usuario, mensagem_usuario, resposta)
         return resposta, []
-    if _detectar_intencao_sens_ganho_limite(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Cenário', 'sensibilidade_ganho_limite'):
+    if _detectar_intencao_sens_ganho_limite(texto_comando) and empresa_tem_acao_comum_habilitada(usuario, 'Cenário', 'sensibilidade_ganho_limite'):
         if esta_em_fluxo:
             cancelar_fluxo_ativo(usuario)
         resposta = iniciar_fluxo_sens_ganho_limite(usuario)
@@ -1306,7 +1324,7 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
         return resposta, []
 
     # 🌟 NOVO (18/10/2026): Sensibilidade Custo x Produtividade (Cenário) -- só consulta.
-    if _detectar_intencao_sensibilidade(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Cenário', 'sensibilidade_custo_produtividade'):
+    if _detectar_intencao_sensibilidade(texto_comando) and empresa_tem_acao_comum_habilitada(usuario, 'Cenário', 'sensibilidade_custo_produtividade'):
         if esta_em_fluxo:
             cancelar_fluxo_ativo(usuario)
         resposta = iniciar_fluxo_sensibilidade(usuario)
@@ -1314,15 +1332,23 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
         return resposta, []
 
     # 🌟 NOVO (18/10/2026): Análise de Resultados do cenário ativo (Cenário) -- só consulta.
-    if _detectar_intencao_analise_resultados(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Cenário', 'analise_resultados'):
+    if _detectar_intencao_analise_resultados(texto_comando) and empresa_tem_acao_comum_habilitada(usuario, 'Cenário', 'analise_resultados'):
         if esta_em_fluxo:
             cancelar_fluxo_ativo(usuario)
         resposta = iniciar_fluxo_analise_resultados(usuario)
         _salvar_historico(usuario, mensagem_usuario, resposta)
         return resposta, []
 
+    # 🌟 NOVO (27/10/2026): Custo Produção x Custo Consumo (Custo Ferbasa) -- só consulta.
+    if _detectar_intencao_custo_producao_x_consumo(texto_comando) and empresa_tem_acao_comum_habilitada(usuario, 'Custo Ferbasa', 'custo_producao_x_consumo'):
+        if esta_em_fluxo:
+            cancelar_fluxo_ativo(usuario)
+        resposta = iniciar_fluxo_custo_producao_x_consumo(usuario)
+        _salvar_historico(usuario, mensagem_usuario, resposta)
+        return resposta, []
+
     # 🌟 NOVO (17/10/2026): Fluxo/Balanço de Subprodutos (Custo Ferbasa) -- só consulta.
-    if _detectar_intencao_balanco_subprodutos(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Custo Ferbasa', 'fluxo_balanco_subprodutos'):
+    if _detectar_intencao_balanco_subprodutos(texto_comando) and empresa_tem_acao_comum_habilitada(usuario, 'Custo Ferbasa', 'fluxo_balanco_subprodutos'):
         if esta_em_fluxo:
             cancelar_fluxo_ativo(usuario)
         resposta = iniciar_fluxo_balanco_subprodutos(usuario)
@@ -1330,7 +1356,7 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
         return resposta, []
 
     # 🌟 NOVO: montar o fluxo de produção a partir da Produção Mensal (Custo Ferbasa) -- só consulta.
-    if _detectar_intencao_montar_fluxo_producao_mensal(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Custo Ferbasa', 'montar_fluxo_producao_mensal'):
+    if _detectar_intencao_montar_fluxo_producao_mensal(texto_comando) and empresa_tem_acao_comum_habilitada(usuario, 'Custo Ferbasa', 'montar_fluxo_producao_mensal'):
         if esta_em_fluxo:
             cancelar_fluxo_ativo(usuario)
         resposta = iniciar_fluxo_montar_fluxo_producao_mensal(usuario)
@@ -1341,7 +1367,7 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
     # GGF Mensal (app custo_ferbasa) a partir de um arquivo enviado em
     # Relatórios -- primeiro pede o arquivo de produção, depois o de GGF,
     # em sequência.
-    if _detectar_intencao_custo_ferbasa(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Custo Ferbasa', 'atualizar_producao_ggf_mensal'):
+    if _detectar_intencao_custo_ferbasa(texto_comando) and empresa_tem_acao_comum_habilitada(usuario, 'Custo Ferbasa', 'atualizar_producao_ggf_mensal'):
         if esta_em_fluxo:
             cancelar_fluxo_ativo(usuario)
         resposta = iniciar_fluxo_importar_custo_ferbasa(usuario, mensagem_usuario)
@@ -1352,7 +1378,7 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
     # Variável Adicionado (app custo_ferbasa) -- sugere o período com
     # base na Produção Mensal, pede confirmação, e encadeia as duas
     # etapas automaticamente.
-    if _detectar_intencao_consumo_especifico(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Custo Ferbasa', 'atualizar_consumo_especifico_custo_variavel'):
+    if _detectar_intencao_consumo_especifico(texto_comando) and empresa_tem_acao_comum_habilitada(usuario, 'Custo Ferbasa', 'atualizar_consumo_especifico_custo_variavel'):
         if esta_em_fluxo:
             cancelar_fluxo_ativo(usuario)
         resposta = iniciar_fluxo_consumo_especifico(usuario, mensagem_usuario)
@@ -1360,7 +1386,7 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
         return resposta, []
 
     # 🌟 NOVO: usuário pedindo pra exportar o relatório Excel do cenário ativo
-    if _detectar_intencao_exportar_cenario(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Cenário', 'exportar_excel'):
+    if _detectar_intencao_exportar_cenario(texto_comando) and empresa_tem_acao_comum_habilitada(usuario, 'Cenário', 'exportar_excel'):
         if esta_em_fluxo:
             cancelar_fluxo_ativo(usuario)
         resposta = iniciar_exportar_excel_cenario_ativo(usuario)
@@ -1437,7 +1463,7 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
                 return resposta, []
 
     # 🌟 NOVO: usuário pedindo pra mexer em indicadores (editar/criar/reajustar)
-    if _detectar_intencao_indicadores(mensagem_usuario) and empresa_tem_acao_comum_habilitada(
+    if _detectar_intencao_indicadores(texto_comando) and empresa_tem_acao_comum_habilitada(
             usuario, 'Indicadores', determinar_acao_indicadores(mensagem_usuario)):
         if esta_em_fluxo:
             cancelar_fluxo_ativo(usuario)
@@ -1446,7 +1472,7 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
         return resposta, []
 
     # 🌟 NOVO: usuário pedindo pra mexer em taxas de câmbio (editar/criar/reajustar/eliminar)
-    if _detectar_intencao_cambio(mensagem_usuario) and empresa_tem_acao_comum_habilitada(
+    if _detectar_intencao_cambio(texto_comando) and empresa_tem_acao_comum_habilitada(
             usuario, 'Câmbio', determinar_acao_cambio(mensagem_usuario)):
         if esta_em_fluxo:
             cancelar_fluxo_ativo(usuario)
@@ -1455,7 +1481,7 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
         return resposta, []
 
     # 🌟 NOVO: usuário perguntando o status/situação do cenário ativo
-    if _detectar_intencao_status(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Cenário', 'status'):
+    if _detectar_intencao_status(texto_comando) and empresa_tem_acao_comum_habilitada(usuario, 'Cenário', 'status'):
         if esta_em_fluxo:
             cancelar_fluxo_ativo(usuario)
         resposta = iniciar_consulta_status(usuario, mensagem_usuario)
@@ -1464,7 +1490,7 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
 
     # 🌟 NOVO: "limpar, otimizar e consolidar" juntos -- ciclo completo
     # automático. Checado ANTES da ação única, senão cairia só no "limpar".
-    if _detectar_intencao_ciclo_completo(mensagem_usuario) and empresa_tem_acao_comum_habilitada(usuario, 'Cenário', 'ciclo_completo'):
+    if _detectar_intencao_ciclo_completo(texto_comando) and empresa_tem_acao_comum_habilitada(usuario, 'Cenário', 'ciclo_completo'):
         if esta_em_fluxo:
             cancelar_fluxo_ativo(usuario)
         resposta = _bloqueio_consistencia_limpeza(usuario, ciclo=True) or iniciar_ciclo_completo(usuario, mensagem_usuario)
@@ -1473,7 +1499,7 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
 
     # 🌟 NOVO: usuário pedindo pra limpar/otimizar/consolidar o cenário
     # ativo, a qualquer momento (não só durante a criação de um cenário novo)
-    if _detectar_intencao_processar(mensagem_usuario) and empresa_tem_acao_comum_habilitada(
+    if _detectar_intencao_processar(texto_comando) and empresa_tem_acao_comum_habilitada(
             usuario, 'Cenário', determinar_acao_processar(mensagem_usuario)):
         if esta_em_fluxo:
             cancelar_fluxo_ativo(usuario)
@@ -1518,7 +1544,7 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
     # mensagens de verdade do usuário -- sondagens automáticas
     # silenciosas (salvar_historico=False) não passam por aqui, pra não
     # gastar uma chamada de IA à toa a cada poucos segundos.
-    if salvar_historico:
+    if salvar_historico and texto_comando:      # 🌟 24/10/2026: texto longo/colado não aciona ferramenta de ação
         resposta_ferramenta, eh_falha_generica = _tentar_tool_calling(mensagem_usuario, usuario)
         if resposta_ferramenta is not None:
             # 🌟 NOVO: ferramenta bateu mas genuinamente não encontrou o
@@ -1577,6 +1603,10 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
             "referindo a este sistema."
         )
 
+        # 🌟 24/10/2026: instrução CURTA para a análise de planilhas (prompt do Admin, idioma e nome SPS) -- a análise de
+        # planilha faz várias chamadas seguidas à IA e precisa caber no limite de uso por minuto
+        instrucao_curta_planilhas = system_instruction[:6000]
+
         # 🌟 NOVO: metodologia SPS -- quando o usuário perguntar sobre o
         # sistema/metodologia adotada, o agente deve explicar estas 3
         # etapas (nessa ordem), com seus objetivos.
@@ -1609,6 +1639,28 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
             "Presente Líquido, Pay-back e TIR, e a Criação de Valor para "
             "cada estratégia proposta. A partir dessa análise, definem-se as "
             "estratégias a serem implantadas e priorizadas."
+            # 🌟 24/10/2026: ao APLICAR a metodologia a um relatório / resultado, nada de número inventado
+            "\n\nREGRAS OBRIGATÓRIAS AO APLICAR A METODOLOGIA SPS a um relatório, análise ou cenário: "
+            "(a) use SOMENTE números que estão no material recebido (relatório, tabelas, dados consultados), copiados "
+            "como estão; nunca estime, extrapole ou suponha valores, e nunca diga que não há valores fictícios se "
+            "algum número não vier do material; "
+            "(b) Etapa 1: descreva o cenário \"As Is\" com os números do material; "
+            "(c) Etapa 2 (SWOT): Forças = o que mais gera margem; Fraquezas = margens negativas, mínimos que custam "
+            "margem, obrigações que custam margem; Oportunidades = limites máximos ativos (mercado, insumo, capacidade) "
+            "com o ganho estimado pelo preço sombra que estiver no material; Ameaças = concentração da margem e "
+            "restrições que passariam a limitar. As estratégias S/O, W/O, S/T e W/T são HIPÓTESES a avaliar; "
+            "(d) Etapa 3 (Rentabilidade): só informe EBITDA, Fluxo de Caixa Descontado, VPL, Pay-back, TIR ou "
+            "Criação de Valor se esses valores estiverem no material (por exemplo, numa Comparação de Cenários do "
+            "SPS). Se não estiverem, NÃO calcule nem invente (nem taxa de desconto, nem prazo, nem investimento): "
+            "diga que a etapa 3 exige criar no SPS um cenário para cada estratégia, otimizá-lo e compará-lo com o "
+            "cenário \"As Is\", e liste quais cenários criar; "
+            "(e) preço sombra e ganho com +1% valem para aumentos PEQUENOS: nunca recomende expandir capacidade ou "
+            "produtividade só por eles -- antes é preciso verificar equipamentos auxiliares e os demais equipamentos "
+            "do fluxo, conjuntos de equipamentos, insumos e mercado, e confirmar com as ações de sensibilidade do "
+            "Agente IA; "
+            "(f) 'Var #N' no material é uma VARIÁVEL do modelo (um produto/mercado/fluxo de produção), não um insumo; "
+            "(g) margem atual de um produto/mercado não é ganho: não apresente a margem que já existe como ganho de "
+            "uma estratégia."
         )
 
         # 🌟 NOVO: ensina o modelo a desenhar gráficos de verdade no chat,
@@ -1725,11 +1777,18 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
         linhas_com_relevancia = []  # lista de (relevancia, linha_marcada)
         linhas_ja_vistas = set()    # evita duplicatas sem custo O(n) por checagem
         fontes_utilizadas = []
+        planilhas_anexadas = []     # 🌟 24/10/2026: XLSX/CSV -- analisadas inteiras, com ferramentas (planilhas_agente.py)
+        from .planilhas_agente import eh_planilha, carregar_planilha, responder_com_planilhas
 
         for relatorio in relatorios_selecionados:
             if relatorio.arquivo:
                 try:
                     caminho_fisico = relatorio.arquivo.path
+                    if os.path.exists(caminho_fisico) and eh_planilha(relatorio.arquivo.name):
+                        # 🌟 24/10/2026: planilha -- o arquivo INTEIRO fica disponível para as ferramentas de consulta
+                        planilhas_anexadas.append(carregar_planilha(caminho_fisico, relatorio.titulo or os.path.basename(relatorio.arquivo.name)))
+                        fontes_utilizadas.append(relatorio.titulo)
+                        continue
                     if os.path.exists(caminho_fisico):
                         # 🌟 Escolhe o extrator certo conforme a extensão do arquivo
                         linhas_do_arquivo = _extrair_linhas_do_arquivo(caminho_fisico, relatorio.arquivo.name)
@@ -1782,7 +1841,25 @@ def _executar_agente_interno(mensagem_usuario: str, pdf_ids: list, usuario, _sin
         # desistir, sem o usuário precisar perceber nada.
         resposta_final = ""
         for tentativa in range(2):
-            if USAR_BUSCA_WEB:
+            if planilhas_anexadas:
+                # 🌟 24/10/2026: planilha anexada -- a IA consulta o arquivo inteiro com ferramentas (várias rodadas)
+                historico_planilhas = []
+                for log in reversed(ultimos_logs):
+                    historico_planilhas.append(('user', _texto_para_memoria(log.comando_usuario)))
+                    historico_planilhas.append(('assistant', _texto_para_memoria(log.resposta_ia)))
+                extra = ("DADOS DOS OUTROS RELATÓRIOS ANEXADOS (PDF/TXT, trechos):\n" + texto_contexto_pdf) if texto_contexto_pdf else ''
+                try:
+                    resposta_bruta = responder_com_planilhas(instrucao_curta_planilhas, mensagem_usuario, historico_planilhas,
+                                                             planilhas_anexadas, extra)
+                except Exception as erro_planilha:
+                    print(f"[agente_ia][planilhas] falhou: {type(erro_planilha).__name__}: {erro_planilha}")
+                    if type(erro_planilha).__name__ == 'ErroPlanilhaIA':
+                        resposta_bruta = "Não consegui analisar a planilha agora: " + str(erro_planilha)
+                    else:
+                        resposta_bruta = ("Não consegui analisar a planilha agora (" + type(erro_planilha).__name__ + ": " +
+                                          str(erro_planilha)[:200] + ").")
+                    break
+            elif USAR_BUSCA_WEB:
                 resposta_bruta = _gerar_resposta_com_busca_web(system_instruction, mensagem_usuario, historico_langchain)
             else:
                 resposta_bruta = _gerar_resposta_original_langchain(system_instruction, mensagem_usuario, historico_langchain)
@@ -1855,7 +1932,15 @@ INSTRUCAO_COMENTARIO_ANALISE_CUSTO = (
     "REGRAS OBRIGATÓRIAS: use SOMENTE os números do JSON, exatamente como estão (não recalcule, não arredonde de outro "
     "jeito, não invente números). Não afirme causas externas como fato (mercado, câmbio, fornecedor): se sugerir, diga "
     "que é hipótese a verificar. Itens marcados como 'produzido_no_fluxo' têm o custo vindo de outro equipamento do "
-    "fluxo: diga que a causa do preço deve ser vista na análise desse equipamento. Valores em R$ com vírgula decimal."
+    "fluxo: diga que a causa do preço deve ser vista na análise desse equipamento. Valores em R$ com vírgula decimal.\n\n"
+    "MIX DE EQUIPAMENTOS (equipamentos_mix): são DOIS efeitos diferentes e você NUNCA pode misturá-los. "
+    "(a) efeito_mix = efeito SÓ da mudança de PARTICIPAÇÃO do equipamento: negativo = a mudança reduziu o custo; positivo = "
+    "aumentou. Aumentar a participação de um equipamento 'abaixo do custo médio (mais barato)' ou reduzir a de um 'acima do "
+    "custo médio (mais caro)' REDUZ o custo (efeito_mix negativo ou ~0) -- nunca diga que isso aumentou o custo. "
+    "(b) efeito_desempenho = efeito SÓ da mudança do custo/un DO PRÓPRIO equipamento (custo_un_base -> custo_un_comparacao, "
+    "campo custo_un_proprio); não tem relação com a participação. Escreva sempre separado, por exemplo: 'X aumentou a "
+    "participação de A% para B% (efeito mix ...); o custo/un do próprio X subiu de ... para ... (efeito desempenho ...)'. "
+    "Nunca escreva que a mudança de participação 'gerou' efeito desempenho. Use equipamentos_totais para o total de cada efeito."
 ) + REGRA_GENERICA
 
 
@@ -1870,14 +1955,15 @@ INSTRUCAO_COMENTARIO_ANALISE_RESULTADOS = (
     "geram margem (total, por unidade e por hora -- CMH), os equipamentos (ocupação, margem que passa por eles e o PREÇO "
     "SOMBRA da hora), e as restrições ativas com o preço sombra (quanto a MCT aumenta com 1 unidade a mais no máximo, ou "
     "a menos no mínimo) e o ganho potencial estimado dentro da faixa de validade.\n\n"
-    "Escreva em português do Brasil, em no máximo 450 palavras, em markdown simples (parágrafos curtos e listas com '- '):\n"
+    "Escreva em português do Brasil, em no máximo 600 palavras, em markdown simples (parágrafos curtos e listas com '- '):\n"
     "1. **Resumo executivo**: MCT, o que mais gera margem e o que mais limita o resultado.\n"
     "2. **Gargalos e investimentos**: equipamentos no limite e o valor da hora; o que priorizar.\n"
     "3. **Mercados e contratos**: limites máximos que seguram a margem e mínimos obrigatórios que custam margem.\n"
     "4. **Insumos**: limitações de disponibilidade ou exigências de consumo mínimo que prejudicam o resultado.\n"
     "5. **Ocupação mínima forçada** (só se 'ocupacao_minima_forcada' vier preenchida): equipamentos obrigados a rodar "
     "(ex.: 100% / 100%) e quanto a MCT mudaria com 0-100%.\n"
-    "6. **O que analisar primeiro**: 3 a 6 itens em ordem de impacto.\n\n"
+    "6. **O que analisar primeiro**: 3 a 6 itens em ordem de impacto.\n"
+    "7. **Matriz SWOT (Metodologia SPS)**: ver as regras de SWOT abaixo.\n\n"
     "REGRAS OBRIGATÓRIAS: use SOMENTE os números do JSON, exatamente como estão (não recalcule nem invente números). O "
     "preço sombra é marginal e vale só dentro da faixa: diga que o ganho é uma estimativa. A margem que passa por um "
     "equipamento NÃO é somável entre equipamentos (o mesmo produto passa por vários). Não afirme causas externas como fato: "
@@ -1904,7 +1990,47 @@ INSTRUCAO_COMENTARIO_ANALISE_RESULTADOS = (
     " GANHO COM 1%: para equipamento gargalo, além do preço sombra por hora, cite 'ganho_com_produtividade_mais_1pct' "
     "(ganho na MCT se a produtividade aumentar 1%, que equivale a 1% a mais nas horas do limite); para limites comerciais "
     "e de insumo cite 'ganho_com_1pct' (+1% no máximo ou -1% no mínimo). Prefira esses valores ao preço sombra por hora, "
-    "porque as horas do período são fixas.")
+    "porque as horas do período são fixas.") +
+    # 🌟 23/10/2026: correções do comentário (percentual, listas parciais, gargalo, investimento, mínimos)
+    " PERCENTUAL: ao citar um produto/mercado com a margem, coloque logo depois o 'percentual_da_mct' entre parênteses "
+    "(ex.: 'R$ 187.811.027 (45,8% da MCT)')."
+    " LISTAS PARCIAIS: 'equipamentos_gargalo_100pct' é a lista completa dos gargalos a 100% e "
+    "'total_equipamentos_gargalo_100pct' quantos são; quando citar só alguns, escreva '(ex.: A, B, C)' e diga o total; "
+    "nunca dê a entender que os citados são todos."
+    " GARGALO: só chame um equipamento de 'não gargalo' se 'gargalo_no_cadastro' dele for 'não'. Equipamento que aparece "
+    "em 'o_que_analisar' com limite máximo ativo É gargalo (o limite de horas dele está prendendo a MCT); se a ocupação "
+    "dele não vier no JSON, não escreva ocupação."
+    " INVESTIMENTO / CAPACIDADE: o preço sombra e o ganho com +1% valem para um aumento PEQUENO e mantendo todo o resto. "
+    "Nunca recomende 'expandir capacidade' ou 'melhorar produtividade' de um equipamento só pelo preço sombra: diga que, "
+    "antes, é preciso verificar o que passaria a limitar -- equipamentos auxiliares e os outros equipamentos do fluxo, os "
+    "conjuntos de equipamentos, a disponibilidade dos insumos e o mercado (limites máximos de venda) -- e cite "
+    "'proxima_restricao_que_limita' (copie como está, ex.: 'Var #137' -- a tela mostra a descrição da variável ao passar "
+    "o mouse; não invente a descrição) e o 'ganho_potencial' (o ganho para dentro da faixa de validade). Recomende "
+    "confirmar com as ações de sensibilidade do Agente IA (Sensibilidade Custo x Produtividade e Ganho Margem x "
+    "Produtividade), que refazem a otimização com o aumento e mostram quais restrições ficam no limite."
+    " MÍNIMOS: 'venda_minima_definida' diz se há venda mínima cadastrada; 'periodos_preso_no_minimo' diz em quantos "
+    "períodos as vendas ficaram PRESAS nela. Mínimo definido com vendas acima dele NÃO está limitando: diga 'tem venda "
+    "mínima definida, mas as vendas ficaram acima dela (o mínimo não está preso), por isso reduzi-lo não muda a MCT' -- "
+    "use 'leitura_minimo'. Nunca escreva 'não há mínimos' quando há mínimo definido; não use a expressão 'mínimo ativo'." +
+    # 🌟 24/10/2026: formatação (a tela entende **negrito** e <br> dentro da célula da tabela)
+    " FORMATAÇÃO: use **negrito** nos nomes de produtos/mercados, equipamentos e restrições; dentro de uma célula de "
+    "tabela, para pôr vários itens, separe-os com <br> (não use '•' solto nem quebra de linha real dentro da célula). "
+    "Copie os valores com o ponto de milhar como vêm no JSON ('R$ 187.811.027', '45,7%'): nunca troque o ponto por "
+    "espaço nem separe o número do '%'." +
+    # 🌟 24/10/2026: Matriz SWOT da Metodologia SPS (etapa 2), só com os dados do JSON
+    " MATRIZ SWOT: este resultado é o cenário 'As Is' otimizado (etapa 1 da Metodologia SPS); a seção 7 é o ponto de "
+    "partida da etapa 2 (Análise SWOT), montada SOMENTE com os dados do JSON: "
+    "FORÇAS = produtos/mercados que mais geram margem (cite margem e percentual_da_mct) e os de maior CMH; "
+    "FRAQUEZAS = vendidos_com_margem_negativa, mínimos PRESOS que custam margem e ocupação mínima forçada com ganho_exato "
+    "maior que zero; OPORTUNIDADES = limites máximos ativos (mercado, insumo, conjunto de equipamentos, capacidade de "
+    "gargalo) com o ganho_potencial; AMEAÇAS = concentração da margem (percentual_da_mct alto em poucos "
+    "produtos/mercados) e restrições que travariam um aumento (proxima_restricao_que_limita, conjuntos e insumos no "
+    "máximo). Se um quadrante não tiver dado no JSON, escreva 'sem dados nesta análise'. Depois, a Matriz Estratégica "
+    "(tabela markdown 2x2 ou 4 itens): S/O, W/O, S/T e W/T, cada uma com 1 ou 2 estratégias que CRUZEM itens citados nos "
+    "quadrantes, apresentadas como HIPÓTESES a avaliar. É PROIBIDO escrever VPL, TIR, pay-back, fluxo de caixa "
+    "descontado, taxa de desconto ou qualquer incremento de EBITDA que não esteja no JSON: diga que a etapa 3 (Análise "
+    "da Rentabilidade) exige criar no SPS um cenário para cada estratégia, otimizá-lo e comparar com este cenário "
+    "(Comparação de Cenários), e que as ações de sensibilidade ajudam a dimensionar cada estratégia antes disso."
 ) + REGRA_GENERICA
 
 
@@ -1959,6 +2085,135 @@ INSTRUCAO_COMENTARIO_SENSIBILIDADE = (
     "e então cite a restrição que trava (restricoes_no_limite). Nunca tire uma conclusão a partir da ocupação dos "
     "similares que contradiga os números."
 ) + REGRA_GENERICA
+
+
+# 🌟 NOVO (24/10/2026): "Perguntar ao Agente IA" no Montar Fluxo de Produção Base Produção Mensal -- a tela manda a
+# pergunta + as tabelas do fluxo aberto (as mesmas do "Exportar Dados"), já com as linhas ligadas à pergunta primeiro.
+PADRAO_PERGUNTA_FLUXO_PM = re.compile(r'^\[PERGUNTA_FLUXO_PM:([A-Za-z0-9+/=_-]+)\]\s*$', re.DOTALL)
+LIMITE_JSON_PERGUNTA_FLUXO_PM = 14000      # caracteres do JSON mandado à IA (cai pela metade se a IA recusar o tamanho)
+INSTRUCAO_PERGUNTA_FLUXO_PM = (
+    "Você é um analista sênior de custos industriais. Você recebe uma PERGUNTA do usuário e um JSON com os dados de um "
+    "fluxo de produção montado a partir da Produção Mensal (valores contábeis), para um período: tabelas com colunas "
+    "('colunas') e linhas ('linhas', valores numéricos sem formatação). Tabelas: custo do produto final no período e mês "
+    "a mês (por unidade produzida: total, variável e fixo-outros); equipamentos do fluxo (produção e custo por unidade, "
+    "materiais, subprodutos e GGF por unidade); consumos de cada equipamento no período e mês a mês (quantidade, consumo "
+    "específico = quantidade / produção do equipamento, custo do insumo por unidade, valor total); contribuição de cada "
+    "equipamento no custo por unidade do produto final (com a necessidade de cada item por unidade do produto final); "
+    "balanço dos itens (produzido, consumo neste fluxo, consumo de outros produtos, sem consumo = estoque/perdas). "
+    "'linhas_omitidas' > 0 = a tabela foi cortada por tamanho (ficaram as linhas mais ligadas à pergunta).\n\n"
+    "Responda em português do Brasil, direto ao ponto, em markdown simples (parágrafos curtos, listas com '- ', tabela "
+    "markdown com no máximo 6 colunas quando ajudar; dentro de célula separe itens com <br>; **negrito** nos nomes):\n"
+    "- comece pela resposta à pergunta, com os números;\n"
+    "- depois mostre de onde vêm os números (tabela e linhas usadas) e a conta, quando houver conta;\n"
+    "- para variação de custo: compare os meses (ou o período pedido), separe o efeito do CONSUMO ESPECÍFICO (mais "
+    "quantidade por unidade) do efeito do CUSTO DO INSUMO por unidade (preço/valor contábil) e do efeito de VOLUME "
+    "(fixo/GGF diluído em produção menor), indicando quais equipamentos e insumos explicam a maior parte;\n"
+    "- CONSUMO DE UM INSUMO POR UNIDADE DO PRODUTO FINAL (ex.: energia, uma matéria-prima): use "
+    "'insumos_citados_por_unidade_do_produto_final' quando vier (ou a tabela 'insumo_final'): o valor já está somado em "
+    "toda a cadeia (necessidade de cada equipamento x consumo específico dele, mês a mês) e a média do período já é "
+    "ponderada pela produção do produto final. Quando houver um item 'Soma' (soma_de), ele é a soma dos insumos citados "
+    "com a mesma unidade (ex.: as várias energias) -- use-o como resposta principal e mostre a parte de cada um. NUNCA "
+    "some o consumo de todos os equipamentos e divida pela produção do produto final: equipamentos diferentes produzem "
+    "itens diferentes e em quantidades diferentes;\n"
+    "- EVOLUÇÃO MENSAL: a tela já desenha os gráficos por ano e mês a mês dos insumos citados. Mostre a média "
+    "do período e uma tabela: com até 24 meses, todos os meses; com mais, um resumo por ano (média do ano ponderada pela "
+    "produção = soma(consumo por unidade x produção) / soma(produção)), o mês de maior e o de menor consumo por unidade e "
+    "a tendência;\n"
+    "- escreva as contas em texto simples (ex.: 12.155.626,86 / 143.786 = 84,54): NUNCA use LaTeX, \\[ \\], \\frac ou "
+    "\\text;\n"
+    "- nos insumos citados: 'media_ponderada_periodo_inteiro', 'por_ano', 'mes_maior' e 'mes_menor' já vêm calculados para "
+    "TODOS os meses (de 'primeiro_mes' a 'ultimo_mes') -- use-os como estão, não recalcule e não diga que faltam meses; "
+    "'meses' (mês a mês) vem só na série principal. Mostre consumo por unidade com 4 casas decimais (ex.: 0,1823; valor menor que 0,001 com 2 algarismos significativos, ex.: 0,000027) e "
+    "quantidades com ponto de milhar (ex.: 26.206,24) -- nunca separe dígitos com espaço;\n"
+    "- CUSTO DO PRODUTO FINAL: quando vier 'custo_do_produto_final', use-o: custo do período inteiro, 'por_ano' (média "
+    "ponderada pela produção), 'meses' (mês a mês), maior e menor mês, e 'decomposicao_da_variacao' (entre os dois "
+    "períodos indicados em 'periodos': efeito consumo e efeito preço de cada item do equipamento final, GGF com efeito "
+    "volume e efeito preço dos recursos, e mix de equipamentos). A tela já desenha os gráficos por ano e mês a mês do "
+    "custo total, variável e fixo-outros. Para 'por que o custo aumentou', explique com a decomposição, do maior efeito "
+    "para o menor, e diga quais períodos foram comparados (se o usuário não disse, foram os últimos 12 meses contra os 12 "
+    "anteriores -- ele pode citar os anos ou meses na pergunta). Um item 'produzido_no_fluxo' tem custo que vem dos "
+    "equipamentos anteriores: diga que o detalhe dele está no equipamento que o produz;\n"
+    "- CONVERSA: 'conversa_anterior' traz as últimas perguntas e respostas desta janela. Use-a para entender pedidos de "
+    "continuação ('faça um gráfico disso', 'e por ano?'): os números das respostas anteriores vieram destes mesmos dados "
+    "e continuam válidos -- nunca diga que um número que você mesmo deu antes não existe. Se a pergunta for sobre outro "
+    "assunto, ignore a conversa;\n"
+    "- GRÁFICO PEDIDO: se o usuário pedir um gráfico que a tela ainda não mostra, inclua UM bloco separado, exatamente "
+    "assim: uma linha ```chart, depois um JSON válido de configuração do Chart.js versão 4 (type 'bar' ou 'line', "
+    "data.labels e data.datasets com label e data numéricos, sem funções), e uma linha ```. Use só números do JSON ou "
+    "da conversa anterior. Não descreva o gráfico com caracteres.\n\n"
+    "REGRAS OBRIGATÓRIAS: use SOMENTE os números do JSON; não invente nem estime valores que não possam ser calculados "
+    "a partir deles. Se os dados não bastarem (tabela cortada, item que não está no fluxo, mês fora do período), diga "
+    "isso claramente e o que fazer (ex.: usar o Exportar Dados, outro período ou outro produto). Formate os números no "
+    "padrão brasileiro (1.234.567,89; moeda do JSON, ex.: 'R$ 1.234,56'; '12,3%'). Não afirme causas externas "
+    "(mercado, clima, manutenção) como fato: se sugerir, diga que é hipótese a verificar. Nunca use a palavra 'Simplex'."
+) + REGRA_GENERICA
+
+
+def _cortar_dados_pergunta_fluxo(dados, limite):
+    """Corta linhas (das últimas tabelas para as primeiras) até o JSON caber no limite; atualiza linhas_omitidas."""
+    tabelas = dados.get('tabelas') or []
+    tam = len(json.dumps(dados, ensure_ascii=False, separators=(',', ':')))
+    for t in reversed(tabelas):
+        while tam > limite and t.get('linhas'):
+            linha = t['linhas'].pop()
+            tam -= len(json.dumps(linha, ensure_ascii=False, separators=(',', ':'))) + 1
+            t['linhas_omitidas'] = int(t.get('linhas_omitidas') or 0) + 1
+        if tam <= limite:
+            break
+    # ainda grande: os insumos citados perdem os meses mais antigos (a média do período continua a do período inteiro)
+    citados = dados.get('insumos_citados_por_unidade_do_produto_final') or []
+    while tam > limite and any(len(c.get('meses') or []) > 12 for c in citados):
+        for c in citados:
+            if len(c.get('meses') or []) > 12:
+                c['meses'].pop(0)
+                c['meses_omitidos_no_inicio'] = int(c.get('meses_omitidos_no_inicio') or 0) + 1
+        tam = len(json.dumps(dados, ensure_ascii=False, separators=(',', ':')))
+    return dados
+
+
+def _pergunta_fluxo_pm(mensagem_usuario, usuario):
+    import base64
+    import copy
+    m = PADRAO_PERGUNTA_FLUXO_PM.match(mensagem_usuario or '')
+    try:
+        bruto = m.group(1)
+        bruto += '=' * (-len(bruto) % 4)
+        dados = json.loads(base64.b64decode(bruto.replace('-', '+').replace('_', '/')).decode('utf-8'))
+    except Exception:
+        return "Não consegui ler os dados do fluxo para responder."
+    pergunta = str(dados.get('pergunta') or '').strip()
+    if not pergunta:
+        return "Escreva a pergunta."
+    from groq import Groq
+    client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+    limite = LIMITE_JSON_PERGUNTA_FLUXO_PM
+    ultimo_erro = None
+    while limite >= 6000:
+        d = _cortar_dados_pergunta_fluxo(copy.deepcopy(dados), limite)
+        texto_json = json.dumps(d, ensure_ascii=False, separators=(',', ':'))
+        try:
+            response = client.chat.completions.create(
+                model="openai/gpt-oss-120b",
+                messages=[
+                    {"role": "system", "content": INSTRUCAO_PERGUNTA_FLUXO_PM},
+                    {"role": "user", "content": "PERGUNTA: " + pergunta + "\n\nDADOS DO FLUXO (JSON):\n" + texto_json},
+                ],
+                temperature=0.2,
+                timeout=90,
+            )
+            texto = (response.choices[0].message.content or '').strip()
+            return texto or "A IA não devolveu resposta. Tente de novo."
+        except Exception as erro:
+            ultimo_erro = erro
+            msg = str(erro).lower()
+            print(f"[pergunta_fluxo_pm] {type(erro).__name__}: {erro}")
+            # pedido grande demais para o limite de tokens da IA: tenta de novo com metade dos dados
+            if any(x in msg for x in ('413', 'too large', 'tokens', 'context', 'rate_limit', 'request too large')):
+                limite //= 2
+                continue
+            break
+    return ("Não foi possível obter a resposta da IA agora (serviço indisponível ou limite de uso). Tente de novo em "
+            "instantes." + (f" ({type(ultimo_erro).__name__})" if ultimo_erro else ''))
 
 
 def _comentario_analise_custo(mensagem_usuario, usuario):
@@ -2028,6 +2283,12 @@ def executar_agente_com_prompt_do_admin(mensagem_usuario: str, pdf_ids: list, us
     if (PADRAO_COMENTARIO_ANALISE_CUSTO.match(mensagem_usuario or '') or PADRAO_COMENTARIO_ANALISE_RESULTADOS.match(mensagem_usuario or '')
             or PADRAO_COMENTARIO_SENSIBILIDADE.match(mensagem_usuario or '')):
         texto = _comentario_analise_custo(mensagem_usuario, usuario)
+        perfil_c = getattr(usuario, 'perfilusuario', None)
+        idioma_c = perfil_c.idioma_efetivo() if perfil_c else None
+        return _traduzir_resposta_se_necessario(texto, idioma_c), [], texto
+    # 🌟 24/10/2026: Perguntar ao Agente IA (Montar Fluxo de Produção Base Produção Mensal)
+    if PADRAO_PERGUNTA_FLUXO_PM.match(mensagem_usuario or ''):
+        texto = _pergunta_fluxo_pm(mensagem_usuario, usuario)
         perfil_c = getattr(usuario, 'perfilusuario', None)
         idioma_c = perfil_c.idioma_efetivo() if perfil_c else None
         return _traduzir_resposta_se_necessario(texto, idioma_c), [], texto

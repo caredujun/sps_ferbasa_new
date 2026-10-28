@@ -86,7 +86,7 @@ class TbEquipamentosCadastroAdmin(admin.ModelAdmin):
               ('equ_cad_indicador_manutencao', 'equ_cad_moeda_manutencao'), ('equ_cad_imagem', 'equ_cad_imagem_tag'),
               'equ_cad_observacao', 'total_ordens', 'equ_cad_fonte')
     list_filter = ('equ_cad_codigo',)
-    list_display = ['id', 'equ_cad_codigo', 'equ_cad_descricao', 'equ_cad_imagem', 'equ_cad_imagem_tag_small',
+    list_display = ['id', 'equ_cad_codigo', 'equ_cad_descricao', 'equ_cad_imagem_tag_small',
                     'equ_cad_gargalo', 'periodos_running', 'equ_cad_expedicao', 'total_ordens']
     list_editable = ['equ_cad_gargalo', 'equ_cad_expedicao']
     readonly_fields = ['equ_cad_imagem_tag', 'total_ordens', 'periodos_running']
@@ -154,7 +154,7 @@ class TbEquipamentosCadastroAdmin(admin.ModelAdmin):
     equ_cad_imagem_tag.short_description = ''
     equ_cad_imagem_tag.allow_tags = True
 
-    equ_cad_imagem_tag_small.short_description = ''
+    equ_cad_imagem_tag_small.short_description = _('Imagem')
     equ_cad_imagem_tag_small.allow_tags = True
 
     # Mostra os campos valor_inicial_1, valor_inicial_2 e valor_inicial_3 somente se estiver incluindo novo registro

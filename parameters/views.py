@@ -130,6 +130,8 @@ _PADRAO_LISTA_FLUXOS = re.compile(r'\n*\[LISTA_FLUXOS:([A-Za-z0-9_=-]*)\]')
 _PADRAO_GRAFICOS_CUSTO_FLUXO = re.compile(r'\n*\[GRAFICOS_CUSTO_FLUXO:([A-Za-z0-9_=-]*)\]')
 # 🌟 NOVO: [FLUXO_PRODUCAO_MENSAL:<json base64>] -- o fluxo montado a partir da Produção Mensal (Custo Ferbasa).
 _PADRAO_FLUXO_PRODUCAO_MENSAL = re.compile(r'\n*\[FLUXO_PRODUCAO_MENSAL:([A-Za-z0-9_=-]*)\]')
+# 🌟 NOVO (27/10/2026): "Custo Produção x Custo Consumo" (Custo Ferbasa): [CUSTO_PRODUCAO_CONSUMO:<json base64>] -- a tabela.
+_PADRAO_CUSTO_PRODUCAO_CONSUMO = re.compile(r'\n*\[CUSTO_PRODUCAO_CONSUMO:([A-Za-z0-9_=-]*)\]')
 
 
 def _extrair_form_base64(padrao, texto):
@@ -503,6 +505,36 @@ def _resposta_detalhes_ordens_equipamento(request):
     return JsonResponse({"ok": True, **dados})
 
 
+def _resposta_excluir_relatorio(request):
+    """🌟 NOVO (25/10/2026): exclui um arquivo dos "Relatórios Agente IA" direto do chat (lixeira ao lado do nome), sem
+    precisar ir ao Admin. Só arquivos da EMPRESA EFETIVA do usuário (a mesma regra da lista); apaga o registro e o
+    arquivo do disco."""
+    try:
+        relatorio_id = int(request.POST.get("excluir_relatorio"))
+    except (TypeError, ValueError):
+        return JsonResponse({"ok": False, "erro": "Arquivo inválido."}, status=400)
+    perfil = getattr(request.user, 'perfilusuario', None)
+    empresa_id = perfil.empresa_efetiva_id() if perfil else None
+    if empresa_id is None:
+        return JsonResponse({"ok": False, "erro": "Usuário sem empresa ativa."}, status=403)
+    relatorio = RelatorioPDF.objects.filter(id=relatorio_id, empresa_id=empresa_id).first()
+    if relatorio is None:
+        return JsonResponse({"ok": False, "erro": "Arquivo não encontrado (ou de outra empresa)."}, status=404)
+    caminho = None
+    try:
+        caminho = relatorio.arquivo.path if relatorio.arquivo else None
+    except Exception:
+        caminho = None
+    titulo = relatorio.titulo
+    relatorio.delete()
+    try:
+        if caminho and os.path.exists(caminho):
+            os.remove(caminho)
+    except OSError as erro:
+        print(f"[chat][excluir_relatorio] registro apagado, mas o arquivo ficou no disco ({caminho}): {erro}")
+    return JsonResponse({"ok": True, "titulo": titulo})
+
+
 @exige_acesso_ao_agente_ia
 def chat_view(request):
     if request.method == "POST":
@@ -511,6 +543,9 @@ def chat_view(request):
         # passa pelo agente (não é mensagem do usuário, não entra no histórico).
         if request.POST.get("detalhes_ordens_equipamento"):
             return _resposta_detalhes_ordens_equipamento(request)
+        # 🌟 NOVO (25/10/2026): lixeira dos Relatórios Agente IA -- mesma rota, sem passar pelo agente
+        if request.POST.get("excluir_relatorio"):
+            return _resposta_excluir_relatorio(request)
 
         mensagem = request.POST.get("mensagem", "").strip()
         # Captura a lista de IDs dos PDFs enviados pelo front-end
@@ -571,6 +606,8 @@ def chat_view(request):
         resposta, _ignorar_graficos = _extrair_form_base64(_PADRAO_GRAFICOS_CUSTO_FLUXO, resposta)
         resposta_original, fluxo_producao_mensal = _extrair_form_base64(_PADRAO_FLUXO_PRODUCAO_MENSAL, resposta_original)
         resposta, _ignorar_fpm = _extrair_form_base64(_PADRAO_FLUXO_PRODUCAO_MENSAL, resposta)
+        resposta_original, custo_producao_consumo = _extrair_form_base64(_PADRAO_CUSTO_PRODUCAO_CONSUMO, resposta_original)
+        resposta, _ignorar_cpc = _extrair_form_base64(_PADRAO_CUSTO_PRODUCAO_CONSUMO, resposta)
         lista_equipamentos = (
             _dados_cartoes_equipamentos(request.user)
             if (tem_lista_equip_original or tem_lista_equip_traduzida) else None
@@ -675,6 +712,7 @@ def chat_view(request):
             "lista_fluxos": lista_fluxos,
             "graficos_custo_fluxo": graficos_custo_fluxo,
             "fluxo_producao_mensal": fluxo_producao_mensal,
+            "custo_producao_consumo": custo_producao_consumo,
             "nome_empresa": nome_empresa_atual,
             "nome_cenario": nome_cenario_atual,
             "status_cenario": status_cenario_atual,

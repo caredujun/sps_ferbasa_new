@@ -8,7 +8,9 @@ from xlrd.book import open_workbook_xls
 from django.contrib import admin
 from django.forms import Textarea
 from django.forms.models import BaseInlineFormSet
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse, Http404
+from django.core.exceptions import PermissionDenied
+from django.urls import NoReverseMatch
 from django.core.paginator import Paginator
 from django.shortcuts import render
 from django.urls import path, reverse
@@ -66,21 +68,24 @@ class TbProdutoFluxoProducaoDaugtherAdmin(admin.TabularInline):
 
 class TbProdutosAdmin(admin.ModelAdmin):
     fields = (('id', 'pro_codigo', 'pro_descricao', 'pro_ativo'), ('total_mercados', 'total_fluxos_ativos', 'total_fluxos', 'total_equipamentos_usados'),
-              ('pro_unidade_producao', 'pro_familia'),
+              ('pro_unidade_producao', 'pro_familia'), ('pro_custo_variavel', 'grafico_comparacao', 'periodo_inicio', 'periodo_fim', 'custo_variavel',
+               'custo_real_x_sps', 'valor_min_fluxos', 'valor_max_fluxos', 'valor_medio_fluxos', 'qtde_fluxos'),   # 🌟 25/10/2026: mesma linha
               ('pro_horizonte_estoque', 'pro_estoque_inicial', 'pro_estoque_final'),   # 🌟 22/10/2026: produção antecipada
               ('pro_imagem', 'pro_imagem_tag'), 'pro_observacao',
               'equipamentos_producao', 'escolhidos_igual_fluxos', 'equipamentos_usados_tag',
               'fluxos_producao_acesso')
     # 🌟 22/10/2026: sem o campo "Imagem" (o arquivo); a miniatura (pro_imagem_tag) continua. Os três campos da produção
     # antecipada aparecem e são editáveis direto na lista.
-    list_display = ['id', 'pro_codigo', 'pro_descricao', 'pro_ativo', 'pro_unidade_producao',
+    list_display = ['id', 'pro_codigo', 'pro_descricao', 'pro_ativo', 'pro_unidade_producao', 'custo_real_x_sps',
                     'pro_horizonte_estoque', 'pro_estoque_inicial', 'pro_estoque_final',
-                    'pro_imagem_lista', 'escolhidos_igual_fluxos', 'total_mercados', 'total_fluxos_ativos', 'total_fluxos',
+                    'pro_imagem_lista', 'custo_real_x_sps', 'escolhidos_igual_fluxos', 'total_mercados', 'total_fluxos_ativos', 'total_fluxos',
                     'total_equipamentos_usados']
     list_editable = ['pro_ativo', 'pro_horizonte_estoque', 'pro_estoque_inicial', 'pro_estoque_final']
     list_filter = ('pro_codigo','pro_ativo')
     list_display_links = ['id', 'pro_codigo']
-    readonly_fields = ['id', 'pro_imagem_tag', 'pro_imagem_lista', 'total_mercados', 'total_fluxos_ativos', 'total_fluxos', 'total_equipamentos_usados', 'escolhidos_igual_fluxos', 'equipamentos_usados_tag', 'fluxos_producao_acesso']
+    readonly_fields = ['id', 'pro_imagem_tag', 'pro_imagem_lista', 'total_mercados', 'total_fluxos_ativos', 'total_fluxos', 'total_equipamentos_usados', 'escolhidos_igual_fluxos', 'equipamentos_usados_tag', 'fluxos_producao_acesso', 'periodo_inicio', 'periodo_fim', 'custo_variavel',
+                       'grafico_comparacao', 'valor_min_fluxos', 'valor_max_fluxos', 'valor_medio_fluxos', 'qtde_fluxos',
+                       'custo_real_x_sps']
     search_fields = ['pro_codigo', ]
 
     model = TbProdutos
@@ -372,9 +377,50 @@ class TbProdutosAdmin(admin.ModelAdmin):
 
     fluxos_producao_acesso.short_description = 'Consulta de fluxos de produção'
 
+    # 🌟 NOVO (25/10/2026): botão ao lado do Custo Variável CF. Abre (produtos_grafico_custo.js) a distribuição do
+    # custo variável médio dos fluxos ativos do produto, com a barra verde na faixa do Custo Variável CF.
+    def grafico_comparacao(self, obj=None):
+        if obj is None or not obj.pk:
+            return '-'
+        url = reverse('admin:produtos_tbprodutos_grafico_custo_variavel', args=[obj.pk])
+        return format_html('<button type="button" class="button pgcv-abrir" data-url="{}">Gráfico Comparação</button>', url)
+
+    grafico_comparacao.short_description = ''
+
+    # 🌟 NOVO (25/10/2026): dados do gráfico (JSON), lidos só quando o botão é clicado.
+    def grafico_custo_variavel_view(self, request, object_id):
+        if not self.has_view_or_change_permission(request):
+            raise PermissionDenied
+        produto = self.get_object(request, object_id)
+        if produto is None:
+            raise Http404
+
+        nome_url_fluxo = f'admin:{TbFluxoProducao._meta.app_label}_{TbFluxoProducao._meta.model_name}_change'
+        lista = []
+        for f in produto._custos_medios_fluxos():
+            try:
+                url = reverse(nome_url_fluxo, args=[f['id']])
+            except NoReverseMatch:
+                url = ''
+            lista.append({'id': f['id'], 'descricao': f['descricao'] or '', 'valor': float(f['media']), 'url': url})
+
+        custo_cf = produto._custo_variavel_cf_valor()
+        return JsonResponse({
+            'produto': f'{produto.pro_codigo} - {produto.pro_descricao}',
+            'custo_cf': float(custo_cf) if custo_cf is not None else None,
+            'custo_cf_descricao': str(produto.pro_custo_variavel) if produto.pro_custo_variavel_id else '',
+            'qtde_fluxos_ativos': produto.qtde_fluxos(),
+            'fluxos': lista,
+        })
+
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
+            path(
+                '<path:object_id>/grafico-custo-variavel/',
+                self.admin_site.admin_view(self.grafico_custo_variavel_view),
+                name='produtos_tbprodutos_grafico_custo_variavel',
+            ),
             path(
                 '<path:object_id>/fluxos-producao/',
                 self.admin_site.admin_view(self.fluxos_producao_view),
@@ -451,8 +497,10 @@ class TbProdutosAdmin(admin.ModelAdmin):
 
     # 🌟 NOVO (22/10/2026): código e descrição do produto ficam fixos à esquerda na lista; só os demais campos rolam
     class Media:
-        js = ('lista_colunas_fixas.js',)
-        css = {'all': ('produtos_lista.css',)}
+        js = ('lista_colunas_fixas.js', 'produtos_grafico_custo.js')
+        # 🌟 25/10/2026: produtos_form.css faz a linha "Custo Variável CF / Período / Custo Variável" quebrar
+        # em vez de cortar o último valor quando o menu lateral do admin está aberto.
+        css = {'all': ('produtos_lista.css', 'produtos_form.css')}
 
     # 🌟 NOVO (22/10/2026): "Horizonte Máx. Estoque" na unidade do cenário ativo (meses, trimestres ou anos)
     @staticmethod

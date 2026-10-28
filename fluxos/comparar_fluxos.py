@@ -953,3 +953,270 @@ def dados_para_tabela_custo(res, moeda=''):
                    'so_a': sum(1 for l in linhas if l['situacao'] == 'so_a'), 'so_b': sum(1 for l in linhas if l['situacao'] == 'so_b')},
         'custo_indisponivel': res['custo_indisponivel'], 'custo_incompleto': res['custo_incompleto'],
     }
+
+# ---------------------------------------------------------------------------------------------------------------
+# 🌟 NOVO (27/10/2026): CUSTO DE UM EQUIPAMENTO/ORDEM NO FLUXO (círculo "C" dos quadrados do editor)
+#
+# As MESMAS informações do detalhe da ação "Comparar Fluxos de Produção" (dados_para_tabela_custo), para um só fluxo e um
+# só equipamento/ordem: período a período, indicador (dau_valor_3 do I/O), output real (dau_valor_4), custo da ordem
+# (custo variável adicionado da ordem: procedure atualiza_custo_var_adic_equipamento_order) e custo no fluxo
+# (output real x custo da ordem); e o custo no fluxo em média dos períodos (o "Valor" da comparação). A mesma ordem pode
+# aparecer em mais de uma coluna do fluxo: volta uma ocorrência por coluna.
+# ---------------------------------------------------------------------------------------------------------------
+def custo_equipamento_no_fluxo(fluxo, cenario, equipamento_id, moeda='', *, custo_fn=None,
+                               orcamento_segundos=ORCAMENTO_CUSTO_FLUXO_SEGUNDOS, relogio=time.monotonic):
+    custo_fn = custo_fn or custo_adicionado_equipamento
+    if not fluxo.flu_pro_input_output_atualizado:
+        raise ComparacaoError(f"O I/O do fluxo id {fluxo.id} está desatualizado, e o custo do fluxo sai do I/O. Atualize os fluxos "
+                              "(menu Cenário > Atualizar Fluxos) e tente de novo.")
+    nos = _nos_do_io(fluxo.id)
+    if not nos:
+        raise ComparacaoError(f"O fluxo id {fluxo.id} não tem I/O (nenhum equipamento calculado). Atualize os fluxos e tente de novo.")
+    colunas = sorted({n['coluna'] for n in nos})
+    ordem_coluna = {c: i + 1 for i, c in enumerate(colunas)}
+    sel = sorted([n for n in nos if n['ordem'].id == int(equipamento_id)], key=lambda n: (n['coluna'], n['linha']))
+    if not sel:
+        raise ComparacaoError("Este equipamento/ordem não está no I/O do fluxo gravado (equipamento novo, ainda não salvo, ou "
+                              "I/O desatualizado).")
+    ordens_periodo = sorted({o for n in sel for o in n['v']})
+    periodos = [(o, rotulo_periodo(cenario.cen_tipo, cenario.cen_inicio, o)) for o in ordens_periodo]
+
+    cache, estado_custo = {}, {'indisponivel': False, 'incompleto': False}
+    inicio = relogio()
+
+    def custo_da_ordem(ordem_id, periodo):          # mesma regra de comparar_custo_fluxos
+        if estado_custo['indisponivel']:
+            return None
+        if (ordem_id, periodo) in cache:
+            return cache[(ordem_id, periodo)]
+        if relogio() - inicio > orcamento_segundos:
+            estado_custo['incompleto'] = True
+            return None
+        try:
+            bruto = custo_fn(cenario.id, ordem_id, periodo)
+            cache[(ordem_id, periodo)] = None if bruto is None else Decimal(str(bruto))
+        except Exception:
+            estado_custo['indisponivel'] = True
+            return None
+        return cache[(ordem_id, periodo)]
+
+    ocorrencias = []
+    for n in sel:
+        custos = {p: custo_da_ordem(n['ordem'].id, p) for p in n['v']}
+        contrib = {p: (None if custos[p] is None else custos[p] * Decimal(str(n['v'][p][1]))) for p in n['v']}
+        validos = [c for c in contrib.values() if c is not None]
+        media = (sum(validos) / len(validos)) if validos else None          # o "Valor" da comparação
+        cel = {}
+        for o, _r in periodos:
+            if o not in n['v']:
+                cel[o] = (None, None, None, None)
+                continue
+            v3, v4 = n['v'][o]
+            c, k = custos.get(o), contrib.get(o)
+            cel[o] = (_num(v3, 4), _num(v4, 4), None if c is None else _num(c, 2), None if k is None else _num(k, 2))
+        ocorrencias.append({
+            'coluna': n['coluna'], 'coluna_ordem': ordem_coluna[n['coluna']], 'linha': n['linha'],
+            'custo_no_fluxo_media': None if media is None else _num(media, 2),
+            'periodos': [{'periodo': r, 'ind': c[0], 'out_real': c[1], 'custo_ordem': c[2], 'custo': c[3]}
+                         for r, c in _faixas_de_linhas(periodos, cel)],
+        })
+    o = sel[0]['ordem']
+    # 🌟 NOVO (27/10/2026): média do Custo Var. Adic. Equipamento (custo da ordem) e o detalhe item a item
+    custos_ordem = {p: cache.get((o.id, p)) for p in ordens_periodo}
+    media_custo_ordem = _media(list(custos_ordem.values()))
+    try:
+        with transaction.atomic():              # savepoint: se a consulta falhar, não derruba a transação
+            detalhe = detalhe_custo_ordem_formatado(cenario, o.id, ordens_periodo, custos_ordem, moeda)
+    except Exception as erro:                       # o detalhe nunca derruba a tela do custo
+        detalhe = {'erro': f"Não consegui montar o detalhe dos itens: {erro}"}
+    return {
+        'custo_ordem_media': None if media_custo_ordem is None else _num(media_custo_ordem, 2),
+        'detalhe_custo_ordem': detalhe,
+        'fluxo': {'id': fluxo.id, 'descricao': fluxo.flu_pro_descricao},
+        'equipamento': {'id': o.id, 'rotulo': _rotulo_equipamento(o), 'descricao': o.equ_ordem_descricao or '',
+                        'equipamento_descricao': o.equ_codigo.equ_cad_descricao or ''},
+        'moeda': moeda.strip(), 'ocorrencias': ocorrencias,
+        'custo_indisponivel': estado_custo['indisponivel'], 'custo_incompleto': estado_custo['incompleto'],
+    }
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# 🌟 NOVO (27/10/2026): DETALHE DO CUSTO VAR. ADIC. EQUIPAMENTO (o "custo da ordem") -- item a item, período a período.
+#
+# Refaz em Python EXATAMENTE a conta da procedure atualiza_custo_var_adic_equipamento_order (mesmas tabelas, mesmos
+# arredondamentos dos tipos numeric da procedure), só que guardando cada parcela:
+#   itens:      consumo específico (equipamentos_tbequipamentosconsumoespecificodaugther.dau_valor)
+#               x ( preço (tabelas_tbcustoitemprecodaugther.dau_valor_1) x câmbio do preço
+#                 + inbound (dau_valor_2) x câmbio do inbound )        -- câmbio = 1 quando a moeda é a da empresa
+#   manutenção: custo de manutenção do equipamento (Moeda/h: equipamentos_tbequipamentoscadastrodaugther.dau_valor_3)
+#               / produtividade da ordem (equipamentos_tbequipamentosdaugther.dau_valor_2) x câmbio
+# A soma é conferida com o valor da procedure (o mesmo mostrado na tela); se não fechar, o detalhe avisa.
+# ---------------------------------------------------------------------------------------------------------------
+_D2, _D4 = Decimal('0.01'), Decimal('0.0001')
+
+
+def _arred(valor, casas):
+    from decimal import ROUND_HALF_UP
+    return None if valor is None else Decimal(str(valor)).quantize(casas, rounding=ROUND_HALF_UP)
+
+
+def detalhe_custo_var_adic_equipamento(cenario_id, ordem_id, ordens_periodo):
+    """{'moeda_sistema', 'periodos': {periodo: {'itens': [...], 'manutencao': {...}, 'total': Decimal|None}}} -- a conta da
+    procedure, parcela a parcela."""
+    ordens_periodo = sorted(set(ordens_periodo))
+    if not ordens_periodo:
+        return {'moeda_sistema': None, 'periodos': {}}
+    with connection.cursor() as c:
+        c.execute("select emp_moeda from parameters_tbempresa")          # a procedure lê a moeda assim (sem filtro)
+        linha = c.fetchone()
+        moeda_sistema = linha[0] if linha else None
+
+        # câmbio do cenário: {moeda: {periodo: valor}}
+        c.execute("select cb.cam_moeda, d.dau_order, d.dau_valor from tabelas_tbcambio cb "
+                  "join tabelas_tbcambiodaugther d on d.mae_id = cb.id where cb.tbcenarios_id = %s and d.dau_order = any(%s)",
+                  [cenario_id, ordens_periodo])
+        cambio = {}
+        for moeda, ordem, valor in c.fetchall():
+            cambio.setdefault(moeda, {})[ordem] = valor
+
+        def taxa(moeda, ordem):
+            if moeda == moeda_sistema:
+                return Decimal(1)
+            v = cambio.get(moeda, {}).get(ordem)
+            return None if v is None else _arred(v, _D4)
+
+        # itens de consumo específico da ordem
+        c.execute("select ce.id, ci.cus_ite_codigo_interno, ci.cus_ite_nome, ci.cus_ite_unidade, "
+                  "cip.cus_ite_pre_moeda_preco, cip.cus_ite_pre_moeda_inbound, cip.id "
+                  "from equipamentos_tbequipamentosconsumoespecifico ce "
+                  "join tabelas_tbcustoitempreco cip on cip.id = ce.equ_con_esp_custoitempreco_id "
+                  "join tabelas_tbcustoitem ci on ci.id = cip.cus_ite_pre_item_id "
+                  "where ce.equ_con_esp_equipamento_id = %s order by ci.cus_ite_nome, ce.id", [ordem_id])
+        itens = c.fetchall()
+        ids_ce = [i[0] for i in itens] or [0]
+        ids_cip = [i[6] for i in itens] or [0]
+        c.execute("select mae_id, dau_order, dau_valor from equipamentos_tbequipamentosconsumoespecificodaugther "
+                  "where mae_id = any(%s) and dau_order = any(%s)", [ids_ce, ordens_periodo])
+        consumo = {(m, o): v for m, o, v in c.fetchall()}
+        c.execute("select mae_id, dau_order, dau_valor_1, dau_valor_2 from tabelas_tbcustoitemprecodaugther "
+                  "where mae_id = any(%s) and dau_order = any(%s)", [ids_cip, ordens_periodo])
+        preco = {(m, o): (v1, v2) for m, o, v1, v2 in c.fetchall()}
+
+        # manutenção
+        c.execute("select e.equ_codigo_id, cad.equ_cad_moeda_manutencao from equipamentos_tbequipamentos e "
+                  "join equipamentos_tbequipamentoscadastro cad on cad.id = e.equ_codigo_id where e.id = %s", [ordem_id])
+        linha = c.fetchone()
+        cadastro_id, moeda_manut = (linha if linha else (None, None))
+        c.execute("select dau_order, dau_valor_3 from equipamentos_tbequipamentoscadastrodaugther "
+                  "where mae_id = %s and dau_order = any(%s)", [cadastro_id or 0, ordens_periodo])
+        manut = dict(c.fetchall())
+        c.execute("select dau_order, dau_valor_2 from equipamentos_tbequipamentosdaugther "
+                  "where mae_id = %s and dau_order = any(%s)", [ordem_id, ordens_periodo])
+        produtividade = dict(c.fetchall())
+
+    saida = {}
+    for o in ordens_periodo:
+        linhas, total, completo = [], Decimal(0), True
+        for ce_id, cod, nome, unidade, moeda_p, moeda_i, cip_id in itens:
+            ce = _arred(consumo.get((ce_id, o)), _D4)
+            p, i = preco.get((cip_id, o), (None, None))
+            p, i = _arred(p, _D2), _arred(i, _D2)
+            tp, ti = taxa(moeda_p, o), taxa(moeda_i, o)
+            unit = None if None in (p, i, tp, ti) else p * tp + i * ti
+            valor = None if (ce is None or unit is None) else ce * unit
+            if valor is None:
+                completo = False
+            else:
+                total += valor
+            linhas.append({'item': (f"{cod} - {nome}" if cod else nome), 'unidade': unidade or '', 'custoitempreco_id': cip_id,
+                           'consumo': ce, 'preco': p, 'inbound': i, 'cambio_preco': tp, 'cambio_inbound': ti,
+                           'moeda_preco': moeda_p, 'moeda_inbound': moeda_i, 'unitario': unit, 'valor': valor})
+        m_h = _arred(manut.get(o), _D2)
+        prod = _arred(produtividade.get(o), _D2)
+        tm = taxa(moeda_manut, o)
+        if m_h is None or prod is None:
+            m_un, m_valor = None, None
+            completo = False
+        else:
+            m_un = _arred(m_h / prod, _D2) if prod > 0 else Decimal(0)
+            m_valor = None if tm is None else m_un * tm
+            if m_valor is None:
+                completo = False
+            else:
+                total += m_valor
+        saida[o] = {'itens': linhas,
+                    'manutencao': {'custo_hora': m_h, 'produtividade': prod, 'moeda': moeda_manut, 'cambio': tm,
+                                   'unitario': m_un, 'valor': m_valor},
+                    'total': total if completo else None, 'completo': completo}
+    return {'moeda_sistema': moeda_sistema, 'periodos': saida}
+
+
+def _media(valores):
+    validos = [v for v in valores if v is not None]
+    return (sum(validos, Decimal(0)) / len(validos)) if validos else None
+
+
+def detalhe_custo_ordem_formatado(cenario, ordem_id, ordens_periodo, custo_procedure, moeda=''):
+    """Detalhe pronto pra tela: um bloco por período e um bloco 'média dos períodos' (média de cada coluna; a soma da
+    coluna "Valor" da média é a média do Custo Var. Adic. Equipamento)."""
+    bruto = detalhe_custo_var_adic_equipamento(cenario.id, ordem_id, ordens_periodo)
+    det, moeda_sistema = bruto['periodos'], bruto['moeda_sistema']
+    f4 = lambda v: None if v is None else _num(v, 4)
+    f2 = lambda v: None if v is None else _num(v, 2)
+    f_un = lambda v: None if v is None else _num(v, 4)
+
+    # 🌟 NOVO (27/10/2026): link para o registro do Item de Custo / Planta (TbCustoItemPreco) no Admin do Django
+    def url_admin(cip_id):
+        if not cip_id:
+            return None
+        try:
+            from django.urls import reverse
+            return reverse('admin:tabelas_tbcustoitempreco_change', args=[cip_id])
+        except Exception:
+            return None
+
+    def bloco(rotulo, itens, manut, total, proc):
+        dif = None if (total is None or proc is None) else (total - proc)
+        return {'periodo': rotulo,
+                'itens': [{'item': x['item'], 'unidade': x['unidade'], 'consumo': f4(x['consumo']), 'preco': f2(x['preco']),
+                           'admin_url': url_admin(x.get('custoitempreco_id')),
+                           'moeda_preco': x.get('moeda_preco'), 'moeda_inbound': x.get('moeda_inbound'),
+                           'inbound': f2(x['inbound']), 'cambio': x.get('cambio_txt'), 'unitario': f_un(x['unitario']),
+                           'valor': f2(x['valor'])} for x in itens],
+                'manutencao': {'custo_hora': f2(manut['custo_hora']), 'produtividade': f2(manut['produtividade']), 'moeda': manut.get('moeda'),
+                               'cambio': manut.get('cambio_txt'), 'unitario': f_un(manut['unitario']), 'valor': f2(manut['valor'])},
+                'total': f2(total), 'procedure': f2(proc),
+                'fecha': dif is None or abs(dif) < Decimal('0.005')}
+
+    def txt_cambio(moeda, taxa):
+        if taxa is None:
+            return 'sem câmbio'
+        return None if taxa == 1 else f"{moeda} {_num(taxa, 4)}"
+
+    blocos = []
+    for o, rotulo in [(o, rotulo_periodo(cenario.cen_tipo, cenario.cen_inicio, o)) for o in sorted(det)]:
+        d = det[o]
+        for x in d['itens']:
+            partes = [t for t in (txt_cambio(x['moeda_preco'], x['cambio_preco']), txt_cambio(x['moeda_inbound'], x['cambio_inbound'])) if t]
+            x['cambio_txt'] = ' / '.join(dict.fromkeys(partes)) or None
+        d['manutencao']['cambio_txt'] = txt_cambio(d['manutencao']['moeda'], d['manutencao']['cambio'])
+        blocos.append(bloco(rotulo, d['itens'], d['manutencao'], d['total'], custo_procedure.get(o)))
+
+    # média dos períodos: média de cada coluna, item a item (os itens são os mesmos em todos os períodos)
+    media = None
+    if det:
+        ordens = sorted(det)
+        itens_media = []
+        for k, x in enumerate(det[ordens[0]]['itens']):
+            col = lambda chave: _media([det[o]['itens'][k][chave] for o in ordens])
+            itens_media.append({'item': x['item'], 'unidade': x['unidade'], 'consumo': col('consumo'), 'preco': col('preco'),
+                                'custoitempreco_id': x.get('custoitempreco_id'),
+                                'moeda_preco': x['moeda_preco'], 'moeda_inbound': x['moeda_inbound'],
+                                'inbound': col('inbound'), 'cambio_txt': None, 'unitario': col('unitario'), 'valor': col('valor')})
+        mcol = lambda chave: _media([det[o]['manutencao'][chave] for o in ordens])
+        manut_media = {'custo_hora': mcol('custo_hora'), 'produtividade': mcol('produtividade'), 'cambio_txt': None,
+                       'moeda': det[ordens[0]]['manutencao']['moeda'],
+                       'unitario': mcol('unitario'), 'valor': mcol('valor')}
+        media = bloco('Média dos períodos', itens_media, manut_media, _media([det[o]['total'] for o in ordens]),
+                      _media([custo_procedure.get(o) for o in ordens]))
+    return {'media': media, 'periodos': blocos, 'moeda': moeda.strip(), 'moeda_sistema': moeda_sistema}

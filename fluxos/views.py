@@ -363,6 +363,31 @@ def api_fluxo_indicadores_ligacoes(request, fluxo_id):
 
 
 @login_required
+@require_GET
+def api_fluxo_custo_equipamento(request, fluxo_id, equipamento_id):
+    """
+    🌟 NOVO (27/10/2026): círculo "C" dos quadrados do editor -- custo de UM equipamento/ordem no fluxo aberto, com as
+    MESMAS informações do detalhe da ação "Comparar Fluxos de Produção" do Agente IA: período a período, indicador
+    (dau_valor_3 do I/O), output real (dau_valor_4), custo da ordem (custo variável adicionado da ordem, procedure
+    atualiza_custo_var_adic_equipamento_order) e custo no fluxo (output real x custo da ordem), e o custo no fluxo em
+    média dos períodos. O cálculo fica em fluxos/comparar_fluxos.py (custo_equipamento_no_fluxo). Só leitura.
+    """
+    from .comparar_fluxos import custo_equipamento_no_fluxo, ComparacaoError
+    fluxo = _fluxo_acessivel_ou_404(request.user, fluxo_id)
+    cenario = TbCenarios.objects_real.filter(id=fluxo.tbcenarios_id).select_related('empresa').first()
+    if cenario is None:
+        return JsonResponse({'error': 'O cenário deste fluxo não existe mais.'}, status=400)
+    if not TbEquipamentos.objects.filter(id=equipamento_id, tbcenarios_id=fluxo.tbcenarios_id).exists():
+        return JsonResponse({'error': 'Este equipamento/ordem não pertence ao cenário do fluxo.'}, status=404)
+    empresa = getattr(cenario, 'empresa', None)
+    moeda = {'BRL': 'R$ ', 'USD': 'US$ ', 'EUR': '€ '}.get(getattr(empresa, 'emp_moeda', None), '')
+    try:
+        return JsonResponse(custo_equipamento_no_fluxo(fluxo, cenario, equipamento_id, moeda))
+    except ComparacaoError as erro:
+        return JsonResponse({'error': str(erro)}, status=400)
+
+
+@login_required
 @require_POST
 def api_fluxo_salvar(request):
     """

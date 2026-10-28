@@ -175,6 +175,35 @@
             cursor: pointer;
         }
         .selo-link-equipamento:hover { background: rgba(33, 150, 243, 0.95); }
+        /* 🌟 NOVO (27/10/2026): círculo "C" no canto esquerdo do quadrado do equipamento -- abre o custo do
+        equipamento/ordem no fluxo (as mesmas informações da ação "Comparar Fluxos de Produção" do Agente IA). */
+        .drawflow-node .selo-custo-equipamento {
+            position: absolute; top: 5px; left: 5px; width: 32px; height: 32px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; border: 0; padding: 0;
+            background: #16a085; color: #fff; font-weight: bold; font-size: 17px; font-family: inherit;
+            line-height: 1; z-index: 5; cursor: pointer; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+        }
+        .drawflow-node .selo-custo-equipamento:hover { background: #117a65; }
+        #modal-custo-equipamento .ce-resumo { display: flex; gap: 12px; flex-wrap: wrap; margin: 4px 0 14px; }
+        #modal-custo-equipamento .ce-cartao { border: 1px solid #d5e8e1; background: #eef8f4; border-radius: 6px; padding: 8px 14px; min-width: 170px; }
+        #modal-custo-equipamento .ce-cartao small { display: block; color: #555; font-size: 12px; }
+        #modal-custo-equipamento .ce-cartao b { font-size: 18px; color: #0e6655; }
+        #modal-custo-equipamento table { border-collapse: collapse; width: 100%; font-size: 13px; }
+        #modal-custo-equipamento th, #modal-custo-equipamento td { border: 1px solid #e3e3e3; padding: 5px 8px; }
+        #modal-custo-equipamento th { background: #f4f6f8; text-align: center; }
+        #modal-custo-equipamento td.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+        #modal-custo-equipamento .ce-ocorrencia { margin-bottom: 18px; }
+        #modal-custo-equipamento .ce-ocorrencia h3 { font-size: 14px; margin: 0 0 6px; color: #2c3e50; }
+        #modal-custo-equipamento .ce-aviso { color: #9a6700; background: #fff8e1; border: 1px solid #f3d27a; border-radius: 4px; padding: 6px 10px; margin-bottom: 10px; font-size: 13px; }
+        #modal-custo-equipamento .ce-legenda { color: #666; font-size: 12px; margin-top: 6px; }
+        #modal-custo-equipamento .ce-cartao.ce-clicavel { cursor: pointer; border-color: #8fd0bd; }
+        #modal-custo-equipamento .ce-cartao.ce-clicavel:hover { background: #dff3ec; }
+        #modal-custo-equipamento .ce-cartao.ce-clicavel small::after { content: ' — clique para ver os itens'; color: #16a085; }
+        #modal-custo-equipamento .ce-detalhe { border: 1px solid #d5e8e1; border-radius: 6px; padding: 10px 12px; margin: 0 0 16px; background: #fbfefd; }
+        #modal-custo-equipamento .ce-detalhe-topo { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+        #modal-custo-equipamento .ce-detalhe-topo h3 { margin: 0; font-size: 14px; color: #0e6655; }
+        #modal-custo-equipamento .ce-detalhe tr.ce-total td { font-weight: bold; background: #eef8f4; }
+        #modal-custo-equipamento .ce-detalhe tr.ce-manut td { background: #fafafa; }
         /* 🌟 CORRIGIDO: na barra, a caixa do ícone é bem menor (40x40) --
         um selo de 22px cobria boa parte da imagem, ficando "em cima" dela
         em vez de só no canto. Reduzido bastante e encostado mais no canto
@@ -555,6 +584,21 @@
         </div>
     </div>
 
+    <!-- 🌟 NOVO (27/10/2026): custo do equipamento/ordem no fluxo -- aberto pelo círculo "C" de cada quadrado.
+    Mesmas informações do detalhe da ação "Comparar Fluxos de Produção" do Agente IA. -->
+    <div id="modal-custo-equipamento" class="modal">
+        <div class="modal-content" style="max-width: 860px;">
+            <div class="modal-header">
+                <h2 id="custo-equipamento-titulo" style="margin: 0; font-size: 18px;">Custo do equipamento no fluxo</h2>
+                <span id="btn-fechar-custo-equipamento" class="close" style="cursor: pointer; font-size: 26px;">&times;</span>
+            </div>
+            <p id="custo-equipamento-subtitulo" style="margin: 0; padding: 8px 20px 0 20px; font-size: 13px; color: #555; overflow-wrap: anywhere;"></p>
+            <div class="modal-body" style="padding: 16px 20px; display: block;">
+                <div id="custo-equipamento-conteudo"><div class="carregando">Carregando…</div></div>
+            </div>
+        </div>
+    </div>
+
     <input type="hidden" id="fluxo-id" value="{{ fluxo_id|unlocalize|default:'' }}">
 
     <script>
@@ -628,6 +672,11 @@
                 return '<button type="button" class="selo-link-equipamento" title="Ampliar equipamento" aria-label="Ampliar equipamento">🔍</button>';
             }
 
+            // 🌟 NOVO (27/10/2026): círculo "C" (custo do equipamento/ordem no fluxo) -- clique tratado por delegação.
+            function seloCustoEquipamentoHtml() {
+                return '<button type="button" class="selo-custo-equipamento" title="Custo do equipamento no fluxo: custo var. adic. equipamento, custo no fluxo, indicador e output real" aria-label="Custo do equipamento no fluxo">C</button>';
+            }
+
             function abrirDetalheEquipamento(imagemSrc, codigo, descricao) {
                 const modal = document.getElementById('modal-detalhe-equipamento');
                 if (!modal) { console.error('[Detalhe] #modal-detalhe-equipamento não existe no HTML.'); return; }
@@ -692,6 +741,10 @@
                     if (selo && selo.parentElement !== suporte) {
                         suporte.insertBefore(selo, suporte.firstChild);
                     }
+                    // 🌟 NOVO (27/10/2026): círculo "C" só nos quadrados do editor (não na barra de equipamentos)
+                    if (!elementoNo.querySelector('.selo-custo-equipamento')) {
+                        suporte.insertAdjacentHTML('afterbegin', seloCustoEquipamentoHtml());
+                    }
                 });
             }
 
@@ -733,6 +786,193 @@
                 if (event.key === 'Escape' && _modalDetalhe && _modalDetalhe.style.display !== 'none') {
                     fecharDetalheEquipamento();
                 }
+            });
+
+            // ---------------------------------------------------------------------------------------------
+            // 🌟 NOVO (27/10/2026): CUSTO DO EQUIPAMENTO NO FLUXO (círculo "C" de cada quadrado).
+            // Busca /fluxo_producao/api/fluxo/<id>/custo_equipamento/<equipamento_id>/ -- as mesmas informações do
+            // detalhe da ação "Comparar Fluxos de Produção" do Agente IA: período a período, indicador (Output Padrão do
+            // I/O), output real, custo da ordem (custo variável adicionado da ordem) e custo no fluxo (output real x custo
+            // da ordem); e o custo no fluxo em média dos períodos. Vem do fluxo GRAVADO (I/O atualizado).
+            // ---------------------------------------------------------------------------------------------
+            function escaparCustoEquipamento(texto) {
+                return String(texto === null || texto === undefined ? '' : texto).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+            }
+
+            // ordem (1, 2, 3...) da coluna do nó entre as colunas do desenho -- casa com a ordem das colunas do I/O
+            function ordemDaColunaDoNo(nodeId) {
+                const nodes = (editor.drawflow.drawflow[editor.module] || {}).data || {};
+                const no = nodes[nodeId];
+                const coluna = no && no.data ? no.data.coluna_ocorrencia : null;
+                if (coluna === null || coluna === undefined || coluna === '') return null;
+                const colunas = new Set();
+                Object.values(nodes).forEach(function(n) {
+                    const c = n.data ? n.data.coluna_ocorrencia : null;
+                    if (c !== null && c !== undefined && c !== '') colunas.add(Number(c));
+                });
+                const ordenadas = Array.from(colunas).sort(function(a, b) { return a - b; });
+                const i = ordenadas.indexOf(Number(coluna));
+                return i < 0 ? null : i + 1;
+            }
+
+            function fecharCustoEquipamento() {
+                document.getElementById('modal-custo-equipamento').style.display = 'none';
+            }
+
+            let ultimoNoCustoEquipamento = null;      // 🌟 27/10/2026: para o botão "Atualizar valores"
+            let ultimoPeriodoDetalheCusto = null;     // período escolhido no detalhe (mantém ao atualizar)
+
+            async function abrirCustoEquipamento(nodeId, manterDetalhe) {
+                ultimoNoCustoEquipamento = nodeId;
+                const node = editor.getNodeFromId(nodeId);
+                const equipamentoId = node && node.data ? node.data.equipamento_id : null;
+                const idAtual = String((document.getElementById('fluxo-id').value || '').trim() || fluxoId || '').replace('.', '');
+                const modal = document.getElementById('modal-custo-equipamento');
+                const conteudo = document.getElementById('custo-equipamento-conteudo');
+                document.getElementById('custo-equipamento-titulo').textContent = 'Custo de ' + ((node && node.data && node.data.codigo) || (node && node.name) || 'equipamento') + ' no fluxo';
+                document.getElementById('custo-equipamento-subtitulo').textContent = document.getElementById('fluxo-descricao').value || '';
+                conteudo.innerHTML = '<div class="carregando">Carregando…</div>';
+                modal.style.display = 'block';
+                if (!idAtual || !equipamentoId) {
+                    conteudo.innerHTML = '<div class="ce-aviso">Salve o fluxo primeiro: o custo vem do Input/Output do fluxo gravado.</div>';
+                    return;
+                }
+                try {
+                    const response = await fetch(`/fluxo_producao/api/fluxo/${encodeURIComponent(idAtual)}/custo_equipamento/${encodeURIComponent(equipamentoId)}/`, { credentials: 'same-origin' });
+                    const data = await response.json().catch(function() { return {}; });
+                    if (!response.ok) throw new Error(data.error || ('Erro HTTP ' + response.status));
+                    renderizarCustoEquipamento(conteudo, data, ordemDaColunaDoNo(nodeId), fluxoAlterado);
+                    if (manterDetalhe && document.getElementById('ce-abrir-detalhe')) {
+                        const caixa = document.getElementById('ce-detalhe');
+                        desenharDetalheCustoOrdem(caixa, data.detalhe_custo_ordem, data.moeda ? data.moeda + ' ' : '', ultimoPeriodoDetalheCusto === null ? -1 : ultimoPeriodoDetalheCusto);
+                        caixa.style.display = '';
+                    }
+                } catch (erro) {
+                    conteudo.innerHTML = '<div class="ce-aviso">Não foi possível carregar o custo do equipamento: ' + escaparCustoEquipamento(erro.message) + '</div>';
+                }
+            }
+
+            function renderizarCustoEquipamento(container, data, ordemColunaDoNo, desenhoAlterado) {
+                const e = escaparCustoEquipamento;
+                const moeda = data.moeda ? data.moeda + ' ' : '';
+                const valor = function(v, comMoeda) { return v === null || v === undefined ? '—' : (comMoeda ? moeda : '') + e(v); };
+                let html = '';
+                const eq = data.equipamento || {};
+                html += '<div style="font-size: 13px; color: #333; margin-bottom: 8px;"><b>' + e(eq.rotulo) + '</b>' +
+                        (eq.descricao ? ' — ' + e(eq.descricao) : '') + (eq.equipamento_descricao ? ' <span style="color:#777">(' + e(eq.equipamento_descricao) + ')</span>' : '') + '</div>';
+                if (desenhoAlterado) html += '<div class="ce-aviso">O desenho tem alterações não salvas: os valores são do fluxo gravado.</div>';
+                if (data.custo_indisponivel) html += '<div class="ce-aviso">Não consegui calcular o Custo Var. Adic. Equipamento (a procedure do banco falhou). Indicador e output real não dependem disso.</div>';
+                else if (data.custo_incompleto) html += '<div class="ce-aviso">O cálculo do custo passou do tempo limite: alguns períodos aparecem sem custo.</div>';
+                // 🌟 NOVO (27/10/2026): média do Custo Var. Adic. Equipamento -- clicável: abre o detalhe dos itens
+                const temDetalhe = data.detalhe_custo_ordem && !data.detalhe_custo_ordem.erro && data.detalhe_custo_ordem.media;
+                html += '<div class="ce-resumo"><div class="ce-cartao' + (temDetalhe ? ' ce-clicavel" id="ce-abrir-detalhe" role="button" tabindex="0"' : '"') +
+                        '><small>Custo Var. Adic. Equipamento (média dos períodos)</small><b>' + valor(data.custo_ordem_media, true) + '</b></div></div>';
+                if (data.detalhe_custo_ordem && data.detalhe_custo_ordem.erro) html += '<div class="ce-aviso">' + e(data.detalhe_custo_ordem.erro) + '</div>';
+                html += '<div id="ce-detalhe" class="ce-detalhe" style="display: none;"></div>';
+                const ocorrencias = data.ocorrencias || [];
+                const varias = ocorrencias.length > 1;
+                if (varias) html += '<div class="ce-aviso">Esta ordem aparece em ' + ocorrencias.length + ' colunas do fluxo; os valores de cada uma estão abaixo' +
+                                    (ordemColunaDoNo ? ' (a deste quadrado está destacada).' : '.') + '</div>';
+                ocorrencias.forEach(function(oc) {
+                    const destaque = varias && ordemColunaDoNo && oc.coluna_ordem === ordemColunaDoNo;
+                    html += '<div class="ce-ocorrencia"' + (destaque ? ' style="outline: 2px solid #16a085; outline-offset: 4px; border-radius: 4px;"' : '') + '>';
+                    if (varias) html += '<h3>Coluna ' + e(oc.coluna) + (destaque ? ' — este quadrado' : '') + '</h3>';
+                    html += '<div class="ce-resumo"><div class="ce-cartao"><small>Custo no fluxo (média dos períodos)</small><b>' + valor(oc.custo_no_fluxo_media, true) + '</b></div></div>';
+                    html += '<table><thead><tr><th>Período</th><th>Indicador</th><th>Output real</th><th>Custo Var. Adic. Equipamento</th><th>Custo no fluxo</th></tr></thead><tbody>';
+                    (oc.periodos || []).forEach(function(l) {
+                        html += '<tr><td>' + e(l.periodo) + '</td><td class="num">' + valor(l.ind) + '</td><td class="num">' + valor(l.out_real) +
+                                '</td><td class="num">' + valor(l.custo_ordem, true) + '</td><td class="num">' + valor(l.custo, true) + '</td></tr>';
+                    });
+                    html += '</tbody></table></div>';
+                });
+                html += '<div class="ce-legenda">Indicador = Output Padrão do I/O (quanto o equipamento produz para 1 unidade no equipamento seguinte). ' +
+                        'Output real = quanto ele envia para 1 unidade no equipamento final do fluxo. Custo Var. Adic. Equipamento = custo variável adicionado da ordem (procedure do banco: itens de consumo específico + manutenção). ' +
+                        'Custo no fluxo = output real × Custo Var. Adic. Equipamento. Períodos seguidos com os mesmos valores aparecem juntos.</div>';
+                container.innerHTML = html;
+
+                if (temDetalhe) {
+                    const cartao = document.getElementById('ce-abrir-detalhe');
+                    const alternar = function() {
+                        const caixa = document.getElementById('ce-detalhe');
+                        if (caixa.style.display !== 'none') { caixa.style.display = 'none'; return; }
+                        desenharDetalheCustoOrdem(caixa, data.detalhe_custo_ordem, moeda, -1);
+                        caixa.style.display = '';
+                    };
+                    cartao.addEventListener('click', alternar);
+                    cartao.addEventListener('keydown', function(ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); alternar(); } });
+                }
+            }
+
+            // 🌟 NOVO (27/10/2026): detalhe do Custo Var. Adic. Equipamento -- os itens que geram o valor (a mesma conta da
+            // procedure, parcela a parcela). indice -1 = média dos períodos; 0, 1, ... = um período.
+            function desenharDetalheCustoOrdem(caixa, det, moeda, indice) {
+                const e = escaparCustoEquipamento;
+                const v = function(x, comMoeda) { return x === null || x === undefined ? '—' : (comMoeda ? moeda : '') + e(x); };
+                // preço, inbound e custo de manutenção estão na moeda DELES (antes do câmbio)
+                const vm = function(x, cod) {
+                    if (x === null || x === undefined) return '—';
+                    return (cod && det.moeda_sistema && cod !== det.moeda_sistema) ? e(cod) + ' ' + e(x) : moeda + e(x);
+                };
+                const bloco = indice < 0 ? det.media : det.periodos[indice];
+                let opcoes = '<option value="-1"' + (indice < 0 ? ' selected' : '') + '>Média dos períodos</option>';
+                (det.periodos || []).forEach(function(b, i) { opcoes += '<option value="' + i + '"' + (i === indice ? ' selected' : '') + '>' + e(b.periodo) + '</option>'; });
+                ultimoPeriodoDetalheCusto = indice;
+                let html = '<div class="ce-detalhe-topo"><h3>Itens do Custo Var. Adic. Equipamento</h3>' +
+                           '<div style="display: flex; gap: 10px; align-items: center;"><label style="font-size: 13px;">Período: <select id="ce-detalhe-periodo">' + opcoes + '</select></label>' +
+                           '<button type="button" id="ce-detalhe-atualizar" title="Busca de novo os valores (depois de editar um item no Admin)" style="background:#16a085;color:#fff;border:0;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:12px;">Atualizar valores</button></div></div>';
+                html += '<table><thead><tr><th>Item de consumo</th><th>Unidade</th><th>Consumo específico</th><th>Preço unit.</th><th>Inbound unit.</th>' +
+                        '<th>Câmbio</th><th>Valor unitário</th><th>Valor unitário × consumo específico</th></tr></thead><tbody>';
+                (bloco.itens || []).forEach(function(x) {
+                    // 🌟 27/10/2026: o nome do item abre o registro do Item de Custo / Planta (TbCustoItemPreco) no Admin, numa nova aba
+                    const nomeItem = x.admin_url ? '<a href="' + e(x.admin_url) + '" target="_blank" rel="noopener" title="Abrir o Item de Custo / Planta no Admin para editar (nova aba)">' + e(x.item) + ' ✎</a>' : e(x.item);
+                    html += '<tr><td>' + nomeItem + '</td><td>' + e(x.unidade) + '</td><td class="num">' + v(x.consumo) + '</td><td class="num">' + vm(x.preco, x.moeda_preco) +
+                            '</td><td class="num">' + vm(x.inbound, x.moeda_inbound) + '</td><td class="num">' + (x.cambio ? e(x.cambio) : '—') + '</td><td class="num">' + v(x.unitario, true) +
+                            '</td><td class="num">' + v(x.valor, true) + '</td></tr>';
+                });
+                if (!(bloco.itens || []).length) html += '<tr><td colspan="8" style="color:#777">Nenhum item de consumo específico cadastrado nesta ordem.</td></tr>';
+                const m = bloco.manutencao || {};
+                html += '<tr class="ce-manut"><td>Manutenção do equipamento <span style="color:#777">(' + vm(m.custo_hora, m.moeda) + '/h ÷ produtividade ' + v(m.produtividade) + ')</span></td>' +
+                        '<td>—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">' + (m.cambio ? e(m.cambio) : '—') + '</td><td class="num">' + v(m.unitario, true) +
+                        '</td><td class="num">' + v(m.valor, true) + '</td></tr>';
+                html += '<tr class="ce-total"><td colspan="7">Total (Custo Var. Adic. Equipamento)</td><td class="num">' + v(bloco.total, true) + '</td></tr>';
+                html += '</tbody></table>';
+                if (!bloco.fecha) html += '<div class="ce-aviso" style="margin-top: 8px;">A soma dos itens (' + v(bloco.total, true) + ') não fecha com o valor da procedure (' + v(bloco.procedure, true) + ').</div>';
+                if (bloco.total === null || bloco.total === undefined) html += '<div class="ce-aviso" style="margin-top: 8px;">Falta valor em algum item (consumo específico, preço, câmbio ou manutenção) neste período.</div>';
+                html += '<div class="ce-legenda">Clique no nome do item (✎) para abrir o Item de Custo / Planta no Admin e editar preço, inbound, moedas etc.; depois clique em "Atualizar valores". Preço, inbound e custo de manutenção aparecem na moeda deles; o valor unitário já está na moeda da empresa. Valor unitário = preço × câmbio do preço + inbound × câmbio do inbound (câmbio só quando a moeda não é a da empresa). ' +
+                        'Manutenção = custo de manutenção (moeda/h) ÷ produtividade da ordem × câmbio. Total = soma da última coluna = Custo Var. Adic. Equipamento.' +
+                        (indice < 0 ? ' Na média, cada coluna é a média dos períodos; por isso a última coluna não é exatamente consumo × valor unitário médios, mas a soma dela é a média do Custo Var. Adic. Equipamento.' : '') + '</div>';
+                caixa.innerHTML = html;
+                document.getElementById('ce-detalhe-periodo').addEventListener('change', function() {
+                    desenharDetalheCustoOrdem(caixa, det, moeda, parseInt(this.value, 10));
+                });
+                document.getElementById('ce-detalhe-atualizar').addEventListener('click', function() {
+                    if (ultimoNoCustoEquipamento !== null) abrirCustoEquipamento(ultimoNoCustoEquipamento, true);
+                });
+            }
+
+            document.addEventListener('mousedown', function(event) {
+                const gatilho = event.target.closest && event.target.closest('.selo-custo-equipamento');
+                if (!gatilho) return;
+                event.preventDefault();
+                event.stopPropagation();
+            }, true);
+
+            document.addEventListener('click', function(event) {
+                const gatilho = event.target.closest && event.target.closest('.selo-custo-equipamento');
+                if (!gatilho) return;
+                event.preventDefault();
+                event.stopPropagation();
+                const elementoNo = gatilho.closest('.drawflow-node');
+                if (elementoNo) abrirCustoEquipamento(elementoNo.id.replace('node-', ''));
+            }, true);
+
+            document.getElementById('btn-fechar-custo-equipamento').addEventListener('click', fecharCustoEquipamento);
+            document.getElementById('modal-custo-equipamento').addEventListener('click', function(event) {
+                if (event.target === this) fecharCustoEquipamento();
+            });
+            document.addEventListener('keydown', function(event) {
+                const m = document.getElementById('modal-custo-equipamento');
+                if (event.key === 'Escape' && m && m.style.display !== 'none') fecharCustoEquipamento();
             });
 
             setTimeout(function() {
@@ -1844,7 +2084,7 @@
                 const imagemSrc = `/fluxo_producao/equipamento_imagem/${equipamento.id}/`;
                 const placeholderSrc = '/static/fluxo_producao/img/equipamento-placeholder.png';
                 const imagemHtml = `<img src="${imagemSrc}" alt="${equipamento.nome}" class="equipamento-img" onerror="this.onerror=null; this.src='${placeholderSrc}';">`;
-                const html = `<div class="equipamento-node" style="width: 200px; overflow: hidden;"><div class="equipamento-header" style="background-color: #3498db; color: white; padding: 8px;"><div class="equipamento-titulo">${equipamento.nome}</div></div><div class="equipamento-body" style="padding: 10px; background-color: white; display: flex; flex-direction: column; align-items: center; position: relative;">${seloLinkEquipamentoHtml()}<div style="width: 100%; height: 80px; display: flex; align-items: center; justify-content: center; overflow: hidden; margin-bottom: 10px;">${imagemHtml}</div><div class="equipamento-detalhes" style="width: 100%;"><div class="equipamento-descricao" style="font-size: 0.9em; color: #666;">${equipamento.descricao || ''}</div></div></div></div>`;
+                const html = `<div class="equipamento-node" style="width: 200px; overflow: hidden;"><div class="equipamento-header" style="background-color: #3498db; color: white; padding: 8px;"><div class="equipamento-titulo">${equipamento.nome}</div></div><div class="equipamento-body" style="padding: 10px; background-color: white; display: flex; flex-direction: column; align-items: center; position: relative;">${seloLinkEquipamentoHtml()}${seloCustoEquipamentoHtml()}<div style="width: 100%; height: 80px; display: flex; align-items: center; justify-content: center; overflow: hidden; margin-bottom: 10px;">${imagemHtml}</div><div class="equipamento-detalhes" style="width: 100%;"><div class="equipamento-descricao" style="font-size: 0.9em; color: #666;">${equipamento.descricao || ''}</div></div></div></div>`;
                 const nodeId = editor.addNode(equipamento.nome, 1, 1, posX, posY, 'equipamento', { equipamento_id: equipamento.id, codigo: equipamento.codigo, imagem_src: imagemSrc }, html);
                 fluxoAlterado = true;
                 return nodeId;

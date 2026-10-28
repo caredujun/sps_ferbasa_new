@@ -73,8 +73,11 @@ class TbOtimizacaoConjuntoEquipamentosAdmin(admin.ModelAdmin):
 admin.site.register(TbOtimizacaoConjuntoEquipamentos, TbOtimizacaoConjuntoEquipamentosAdmin)
 
 class TbOtimizacaoProdutoDaugtherAdmin(admin.TabularInline):
-    fields = ('display_order', 'dau_valor_1', 'dau_valor_2', 'dau_valor_3', 'dau_valor_5', 'dau_valor_6', 'margem_cont_bruta_media', 'dau_valor_7')
-    readonly_fields = ('display_order', 'dau_valor_3', 'dau_valor_5', 'dau_valor_6', 'margem_cont_bruta_media', 'dau_valor_7')
+    # 🌟 23/10/2026: + Produção e Estoque Final do Período (produção antecipada)
+    fields = ('display_order', 'dau_valor_1', 'dau_valor_2', 'dau_valor_3', 'producao_periodo', 'estoque_final_periodo',
+              'dau_valor_5', 'dau_valor_6', 'margem_cont_bruta_media', 'dau_valor_7')
+    readonly_fields = ('display_order', 'dau_valor_3', 'producao_periodo', 'estoque_final_periodo', 'dau_valor_5', 'dau_valor_6',
+                       'margem_cont_bruta_media', 'dau_valor_7')
 
     model = TbOtimizacaoProdutoDaugther
     form = TbOtimizacaoProdutoDaugtherFormAdmin

@@ -6,6 +6,7 @@ from django.utils.safestring import mark_safe
 from django.core.exceptions import ValidationError
 from tabelas.models import TbFamiliaProduto, TbMercado, TbEquacaoAjustePreco, TbEmpresa, TbCambio, atualiza_cenario, \
     TbUnidadeProducao, TbIndicadores
+from custo_ferbasa.models import TbCustoVariavelAdicionado
 from parameters.models import TbCenarios
 from parameters.contexto_usuario import limit_choices_to_empresa_ativa
 import fluxos
@@ -88,18 +89,19 @@ class TbProdutos(models.Model):  # NÃO TEM CAMPO DO CENÁRIO. SERÁ USADO POR T
         kwh = ('kwh', 'kwh')
         Mwh = ('Mwh', 'Mwh')
 
-    pro_codigo = models.CharField(max_length=25, verbose_name='Código')
-    pro_descricao = models.CharField(max_length=51, verbose_name='Descrição')
-    pro_ativo = models.BooleanField(blank=False, null=False, default=True, verbose_name='Ativo')
-    pro_unidade_producao = models.CharField(max_length=3, choices=UnidadeProducaoChoices.choices,
-                                            verbose_name='Unidade')
-    pro_familia = models.ForeignKey(TbFamiliaProduto, on_delete=models.CASCADE, verbose_name='Família', limit_choices_to=limit_choices_to_empresa_ativa)
+    pro_codigo           = models.CharField(max_length=25, verbose_name='Código')
+    pro_descricao        = models.CharField(max_length=51, verbose_name='Descrição')
+    pro_ativo            = models.BooleanField(blank=False, null=False, default=True, verbose_name='Ativo')
+    pro_unidade_producao = models.CharField(max_length=3, choices=UnidadeProducaoChoices.choices, verbose_name='Unidade')
+    pro_familia          = models.ForeignKey(TbFamiliaProduto, on_delete=models.CASCADE, verbose_name='Família', limit_choices_to=limit_choices_to_empresa_ativa)
+    pro_custo_variavel   = models.ForeignKey(TbCustoVariavelAdicionado, on_delete=models.SET_NULL, null=True, blank=True, verbose_name=_('Custo Variável CF'))
+
     pro_imagem = models.ImageField(upload_to='produtos', null=True, blank=True, verbose_name='Imagem')
     pro_observacao = models.TextField(verbose_name='Observação', blank=True, null=True)
     # 🌟 NOVO (22/10/2026): produção antecipada no Otimizar (otimizacao/antecipacao.py). null=True: as linhas criadas
     # pelas procedures do banco (que não conhecem esses campos) ficam NULL, lido como zero.
     pro_horizonte_estoque = models.PositiveIntegerField(null=True, blank=True, default=0,
-                                                        verbose_name='Horizonte Máx. Estoque (períodos)',
+                                                        verbose_name='Hor. Máx. Estoque (períodos)',
                                                         help_text='Quantos períodos, no máximo, o produto pode ficar em estoque '
                                                                   'entre a produção e a venda. 0 = não antecipa a produção.')
     pro_estoque_inicial = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True, default=0,
@@ -364,6 +366,124 @@ class TbProdutos(models.Model):  # NÃO TEM CAMPO DO CENÁRIO. SERÁ USADO POR T
         return mark_safe(html)
 
     equipamentos_usados_tag.short_description = 'Equipamentos Usados nos Fluxos'
+
+    def periodo_inicio(self): # Mostra o periodo inicio do custo variável
+        valor_retorno = ''
+        if self.pro_custo_variavel is not None:
+            valor_retorno = TbCustoVariavelAdicionado.objects.get(id=self.pro_custo_variavel_id).cus_var_adi_ano_mes_inicio
+
+        return valor_retorno
+    periodo_inicio.short_description = _('Período Inicio')
+
+    def periodo_fim(self):  # Mostra o periodo fim do custo variável
+        valor_retorno = ''
+        if self.pro_custo_variavel is not None:
+            valor_retorno = TbCustoVariavelAdicionado.objects.get(id=self.pro_custo_variavel_id).cus_var_adi_ano_mes_fim
+
+        return valor_retorno
+
+    periodo_fim.short_description = _('Período Fim')
+
+    def custo_variavel(self): # Mostra o valor do custo variavel
+        #print('Entre def custo_variavel')
+        valor_retorno = 0
+        if self.pro_custo_variavel is not None:
+            valor_retorno = TbCustoVariavelAdicionado.objects.get(id=self.pro_custo_variavel_id).cus_var_adi_custo_variavel_adicionado_material + TbCustoVariavelAdicionado.objects.get(id=self.pro_custo_variavel_id).cus_var_adi_custo_variavel_adicionado_ggf
+        #print(valor_retorno)
+        # Vamos formatar o valor do retorno no padrão brasileiro
+        valor_retorno = locale.format_string('%.2f', valor_retorno, True)
+
+        return valor_retorno
+
+    custo_variavel.short_description = _('Custo Variável')
+
+    # 🌟 NOVO (25/10/2026): comparação do Custo Variável CF com o custo variável dos fluxos de produção do produto.
+    # Base: fluxos ATIVOS do produto. Para cada fluxo, a média do custo variável nos períodos
+    # (TbFluxoProducaoDaugther01.custo_variavel); sobre esses valores médios saem Mín, Máx e Médio.
+    # Fluxo ativo sem custo calculado (nenhum período com custo) entra na Qtde, mas não no Mín/Máx/Médio.
+    # Calculado UMA vez por instância (memoizado), como _ids_equipamentos_usados.
+    def _custos_medios_fluxos(self):
+        if self.pk is None:
+            return []
+        if getattr(self, '_cache_custos_medios_fluxos', None) is None:
+            from django.db.models import Avg
+            linhas = (
+                fluxos.models.TbFluxoProducaoDaugther01.objects
+                .filter(mae__flu_pro_produto_id=self.id, mae__flu_pro_ativo=True, custo_variavel__isnull=False)
+                .values('mae_id', 'mae__flu_pro_descricao')
+                .annotate(media=Avg('custo_variavel'))
+                .order_by('media')
+            )
+            self._cache_custos_medios_fluxos = [
+                {'id': l['mae_id'], 'descricao': l['mae__flu_pro_descricao'], 'media': l['media']} for l in linhas
+            ]
+        return list(self._cache_custos_medios_fluxos)
+
+    @staticmethod
+    def _formata_valor(valor):
+        if valor is None:
+            return '-'
+        return locale.format_string('%.2f', valor, True)
+
+    def valor_min_fluxos(self):
+        medias = [f['media'] for f in self._custos_medios_fluxos()]
+        return self._formata_valor(min(medias) if medias else None)
+
+    valor_min_fluxos.short_description = _('Valor Mín Fluxos')
+
+    def valor_max_fluxos(self):
+        medias = [f['media'] for f in self._custos_medios_fluxos()]
+        return self._formata_valor(max(medias) if medias else None)
+
+    valor_max_fluxos.short_description = _('Valor Máx Fluxos')
+
+    def valor_medio_fluxos(self):
+        medias = [f['media'] for f in self._custos_medios_fluxos()]
+        return self._formata_valor(sum(medias) / len(medias) if medias else None)
+
+    valor_medio_fluxos.short_description = _('Valor Médio Fluxos')
+
+    def qtde_fluxos(self):
+        if self.pk is None:
+            return 0
+        return fluxos.models.TbFluxoProducao.objects.filter(flu_pro_produto_id=self.id, flu_pro_ativo=True).count()
+
+    qtde_fluxos.short_description = _('Qtde Fluxos')
+
+    # Valor numérico do Custo Variável CF (o mesmo mostrado em custo_variavel: material + GGF). None se não houver.
+    def _custo_variavel_cf_valor(self):
+        if self.pro_custo_variavel_id is None:
+            return None
+        cf = TbCustoVariavelAdicionado.objects.filter(id=self.pro_custo_variavel_id).first()
+        if cf is None:
+            return None
+        material = cf.cus_var_adi_custo_variavel_adicionado_material
+        ggf = cf.cus_var_adi_custo_variavel_adicionado_ggf
+        if material is None and ggf is None:
+            return None
+        return (material or 0) + (ggf or 0)
+
+    # 🌟 NOVO (26/10/2026): "Custo RealxSPS" -- OK (verde, negrito) se o Custo Variável CF está entre o Valor Mín e o
+    # Valor Máx dos fluxos (limites incluídos); NOK (vermelho, negrito) se está fora; em branco se não dá para comparar
+    # (sem Custo Variável CF, sem fluxo ativo com custo calculado, ou mínimo > máximo). A comparação usa os valores com
+    # 2 casas decimais -- os mesmos mostrados em Custo Variável, Valor Mín Fluxos e Valor Máx Fluxos.
+    def custo_real_x_sps(self):
+        try:
+            cf = self._custo_variavel_cf_valor()
+            medias = [f['media'] for f in self._custos_medios_fluxos() if f['media'] is not None]
+        except Exception:
+            return ''
+        if cf is None or not medias:
+            return ''
+        valor, minimo, maximo = round(float(cf), 2), round(float(min(medias)), 2), round(float(max(medias)), 2)
+        if minimo > maximo:
+            return ''
+        if minimo <= valor <= maximo:
+            return mark_safe('<span style="color: #1e8449; font-weight: bold;">OK</span>')
+        return mark_safe('<span style="color: #c0392b; font-weight: bold;">NOK</span>')
+
+    custo_real_x_sps.short_description = _('Custo RealxSPS')
+
 
     def clean(self):
         # Vamos pegar o cenário ativo

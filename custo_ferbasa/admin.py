@@ -1772,41 +1772,48 @@ class TbCustoVariavelAdicionadoAdmin(_CustoFerbasaAdminMixin, DjangoObjectAction
         return obj and super(TbCustoVariavelAdicionadoAdmin, self).get_inline_instances(request, obj) or []
 
     def save_model(self, request, obj, form, change):
-        if obj.pk is None:
-            pass
-        else:
-            obj.cus_var_adi_qtde_produzida = 0
-            obj.cus_var_adi_qtde_desviada = 0
-            obj.cus_var_adi_custo_variavel_adicionado_material = 0
-            obj.cus_var_adi_custo_variavel_adicionado_ggf = 0
-            obj.cus_var_adi_custo_variavel_adicionado_material_p = 0
-            obj.cus_var_adi_custo_variavel_adicionado_ggf_p = 0
-            obj.cus_var_adi_custo_variavel_adicionado_material_p_d = 0
-            obj.cus_var_adi_custo_variavel_adicionado_ggf_p_d = 0
-            obj.cus_var_adi_custo_variavel_ggf_direto = 0
-            obj.cus_var_adi_custo_variavel = 0
-            obj.cus_var_adi_custo_fixo_outros = 0
-            obj.cus_var_adi_custo_total = 0
-            obj.cus_var_adi_custo_variavel_desv = 0
-            obj.cus_var_adi_custo_total_desv = 0
-            obj.cus_var_adi_custo_fixo_outros_desv = 0
-            obj.cus_var_adi_custo_variavel_ggf_direto_desv = 0
+        # 🌟 CORRIGIDO 25/10/2026: no ADD o objeto nunca era salvo (if obj.pk is None: pass),
+        # e o save_related()/save_m2m() do admin quebrava com ValueError (M2M sem id).
+        # Agora inclusão e alteração seguem o mesmo fluxo: zera os resultados, salva e,
+        # se não houver conta aguardando classificação (tipo 'A'), dispara o cálculo
+        # após o commit (on_commit garante que o M2M já foi gravado quando o Celery ler).
+        inclusao = obj.pk is None
 
-            if TbContaContabilCentroCusto.objects.filter(con_con_cen_cus_tipo = 'A').count() == 0:
-                obj.cus_var_adi_status = 'CALCULANDO'
-                messages.set_level(request, messages.ERROR)
+        obj.cus_var_adi_qtde_produzida = 0
+        obj.cus_var_adi_qtde_desviada = 0
+        obj.cus_var_adi_custo_variavel_adicionado_material = 0
+        obj.cus_var_adi_custo_variavel_adicionado_ggf = 0
+        obj.cus_var_adi_custo_variavel_adicionado_material_p = 0
+        obj.cus_var_adi_custo_variavel_adicionado_ggf_p = 0
+        obj.cus_var_adi_custo_variavel_adicionado_material_p_d = 0
+        obj.cus_var_adi_custo_variavel_adicionado_ggf_p_d = 0
+        obj.cus_var_adi_custo_variavel_ggf_direto = 0
+        obj.cus_var_adi_custo_variavel = 0
+        obj.cus_var_adi_custo_fixo_outros = 0
+        obj.cus_var_adi_custo_total = 0
+        obj.cus_var_adi_custo_variavel_desv = 0
+        obj.cus_var_adi_custo_total_desv = 0
+        obj.cus_var_adi_custo_fixo_outros_desv = 0
+        obj.cus_var_adi_custo_variavel_ggf_direto_desv = 0
+
+        if TbContaContabilCentroCusto.objects.filter(con_con_cen_cus_tipo='A').count() == 0:
+            obj.cus_var_adi_status = 'CALCULANDO'
+            super().save_model(request, obj, form, change)
+
+            messages.set_level(request, messages.ERROR)
+            if inclusao:
+                messages.error(request, _('Registro foi incluído com sucesso. Calculando custos em segundo plano. Se Status = CALCULANDO, refresh tela para atualizar.'))
+            else:
                 messages.error(request, _('Registro foi alterado com sucesso. Calculando custos em segundo plano. Se Status = CALCULANDO, refresh tela para atualizar.'))
 
-                super().save_model(request, obj, form, change)
+            from .tasks import calcula_custo_variavel_adicionado
+            transaction.on_commit(lambda: calcula_custo_variavel_adicionado.delay(obj.pk))
+        else:
+            obj.cus_var_adi_status = 'ERRO'
+            super().save_model(request, obj, form, change)
 
-                from .tasks import calcula_custo_variavel_adicionado
-                transaction.on_commit(lambda: calcula_custo_variavel_adicionado.delay(obj.pk))
-            else:
-                obj.cus_var_adi_status = 'ERRO'
-                messages.set_level(request, messages.ERROR)
-                messages.error(request, _('TEMOS REGISTRO NA TABELA DE CONTA CONTÁBIL / CENTRO DE CUSTO AGUARDANDO CLASSIFICAÇÃO. FAVOR VERIFICAR!'))
-                super().save_model(request, obj, form, change)
-
+            messages.set_level(request, messages.ERROR)
+            messages.error(request, _('TEMOS REGISTRO NA TABELA DE CONTA CONTÁBIL / CENTRO DE CUSTO AGUARDANDO CLASSIFICAÇÃO. FAVOR VERIFICAR!'))
 
     change_actions = ('exportar_excel', 'exportar_pdf', 'exportar_itens_consumo_excel')
 

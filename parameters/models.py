@@ -139,7 +139,7 @@ class TbEmpresa(models.Model):
         else:
             return 'Sem imagem!'
 
-    emp_moeda_imagem_tag.short_description = _('')
+    emp_moeda_imagem_tag.short_description = _('Imagem Moeda')
     emp_moeda_imagem_tag.allow_tags = True
 
     def emp_logo_tag(self):
@@ -151,7 +151,7 @@ class TbEmpresa(models.Model):
                 return 'Sem imagem!'
 
     emp_logo_tag.allow_tags = True
-    emp_logo_tag.short_description = _('')
+    emp_logo_tag.short_description = _('Logo')
 
     def emp_fluxo_tag(self):
         all_tables = connection.introspection.table_names()
@@ -161,7 +161,7 @@ class TbEmpresa(models.Model):
             else:
                 return 'Sem imagem!'
 
-    emp_fluxo_tag.short_description = _('')
+    emp_fluxo_tag.short_description = _('Imagem Fluxo')
     emp_fluxo_tag.allow_tags = True
 
 class TbCenariosManager(models.Manager):

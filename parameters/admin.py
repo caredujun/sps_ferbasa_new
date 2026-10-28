@@ -820,9 +820,8 @@ class TbEmpresaAdmin(admin.ModelAdmin):
             readonly.append('acoes_comuns_habilitadas')
         return readonly
 
-    list_display = ['id', 'ativo', 'botao_ativar', 'emp_nome', 'emp_logo', 'emp_logo_tag', 'emp_tipo', 'emp_descricao',
-                    'emp_moeda',
-                    'emp_moeda_imagem', 'emp_moeda_imagem_tag', 'emp_fluxo', 'emp_fluxo_tag']
+    list_display = ['id', 'ativo', 'botao_ativar', 'emp_nome', 'emp_logo_tag', 'emp_tipo', 'emp_descricao',
+                    'emp_moeda' , 'emp_moeda_imagem_tag', 'emp_fluxo_tag']
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
