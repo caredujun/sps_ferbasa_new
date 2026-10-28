@@ -104,6 +104,10 @@ def montar_grafo(linhas, itens_producao, itens_consumo, ids_selecionados, ggf_li
         if chave_prod not in ja_contado:
             ja_contado.add(chave_prod)
             producao[op] += _num(l['pro_men_qtde_produzida'])
+        if l['pro_men_item_consumo_id'] is None:        # 🌟 28/10/2026: linha só de produção (sem item de consumo)
+            if _num(l['pro_men_qtde_produzida']) > 0:
+                ordens_com_producao[op].add((l['pro_men_ano_mes'], l['pro_men_ordem_producao']))
+            continue
         cid_l = l['pro_men_item_consumo_id'] if _num(l['pro_men_qtde_consumo']) >= 0 else (_NEG, l['pro_men_item_consumo_id'])
         consumo[op][cid_l] += _num(l['pro_men_qtde_consumo'])
         # Valor da linha, como na procedure custo_variavel_adicionado: total = (material + GGF) x qtde; variável =
@@ -480,7 +484,7 @@ def _parte_variavel_ggf(valor, tipo, percentual):
 def _rotulo_tipo_ggf(tipo, percentual):
     """🌟 27/10/2026: rótulo do TIPO da Conta x CC do GGF distribuído (Variável (V) / Fixo (F) / Outros (O)). As contas de
     um mesmo tipo ficam juntas; o % variável de cada linha é calculado na tela (parte variável / GGF total)."""
-    return {'V': 'Variável (V)', 'F': 'Fixo (F)', 'O': 'Outros (O)'}.get(tipo or '', 'Sem tipo')
+    return {'V': 'Variável', 'F': 'Fixo', 'O': 'Outros'}.get(tipo or '', 'Sem tipo')
 
 
 def calcular_custos(nos, producao, consumo, valores, ordens_com_producao, operacoes_por_codigo, itens_producao,
@@ -886,6 +890,9 @@ def _carregar_periodo(empresa_id, ids_selecionados, ano_mes_inicio, ano_mes_fim)
     itens_consumo = {i['id']: {'codigo': i['ite_con_codigo'], 'descricao': i['ite_con_descricao'], 'unidade': i['ite_con_unidade'],
                                'tipo': i['ite_con_tipo']}
                      for i in TbItensConsumo.objects.filter(id__in=ids_cons).values('id', 'ite_con_codigo', 'ite_con_descricao', 'ite_con_unidade', 'ite_con_tipo')}
+    # 🌟 28/10/2026: linha só de produção (item produzido sem consumo: item de consumo vazio) -- cadastro vazio, para as
+    # contas que procuram o código do item; a quantidade consumida dela é zero e ela só conta a produção
+    itens_consumo[None] = {'codigo': '', 'descricao': '', 'unidade': '', 'tipo': ''}
     grupos = {g['id']: {'codigo': g['gru_maq_codigo'], 'nome': g['gru_maq_nome']}
               for g in TbGruposMaquinas.objects.filter(id__in=ids_grupo).values('id', 'gru_maq_codigo', 'gru_maq_nome')}
     _juntar_cadastros_mesmo_codigo(linhas, itens_producao, itens_consumo, grupos, ids_selecionados)

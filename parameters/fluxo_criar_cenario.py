@@ -6163,7 +6163,54 @@ def iniciar_consulta_status(usuario, mensagem=""):
         estado.save()
         return f"O cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** está: **{status_atual}**. Quer que eu já dispare a **limpeza** (pra começar o ciclo de novo)? (Sim / Não)"
 
+    if cenario.flag == 0:  # 🌟 28/10/2026: ALTERADO -- mostra as alterações (TbCenarios.ultimas_alteracoes) e pergunta
+        # se dispara o ciclo completo (limpar -> otimizar -> consolidar)
+        estado = _get_estado(usuario)
+        estado.fluxo_ativo = FLUXO_PROCESSAR
+        estado.etapa_atual = 'proc_alterado_ciclo'
+        estado.dados_coletados = {'cenario_id': cenario.id, 'cenario_nome': cenario.cen_nome}
+        estado.save()
+        return (f"O cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** está: **{status_atual}**."
+                + _texto_ultimas_alteracoes(cenario)
+                # 🌟 "(Sim / Não)": a tela põe os botões Sim e Não, e o Cancelar que aparece em toda ação em andamento
+                + "\n\nQuer que eu já dispare o **ciclo completo** (limpar → otimizar → consolidar) do cenário? (Sim / Não)")
+
     return f"O cenário **{cenario.numero_sequencial}/{cenario.cen_nome}** está: **{status_atual}**."
+
+
+MAX_ALTERACOES_STATUS = 30      # 🌟 28/10/2026: quantas alterações (as mais recentes) o Ver Status mostra
+
+
+def _texto_ultimas_alteracoes(cenario):
+    """🌟 NOVO (28/10/2026): as alterações que deixaram o cenário ALTERADO, a partir de TbCenarios.ultimas_alteracoes --
+    o mesmo texto que o Admin do cenário mostra em "Últimas Alterações" (parameters/signals.py grava uma linha por
+    alteração: "data hora - usuário - app - tabela[ - campos] | url do registro"; ver ultimas_alteracoes_formatado no
+    admin). Cada linha com url ganha o link "Ver registro" (abre o registro alterado no Admin, como lá). 🌟 Primeiro as
+    alterações COM o link, depois as sem (ex.: registro excluído); em cada grupo, da mais recente para a mais antiga. Com
+    muitas, só as MAX_ALTERACOES_STATUS mais recentes."""
+    linhas = [l for l in (cenario.ultimas_alteracoes or '').split('\n') if l.strip()]
+    if not linhas:
+        return ("\n\nNão há alterações registradas no histórico deste cenário (o histórico começa a ser gravado a partir "
+                "da primeira alteração depois da última limpeza).")
+    com_link, sem_link = [], []
+    for linha in reversed(linhas[-MAX_ALTERACOES_STATUS:]):
+        if ' | ' in linha:
+            texto, url = linha.rsplit(' | ', 1)
+        else:
+            texto, url = linha, None
+        texto = texto.strip().replace('[', '(').replace(']', ')')
+        url = (url or '').strip()
+        if url:
+            com_link.append(f"- {texto} » [**VER REGISTRO**]({url})")
+        else:
+            sem_link.append(f"- {texto}")
+    itens = com_link + sem_link
+    total = len(linhas)
+    cab = (f"\n\n**Alterações desde o último processamento** ({total} alteração{'ões' if total > 1 else ''}"
+           + (f", mostrando as {MAX_ALTERACOES_STATUS} mais recentes" if total > MAX_ALTERACOES_STATUS else '')
+           + "; primeiro as que têm o registro para abrir, depois as demais, cada grupo da mais recente para a mais antiga):\n\n")
+    rodape = "\n\nPara o resultado voltar a valer, o cenário precisa ser processado de novo (limpar, otimizar e consolidar)."
+    return cab + '\n'.join(itens) + rodape
 
 
 def iniciar_ciclo_completo(usuario, mensagem):
@@ -6479,6 +6526,29 @@ def iniciar_fluxo_processar(usuario, mensagem):
         return _disparar_otimizacao_standalone(usuario, cenario)
     else:
         return _disparar_consolidacao_standalone(usuario, cenario)
+
+
+def _etapa_proc_alterado_ciclo(estado, texto):
+    """🌟 NOVO (28/10/2026): resposta ao "Ver Status" de um cenário ALTERADO -- Sim dispara o ciclo completo (limpar ->
+    otimizar -> consolidar, as mesmas checagens do "limpar, otimizar e consolidar"); Não deixa como está. "Cancelar" é
+    tratado antes, como em todas as ações (encerra a ação)."""
+    resposta = texto.strip().lower()
+    dados = estado.dados_coletados
+    cenario_id = dados['cenario_id']
+    cenario_nome = dados['cenario_nome']
+    numero_exibido = _numero_sequencial_por_id(cenario_id)
+    if resposta not in ('sim', 's', 'yes', 'y'):
+        _encerrar_fluxo(estado)
+        return f"Ok, cenário **{numero_exibido}/{cenario_nome}** fica como está (ALTERADO)."
+    cenario = TbCenarios.objects_real.filter(id=cenario_id).first()
+    if cenario is None:
+        _encerrar_fluxo(estado)
+        return f"O cenário {numero_exibido}/{cenario_nome} não existe mais."
+    if cenario.flag in FLAGS_OPERACAO_EM_ANDAMENTO:
+        _encerrar_fluxo(estado)
+        return (f"O cenário {numero_exibido}/{cenario_nome} já está com uma operação em andamento agora "
+                f"({FLAGS_OPERACAO_EM_ANDAMENTO[cenario.flag]}). Espera terminar antes de disparar o ciclo completo.")
+    return _disparar_ciclo_completo(estado.usuario, cenario)
 
 
 def _etapa_proc_pos_consolidacao_limpar(estado, texto):
@@ -7175,6 +7245,7 @@ _HANDLERS_PROCESSAR = {
     'proc_ciclo_aguardando_otimizacao': _etapa_proc_ciclo_aguardando_otimizacao,
     'proc_ciclo_aguardando_consolidacao': _etapa_proc_ciclo_aguardando_consolidacao,
     'proc_pos_consolidacao_limpar': _etapa_proc_pos_consolidacao_limpar,
+    'proc_alterado_ciclo': _etapa_proc_alterado_ciclo,      # 🌟 28/10/2026
     'proc_aguardando_limpeza': _etapa_proc_aguardando_limpeza,
     'proc_confirmar_atualizar_fluxos': _etapa_proc_confirmar_atualizar_fluxos,
     'proc_confirmar_interromper': _etapa_proc_confirmar_interromper,

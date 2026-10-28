@@ -408,7 +408,7 @@ class TbProducaoMensal(models.Model):
     pro_men_ordem_producao       = models.CharField(max_length=9, null=False, blank=False, verbose_name=_('Ordem Produção'))
     pro_men_item_producao        = models.ForeignKey(TbItensProducao, on_delete=models.CASCADE, verbose_name=_('Item Produção'))
     pro_men_qtde_produzida       = models.DecimalField(max_digits=15, decimal_places=2, verbose_name=_('Qtde Produzida'))
-    pro_men_item_consumo         = models.ForeignKey(TbItensConsumo, on_delete=models.CASCADE, verbose_name=_('Item Consumo'))
+    pro_men_item_consumo         = models.ForeignKey(TbItensConsumo, blank=True, null=True, on_delete=models.CASCADE, verbose_name=_('Item Consumo'))
     pro_men_qtde_consumo         = models.DecimalField(max_digits=15, null=True, decimal_places=2, verbose_name=_('Qtde Consumo'))
     pro_men_valor_material       = models.DecimalField(max_digits=15, null=True, decimal_places=2, verbose_name=_('Valor Material'))
     pro_men_valor_ggf            = models.DecimalField(max_digits=15, null=True, decimal_places=2, verbose_name=_('Valor GGF'))
@@ -442,6 +442,9 @@ class TbProducaoMensal(models.Model):
         return valor_retorno
 
     def tipo_item_consumo(self):
+        # 🌟 28/10/2026: linha só de produção (sem item de consumo) -- sem tipo
+        if self.pro_men_item_consumo_id is None:
+            return ''
         return TbItensConsumo.objects.get(id=self.pro_men_item_consumo_id).ite_con_tipo
 
     tipo_item_consumo.short_description = _('Tipo')

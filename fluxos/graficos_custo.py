@@ -124,12 +124,20 @@ def dados_custo_por_equipamento(fluxo):
                 cad.equ_cad_codigo AS codigo,
                 cad.equ_cad_descricao AS descricao,
                 SUM(t.contribuicao_media) AS contribuicao_media,
-                MIN(flu.flu_pro_inp_out_coluna) AS primeira_coluna
+                MIN(col.primeira_coluna) AS primeira_coluna
             FROM tmp_contribuicao_custo_fluxo t
             JOIN equipamentos_tbequipamentos eq ON eq.id = t.equipamento_id
             JOIN equipamentos_tbequipamentoscadastro cad ON cad.id = eq.equ_codigo_id
-            JOIN fluxos_tbfluxoproducaoinputoutput flu
-                ON flu.flu_pro_inp_out_equipamento_id = t.equipamento_id AND flu.mae_id = %s
+            -- 🌟 CORRIGIDO (28/10/2026): a primeira coluna vem de uma subconsulta com UMA linha por equipamento.
+            -- Antes o JOIN direto com as linhas do I/O repetia a contribuição uma vez para cada linha do equipamento
+            -- no fluxo (ex.: equipamento nas colunas 1 e 2 -> valor somado 2 vezes no SUM).
+            JOIN (
+                SELECT flu_pro_inp_out_equipamento_id AS equipamento_id,
+                       MIN(flu_pro_inp_out_coluna) AS primeira_coluna
+                FROM fluxos_tbfluxoproducaoinputoutput
+                WHERE mae_id = %s
+                GROUP BY flu_pro_inp_out_equipamento_id
+            ) col ON col.equipamento_id = t.equipamento_id
             GROUP BY cad.equ_cad_codigo, cad.equ_cad_descricao
             ORDER BY primeira_coluna ASC
         """, [fluxo.id])

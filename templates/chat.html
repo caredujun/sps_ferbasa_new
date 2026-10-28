@@ -255,6 +255,8 @@
             background: #fff; border: 1px solid #cfd6dc; border-radius: 8px; box-shadow: 0 6px 24px rgba(0,0,0,0.18); padding: 10px 12px; font-size: 12px; }
         /* 🌟 NOVO (15/10/2026): balanço de entradas e saídas -- painel da tela cheia mais largo e tabela compacta */
         .fpm-overlay-detalhe.fpm-detalhe-largo { width: min(1320px, calc(100vw - 32px)); }
+        /* 🌟 28/10/2026: o detalhamento de custos do círculo C usa toda a altura disponível (os botões aparecem sem rolar) */
+        .fpm-overlay-detalhe.fpm-detalhe-alto { top: calc(var(--fpm-topo, 96px) + 4px); max-height: calc(100vh - var(--fpm-topo, 96px) - 12px); }
         .fpm-tabela-be { font-size: 11px; }
         /* 🌟 NOVO (16/10/2026): análise da variação do custo */
         .fpm-analise { margin-top: 8px; border: 1px solid #dfe3e6; border-radius: 6px; padding: 8px 10px; background: #fff; }
@@ -655,6 +657,8 @@
         .cpc-tabela th { background: #eef3f9; text-align: center; }
         .cpc-tabela th.cpc-grupo-prod { background: #dbe8f7; }
         .cpc-tabela th.cpc-grupo-cons { background: #e3f3e8; }
+        .cpc-tabela th.cpc-grupo-ger { background: #fbecd4; }
+        .cpc-tabela th.cpc-grupo-tot { background: #e9e1f4; }
         .cpc-tabela td.cpc-num { text-align: right; font-variant-numeric: tabular-nums; }
         .cpc-tabela td.cpc-esp { font-weight: bold; }
         .cpc-tabela td.cpc-sep, .cpc-tabela th.cpc-sep { border-left: 2px solid #8aa1bd; }
@@ -1080,6 +1084,7 @@
         {% trans "Demais equipamentos" as ROTULO_FPM_C_DEMAIS %}
         {% trans "cada um com menos de 1% do custo do produto" as ROTULO_FPM_C_DEMAIS_DICA %}
         {% trans "Custo por" as ROTULO_FPM_C_TITULO %}
+        {% trans "Detalhamento Custos" as ROTULO_FPM_C_DETALHAMENTO %}
         {% trans "Total" as ROTULO_FPM_C_TOTAL %}
         {% trans "Variável" as ROTULO_FPM_C_VAR %}
         {% trans "Fixo/Outros" as ROTULO_FPM_C_FIXO %}
@@ -1588,6 +1593,11 @@
         {% trans "O Agente IA responde só com os dados deste fluxo (os mesmos do Exportar Dados). Ctrl+Enter envia." as ROTULO_FPM_PERG_NOTA %}
         {% trans "Ex.: Por que o custo do produto aumentou? Qual foi o consumo específico de energia na produção do produto?" as ROTULO_FPM_PERG_EXEMPLO %}
         {% trans "Perguntar" as ROTULO_FPM_PERG_ENVIAR %}
+        {% trans "Exportar Conversa" as ROTULO_FPM_PERG_EXPORTAR %}
+        {% trans "Salva a conversa com o Agente IA (perguntas, respostas e gráficos) num arquivo HTML, que abre no navegador e pode ser impresso em PDF." as ROTULO_FPM_PERG_EXPORTAR_DICA %}
+        {% trans "Ainda não há conversa para exportar." as ROTULO_FPM_PERG_EXPORTAR_VAZIO %}
+        {% trans "Conversa com o Agente IA" as ROTULO_FPM_PERG_EXPORTAR_TITULO %}
+        {% trans "Exportado em" as ROTULO_FPM_PERG_EXPORTADO_EM %}
         {% trans "Você" as ROTULO_FPM_PERG_VOCE %}
         {% trans "Dados grandes: {1} linha(s) menos ligadas à pergunta ficaram de fora da análise da IA (o Exportar Dados tem tudo)." as ROTULO_FPM_PERG_PARCIAL %}
         {% trans "Gerando…" as ROTULO_GC_GERANDO %}
@@ -1776,6 +1786,7 @@
         var ROTULO_FPM_C_DEMAIS = "{{ ROTULO_FPM_C_DEMAIS|escapejs }}";
         var ROTULO_FPM_C_DEMAIS_DICA = "{{ ROTULO_FPM_C_DEMAIS_DICA|escapejs }}";
         var ROTULO_FPM_C_TITULO = "{{ ROTULO_FPM_C_TITULO|escapejs }}";
+        var ROTULO_FPM_C_DETALHAMENTO = "{{ ROTULO_FPM_C_DETALHAMENTO|escapejs }}";
         var ROTULO_FPM_C_TOTAL = "{{ ROTULO_FPM_C_TOTAL|escapejs }}";
         var ROTULO_FPM_C_VAR = "{{ ROTULO_FPM_C_VAR|escapejs }}";
         var ROTULO_FPM_C_FIXO = "{{ ROTULO_FPM_C_FIXO|escapejs }}";
@@ -2282,6 +2293,11 @@
         var ROTULO_FPM_PERG_NOTA = "{{ ROTULO_FPM_PERG_NOTA|escapejs }}";
         var ROTULO_FPM_PERG_EXEMPLO = "{{ ROTULO_FPM_PERG_EXEMPLO|escapejs }}";
         var ROTULO_FPM_PERG_ENVIAR = "{{ ROTULO_FPM_PERG_ENVIAR|escapejs }}";
+        var ROTULO_FPM_PERG_EXPORTAR = "{{ ROTULO_FPM_PERG_EXPORTAR|escapejs }}";
+        var ROTULO_FPM_PERG_EXPORTAR_DICA = "{{ ROTULO_FPM_PERG_EXPORTAR_DICA|escapejs }}";
+        var ROTULO_FPM_PERG_EXPORTAR_VAZIO = "{{ ROTULO_FPM_PERG_EXPORTAR_VAZIO|escapejs }}";
+        var ROTULO_FPM_PERG_EXPORTAR_TITULO = "{{ ROTULO_FPM_PERG_EXPORTAR_TITULO|escapejs }}";
+        var ROTULO_FPM_PERG_EXPORTADO_EM = "{{ ROTULO_FPM_PERG_EXPORTADO_EM|escapejs }}";
         var ROTULO_FPM_PERG_VOCE = "{{ ROTULO_FPM_PERG_VOCE|escapejs }}";
         var ROTULO_FPM_PERG_PARCIAL = "{{ ROTULO_FPM_PERG_PARCIAL|escapejs }}";
         var ROTULO_GC_GERANDO = "{{ ROTULO_GC_GERANDO|escapejs }}";
@@ -3722,6 +3738,15 @@
         var COLUNAS_CPC = [['qtde', 'Qtde', false], ['total', 'Custo total (R$)', false], ['total_un', 'Custo total (R$/un)', true],
                            ['variavel', 'Variável (R$)', false], ['variavel_un', 'Variável (R$/un)', true],
                            ['fixo', 'Fixo/Outros (R$)', false], ['fixo_un', 'Fixo/Outros (R$/un)', true]];
+        // 🌟 28/10/2026: grupos de colunas -- produção, geração como subproduto, produção + geração (consolidado) e consumo.
+        // Respostas antigas (sem geração) continuam com os dois grupos de antes.
+        function ladosCPC(d) {
+            // 🌟 28/10/2026 (v2): ordem pedida -- consolidado, consumo, consolidado de novo, produção e geração
+            return d.com_geracao ? [['producao_total', 'Produção + Geração', 'cpc-grupo-tot'], ['consumo', 'Consumo', 'cpc-grupo-cons'],
+                                    ['producao_total', 'Produção + Geração', 'cpc-grupo-tot'], ['producao', 'Produção', 'cpc-grupo-prod'],
+                                    ['geracao', 'Geração (subproduto)', 'cpc-grupo-ger']]
+                                 : [['producao', 'Produção', 'cpc-grupo-prod'], ['consumo', 'Consumo', 'cpc-grupo-cons']];
+        }
         function rotuloColunaCPC(d, c) {
             var m = (d.moeda || 'R$'), u = d.unidade || 'un';
             return c[1].replace('R$/un', m + '/' + u).replace('R$', m).replace('Qtde', 'Qtde (' + u + ')');
@@ -3734,18 +3759,18 @@
         function montarCustoProducaoConsumo(d) {
             var uid = 'cpc' + (++_contadorCPC);
             _dadosCPC[uid] = d;
-            var cab1 = '<tr><th rowspan="2">Mês</th><th colspan="' + COLUNAS_CPC.length + '" class="cpc-grupo-prod cpc-sep">Produção</th>' +
-                       '<th colspan="' + COLUNAS_CPC.length + '" class="cpc-grupo-cons cpc-sep">Consumo</th></tr>';
+            var lados = ladosCPC(d);
+            var cab1 = '<tr><th rowspan="2">Mês</th>' + lados.map(function(l) { return '<th colspan="' + COLUNAS_CPC.length + '" class="' + l[2] + ' cpc-sep">' + l[1] + '</th>'; }).join('') + '</tr>';
             var cab2 = '<tr>';
-            ['producao', 'consumo'].forEach(function() {
+            lados.forEach(function() {
                 COLUNAS_CPC.forEach(function(c, i) { cab2 += '<th' + (i === 0 ? ' class="cpc-sep"' : '') + '>' + escapeHtml(rotuloColunaCPC(d, c)) + '</th>'; });
             });
             cab2 += '</tr>';
             var linha = function(r, classe) {
                 // 🌟 27/10/2026: o mês é um link -- abre os equipamentos que produziram e os que consumiram o item
                 var idx = (d.meses || []).indexOf(r);
-                var h = '<tr' + (classe ? ' class="' + classe + '"' : '') + '><td>' + (r.equip ? '<span class="cpc-link-mes" title="Ver os equipamentos que produziram e os que consumiram" onclick="abrirEquipCPC(\'' + uid + '\', ' + idx + ')">' + escapeHtml(r.mes) + '</span>' : escapeHtml(r.mes)) + '</td>';
-                ['producao', 'consumo'].forEach(function(lado) {
+                var h = '<tr' + (classe ? ' class="' + classe + '"' : '') + '><td>' + (r.equip ? '<span class="cpc-link-mes" title="Ver os equipamentos que produziram, geraram e consumiram" onclick="abrirEquipCPC(\'' + uid + '\', ' + idx + ')">' + escapeHtml(r.mes) + '</span>' : escapeHtml(r.mes)) + '</td>';
+                lados.map(function(l) { return l[0]; }).forEach(function(lado) {
                     COLUNAS_CPC.forEach(function(c, i) {
                         var v = r[lado] ? r[lado][c[0]] : null;
                         h += '<td class="cpc-num' + (c[2] ? ' cpc-esp' : '') + (i === 0 ? ' cpc-sep' : '') + '">' + numeroCPC(v, c[2] ? 4 : 2) + '</td>';
@@ -3761,7 +3786,10 @@
                    '<button type="button" class="botao-opcao" onclick="exportarCustoProducaoConsumo(\'' + uid + '\', this)">Exportar Excel</button></div>' +
                    '<div class="cpc-rolagem"><table class="cpc-tabela"><thead>' + cab1 + cab2 + '</thead><tbody>' + corpo + '</tbody></table></div>' +
                    '<div class="cpc-legenda">Valor contábil da Produção Mensal. Produção = todos os equipamentos que produzem o item: (valor material + valor GGF) × qtde consumida ' +
-                   'das linhas com produção + GGF distribuído das ordens com produção. Consumo = linhas em que o item foi consumido (consumo positivo): ' +
+                   'das linhas com produção + GGF distribuído das ordens com produção. ' +
+                   (d.com_geracao ? 'Geração (subproduto) = linhas em que o item foi gerado por um equipamento (consumo negativo, linhas com produção): crédito (valor material + valor GGF) × qtde gerada. ' +
+                                    'Produção + Geração = soma das duas. ' : '') +
+                   'Consumo = linhas em que o item foi consumido (consumo positivo): ' +
                    '(valor material + valor GGF) × qtde consumida. Variável: material + parte variável do GGF; Fixo/Outros = total − variável. ' +
                    'Os valores por unidade (em negrito) são médias ponderadas pelas quantidades' + ((d.itens || []).length > 1 ? ', somando os itens escolhidos' : '') +
                    '; a linha "Período" é o período inteiro.' + (d.unidades_diferentes ? ' Atenção: os itens têm unidades diferentes.' : '') + '</div></div>';
@@ -3771,10 +3799,14 @@
             var p = [], c = [], qp = r.producao ? r.producao.qtde : 0, qc = r.consumo ? r.consumo.qtde : 0;
             ((r.equip || {}).producao || []).forEach(function(x) { p.push({ eq: x[0], nome: x[1], q: x[2], t: x[3], v: x[4], pct: qp ? x[2] / qp * 100 : null,
                                                                         consumos: x.length > 5 ? x[5] : null, ggf: x.length > 6 ? x[6] : null }); });
-            ((r.equip || {}).consumo || []).forEach(function(x) { c.push({ eq: x[0], nome: x[1], item: x[2], item_desc: x[3], q: x[4], t: x[5], v: x[6], pct: qc ? x[4] / qc * 100 : null,
-                                                                       prod: x.length > 7 ? x[7] : null, esp: (x.length > 7 && x[7]) ? x[4] / x[7] : null,
-                                                                       consumos: x.length > 8 ? x[8] : null }); });
-            return { producao: p, consumo: c };
+            var comoConsumo = function(x, qt) { return { eq: x[0], nome: x[1], item: x[2], item_desc: x[3], q: x[4], t: x[5], v: x[6], pct: qt ? x[4] / qt * 100 : null,
+                                                         prod: x.length > 7 ? x[7] : null, esp: (x.length > 7 && x[7]) ? x[4] / x[7] : null,
+                                                         consumos: x.length > 8 ? x[8] : null }; };
+            ((r.equip || {}).consumo || []).forEach(function(x) { c.push(comoConsumo(x, qc)); });
+            // 🌟 28/10/2026: equipamentos que GERARAM o item como subproduto (mesmo formato dos consumidores)
+            var g = [], qg = r.geracao ? r.geracao.qtde : 0;
+            ((r.equip || {}).geracao || []).forEach(function(x) { g.push(comoConsumo(x, qg)); });
+            return { producao: p, geracao: g, consumo: c };
         }
         function abrirEquipCPC(uid, idx) {
             var d = _dadosCPC[uid];
@@ -3805,6 +3837,25 @@
             });
             if (!L.producao.length) html += '<tr><td colspan="7" style="color:#777">Sem produção.</td></tr>';
             html += totLinha('producao', 'Total produção', 1) + '</tbody></table></div>';
+            if (d.com_geracao) {
+                // 🌟 28/10/2026: quem gerou o item como subproduto (crédito) e o consolidado produção + geração
+                html += '<h3>Equipamentos que geraram como subproduto</h3><div class="cpc-rolagem"><table class="cpc-tabela"><thead><tr><th>Equipamento</th><th>Item que produz</th>' +
+                        '<th>Produção do equipamento</th><th>Geração específica (' + escapeHtml(u) + ' / un. produzida)</th>' + cabNum + '</tr></thead><tbody>';
+                L.geracao.forEach(function(x, j) {
+                    var rotEq = escapeHtml(x.eq + (x.nome ? ' — ' + x.nome : ''));
+                    if (x.consumos) rotEq = '<span class="cpc-link-mes" title="Ver tudo o que este equipamento consumiu e gerou" onclick="abrirConsumosCPC(\'' + uid + '\', ' + idx + ', ' + j + ', \'g\')">' + rotEq + '</span>';
+                    html += '<tr><td>' + rotEq + '</td><td>' + escapeHtml(x.item + (x.item_desc ? ' — ' + x.item_desc : '')) + '</td>' +
+                            '<td class="cpc-num">' + numeroCPC(x.prod, 2) + '</td><td class="cpc-num cpc-esp">' + numeroCPC(x.esp, 4) + '</td>' + cols(x) + '</tr>';
+                });
+                if (!L.geracao.length) html += '<tr><td colspan="10" style="color:#777">Sem geração como subproduto.</td></tr>';
+                html += totLinha('geracao', 'Total geração', 4) + '</tbody></table></div>';
+                html += '<h3>Produção + geração (consolidado)</h3><div class="cpc-rolagem"><table class="cpc-tabela"><thead><tr><th></th>' + cabNum + '</tr></thead><tbody>';
+                [['producao', 'Produção'], ['geracao', 'Geração (subproduto)']].forEach(function(lp) {
+                    var x = r[lp[0]] || {}, xt = r.producao_total || {};
+                    html += '<tr><td>' + lp[1] + '</td>' + cols({ q: x.qtde, pct: xt.qtde ? x.qtde / xt.qtde * 100 : null, t: x.total, v: x.variavel }) + '</tr>';
+                });
+                html += totLinha('producao_total', 'Total produção + geração', 1) + '</tbody></table></div>';
+            }
             // 🌟 27/10/2026: produção do equipamento consumidor e o consumo específico do item (qtde consumida / qtde produzida)
             html += '<h3>Equipamentos que consumiram</h3><div class="cpc-rolagem"><table class="cpc-tabela"><thead><tr><th>Equipamento</th><th>Item que produz</th>' +
                     '<th>Produção do equipamento</th><th>Consumo específico (' + escapeHtml(u) + ' / un. produzida)</th>' + cabNum + '</tr></thead><tbody>';
@@ -3818,6 +3869,7 @@
             if (!L.consumo.length) html += '<tr><td colspan="10" style="color:#777">Sem consumo.</td></tr>';
             html += totLinha('consumo', 'Total consumo', 4) + '</tbody></table></div>';
             html += '<div class="cpc-legenda">Produção: custo de cada equipamento que produziu o item (valor contábil: materiais + GGF do item consumido + GGF distribuído). ' +
+                    (d.com_geracao ? 'Geração: crédito dado a cada equipamento que gerou o item como subproduto (valor material + valor GGF da linha × qtde gerada); geração específica = qtde gerada ÷ produção do equipamento. ' : '') +
                     'Consumo: valor com que o item entrou no consumo de cada equipamento (valor material + valor GGF da linha da Produção Mensal). ' +
                     'Produção do equipamento = tudo o que ele produziu do item indicado no mês (todas as ordens); consumo específico = qtde consumida ÷ produção do equipamento. Fixo/Outros = total − variável.</div></div>';
             var fundo = document.createElement('div');
@@ -3832,7 +3884,7 @@
         function dadosConsumosCPC(d, idx, j, lado) {
             var r = idx < 0 ? d.total : d.meses[idx];
             var prod = lado === 'p';
-            var x = prod ? linhasEquipCPC(d, r).producao[j] : linhasEquipCPC(d, r).consumo[j];
+            var x = prod ? linhasEquipCPC(d, r).producao[j] : (lado === 'g' ? linhasEquipCPC(d, r).geracao[j] : linhasEquipCPC(d, r).consumo[j]);
             var escolhidos = {};
             (d.itens || []).forEach(function(i) { escolhidos[String(i.codigo).trim().toUpperCase()] = true; });
             var P = (prod ? x.q : x.prod) || 0;
@@ -3841,8 +3893,8 @@
                          esp: P ? c[4] / P : null, unit: c[4] ? c[5] / c[4] : null, unit_v: c[4] ? c[6] / c[4] : null, unit_f: c[4] ? (c[5] - c[6]) / c[4] : null,
                          t_un: P ? c[5] / P : null, v_un: P ? c[6] / P : null, f_un: P ? (c[5] - c[6]) / P : null };
             });
-            var ggf = (prod && x.ggf ? x.ggf : []).map(function(g) {
-                return { rot: g[0], t: g[1], v: g[2], t_un: P ? g[1] / P : null, v_un: P ? g[2] / P : null, f_un: P ? (g[1] - g[2]) / P : null };
+            var ggf = ordenarTiposGGF((prod && x.ggf ? x.ggf : []).map(function(g) { return { rot: g[0], t: g[1], v: g[2] }; })).map(function(g) {
+                return { rot: g.rot, t: g.t, v: g.v, t_un: P ? g.t / P : null, v_un: P ? g.v / P : null, f_un: P ? (g.t - g.v) / P : null };
             });
             var produz = prod ? (d.itens || []).map(function(i) { return i.codigo + (i.descricao ? ' — ' + i.descricao : ''); }).join('; ')
                               : x.item + (x.item_desc ? ' — ' + x.item_desc : '');
@@ -3884,17 +3936,17 @@
                                     bloco(ger, 'Total gerado (crédito)') + '</tbody></table></div>';
             if (D.prod) {
                 // 🌟 27/10/2026: GGF distribuído (por tipo de conta) e o fechamento = custo de produção da tabela
-                var tg = [0, 0];
+                var tg = [0, 0], tgT = D.ggf.reduce(function(a, g) { return a + g.t; }, 0);
                 html += '<h3>GGF distribuído no equipamento (ordens com produção)</h3><div class="cpc-rolagem"><table class="cpc-tabela"><thead><tr><th>Tipo da Conta x CC</th>' +
-                        '<th>GGF total (' + escapeHtml(m) + ')</th><th>Parte variável (' + escapeHtml(m) + ')</th><th>% variável</th><th>Custo total (' + escapeHtml(m) + '/un. produzida)</th>' +
+                        '<th>GGF total (' + escapeHtml(m) + ')</th><th>% do GGF total</th><th>Parte variável (' + escapeHtml(m) + ')</th><th>% variável</th><th>Custo total (' + escapeHtml(m) + '/un. produzida)</th>' +
                         '<th>Variável (' + escapeHtml(m) + '/un. produzida)</th><th>Fixo/Outros (' + escapeHtml(m) + '/un. produzida)</th></tr></thead><tbody>';
                 D.ggf.forEach(function(g) {
                     tg[0] += g.t; tg[1] += g.v;
-                    html += '<tr><td>' + escapeHtml(g.rot) + '</td><td class="cpc-num">' + numeroCPC(g.t, 2) + '</td><td class="cpc-num">' + numeroCPC(g.v, 2) + '</td><td class="cpc-num">' + numeroCPC(g.t ? g.v / g.t * 100 : null, 2) + '%</td><td class="cpc-num cpc-esp">' +
+                    html += '<tr><td>' + escapeHtml(g.rot) + '</td><td class="cpc-num">' + numeroCPC(g.t, 2) + '</td><td class="cpc-num">' + numeroCPC(tgT ? g.t / tgT * 100 : null, 2) + '%</td><td class="cpc-num">' + numeroCPC(g.v, 2) + '</td><td class="cpc-num">' + numeroCPC(g.t ? g.v / g.t * 100 : null, 2) + '%</td><td class="cpc-num cpc-esp">' +
                             numeroCPC(g.t_un, 4) + '</td><td class="cpc-num cpc-esp">' + numeroCPC(g.v_un, 4) + '</td><td class="cpc-num cpc-esp">' + numeroCPC(g.f_un, 4) + '</td></tr>';
                 });
-                if (!D.ggf.length) html += '<tr><td colspan="7" style="color:#777">Sem GGF distribuído.</td></tr>';
-                else html += '<tr class="cpc-total"><td>Total GGF</td><td class="cpc-num">' + numeroCPC(tg[0], 2) + '</td><td class="cpc-num">' + numeroCPC(tg[1], 2) + '</td><td class="cpc-num">' + numeroCPC(tg[0] ? tg[1] / tg[0] * 100 : null, 2) + '%</td><td class="cpc-num">' +
+                if (!D.ggf.length) html += '<tr><td colspan="8" style="color:#777">Sem GGF distribuído.</td></tr>';
+                else html += '<tr class="cpc-total"><td>Total GGF</td><td class="cpc-num">' + numeroCPC(tg[0], 2) + '</td><td class="cpc-num">100,00%</td><td class="cpc-num">' + numeroCPC(tg[1], 2) + '</td><td class="cpc-num">' + numeroCPC(tg[0] ? tg[1] / tg[0] * 100 : null, 2) + '%</td><td class="cpc-num">' +
                              numeroCPC(D.P ? tg[0] / D.P : null, 4) + '</td><td class="cpc-num">' + numeroCPC(D.P ? tg[1] / D.P : null, 4) + '</td><td class="cpc-num">' + numeroCPC(D.P ? (tg[0] - tg[1]) / D.P : null, 4) + '</td></tr>';
                 html += '</tbody></table></div>';
                 var ti = D.itens.reduce(function(a, c) { return [a[0] + c.t, a[1] + c.v]; }, [0, 0]);
@@ -3961,9 +4013,11 @@
         function linhasExcelEquipCPC(d, r) {
             var L = linhasEquipCPC(d, r), un = function(x, q) { return q ? x / q : ''; }, saida = [];
             var m = (d.moeda || 'R$'), u = d.unidade || 'un';
-            saida.push(['Mês', 'Lado', 'Equipamento', 'Nome do equipamento', 'Item que produz (consumo)', 'Produção do equipamento (consumo)', 'Consumo específico (consumo)',
+            saida.push(['Mês', 'Lado', 'Equipamento', 'Nome do equipamento', 'Item que produz (consumo / geração)', 'Produção do equipamento (consumo / geração)', 'Consumo / geração específica',
                         'Qtde (' + u + ')', '% da qtde', 'Custo total (' + m + ')', 'Custo total (' + m + '/' + u + ')', 'Variável (' + m + '/' + u + ')', 'Fixo/Outros (' + m + '/' + u + ')']);
             L.producao.forEach(function(x) { saida.push([r.mes, 'Produção', x.eq, x.nome, '', '', '', x.q, x.pct === null ? '' : x.pct, x.t, un(x.t, x.q), un(x.v, x.q), un(x.t - x.v, x.q)]); });
+            (L.geracao || []).forEach(function(x) { saida.push([r.mes, 'Geração (subproduto)', x.eq, x.nome, x.item + (x.item_desc ? ' — ' + x.item_desc : ''), x.prod === null ? '' : x.prod, x.esp === null ? '' : x.esp,
+                                                                x.q, x.pct === null ? '' : x.pct, x.t, un(x.t, x.q), un(x.v, x.q), un(x.t - x.v, x.q)]); });
             L.consumo.forEach(function(x) { saida.push([r.mes, 'Consumo', x.eq, x.nome, x.item + (x.item_desc ? ' — ' + x.item_desc : ''), x.prod === null ? '' : x.prod, x.esp === null ? '' : x.esp,
                                                         x.q, x.pct === null ? '' : x.pct, x.t, un(x.t, x.q), un(x.v, x.q), un(x.t - x.v, x.q)]); });
             return saida;
@@ -3983,21 +4037,23 @@
             var d = _dadosCPC[uid];
             if (!d) return;
             var cab = [];
-            ['Produção', 'Consumo'].forEach(function(lado) { COLUNAS_CPC.forEach(function(c) { cab.push(lado + ' — ' + rotuloColunaCPC(d, c)); }); });
+            var lados = ladosCPC(d);
+            lados.forEach(function(l) { COLUNAS_CPC.forEach(function(c) { cab.push(l[1] + ' — ' + rotuloColunaCPC(d, c)); }); });
             var linhas = [[d.titulo || 'Custo Produção x Custo Consumo'],
                           ['Itens: ' + (d.itens || []).map(function(i) { return i.codigo + (i.descricao ? ' — ' + i.descricao : ''); }).join('; ')],
                           ['Período: ' + (d.periodo || '')], [], ['Mês'].concat(cab)];
             var linha = function(r) {
                 var l = [r.mes];
-                ['producao', 'consumo'].forEach(function(lado) { COLUNAS_CPC.forEach(function(c) { var v = r[lado] ? r[lado][c[0]] : null; l.push(v === null || v === undefined ? '' : v); }); });
+                lados.forEach(function(ld) { var lado = ld[0]; COLUNAS_CPC.forEach(function(c) { var v = r[lado] ? r[lado][c[0]] : null; l.push(v === null || v === undefined ? '' : v); }); });
                 return l;
             };
             (d.meses || []).forEach(function(r) { linhas.push(linha(r)); });
             if (d.total) linhas.push(linha(d.total));
             linhas.push([]);
-            linhas.push(['Valor contábil da Produção Mensal. Por unidade = médias ponderadas pelas quantidades. Fixo/Outros = total − variável.']);
+            linhas.push(['Valor contábil da Produção Mensal. Por unidade = médias ponderadas pelas quantidades. Fixo/Outros = total − variável.' +
+                         (d.com_geracao ? ' Geração (subproduto) = crédito de quem gerou o item (consumo negativo); Produção + Geração = soma das duas.' : '')]);
             var formatos = ['@'];
-            ['p', 'c'].forEach(function() { COLUNAS_CPC.forEach(function(c) { formatos.push(c[2] ? '#,##0.0000' : '#,##0.00'); }); });
+            lados.forEach(function() { COLUNAS_CPC.forEach(function(c) { formatos.push(c[2] ? '#,##0.0000' : '#,##0.00'); }); });
             // 🌟 27/10/2026: segunda aba com os equipamentos que produziram e que consumiram, mês a mês e no período
             var eq = [];
             (d.meses || []).concat(d.total ? [d.total] : []).forEach(function(r, k) {
@@ -4174,6 +4230,7 @@
                 ? sobre.querySelector('.fpm-overlay-detalhe') : document.getElementById(uid + '-detalhe');
             if (!destino) return;
             destino.classList.toggle('fpm-detalhe-largo', tipo === 'mp' || tipo === 'sp');   // 🌟 16/10/2026: MP/SP mais largos
+            destino.classList.remove('fpm-detalhe-alto');
             destino.innerHTML = html;
             destino.style.display = 'block';
             if (destino.classList.contains('fpm-detalhe')) destino.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -4452,6 +4509,7 @@
                 ? sobre.querySelector('.fpm-overlay-detalhe') : document.getElementById(uid + '-detalhe');
             if (!destino) return;
             destino.classList.add('fpm-detalhe-largo');
+            destino.classList.remove('fpm-detalhe-alto');
             destino.innerHTML = html;
             destino.style.display = 'block';
             if (destino.classList.contains('fpm-detalhe')) destino.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -6541,6 +6599,14 @@
         // 🌟 NOVO (27/10/2026): no círculo C, o detalhe que justifica o custo de produção do equipamento -- itens consumidos,
         // itens gerados (crédito), GGF distribuído por tipo da Conta x CC e o fechamento (= custo do equipamento).
         // Itens de no.cx: [código, qtde (positiva), total, variável, descrição, unidade]; GGF de no.cx.gg: [tipo, total, variável].
+        // 🌟 28/10/2026: GGF por tipo sempre na ordem Variável, Fixo, Outros (rótulo sem "(V)/(F)/(O)")
+        function ordenarTiposGGF(lista) {
+            var ordem = { 'Variável': 0, 'Fixo': 1, 'Outros': 2 };
+            lista.forEach(function(g) { g.rot = String(g.rot || '').replace(/\s*\([VFO]\)\s*$/, '').replace(/\s+\d+([.,]\d+)?%$/, ''); });
+            var junto = {}, saida = [];
+            lista.forEach(function(g) { var r = junto[g.rot]; if (!r) { r = junto[g.rot] = { rot: g.rot, t: 0, v: 0 }; saida.push(r); } r.t += g.t; r.v += g.v; });
+            return saida.sort(function(a, b) { return (ordem[a.rot] === undefined ? 9 : ordem[a.rot]) - (ordem[b.rot] === undefined ? 9 : ordem[b.rot]); });
+        }
         function dadosDetalheCustoFPM(d, no) {
             var cx = no.cx || {}, c = no.custo || {}, P = cx.p || c.producao || 0;
             var item = function(x, gerado) {
@@ -6551,7 +6617,7 @@
             };
             var cons = (cx.i || []).map(function(x) { return item(x, false); }).sort(function(a, b) { return Math.abs(b.t) - Math.abs(a.t); });
             var ger = (cx.g || []).map(function(x) { return item(x, true); }).sort(function(a, b) { return Math.abs(b.t) - Math.abs(a.t); });
-            var ggf = (cx.gg || []).map(function(g) { return { rot: g[0], t: g[1], v: g[2] }; });
+            var ggf = ordenarTiposGGF((cx.gg || []).map(function(g) { return { rot: g[0], t: g[1], v: g[2] }; }));
             if (!cx.gg && c.ggf && P) ggf = [{ rot: ROTULO_FPM_C_GGF, t: c.ggf.total * P, v: c.ggf.variavel * P }];      // visão sem o detalhe por tipo
             var soma = function(l) { return l.reduce(function(a, x) { return [a[0] + x.t, a[1] + x.v]; }, [0, 0]); };
             var tc = soma(cons), tgr = soma(ger), tgg = soma(ggf);
@@ -6579,15 +6645,15 @@
             if (D.ger.length) html += '<div class="fpm-dc-secao">Itens gerados (subprodutos / desvios: consumo negativo)</div><div class="fpm-dc-rolagem"><table class="fpm-dc-tabela"><thead>' + cab +
                                       '</thead><tbody>' + D.ger.map(linha).join('') + total('Total gerado (crédito)', D.tgr) + '</tbody></table></div>';
             html += '<div class="fpm-dc-secao">GGF distribuído no equipamento (ordens com produção)</div><div class="fpm-dc-rolagem"><table class="fpm-dc-tabela"><thead><tr><th>Tipo da Conta x CC</th>' +
-                    '<th>GGF total (' + escapeHtml(m) + ')</th><th>Parte variável (' + escapeHtml(m) + ')</th><th>% variável</th><th>Custo total (' + escapeHtml(m + '/' + u) + ')</th><th>Variável (' + escapeHtml(m + '/' + u) +
+                    '<th>GGF total (' + escapeHtml(m) + ')</th><th>% do GGF total</th><th>Parte variável (' + escapeHtml(m) + ')</th><th>% variável</th><th>Custo total (' + escapeHtml(m + '/' + u) + ')</th><th>Variável (' + escapeHtml(m + '/' + u) +
                     ')</th><th>Fixo/Outros (' + escapeHtml(m + '/' + u) + ')</th></tr></thead><tbody>';
             D.ggf.forEach(function(g) {
-                html += '<tr><td>' + escapeHtml(g.rot) + '</td><td class="num">' + n(g.t, 2) + '</td><td class="num">' + n(g.v, 2) + '</td><td class="num">' + n(g.t ? g.v / g.t * 100 : null, 2) + '%</td><td class="num esp">' + n(por(g.t), 4) +
+                html += '<tr><td>' + escapeHtml(g.rot) + '</td><td class="num">' + n(g.t, 2) + '</td><td class="num">' + n(D.tgg[0] ? g.t / D.tgg[0] * 100 : null, 2) + '%</td><td class="num">' + n(g.v, 2) + '</td><td class="num">' + n(g.t ? g.v / g.t * 100 : null, 2) + '%</td><td class="num esp">' + n(por(g.t), 4) +
                         '</td><td class="num esp">' + n(por(g.v), 4) + '</td><td class="num esp">' + n(por(g.t - g.v), 4) + '</td></tr>';
             });
-            html += D.ggf.length ? '<tr class="tot"><td>Total GGF</td><td class="num">' + n(D.tgg[0], 2) + '</td><td class="num">' + n(D.tgg[1], 2) + '</td><td class="num">' + n(D.tgg[0] ? D.tgg[1] / D.tgg[0] * 100 : null, 2) + '%</td><td class="num">' + n(por(D.tgg[0]), 4) +
+            html += D.ggf.length ? '<tr class="tot"><td>Total GGF</td><td class="num">' + n(D.tgg[0], 2) + '</td><td class="num">100,00%</td><td class="num">' + n(D.tgg[1], 2) + '</td><td class="num">' + n(D.tgg[0] ? D.tgg[1] / D.tgg[0] * 100 : null, 2) + '%</td><td class="num">' + n(por(D.tgg[0]), 4) +
                                    '</td><td class="num">' + n(por(D.tgg[1]), 4) + '</td><td class="num">' + n(por(D.tgg[0] - D.tgg[1]), 4) + '</td></tr>'
-                                 : '<tr><td colspan="7" style="color:#777">Sem GGF distribuído.</td></tr>';
+                                 : '<tr><td colspan="8" style="color:#777">Sem GGF distribuído.</td></tr>';
             html += '</tbody></table></div>';
             html += '<div class="fpm-dc-secao">Custo de produção do equipamento</div><div class="fpm-dc-rolagem"><table class="fpm-dc-tabela"><thead><tr><th></th><th>Total (' + escapeHtml(m) + ')</th><th>Variável (' +
                     escapeHtml(m) + ')</th><th>Fixo/Outros (' + escapeHtml(m) + ')</th><th>Custo total (' + escapeHtml(m + '/' + u) + ')</th><th>Variável (' + escapeHtml(m + '/' + u) + ')</th><th>Fixo/Outros (' +
@@ -6616,7 +6682,10 @@
                 b[0].forEach(function(x) { linhas.push([b[1], x.cod, x.desc, x.un, x.q, vz(x.esp), x.t, vz(x.unit), vz(x.unit_v), vz(x.unit_f), vz(x.t_un), vz(x.v_un), vz(x.f_un)]); });
                 linhas.push([b[2], '', '', '', '', '', b[3][0], '', '', '', por(b[3][0]), por(b[3][1]), por(b[3][0] - b[3][1])]);
             });
-            D.ggf.forEach(function(g) { linhas.push(['GGF distribuído', g.rot + ' (' + (g.t ? (g.v / g.t * 100).toFixed(2).replace('.', ',') : '0') + '% variável)', '', '', '', '', g.t, '', '', '', por(g.t), por(g.v), por(g.t - g.v)]); });
+            D.ggf.forEach(function(g) {
+                var pg = D.tgg[0] ? (g.t / D.tgg[0] * 100).toFixed(2).replace('.', ',') : '0', pv = g.t ? (g.v / g.t * 100).toFixed(2).replace('.', ',') : '0';
+                linhas.push(['GGF distribuído', g.rot + ' (' + pg + '% do GGF; ' + pv + '% variável)', '', '', '', '', g.t, '', '', '', por(g.t), por(g.v), por(g.t - g.v)]);
+            });
             linhas.push(['Custo de produção', 'Itens + gerados + GGF', '', '', P, '', D.CT, '', '', '', por(D.CT), por(D.CV), por(D.CT - D.CV)]);
             exportarPlanilhaFPM(botao, ['custo_producao', no.grupo_codigo, no.item_codigo, d.periodo || ''], [{ nome: 'Custo de produção', linhas: linhas,
                                 larguras: [16, 14, 40, 8, 14, 14, 16, 18, 18, 18, 18, 18, 18],
@@ -6629,9 +6698,11 @@
             if (!no) return;
             if (d._rcDestaque) { d._rcDestaque = null; redesenharFPM(uid); }
             var c = no.custo, moeda = d.moeda || '', u = no.unidade || '';
-            var html = '<div class="fpm-detalhe-topo"><b>' + escapeHtml(ROTULO_FPM_C_TITULO + ' ' + u + ' — ' + no.grupo_codigo + ' · ' + no.item_codigo) + '</b>' +
+            // 🌟 28/10/2026: título "Detalhamento Custos" e a linha da produção/período logo abaixo do produto e do equipamento
+            var html = '<div class="fpm-detalhe-topo"><b>' + escapeHtml(ROTULO_FPM_C_DETALHAMENTO + ' — ' + no.grupo_codigo + ' · ' + no.item_codigo) + '</b>' +
                 '<button type="button" class="fpm-detalhe-fechar" onclick="fecharInsumosFPM(this)" title="' + escapeAttr(ROTULO_FPM_FECHAR) + '">&times;</button></div>' +
-                '<div class="fpm-detalhe-sub">' + escapeHtml((no.item_descricao || '') + (no.grupo_nome ? ' · ' + no.grupo_nome : '')) + '</div>';
+                '<div class="fpm-detalhe-sub">' + escapeHtml((no.item_descricao || '') + (no.grupo_nome ? ' · ' + no.grupo_nome : '') +
+                    (c && c.producao > 0 ? '  ·  ' + ROTULO_FPM_PRODUCAO + ': ' + numFPM(c.producao, 2) + ' ' + u + ' · ' + (d.periodo || '') + ' · ' + ROTULO_FPM_C_BASE : '')) + '</div>';
             if (!c || !(c.producao > 0)) {
                 html += '<div class="fpm-detalhe-vazio">' + escapeHtml(ROTULO_FPM_C_SEM) + '</div>';
             } else {
@@ -6660,8 +6731,6 @@
                         linha(ROTULO_FPM_C_MAT, c.materiais, 'mat') + linha(ROTULO_FPM_C_SUB, c.sub, 'sub') + linha(ROTULO_FPM_C_GGF, c.ggf) + '</tbody></table>' +
                         '<div class="fpm-custo-itens" style="display: none;"></div>';
                 }
-                html += '<div class="fpm-detalhe-sub fpm-custo-rodape">' + escapeHtml(ROTULO_FPM_PRODUCAO + ': ' + numFPM(c.producao, 2) + ' ' + u + ' · ' +
-                        (d.periodo || '') + ' · ' + ROTULO_FPM_C_BASE) + '</div>';
                 // 🌟 NOVO: contribuição deste equipamento no custo de cada produto final (por unidade do produto final)
                 var contribuicoes = mvAbertoFPM(d) && no.cx ? (contribuicoesMVFPM(d).porNo[nid] || []) : (c.contribuicoes || []);
                 if (contribuicoes.length) {
@@ -6709,6 +6778,7 @@
                 ? sobre.querySelector('.fpm-overlay-detalhe') : document.getElementById(uid + '-detalhe');
             if (!destino) return;
             destino.classList.toggle('fpm-detalhe-largo', !!(no.cx && c && c.producao > 0));     // 🌟 27/10/2026: tabelas largas
+            destino.classList.add('fpm-detalhe-alto');                                            // 🌟 28/10/2026: altura toda
             destino.innerHTML = html;
             // 🌟 27/10/2026: todos os botões numa linha só (a 1ª linha de botões); as caixas que eles abrem ficam onde estavam
             var linhasBotoes = destino.querySelectorAll('.fpm-escada-botoes');
@@ -7854,10 +7924,12 @@
                 '<div class="fpm-perg-historico">' + d._perguntas.map(function(q) { return htmlPerguntaFPM(q); }).join('') + '</div>' +
                 '<textarea class="fpm-perg-texto" rows="3" placeholder="' + escapeAttr(ROTULO_FPM_PERG_EXEMPLO) + '"></textarea>' +
                 '<div class="fpm-perg-botoes"><span class="fpm-detalhe-sub fpm-perg-estado"></span>' +
-                '<button type="button" class="botao-opcao" onclick="enviarPerguntaFPM(this)">' + escapeHtml(ROTULO_FPM_PERG_ENVIAR) + '</button></div></div>';
+                // 🌟 28/10/2026: Exportar Conversa (perguntas, respostas e gráficos num HTML)
+                '<button type="button" class="botao-opcao fpm-perg-exportar" title="' + escapeAttr(ROTULO_FPM_PERG_EXPORTAR_DICA) + '" onclick="exportarConversaFPM()">' + escapeHtml(ROTULO_FPM_PERG_EXPORTAR) + '</button>' +
+                '<button type="button" class="botao-opcao fpm-perg-enviar" onclick="enviarPerguntaFPM(this)">' + escapeHtml(ROTULO_FPM_PERG_ENVIAR) + '</button></div></div>';
             tela.style.display = 'flex';
             var ta = tela.querySelector('.fpm-perg-texto');
-            ta.addEventListener('keydown', function(ev) { if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); enviarPerguntaFPM(tela.querySelector('.fpm-perg-botoes .botao-opcao')); } });
+            ta.addEventListener('keydown', function(ev) { if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); enviarPerguntaFPM(tela.querySelector('.fpm-perg-botoes .fpm-perg-enviar')); } });
             ta.focus();
             var h = tela.querySelector('.fpm-perg-historico');
             desenharGraficosPerguntaFPM(h);
@@ -7955,6 +8027,51 @@
                     }) + '</div>';
             });
             return html;
+        }
+
+        // 🌟 NOVO (28/10/2026): "Exportar Conversa" -- a conversa da janela "Perguntar ao Agente IA sobre este fluxo"
+        // (perguntas, respostas e gráficos, como aparecem na tela) num arquivo HTML que abre sozinho no navegador. Os gráficos
+        // de canvas viram imagem; os de SVG vão como estão; os estilos da tela (classes fpm-) vão junto.
+        function exportarConversaFPM() {
+            var tela = document.getElementById('fpm-perg-tela'), uid = tela && tela.getAttribute('data-uid'), d = uid && _dadosFPM[uid];
+            var hist = tela && tela.querySelector('.fpm-perg-historico');
+            if (!d || !hist || !(d._perguntas || []).length) { alert(ROTULO_FPM_PERG_EXPORTAR_VAZIO); return; }
+            var copia = hist.cloneNode(true);
+            var originais = hist.querySelectorAll('canvas'), copias = copia.querySelectorAll('canvas');
+            Array.prototype.forEach.call(originais, function(cv, i) {
+                var img = document.createElement('img');
+                try { img.src = cv.toDataURL('image/png'); } catch (e) { return; }
+                img.style.maxWidth = '100%';
+                if (copias[i] && copias[i].parentNode) copias[i].parentNode.replaceChild(img, copias[i]);
+            });
+            copia.querySelectorAll('[onclick]').forEach(function(el) { el.removeAttribute('onclick'); });
+            var css = [];
+            Array.prototype.forEach.call(document.styleSheets, function(folha) {
+                var regras;
+                try { regras = folha.cssRules; } catch (e) { return; }        // folha de outro domínio: não dá para ler
+                Array.prototype.forEach.call(regras || [], function(r) {
+                    if (r.selectorText && r.selectorText.indexOf('fpm') >= 0 && r.selectorText.indexOf('#') < 0) css.push(r.cssText);
+                });
+            });
+            var agora = new Date();
+            var dois = function(n) { return (n < 10 ? '0' : '') + n; };
+            var quando = dois(agora.getDate()) + '/' + dois(agora.getMonth() + 1) + '/' + agora.getFullYear() + ' ' + dois(agora.getHours()) + ':' + dois(agora.getMinutes());
+            var titulo = ROTULO_FPM_PERG_EXPORTAR_TITULO + ' — ' + (d.titulo || '');
+            var html = '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>' + escapeHtml(titulo) + '</title><style>' +
+                'body { font-family: Arial, sans-serif; color: #1d2f40; max-width: 980px; margin: 20px auto; padding: 0 16px; }' +
+                'h1 { font-size: 18px; margin: 0 0 4px; } .cab { font-size: 12px; color: #555; margin-bottom: 14px; border-bottom: 1px solid #e0e6eb; padding-bottom: 8px; }' +
+                '.fpm-perg-item { margin: 8px 0 18px; page-break-inside: avoid; } .fpm-perg-q { background: #eef4f8; border-radius: 6px; padding: 6px 9px; margin-bottom: 6px; font-size: 13px; }' +
+                'table { border-collapse: collapse; } th, td { border: 1px solid #ddd; padding: 3px 6px; font-size: 12px; }' +
+                css.join('\n') + '</style></head><body><h1>' + escapeHtml(titulo) + '</h1><div class="cab">' + escapeHtml(d.periodo || '') +
+                ' · ' + escapeHtml(ROTULO_FPM_PERG_EXPORTADO_EM + ' ' + quando) + '</div>' + copia.innerHTML + '</body></html>';
+            var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+            var a = document.createElement('a');
+            var limpa = function(t) { return String(t || '').replace(/[^0-9A-Za-zÀ-ú]+/g, '_').replace(/^_+|_+$/g, ''); };
+            a.href = URL.createObjectURL(blob);
+            a.download = ['conversa_agente_ia', limpa(d.titulo).slice(0, 60), agora.getFullYear() + dois(agora.getMonth() + 1) + dois(agora.getDate()) + '_' + dois(agora.getHours()) + dois(agora.getMinutes())].filter(Boolean).join('_') + '.html';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(function() { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
         }
 
         function htmlPerguntaFPM(q) {
@@ -8810,6 +8927,7 @@
                 ? sobre.querySelector('.fpm-overlay-detalhe') : document.getElementById(uid + '-detalhe');
             if (!destino) return;
             destino.classList.remove('fpm-detalhe-largo');
+            destino.classList.remove('fpm-detalhe-alto');
             destino.innerHTML = html;
             destino.style.display = 'block';
             if (destino.classList.contains('fpm-detalhe')) destino.scrollIntoView({ block: 'nearest', behavior: 'smooth' });

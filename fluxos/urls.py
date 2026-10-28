@@ -18,6 +18,9 @@ urlpatterns = [
     path('api/fluxo/<int:fluxo_id>/indicadores_ligacoes/', views.api_fluxo_indicadores_ligacoes, name='api_fluxo_indicadores_ligacoes'),
     # 🌟 NOVO (27/10/2026): círculo "C" dos quadrados do editor (custo do equipamento/ordem no fluxo)
     path('api/fluxo/<int:fluxo_id>/custo_equipamento/<int:equipamento_id>/', views.api_fluxo_custo_equipamento, name='api_fluxo_custo_equipamento'),
+    path('api/fluxo/<int:fluxo_id>/itens_custo_equipamento/', views.api_fluxo_itens_custo_equipamento, name='api_fluxo_itens_custo_equipamento'),
+    # 🌟 NOVO (28/10/2026): itens do Custo Var. Adic. das ordens de um equipamento (gráfico Custo Por Equipamento)
+    path('api/fluxo/<int:fluxo_id>/custo_codigo_equipamento/', views.api_fluxo_custo_codigo_equipamento, name='api_fluxo_custo_codigo_equipamento'),
     path('api/fluxo/salvar/', views.api_fluxo_salvar, name='api_fluxo_salvar'),
 
 ]

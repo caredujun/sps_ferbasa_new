@@ -388,6 +388,49 @@ def api_fluxo_custo_equipamento(request, fluxo_id, equipamento_id):
 
 
 @login_required
+@require_GET
+def api_fluxo_itens_custo_equipamento(request, fluxo_id):
+    """
+    🌟 NOVO (28/10/2026): "Custo por Equipamento" do editor -- ao clicar no código do equipamento, os itens que formam o
+    custo variável adicionado dele (item a item, a mesma conta da procedure) e a parcela de cada item no custo do fluxo.
+    ?codigo=<código do equipamento>. Só leitura.
+    """
+    from .comparar_fluxos import itens_custo_equipamento_no_fluxo, ComparacaoError
+    fluxo = _fluxo_acessivel_ou_404(request.user, fluxo_id)
+    cenario = TbCenarios.objects_real.filter(id=fluxo.tbcenarios_id).select_related('empresa').first()
+    if cenario is None:
+        return JsonResponse({'error': 'O cenário deste fluxo não existe mais.'}, status=400)
+    empresa = getattr(cenario, 'empresa', None)
+    moeda = {'BRL': 'R$ ', 'USD': 'US$ ', 'EUR': '€ '}.get(getattr(empresa, 'emp_moeda', None), '')
+    try:
+        from django.db import transaction
+        with transaction.atomic():
+            return JsonResponse(itens_custo_equipamento_no_fluxo(fluxo, cenario, request.GET.get('codigo', ''), moeda))
+    except ComparacaoError as erro:
+        return JsonResponse({'error': str(erro)}, status=400)
+
+
+@login_required
+@require_GET
+def api_fluxo_custo_codigo_equipamento(request, fluxo_id):
+    """
+    🌟 NOVO (28/10/2026): gráfico "Custo Por Equipamento" do editor -- ao clicar no código do equipamento, os itens que
+    formam o Custo Var. Adic. Equipamento de cada ordem desse equipamento no fluxo (?codigo=<código do equipamento>).
+    """
+    from .comparar_fluxos import custo_codigo_equipamento_no_fluxo, ComparacaoError
+    fluxo = _fluxo_acessivel_ou_404(request.user, fluxo_id)
+    cenario = TbCenarios.objects_real.filter(id=fluxo.tbcenarios_id).select_related('empresa').first()
+    if cenario is None:
+        return JsonResponse({'error': 'O cenário deste fluxo não existe mais.'}, status=400)
+    empresa = getattr(cenario, 'empresa', None)
+    moeda = {'BRL': 'R$ ', 'USD': 'US$ ', 'EUR': '€ '}.get(getattr(empresa, 'emp_moeda', None), '')
+    try:
+        return JsonResponse(custo_codigo_equipamento_no_fluxo(fluxo, cenario, request.GET.get('codigo', ''), moeda))
+    except ComparacaoError as erro:
+        return JsonResponse({'error': str(erro)}, status=400)
+
+
+@login_required
 @require_POST
 def api_fluxo_salvar(request):
     """

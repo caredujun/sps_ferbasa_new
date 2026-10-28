@@ -145,12 +145,8 @@ def importar_excel_producao_mensal_celery(empresa_id=None):
                          'QTDADE PRODUÇÃO', 'ITEM CONSUMO', 'DESCRIÇÃO ITEM CONSUMO', 'UNIDADE', 'QTDADE CONSUMO',
                          'INDICADOR', 'VALOR MATERIAL', 'VALOR GGF', 'VALOR GGF FIXO', 'VALOR GGF VARIAVEL',
                          'VALOR GGF OUTROS', 'VALOR ULT ENTRADA', 'TIPO', 'SEQUENCIA', 'NIVEL']:
-        # 🌟 NOVO (15/10/2026): só dados de 2026/01 em diante (centros de custo novos) -- senão recusa o arquivo inteiro
-        try:
-            _validar_periodo_minimo(sheet, 'Produção Mensal')
-        except ValueError as erro:
-            print(f"[importar_excel_producao_mensal_celery] {erro}")
-            return str(erro)
+        # 🌟 28/10/2026: REMOVIDA a restrição de só aceitar dados de 2026/01 em diante -- os centros de custo novos não
+        # afetam a Produção Mensal (a restrição continua só na Distribuição GGF Mensal)
         #  Estamos usando o cabeçalho da planilha gerada pela área de TI da Ferbasa para não dar confusão. O arquivo vem em CSV. Temos que abrir no Excel e salvar com o nome
         #  Produção_Mensal.xlsx
         #  Cabeçalho do arquivo está correto.
@@ -160,10 +156,10 @@ def importar_excel_producao_mensal_celery(empresa_id=None):
 
             if i > 1 and sheet.cell(row=i, column=1).value != None:  # Temos informação na linha
                 # print(sheet.cell(row=i, column=1).value)
-                if (sheet.cell(row=i, column=10).value or 0) > 0 and sheet.cell(row=i,
-                                                                         column=11) != None:  # Porque a linha 1 é o cabeçalho
+                # 🌟 28/10/2026: só a restrição da qtde produzida -- pode haver item produzido sem nenhum consumo
+                if (sheet.cell(row=i, column=10).value or 0) > 0:  # Porque a linha 1 é o cabeçalho
 
-                    # Só vamos considerar se qtde_produzida for maior que zero e foi informado item de consumo
+                    # Só vamos considerar se qtde_produzida for maior que zero
                     # Ano/mês está vindo como número sem a barra. Vamos ajustar
                     v_ano_mes = str(sheet.cell(row=i, column=1).value)[0:6]
                     v_ano_mes = v_ano_mes[0:4] + '/' + v_ano_mes[4:6]
@@ -178,7 +174,9 @@ def importar_excel_producao_mensal_celery(empresa_id=None):
                     # Item de produção está vindo como numérico. Passamos para string.
                     v_codigo_item_producao = str(sheet.cell(row=i, column=7).value).replace('.', '').upper()
                     # Item de consumo está vindo como numérico. Passamos para string.
-                    v_codigo_item_consumo = str(sheet.cell(row=i, column=11).value).replace('.', '').upper()
+                    # 🌟 28/10/2026: sem item de consumo (item produzido sem consumo) -> campo vazio (None), não mais 'NONE'
+                    v_sem_item_consumo = sheet.cell(row=i, column=11).value is None or str(sheet.cell(row=i, column=11).value).strip() == ''
+                    v_codigo_item_consumo = '' if v_sem_item_consumo else str(sheet.cell(row=i, column=11).value).replace('.', '').upper()
                     if sheet.cell(row=i, column=12).value is None:
                         v_descricao_item_consumo = ''
                         v_unidade_item_consumo = ''
@@ -245,7 +243,9 @@ def importar_excel_producao_mensal_celery(empresa_id=None):
                     # "if qtde_produzida > 0" -- numa linha com quantidade zero, gravava com os valores da linha
                     # anterior. Agora fica tudo dentro do if (igual à rotina do Agente IA).
                     # Verificando item de consumo
-                    if O[TbItensConsumo].filter(ite_con_codigo=v_codigo_item_consumo).count() > 0:  # Existe
+                    if v_sem_item_consumo:      # 🌟 28/10/2026: linha só de produção
+                        v_id_item_consumo = None
+                    elif O[TbItensConsumo].filter(ite_con_codigo=v_codigo_item_consumo).count() > 0:  # Existe
                         v_id_item_consumo = O[TbItensConsumo].get(ite_con_codigo=v_codigo_item_consumo).id
                         # Vamos atualizar a nova descrição se for diferente
                         objeto = O[TbItensConsumo].get(ite_con_codigo=v_codigo_item_consumo)
@@ -717,9 +717,9 @@ CABECALHO_DISTRIBUICAO_GGF_MENSAL = [
 
 
 # 🌟 NOVO (15/10/2026): a partir de 2026 os centros de custo mudaram (TbCentroCusto.cen_cus_referencia: 1 = '<--2025',
-# 2 = '2026 -->'). Produção Mensal e Distribuição GGF Mensal só aceitam dados de ANO_MES_MINIMO_IMPORTACAO em diante --
-# um arquivo com qualquer linha de ano/mês anterior é RECUSADO inteiro (nada é gravado), tanto pelo Agente IA quanto pela
-# rotina manual (AWS).
+# 2 = '2026 -->'). A Distribuição GGF Mensal só aceita dados de ANO_MES_MINIMO_IMPORTACAO em diante -- um arquivo com
+# qualquer linha de ano/mês anterior é RECUSADO inteiro (nada é gravado), tanto pelo Agente IA quanto pela rotina manual
+# (AWS). 🌟 28/10/2026: a Produção Mensal NÃO tem mais essa restrição (os centros de custo não a afetam).
 ANO_MES_MINIMO_IMPORTACAO = '2026/01'
 
 
@@ -778,7 +778,8 @@ def _processar_planilha_producao_mensal(sheet, empresa_id=None):
             "O cabeçalho do arquivo não bate com o esperado pra Produção Mensal.\n"
             f"Esperado: {CABECALHO_PRODUCAO_MENSAL}\nEncontrado: {lista_colunas}"
         )
-    _validar_periodo_minimo(sheet, 'Produção Mensal')      # 🌟 NOVO (15/10/2026)
+    # 🌟 28/10/2026: REMOVIDA a restrição de só aceitar dados de 2026/01 em diante (os centros de custo não afetam a
+    # Produção Mensal)
 
     cache_estabelecimentos = {e.est_codigo: e for e in O[TbEstabelecimentos].all()}
     cache_grupos_maquina = {g.gru_maq_codigo: g for g in O[TbGruposMaquinas].all()}
@@ -796,7 +797,8 @@ def _processar_planilha_producao_mensal(sheet, empresa_id=None):
     for i in range(total_linhas + 1):
         if i > 1 and sheet.cell(row=i, column=1).value is not None:
             valor_qtde_produzida = sheet.cell(row=i, column=10).value
-            if valor_qtde_produzida and valor_qtde_produzida > 0 and sheet.cell(row=i, column=11) != None:
+            # 🌟 28/10/2026: só a restrição da qtde produzida -- pode haver item produzido sem nenhum consumo
+            if valor_qtde_produzida and valor_qtde_produzida > 0:
 
                 v_ano_mes = str(sheet.cell(row=i, column=1).value)[0:6]
                 v_ano_mes = v_ano_mes[0:4] + '/' + v_ano_mes[4:6]
@@ -807,7 +809,9 @@ def _processar_planilha_producao_mensal(sheet, empresa_id=None):
                     v_codigo_grupo_maquina = sheet.cell(row=i, column=5).value.upper()
                 v_ordem_producao = str(sheet.cell(row=i, column=4).value).replace('.', '').upper()[0:9]
                 v_codigo_item_producao = str(sheet.cell(row=i, column=7).value).replace('.', '').upper()
-                v_codigo_item_consumo = str(sheet.cell(row=i, column=11).value).replace('.', '').upper()
+                # 🌟 28/10/2026: sem item de consumo (item produzido sem consumo) -> campo vazio (None), não mais 'NONE'
+                v_sem_item_consumo = sheet.cell(row=i, column=11).value is None or str(sheet.cell(row=i, column=11).value).strip() == ''
+                v_codigo_item_consumo = '' if v_sem_item_consumo else str(sheet.cell(row=i, column=11).value).replace('.', '').upper()
                 # 🌟 21/10/2026: + sequência (coluna 23, campo pro_men_sequencia) -- mesma regra da rotina manual:
                 # sem descrição do item de consumo, sequência 0
                 if sheet.cell(row=i, column=12).value is None:
@@ -871,8 +875,10 @@ def _processar_planilha_producao_mensal(sheet, empresa_id=None):
                     v_id_item_producao = n.id
 
                 # Item Consumo (cache)
-                objeto = cache_itens_consumo.get(v_codigo_item_consumo)
-                if objeto is not None:
+                objeto = None if v_sem_item_consumo else cache_itens_consumo.get(v_codigo_item_consumo)
+                if v_sem_item_consumo:      # 🌟 28/10/2026: linha só de produção
+                    v_id_item_consumo = None
+                elif objeto is not None:
                     mudou = False
                     if objeto.ite_con_descricao != v_descricao_item_consumo:
                         objeto.ite_con_descricao = v_descricao_item_consumo
@@ -1724,7 +1730,8 @@ def atualiza_tabela_variaveis(id_rlm):
         lista_item_consumo = []
 
         for item_consumo in item_consumo_qs:
-            if item_consumo.pro_men_item_consumo_id not in lista_item_consumo:
+            # 🌟 28/10/2026: linha só de produção (sem item de consumo) não é variável da regressão
+            if item_consumo.pro_men_item_consumo_id is not None and item_consumo.pro_men_item_consumo_id not in lista_item_consumo:
                 lista_item_consumo.append(item_consumo.pro_men_item_consumo_id)
 
         # Na lista_item_consumo temos o id dos itens de consumo. Vamos calcular o indicador, e lançar na tabela
@@ -1876,6 +1883,8 @@ def atualiza_tabela_variaveis(id_rlm):
                         # Lembrando item_consumo_qs = TbProducaoMensal.objects.filter(pro_men_item_producao_id__in=lista_produto, pro_men_grupo_maquina_id__in=lista_grupo_maquima, pro_men_ano_mes__gte=inicio_periodo, pro_men_ano_mes__lte=fim_periodo)
                         for item_consumo in item_consumo_qs:
                             id_item_consumo = item_consumo.pro_men_item_consumo_id
+                            if id_item_consumo is None:     # 🌟 28/10/2026: linha só de produção
+                                continue
                             ano_mes_item_consumo = item_consumo.pro_men_ano_mes
                             # Vamos pegar a chave
                             chave_variavel = ''

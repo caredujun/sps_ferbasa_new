@@ -842,6 +842,38 @@
                     const data = await response.json().catch(function() { return {}; });
                     if (!response.ok) throw new Error(data.error || ('Erro HTTP ' + response.status));
                     renderizarCustoEquipamento(conteudo, data, ordemDaColunaDoNo(nodeId), fluxoAlterado);
+                    // 🌟 28/10/2026: no equipamento FINAL do fluxo, os botões dos dois gráficos do Assistente IA
+                    const nodesDesenho = (editor.drawflow.drawflow[editor.module] || {}).data || {};
+                    if (nodesDesenho[nodeId] && isNoFinal(nodeId, nodesDesenho)) {
+                        // 🌟 28/10/2026: custo variável TOTAL do fluxo (o mesmo TOTAL do gráfico Custo por Equipamento)
+                        conteudo.insertAdjacentHTML('beforeend', '<div id="ce-total-fluxo" class="ce-resumo" style="margin-top:12px;"><div class="ce-cartao"><small>Custo variável total do fluxo (soma dos equipamentos, média dos períodos)</small><b>Calculando…</b></div></div>');
+                        fetch(`/fluxo_producao/api/fluxo/${encodeURIComponent(idAtual)}/custo_por_equipamento/`, { credentials: 'same-origin' })
+                            .then(function(resp) { return resp.json().then(function(d) { if (!resp.ok) throw new Error(d.error || ('Erro HTTP ' + resp.status)); return d; }); })
+                            .then(function(d) {
+                                const eqs = d.equipamentos || [];
+                                const tot = eqs.reduce(function(a, x) { return a + (Number(x.contribuicao_media) || 0); }, 0);
+                                const caixaTot = document.getElementById('ce-total-fluxo');
+                                if (!caixaTot) return;
+                                caixaTot.querySelector('b').textContent = (data.moeda ? data.moeda + ' ' : '') + formatarBRCusto(tot);
+                                caixaTot.insertAdjacentHTML('beforeend', '<div style="font-size:12px;color:#555;align-self:center;">' +
+                                    eqs.map(function(x) { return escaparCustoEquipamento(x.codigo) + ': ' + formatarBRCusto(Number(x.contribuicao_media)); }).join(' + ') + '</div>');
+                            })
+                            .catch(function(err) {
+                                const caixaTot = document.getElementById('ce-total-fluxo');
+                                if (caixaTot) caixaTot.querySelector('b').textContent = 'erro: ' + err.message;
+                            });
+                        conteudo.insertAdjacentHTML('beforeend', '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">' +
+                            '<button type="button" id="ce-btn-custo-por-equipamento" style="background:#3498db;color:#fff;border:0;border-radius:4px;padding:6px 12px;cursor:pointer;">Custo por Equipamento</button>' +
+                            '<button type="button" id="ce-btn-distribuicao" style="background:#3498db;color:#fff;border:0;border-radius:4px;padding:6px 12px;cursor:pointer;">Distribuição de Custo Variável</button></div>');
+                        document.getElementById('ce-btn-custo-por-equipamento').addEventListener('click', function() {
+                            document.getElementById('modal-custo-por-equipamento').style.zIndex = 1001;
+                            abrirCustoPorEquipamento();
+                        });
+                        document.getElementById('ce-btn-distribuicao').addEventListener('click', function() {
+                            document.getElementById('modal-distribuicao-custo').style.zIndex = 1001;
+                            abrirDistribuicaoCustoVariavel();
+                        });
+                    }
                     if (manterDetalhe && document.getElementById('ce-abrir-detalhe')) {
                         const caixa = document.getElementById('ce-detalhe');
                         desenharDetalheCustoOrdem(caixa, data.detalhe_custo_ordem, data.moeda ? data.moeda + ' ' : '', ultimoPeriodoDetalheCusto === null ? -1 : ultimoPeriodoDetalheCusto);
@@ -1776,10 +1808,20 @@
                     linhaBarra.append(rotulo, trilha, valor);
 
                     const descricao = document.createElement('div');
-                    descricao.textContent = equip.descricao || '(sem descrição)';
                     descricao.style.cssText = 'margin-left: 138px; font-size: 11px; color: #666; display: none;';
+                    // 🌟 28/10/2026: além do nome, os itens que formam o Custo Var. Adic. do equipamento (cada ordem dele no fluxo)
+                    const nomeEquip = document.createElement('div');
+                    nomeEquip.textContent = equip.descricao || '(sem descrição)';
+                    const itensEquip = document.createElement('div');
+                    itensEquip.style.cssText = 'margin-top: 6px; color: #333;';
+                    descricao.append(nomeEquip, itensEquip);
                     rotulo.addEventListener('click', function() {
-                        descricao.style.display = descricao.style.display === 'none' ? 'block' : 'none';
+                        const abrir = descricao.style.display === 'none';
+                        descricao.style.display = abrir ? 'block' : 'none';
+                        if (abrir && !itensEquip.dataset.carregado) {
+                            itensEquip.dataset.carregado = '1';
+                            carregarItensCodigoEquipamento(itensEquip, equip.codigo);
+                        }
                     });
 
                     linha.append(linhaBarra, descricao);
@@ -1816,6 +1858,73 @@
 
                 linhaTotal.append(rotuloTotal, trilhaTotal, valorTotal);
                 container.appendChild(linhaTotal);
+            }
+
+            // 🌟 NOVO (28/10/2026): itens do Custo Var. Adic. das ordens de um equipamento (gráfico Custo Por Equipamento)
+            // 🌟 28/10/2026 (v2): mostra a CONTA do valor da barra (output real x Custo Var. Adic., período a período, e a média)
+            async function carregarItensCodigoEquipamento(caixa, codigo) {
+                caixa.innerHTML = '<div class="carregando">Carregando os itens…</div>';
+                try {
+                    const response = await fetch(`/fluxo_producao/api/fluxo/${encodeURIComponent(fluxoId)}/custo_codigo_equipamento/?codigo=${encodeURIComponent(codigo)}`, { credentials: 'same-origin' });
+                    const data = await response.json().catch(function() { return {}; });
+                    if (!response.ok) throw new Error(data.error || ('Erro HTTP ' + response.status));
+                    const ordens = data.ordens || [];
+                    let html = '';
+                    if (ordens.length > 1) {        // equipamento com mais de uma ordem no fluxo: a barra é a soma das ordens
+                        const moeda = ordens[0].moeda ? ordens[0].moeda + ' ' : '';
+                        const partes = ordens.map(function(r) { return { rot: (r.equipamento || {}).rotulo, v: numeroBRCusto(((r.conta_fluxo || {}).media || {}).custo) }; });
+                        const soma = partes.reduce(function(a, x) { return a + (x.v || 0); }, 0);
+                        html += '<div style="margin:6px 0;padding:6px 8px;background:#eef8f4;border:1px solid #d5e8e1;border-radius:4px;color:#333;">Valor da barra = soma das ordens: ' +
+                                partes.map(function(x) { return escaparCustoEquipamento(x.rot) + ' ' + moeda + formatarBRCusto(x.v); }).join(' + ') +
+                                ' = <b>' + moeda + formatarBRCusto(soma) + '</b></div>';
+                    }
+                    caixa.innerHTML = html + ordens.map(function(r) { return tabelaItensCustoOrdemHtml(r); }).join('');
+                } catch (erro) {
+                    caixa.innerHTML = '<div style="color:#a94442;">Não foi possível carregar os itens: ' + escaparCustoEquipamento(erro.message) + '</div>';
+                }
+            }
+            function numeroBRCusto(t) { return t === null || t === undefined || t === '' ? null : Number(String(t).replace(/\./g, '').replace(',', '.')); }
+            function formatarBRCusto(x) { return x === null || x === undefined || !isFinite(x) ? '—' : x.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+            function tabelaItensCustoOrdemHtml(r) {
+                const e = escaparCustoEquipamento, moeda = r.moeda ? r.moeda + ' ' : '';
+                const v = function(x, comMoeda) { return x === null || x === undefined ? '—' : (comMoeda ? moeda : '') + e(x); };
+                const det = r.detalhe_custo_ordem || {}, b = det.media;
+                const cf = r.conta_fluxo || {}, cm = cf.media || {}, cols = cf.colunas || [];
+                const th = function(t) { return '<th style="border:1px solid #ddd;padding:3px 6px;background:#f4f6f8;">' + t + '</th>'; };
+                const td = function(x, num, extra) { return '<td style="border:1px solid #ddd;padding:3px 6px;' + (num ? 'text-align:right;white-space:nowrap;' : '') + (extra || '') + '">' + x + '</td>'; };
+                let html = '<div style="margin: 6px 0 12px;"><div style="font-weight:bold;color:#0e6655;">' + e((r.equipamento || {}).rotulo) + ' — ' + e((r.equipamento || {}).descricao || '') + '</div>';
+
+                // 1) a conta do valor da barra
+                html += '<div style="margin-top:4px;font-weight:bold;color:#2c3e50;">Como chega no valor da barra: ' + v(cm.custo, true) + '</div>';
+                html += '<table style="border-collapse:collapse;font-size:11px;margin-top:4px;"><thead><tr>' + th('Período') +
+                        cols.map(function(c) { return th('Output real coluna ' + e(c)); }).join('') +
+                        (cols.length > 1 ? th('Output real total') : '') + th('× Custo Var. Adic. Equipamento') + th('= Custo no fluxo') + '</tr></thead><tbody>';
+                (cf.periodos || []).forEach(function(l) {
+                    html += '<tr>' + td(e(l.periodo)) + (l.outputs || []).map(function(x) { return td(v(x), 1); }).join('') +
+                            (cols.length > 1 ? td(v(l.output_total), 1) : '') + td(v(l.cva, true), 1) + td(v(l.custo, true), 1) + '</tr>';
+                });
+                const neg = 'font-weight:bold;background:#eef8f4;';
+                html += '<tr>' + td('Média de ' + e(cf.n_periodos) + ' período(s)', 0, neg) + (cm.outputs || []).map(function(x) { return td(v(x), 1, neg); }).join('') +
+                        (cols.length > 1 ? td(v(cm.output_total), 1, neg) : '') + td(v(cm.cva, true), 1, neg) + td(v(cm.custo, true), 1, neg) + '</tr></tbody></table>';
+                html += '<div style="font-size:10.5px;color:#777;margin-top:3px;">Em cada período: output real (quanto a ordem envia para 1 unidade do produto final' +
+                        (cols.length > 1 ? ', somado nas colunas em que ela aparece' : '') + ') × Custo Var. Adic. Equipamento do período. O valor da barra é a média desses produtos ' +
+                        '(a mesma conta da procedure calcula_contribuicao_custo_fluxo_producao). Por isso pode não ser exatamente a média do output × a média do custo, quando os valores mudam de um período para outro.' +
+                        (cf.n_periodos_sem_custo ? ' ' + e(cf.n_periodos_sem_custo) + ' período(s) sem custo calculado ficaram fora da média.' : '') + '</div>';
+
+                // 2) os itens do Custo Var. Adic. Equipamento e a parcela de cada um no fluxo
+                if (det.erro) return html + '<div style="color:#a94442;">' + e(det.erro) + '</div></div>';
+                if (!b) return html + '<div>Sem itens.</div></div>';
+                html += '<div style="margin-top:10px;font-weight:bold;color:#2c3e50;">Itens do Custo Var. Adic. Equipamento e a parcela de cada um no valor da barra</div>';
+                html += '<table style="border-collapse:collapse;font-size:11px;margin-top:4px;"><thead><tr>' +
+                        ['Item de consumo', 'Unidade', 'Consumo específico', 'Valor unitário', 'Valor unitário × consumo específico (por unidade do equipamento)',
+                         'No fluxo (× output real)'].map(th).join('') + '</tr></thead><tbody>';
+                (b.itens || []).forEach(function(x) { html += '<tr>' + td(e(x.item)) + td(e(x.unidade)) + td(v(x.consumo), 1) + td(v(x.unitario, true), 1) + td(v(x.valor, true), 1) + td(v(x.no_fluxo, true), 1, 'font-weight:bold;') + '</tr>'; });
+                const m = b.manutencao || {};
+                html += '<tr>' + td('Manutenção do equipamento (' + v(m.custo_hora) + '/h ÷ produtividade ' + v(m.produtividade) + ')') + td('—') + td('—', 1) + td(v(m.unitario, true), 1) + td(v(m.valor, true), 1) + td(v(m.no_fluxo, true), 1, 'font-weight:bold;') + '</tr>';
+                html += '<tr>' + td('Total', 0, neg) + td('', 0, neg) + td('', 1, neg) + td('', 1, neg) + td(v(b.total, true), 1, neg) + td(v(b.total_no_fluxo, true), 1, neg) + '</tr></tbody></table>';
+                html += '<div style="font-size:10.5px;color:#777;margin-top:3px;">Média dos períodos. "No fluxo" = média de (valor do item × output real) período a período; o total é o valor da barra. ' +
+                        'Diferença de 1 centavo entre a soma dos itens e o total é arredondamento.</div></div>';
+                return html;
             }
 
             function carregarEquipamentos() {

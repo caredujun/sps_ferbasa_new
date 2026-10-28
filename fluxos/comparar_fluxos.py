@@ -1024,14 +1024,43 @@ def custo_equipamento_no_fluxo(fluxo, cenario, equipamento_id, moeda='', *, cust
     # 🌟 NOVO (27/10/2026): média do Custo Var. Adic. Equipamento (custo da ordem) e o detalhe item a item
     custos_ordem = {p: cache.get((o.id, p)) for p in ordens_periodo}
     media_custo_ordem = _media(list(custos_ordem.values()))
+
+    # 🌟 NOVO (28/10/2026): A CONTA DO VALOR DA BARRA (gráfico Custo por Equipamento) -- a mesma da procedure
+    # calcula_contribuicao_custo_fluxo_producao: em cada período, output real de cada coluna em que a ordem aparece,
+    # somado, x Custo Var. Adic. Equipamento do período; depois a média dos períodos.
+    def _out(n, p):
+        v = n['v'].get(p)
+        return None if v is None or v[1] is None else Decimal(str(v[1]))
+    outputs_total, linhas_conta = {}, []
+    for p, rotulo in periodos:
+        outs = [_out(n, p) for n in sel]
+        presentes = [x for x in outs if x is not None]
+        tot = sum(presentes, Decimal(0)) if presentes else None
+        outputs_total[p] = tot
+        c = custos_ordem.get(p)
+        custo = None if (tot is None or c is None) else tot * c
+        linhas_conta.append({'p': p, 'rotulo': rotulo, 'outs': outs, 'tot': tot, 'cva': c, 'custo': custo})
+    validas = [l for l in linhas_conta if l['custo'] is not None]
+    f2c = lambda v: None if v is None else _num(v, 2)
+    f4c = lambda v: None if v is None else _num(v, 4)
+    conta_fluxo = {
+        'colunas': [n['coluna'] for n in sel],
+        'periodos': [{'periodo': l['rotulo'], 'outputs': [f4c(x) for x in l['outs']], 'output_total': f4c(l['tot']),
+                      'cva': f2c(l['cva']), 'custo': f2c(l['custo'])} for l in linhas_conta],
+        'n_periodos': len(validas), 'n_periodos_sem_custo': len(linhas_conta) - len(validas),
+        'media': {'outputs': [f4c(_media([l['outs'][i] for l in validas])) for i in range(len(sel))],
+                  'output_total': f4c(_media([l['tot'] for l in validas])),
+                  'cva': f2c(_media([l['cva'] for l in validas])),
+                  'custo': f2c(_media([l['custo'] for l in validas]))},
+    }
     try:
         with transaction.atomic():              # savepoint: se a consulta falhar, não derruba a transação
-            detalhe = detalhe_custo_ordem_formatado(cenario, o.id, ordens_periodo, custos_ordem, moeda)
+            detalhe = detalhe_custo_ordem_formatado(cenario, o.id, ordens_periodo, custos_ordem, moeda, outputs=outputs_total)
     except Exception as erro:                       # o detalhe nunca derruba a tela do custo
         detalhe = {'erro': f"Não consegui montar o detalhe dos itens: {erro}"}
     return {
         'custo_ordem_media': None if media_custo_ordem is None else _num(media_custo_ordem, 2),
-        'detalhe_custo_ordem': detalhe,
+        'detalhe_custo_ordem': detalhe, 'conta_fluxo': conta_fluxo,
         'fluxo': {'id': fluxo.id, 'descricao': fluxo.flu_pro_descricao},
         'equipamento': {'id': o.id, 'rotulo': _rotulo_equipamento(o), 'descricao': o.equ_ordem_descricao or '',
                         'equipamento_descricao': o.equ_codigo.equ_cad_descricao or ''},
@@ -1156,9 +1185,12 @@ def _media(valores):
     return (sum(validos, Decimal(0)) / len(validos)) if validos else None
 
 
-def detalhe_custo_ordem_formatado(cenario, ordem_id, ordens_periodo, custo_procedure, moeda=''):
+def detalhe_custo_ordem_formatado(cenario, ordem_id, ordens_periodo, custo_procedure, moeda='', outputs=None):
     """Detalhe pronto pra tela: um bloco por período e um bloco 'média dos períodos' (média de cada coluna; a soma da
-    coluna "Valor" da média é a média do Custo Var. Adic. Equipamento)."""
+    coluna "Valor" da média é a média do Custo Var. Adic. Equipamento).
+    🌟 28/10/2026: outputs = {período: output real TOTAL da ordem no fluxo (soma das colunas)}. Quando vem, o bloco da média
+    ganha 'no_fluxo' em cada item, na manutenção e no total: média dos períodos de (valor do item x output real) -- a parcela
+    de cada item no valor da barra do gráfico Custo por Equipamento."""
     bruto = detalhe_custo_var_adic_equipamento(cenario.id, ordem_id, ordens_periodo)
     det, moeda_sistema = bruto['periodos'], bruto['moeda_sistema']
     f4 = lambda v: None if v is None else _num(v, 4)
@@ -1219,4 +1251,79 @@ def detalhe_custo_ordem_formatado(cenario, ordem_id, ordens_periodo, custo_proce
                        'unitario': mcol('unitario'), 'valor': mcol('valor')}
         media = bloco('Média dos períodos', itens_media, manut_media, _media([det[o]['total'] for o in ordens]),
                       _media([custo_procedure.get(o) for o in ordens]))
+        if outputs:
+            def no_fluxo(valor_de):
+                return f2(_media([valor_de(o) * outputs[o] for o in ordens
+                                  if outputs.get(o) is not None and det[o]['total'] is not None and valor_de(o) is not None]))
+            for k, x in enumerate(media['itens']):
+                x['no_fluxo'] = no_fluxo(lambda o, k=k: det[o]['itens'][k]['valor'])
+            media['manutencao']['no_fluxo'] = no_fluxo(lambda o: det[o]['manutencao']['valor'])
+            media['total_no_fluxo'] = no_fluxo(lambda o: det[o]['total'])
     return {'media': media, 'periodos': blocos, 'moeda': moeda.strip(), 'moeda_sistema': moeda_sistema}
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# 🌟 NOVO (28/10/2026): ITENS QUE FORMAM A CONTRIBUIÇÃO DE UM EQUIPAMENTO NO CUSTO DO FLUXO ("Custo por Equipamento" do
+# editor: clicar no código do equipamento). Para cada ordem/coluna desse equipamento no I/O do fluxo, o Custo Var. Adic.
+# Equipamento item a item (a mesma conta da procedure, ver detalhe_custo_var_adic_equipamento) e a parcela de cada item no
+# custo do fluxo: valor do item por unidade do equipamento x output real (dau_valor_4), em média dos períodos -- a mesma
+# média do "custo no fluxo" da comparação (só os períodos com custo calculado).
+# ---------------------------------------------------------------------------------------------------------------
+def itens_custo_equipamento_no_fluxo(fluxo, cenario, codigo_equipamento, moeda=''):
+    if not fluxo.flu_pro_input_output_atualizado:
+        raise ComparacaoError(f"O I/O do fluxo id {fluxo.id} está desatualizado, e o custo do fluxo sai do I/O. Atualize os fluxos "
+                              "(menu Cenário > Atualizar Fluxos) e tente de novo.")
+    codigo = str(codigo_equipamento or '').strip().upper()
+    sel = [n for n in _nos_do_io(fluxo.id) if str(n['ordem'].equ_codigo.equ_cad_codigo).strip().upper() == codigo]
+    if not sel:
+        raise ComparacaoError(f"O equipamento {codigo_equipamento} não está no I/O do fluxo gravado.")
+    f2 = lambda v: None if v is None else _num(v, 2)
+    f4 = lambda v: None if v is None else _num(v, 4)
+    ocorrencias, total_fluxo = [], Decimal(0)
+    for n in sorted(sel, key=lambda x: (-x['coluna'], x['linha'])):
+        o = n['ordem']
+        periodos = sorted(n['v'])
+        det = detalhe_custo_var_adic_equipamento(cenario.id, o.id, periodos)['periodos']
+        validos = [p for p in periodos if det.get(p) and det[p]['total'] is not None]
+        k = len(validos)
+        media = lambda vals: (sum(vals, Decimal(0)) / k) if k else None
+        linhas = []
+        itens_base = det[validos[0]]['itens'] if validos else []
+        for idx, x in enumerate(itens_base):
+            por_p = [det[p]['itens'][idx] for p in validos]
+            linhas.append({'item': x['item'], 'unidade': x['unidade'],
+                           'consumo': f4(media([y['consumo'] for y in por_p])),
+                           'unitario': f4(media([y['unitario'] for y in por_p])),
+                           'valor': f2(media([y['valor'] for y in por_p])),
+                           'no_fluxo': f2(media([y['valor'] * Decimal(str(n['v'][p][1])) for y, p in zip(por_p, validos)]))})
+        m_por = [det[p]['manutencao'] for p in validos]
+        manut = {'valor': f2(media([y['valor'] for y in m_por])),
+                 'unitario': f4(media([y['unitario'] for y in m_por])),
+                 'no_fluxo': f2(media([y['valor'] * Decimal(str(n['v'][p][1])) for y, p in zip(m_por, validos)]))} if validos else None
+        tot_eq = media([det[p]['total'] for p in validos])
+        tot_fl = media([det[p]['total'] * Decimal(str(n['v'][p][1])) for p in validos])
+        total_fluxo += tot_fl or Decimal(0)
+        ocorrencias.append({'ordem': _rotulo_equipamento(o), 'descricao_ordem': o.equ_ordem_descricao or '', 'coluna': n['coluna'],
+                            'output_real_medio': f4(media([Decimal(str(n['v'][p][1])) for p in validos])),
+                            'periodos': k, 'periodos_sem_custo': len(periodos) - k,
+                            'itens': linhas, 'manutencao': manut,
+                            'total_equipamento': f2(tot_eq), 'total_no_fluxo': f2(tot_fl)})
+    ref = sel[0]['ordem'].equ_codigo
+    return {'codigo': ref.equ_cad_codigo, 'descricao': ref.equ_cad_descricao or '', 'moeda': moeda.strip(),
+            'ocorrencias': ocorrencias, 'total_no_fluxo': _num(total_fluxo, 2)}
+
+
+def custo_codigo_equipamento_no_fluxo(fluxo, cenario, codigo_equipamento, moeda=''):
+    """🌟 NOVO (28/10/2026): para o gráfico "Custo Por Equipamento" do editor (consolidado pelo código do equipamento):
+    as ORDENS desse equipamento que estão no I/O do fluxo, cada uma com o mesmo resultado de custo_equipamento_no_fluxo
+    (Custo Var. Adic. Equipamento item a item, custo no fluxo, indicador e output real)."""
+    nos = _nos_do_io(fluxo.id)
+    codigo = str(codigo_equipamento or '').strip()
+    ordens = []
+    for n in nos:
+        o = n['ordem']
+        if str(o.equ_codigo.equ_cad_codigo).strip() == codigo and o.id not in ordens:
+            ordens.append(o.id)
+    if not ordens:
+        raise ComparacaoError(f"O equipamento {codigo} não está no I/O do fluxo gravado.")
+    return {'codigo': codigo, 'ordens': [custo_equipamento_no_fluxo(fluxo, cenario, oid, moeda) for oid in ordens]}
