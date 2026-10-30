@@ -1981,7 +1981,8 @@ INSTRUCAO_COMENTARIO_ANALISE_RESULTADOS = (
     "nunca a soma dos mínimos de todos os períodos. Equipamento com gargalo_no_cadastro 'não' não tem limite de horas no "
     "modelo: não o chame de gargalo nem recomende capacidade para ele. Analise também 'equipamentos_conjunto' (limite de "
     "produção do conjunto e a ocupação de cada equipamento dele). Nunca use a palavra 'Simplex': diga 'Rotina de "
-    "Otimização'." + (
+    "Otimização'. NUNCA escreva no texto os nomes dos campos do JSON (com sublinhado, ex.: periodos_no_maximo) nem "
+    "expressões de programação (ex.: '> 0'): escreva em português corrente (ex.: 'que ficou no máximo em algum período')." + (
     " OCUPAÇÃO MÍNIMA FORÇADA: 'ocupacao_minima_forcada' lista os equipamentos obrigados a rodar com ocupação mínima "
     "maior que 0 (ex.: 100% / 100%); para cada um a otimização foi REFEITA com a faixa 0-100% e 'ganho_exato' é o valor "
     "exato (não estimativa). Se essa lista vier preenchida, comente a restrição numa seção própria (se vier vazia, omita "
@@ -2216,6 +2217,20 @@ def _pergunta_fluxo_pm(mensagem_usuario, usuario):
             "instantes." + (f" ({type(ultimo_erro).__name__})" if ultimo_erro else ''))
 
 
+_RE_CAMPO_ENTRE_PARENTESES = re.compile(r"\s*\(\s*[`'\"]?[a-z][a-z0-9]*(?:_[a-z0-9]+)+[`'\"]?(?:\s*(?:[<>]=?|[!=]=)\s*[^()]*)?\s*\)")
+_RE_CAMPO = re.compile(r"[`'\"]?\b([a-z][a-z0-9]*(?:_[a-z0-9]+)+)\b[`'\"]?")
+
+
+def _sem_nomes_de_campo(texto):
+    """🌟 NOVO (29/10/2026): a IA às vezes copia o nome técnico de um campo do JSON no comentário, como
+    "(periodos_no_maximo > 0)". Tira o parêntese que só tem o nome do campo (e a comparação) e, no resto do texto, troca
+    o sublinhado do nome por espaço ("periodos no maximo")."""
+    if not texto:
+        return texto
+    texto = _RE_CAMPO_ENTRE_PARENTESES.sub('', texto)
+    return _RE_CAMPO.sub(lambda m: m.group(1).replace('_', ' '), texto)
+
+
 def _comentario_analise_custo(mensagem_usuario, usuario):
     """Devolve o texto do comentário da IA (ou uma mensagem de erro curta). Ver PADRAO_COMENTARIO_ANALISE_CUSTO e
     PADRAO_COMENTARIO_ANALISE_RESULTADOS (mesma função, instrução diferente)."""
@@ -2249,7 +2264,7 @@ def _comentario_analise_custo(mensagem_usuario, usuario):
             temperature=0.2,
             timeout=60,
         )
-        texto = (response.choices[0].message.content or '').strip()
+        texto = _sem_nomes_de_campo((response.choices[0].message.content or '').strip())
         return texto or "A IA não devolveu comentário. Tente de novo."
     except Exception as erro:
         print(f"[comentario_analise_custo] {type(erro).__name__}: {erro}")

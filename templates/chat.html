@@ -4634,7 +4634,7 @@
         // otimizacao/analise_resultados.py). Quadro no chat (resumo + o que analisar primeiro) e a análise completa numa
         // tela própria (abas), com Excel e comentário da IA.
         var _dadosAR = {}, _contadorAR = 0;
-        var AR_ABAS = ['resumo', 'ia', 'produtos', 'fluxos', 'equipamentos', 'comerciais', 'insumos', 'analisar'];   // 🌟 19/10/2026: conjuntos dentro de Equipamentos
+        var AR_ABAS = ['resumo', 'produtos', 'fluxos', 'equipamentos', 'comerciais', 'insumos', 'analisar', 'ia'];   // 🌟 29/10/2026: Comentário da IA no fim   // 🌟 19/10/2026: conjuntos dentro de Equipamentos
 
         function moedaAR(d, v) { return (d.moeda || '') + numFPM(v, 0); }
         function numAR(v, c) { return v === null || v === undefined ? '—' : numFPM(v, c === undefined ? 2 : c); }

@@ -957,7 +957,9 @@
                 (bloco.itens || []).forEach(function(x) {
                     // 🌟 27/10/2026: o nome do item abre o registro do Item de Custo / Planta (TbCustoItemPreco) no Admin, numa nova aba
                     const nomeItem = x.admin_url ? '<a href="' + e(x.admin_url) + '" target="_blank" rel="noopener" title="Abrir o Item de Custo / Planta no Admin para editar (nova aba)">' + e(x.item) + ' ✎</a>' : e(x.item);
-                    html += '<tr><td>' + nomeItem + '</td><td>' + e(x.unidade) + '</td><td class="num">' + v(x.consumo) + '</td><td class="num">' + vm(x.preco, x.moeda_preco) +
+                    // 🌟 29/10/2026: o consumo específico abre o registro de onde ele vem (Consumo Específico do equipamento/ordem)
+                    const consumoCel = x.admin_url_consumo ? '<a href="' + e(x.admin_url_consumo) + '" target="_blank" rel="noopener" title="Abrir no Admin o registro do Consumo Específico deste item nesta ordem (nova aba)">' + v(x.consumo) + ' ✎</a>' : v(x.consumo);
+                    html += '<tr><td>' + nomeItem + '</td><td>' + e(x.unidade) + '</td><td class="num">' + consumoCel + '</td><td class="num">' + vm(x.preco, x.moeda_preco) +
                             '</td><td class="num">' + vm(x.inbound, x.moeda_inbound) + '</td><td class="num">' + (x.cambio ? e(x.cambio) : '—') + '</td><td class="num">' + v(x.unitario, true) +
                             '</td><td class="num">' + v(x.valor, true) + '</td></tr>';
                 });

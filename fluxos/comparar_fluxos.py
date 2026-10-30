@@ -1158,6 +1158,7 @@ def detalhe_custo_var_adic_equipamento(cenario_id, ordem_id, ordens_periodo):
             else:
                 total += valor
             linhas.append({'item': (f"{cod} - {nome}" if cod else nome), 'unidade': unidade or '', 'custoitempreco_id': cip_id,
+                           'consumoespecifico_id': ce_id,      # 🌟 29/10/2026: registro do consumo específico (link)
                            'consumo': ce, 'preco': p, 'inbound': i, 'cambio_preco': tp, 'cambio_inbound': ti,
                            'moeda_preco': moeda_p, 'moeda_inbound': moeda_i, 'unitario': unit, 'valor': valor})
         m_h = _arred(manut.get(o), _D2)
@@ -1207,11 +1208,22 @@ def detalhe_custo_ordem_formatado(cenario, ordem_id, ordens_periodo, custo_proce
         except Exception:
             return None
 
+    # 🌟 NOVO (29/10/2026): link para o registro do Consumo Específico (TbEquipamentosConsumoEspecifico) no Admin
+    def url_admin_consumo(ce_id):
+        if not ce_id:
+            return None
+        try:
+            from django.urls import reverse
+            return reverse('admin:equipamentos_tbequipamentosconsumoespecifico_change', args=[ce_id])
+        except Exception:
+            return None
+
     def bloco(rotulo, itens, manut, total, proc):
         dif = None if (total is None or proc is None) else (total - proc)
         return {'periodo': rotulo,
                 'itens': [{'item': x['item'], 'unidade': x['unidade'], 'consumo': f4(x['consumo']), 'preco': f2(x['preco']),
                            'admin_url': url_admin(x.get('custoitempreco_id')),
+                           'admin_url_consumo': url_admin_consumo(x.get('consumoespecifico_id')),
                            'moeda_preco': x.get('moeda_preco'), 'moeda_inbound': x.get('moeda_inbound'),
                            'inbound': f2(x['inbound']), 'cambio': x.get('cambio_txt'), 'unitario': f_un(x['unitario']),
                            'valor': f2(x['valor'])} for x in itens],
@@ -1242,7 +1254,7 @@ def detalhe_custo_ordem_formatado(cenario, ordem_id, ordens_periodo, custo_proce
         for k, x in enumerate(det[ordens[0]]['itens']):
             col = lambda chave: _media([det[o]['itens'][k][chave] for o in ordens])
             itens_media.append({'item': x['item'], 'unidade': x['unidade'], 'consumo': col('consumo'), 'preco': col('preco'),
-                                'custoitempreco_id': x.get('custoitempreco_id'),
+                                'custoitempreco_id': x.get('custoitempreco_id'), 'consumoespecifico_id': x.get('consumoespecifico_id'),
                                 'moeda_preco': x['moeda_preco'], 'moeda_inbound': x['moeda_inbound'],
                                 'inbound': col('inbound'), 'cambio_txt': None, 'unitario': col('unitario'), 'valor': col('valor')})
         mcol = lambda chave: _media([det[o]['manutencao'][chave] for o in ordens])

@@ -74,9 +74,10 @@ admin.site.register(TbOtimizacaoConjuntoEquipamentos, TbOtimizacaoConjuntoEquipa
 
 class TbOtimizacaoProdutoDaugtherAdmin(admin.TabularInline):
     # 🌟 23/10/2026: + Produção e Estoque Final do Período (produção antecipada)
-    fields = ('display_order', 'dau_valor_1', 'dau_valor_2', 'dau_valor_3', 'producao_periodo', 'estoque_final_periodo',
-              'dau_valor_5', 'dau_valor_6', 'margem_cont_bruta_media', 'dau_valor_7')
-    readonly_fields = ('display_order', 'dau_valor_3', 'producao_periodo', 'estoque_final_periodo', 'dau_valor_5', 'dau_valor_6',
+    # 🌟 29/10/2026: + Estoque Inicial do período (antes da Produção)
+    fields = ('display_order', 'dau_valor_1', 'dau_valor_2', 'estoque_inicial_periodo', 'dau_valor_3', 'producao_periodo',
+              'estoque_final_periodo', 'dau_valor_5', 'dau_valor_6', 'margem_cont_bruta_media', 'dau_valor_7')
+    readonly_fields = ('display_order', 'dau_valor_3', 'estoque_inicial_periodo', 'producao_periodo', 'estoque_final_periodo', 'dau_valor_5', 'dau_valor_6',
                        'margem_cont_bruta_media', 'dau_valor_7')
 
     model = TbOtimizacaoProdutoDaugther
@@ -109,6 +110,24 @@ class TbOtimizacaoProdutoAdmin(admin.ModelAdmin):
     form = TbOtimizacaoProdutoFormAdmin
 
     actions = ['exportar_excel', 'exportar_pdf', 'exportar_excel_consolidado']
+
+    # 🌟 NOVO (29/10/2026): passar o cursor na barra de PRODUÇÃO do gráfico da tabela filha mostra os equipamentos usados
+    # na produção do produto em cada período (static/grafico_valores_inline_v6.js busca este endereço). Só leitura.
+    def get_urls(self):
+        from django.urls import path
+        return [path('<path:object_id>/equipamentos-producao/', self.admin_site.admin_view(self.equipamentos_producao_view),
+                     name='otimizacao_tbotimizacaoproduto_equipamentos_producao')] + super().get_urls()
+
+    def equipamentos_producao_view(self, request, object_id):
+        from django.http import JsonResponse
+        from .equipamentos_producao import equipamentos_producao_produto
+        obj = self.get_object(request, object_id)
+        if obj is None:
+            return JsonResponse({'erro': 'Registro não encontrado.'}, status=404)
+        try:
+            return JsonResponse(equipamentos_producao_produto(obj))
+        except Exception as erro:
+            return JsonResponse({'erro': f"{type(erro).__name__}: {erro}"}, status=500)
 
     def exportar_pdf(self, request, queryset):
 

@@ -283,7 +283,28 @@ class TbOtimizacaoProdutoDaugther(models.Model):
         reg = self._antecipacao_periodo()
         return reg.dau_valor_4 if reg is not None else 0
 
-    estoque_final_periodo.short_description = 'Estoque'
+    estoque_final_periodo.short_description = 'Estoque Final'
+
+    # 🌟 NOVO (29/10/2026): estoque no INÍCIO do período = estoque final do período anterior (produção antecipada gravada
+    # pelo Otimizar); no primeiro período otimizado do produto, o estoque inicial informado no cadastro do produto
+    # (TbProdutos.pro_estoque_inicial) antes da otimização. Assim: inicial + produção - vendas = final.
+    def estoque_inicial_periodo(self):
+        try:
+            anterior = (TbOtimizacaoAntecipacaoDaugther.objects
+                        .filter(tbcenarios_id=self.tbcenarios_id, dau_order__lt=self.dau_order,
+                                mae__oti_ant_produto_id=self.mae.oti_pro_produto_id, mae__oti_ant_aplicado=True)
+                        .order_by('-dau_order').only('dau_valor_4').first())
+        except Exception:
+            anterior = None
+        if anterior is not None:
+            return anterior.dau_valor_4
+        primeiro = (TbOtimizacaoProdutoDaugther.objects.filter(mae_id=self.mae_id, flag=True)
+                    .order_by('dau_order').values_list('dau_order', flat=True).first())
+        if primeiro is not None and self.dau_order > primeiro:
+            return 0        # sem produção antecipada aplicada: não sobra estoque de um período para o outro
+        return self.mae.oti_pro_produto.pro_estoque_inicial or 0
+
+    estoque_inicial_periodo.short_description = 'Estoque Inicial'
 
     # Vamos criar um campo para mostrar o periodo no formato adequado
     def display_order(self):

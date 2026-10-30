@@ -3654,6 +3654,18 @@ def _sen_montar(estado, dados):
     texto = (f"**{titulo}** · cenário {cenario.numero_sequencial}/{cenario.cen_nome} · {periodo}\n\n"
              f"Margem de contribuição total (base, refeita): **{moeda}{br(r['base'])}** · {r['periodos']} período(s) · "
              f"{len(r['pontos'])} combinações em {r['segundos']} s")
+    # 🌟 29/10/2026: onde foi o tempo (banco x otimizações), para saber o que melhorar
+    fases = (r.get('tempos') or {}).get('fases') or {}
+    if fases:
+        nomes_fase = {'montar_modelo': 'montar o modelo', 'dados_equipamento': 'ler o equipamento/custos',
+                      'otimizacoes': 'otimizações', 'otimizacoes_repetidas': 'otimizações repetidas (outro método)',
+                      'sem_solucao_descumprindo': 'combinações sem solução (descumprindo mínimos)',
+                      'otimizacoes_integradas': 'otimizações do modelo integrado',
+                      'preparar_cenario': 'preparar o cenário',
+                      'integrado_preparar_modelos_periodos': 'modelos dos períodos (funções do Otimizar no banco)',
+                      'integrado_preparar_valores': 'valores dos produtos', 'integrado_montar_integrado': 'montar o modelo integrado',
+                      'integrado_resolver': 'resolver no HiGHS', 'integrado_resolvido_do_zero': 'resolvidas do zero'}
+        texto += " · tempo: " + "; ".join(f"{nomes_fase.get(k, k)} {v[0]:.0f} s ({v[1]}x)" for k, v in fases.items())
     if r.get('modelo_integrado'):
         texto += "\n\n📦 Cenário com **produção antecipada** aplicada pelo Otimizar: cada combinação foi calculada com todos os períodos juntos (produzir antes para vender depois, com estoque)."
     # 🌟 22/10/2026: restrições do modelo que ficaram no limite (gargalos, conjuntos de equipamentos, limites comerciais)
