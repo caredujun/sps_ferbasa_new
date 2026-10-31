@@ -630,6 +630,46 @@ def _expandir_para_tras_iter(destino_id, entradas_por_destino, equipamentos, pil
         yield tuple(a for parte in combinacao for a in parte)
 
 
+def _diagnostico_explosao(terminal_id, entradas_por_destino, equipamentos, memo, max_itens=20) -> str:
+    """🌟 NOVO (30/10/2026): a CADEIA, descendo a partir do terminal, com os pontos onde a quantidade de fluxos se
+    multiplica -- para a mensagem de "acima do limite". Percorre do terminal para trás, nível a nível (nível 1 = quem
+    alimenta o terminal); em cada equipamento com mais de uma origem alternativa no mesmo critério de quebra, mostra o
+    critério, as origens (cada uma vira um fluxo diferente) e quantos fluxos saem a partir dele."""
+    def rotulo(eid):
+        eq = equipamentos.get(eid)
+        return f"{eq.equ_codigo.equ_cad_codigo}/{eq.equ_ordem_codigo}" if eq else str(eid)
+
+    def n(v):
+        return f"{v:,}".replace(',', '.')
+
+    nivel = {terminal_id: 0}
+    fila, ordem = [terminal_id], []
+    while fila:                                   # do terminal para trás, nível a nível
+        eid = fila.pop(0)
+        ordem.append(eid)
+        for _criterio, membros in _membros_efetivos_por_criterio(eid, entradas_por_destino, equipamentos):
+            for m in membros:
+                if m[0] not in nivel:
+                    nivel[m[0]] = nivel[eid] + 1
+                    fila.append(m[0])
+    linhas = []
+    for eid in ordem:
+        partes, fator = [], 1
+        for criterio, membros in _membros_efetivos_por_criterio(eid, entradas_por_destino, equipamentos):
+            if len(membros) > 1:
+                fator *= len(membros)
+                partes.append(f"{criterio}: {len(membros)} origens alternativas ("
+                              + ', '.join(rotulo(m[0]) for m in membros[:8]) + (', ...' if len(membros) > 8 else '') + ")")
+        if fator > 1:
+            linhas.append(f"- Nível {nivel[eid]} -- {rotulo(eid)} (x{fator}; {n(memo.get(eid, 1))} fluxos a partir dele): "
+                          + '; '.join(partes))
+    if not linhas:
+        return ''
+    mais = f"\n... e mais {len(linhas) - max_itens} ponto(s)." if len(linhas) > max_itens else ''
+    return ("\nCadeia descendo a partir do terminal (nível 1 = quem alimenta o terminal), só os pontos onde a "
+            "quantidade se multiplica:\n" + "\n".join(linhas[:max_itens]) + mais)
+
+
 def _iterar_planos_do_produto(terminais, entradas_por_destino, equipamentos, max_fluxos):
     """Todos os planos de todos os terminais, um de cada vez. Antes de gerar o primeiro, conta tudo e
     recusa (com a quantidade) se algum terminal passar do limite -- sem ter alocado nada."""
@@ -641,6 +681,7 @@ def _iterar_planos_do_produto(terminais, entradas_por_destino, equipamentos, max
             raise GeracaoFluxoError(
                 f"O terminal {rotulo} geraria {total:,} fluxos, acima do limite de {max_fluxos:,} "
                 "(max_fluxos). Nada foi gerado."
+                + _diagnostico_explosao(terminal.id, entradas_por_destino, equipamentos, memo)    # 🌟 30/10/2026
             )
     for terminal in terminais:
         yield from _expandir_para_tras_iter(terminal.id, entradas_por_destino, equipamentos)

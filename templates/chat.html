@@ -2606,6 +2606,21 @@
                         '<span class="sel-codigo">' + escapeHtml(p.codigo) + '</span>' + corpo + '</label>';
             });
             html += '</div>';
+            // 🌟 30/10/2026: o motivo completo dos produtos que não deu para calcular (no cartão ele fica cortado em 3
+            // linhas) -- ex.: a cadeia com os pontos onde a quantidade de fluxos se multiplica
+            var semCalculo = itens.filter(function(p) { return p.status === 'indisponivel' && p.motivo; });
+            if (semCalculo.length) {
+                html += '<div class="sel-motivos-completos" style="margin-top:8px;">' + semCalculo.map(function(p) {
+                    return '<details style="margin:4px 0;"><summary style="cursor:pointer;font-size:12px;"><b>' + escapeHtml(p.codigo) + '</b> — ' +
+                           escapeHtml(ROTULO_NAO_CALCULAVEL) + ' (clique para ver o motivo)</summary>' +
+                           '<div style="white-space:pre-line;font-size:12px;color:#333;background:#f7f9fb;border:1px solid #dfe5ea;border-radius:6px;padding:6px 8px;margin-top:4px;">' +
+                           escapeHtml(p.motivo) +
+                           // 🌟 NOVO (30/10/2026): quando a recusa é por excesso de fluxos, link para o mapa no editor
+                           (/acima do limite/.test(p.motivo) ? '<div style="margin-top:6px;"><a href="/fluxo_producao/diagnostico_explosao/' + Number(p.id) +
+                               '/" target="_blank" rel="noopener" style="font-weight:bold;color:#c0392b;">&#128269; Ver o mapa da explosão no editor (abre em nova aba)</a></div>' : '') +
+                           '</div></details>';
+                }).join('') + '</div>';
+            }
             var barra = '';
             if (algumSelecionavel) {
                 barra = '<div class="barra-selecao' + (botoesEmCima || sel.confirmar_no_topo ? ' barra-selecao-topo' : '') + '">' +

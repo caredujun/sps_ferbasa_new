@@ -336,23 +336,24 @@ class TbFluxoProducao(models.Model):
         return self.flu_pro_descricao
 
     def clean(self):
+        # 🌟 CORRIGIDO (31/10/2026): a checagem de "descrição já cadastrada" só vale quando a DESCRIÇÃO é nova
+        # (inclusão, ou edição que muda a descrição). Antes ela rodava em QUALQUER edição -- e como a geração
+        # automática cria vários fluxos do mesmo produto com a mesma descrição (ex.: "MINÉRIO DE CROMO CONC"),
+        # bastava marcar/desmarcar "Ativo" na lista do Admin para dar "já cadastrado!" e não salvar nada.
+        # Também passa a usar o cenário do PRÓPRIO fluxo (cai no cenário ativo só se ainda não tiver um).
+        descricao = (self.flu_pro_descricao or '').strip()
+        if self.pk is not None:
+            descricao_atual = (TbFluxoProducao.objects.filter(pk=self.pk)
+                               .values_list('flu_pro_descricao', flat=True).first())
+            if descricao_atual is not None and descricao_atual.strip().upper() == descricao.upper():
+                return  # descrição não mudou: nada a conferir
 
-        print(self.flu_pro_dados_fluxo)
+        cenario_id = self.tbcenarios_id or TbCenarios.objects.get(cen_ativo=True).id
+        repetidos = TbFluxoProducao.objects.filter(flu_pro_descricao__iexact=descricao, tbcenarios_id=cenario_id)
+        if self.pk is not None:
+            repetidos = repetidos.exclude(id=self.pk)
 
-        # Verificando se já foi cadastrado registro
-        # Vamos pegar o cenário ativo
-        ativo = TbCenarios.objects.get(cen_ativo=True).id
-        count = 0
-        # Se estiver adicionando
-        if self.pk is None:
-            count = TbFluxoProducao.objects.filter(flu_pro_descricao=self.flu_pro_descricao,
-                                                   tbcenarios_id=ativo).count()
-        else:  # Está modificando
-            # filter não aceita !=. Só aceita =. Seleciono e depois uso o exclude. Coisa de louco, mas funciona.
-            count = TbFluxoProducao.objects.filter(flu_pro_descricao=self.flu_pro_descricao,
-                                                   tbcenarios_id=ativo).exclude(id=self.pk).count()
-
-        if count >= 1:
+        if repetidos.exists():
             raise ValidationError(
                 'Fluxo de Produção ' + str(self.flu_pro_descricao) + ' já cadastrado!')
 

@@ -35,6 +35,7 @@ Duas direções:
     campos -- vira posição de grade sequencial, sem cruzamento) e
     regrava a tabela filha.
 """
+from celery import shared_task
 from django.db import transaction
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
@@ -72,9 +73,14 @@ ALTURA_FIXA_NAO_ICONE = 110
 # é o ZOOM no navegador (ver centralizarFluxoNaTela() em editor.html).
 
 
-def _nome_equipamento(equipamento):
-    cadastro = TbEquipamentosCadastro.objects.filter(id=equipamento.equ_codigo_id).first()
-    codigo = cadastro.equ_cad_codigo if cadastro else '?'
+def _nome_equipamento(equipamento, codigos_cadastro=None):
+    # 🌟 CORRIGIDO: aceita um dicionário {cadastro_id: código} já
+    # carregado -- evita 1 consulta ao banco por equipamento do fluxo.
+    if codigos_cadastro is not None:
+        codigo = codigos_cadastro.get(equipamento.equ_codigo_id) or '?'
+    else:
+        cadastro = TbEquipamentosCadastro.objects.filter(id=equipamento.equ_codigo_id).first()
+        codigo = cadastro.equ_cad_codigo if cadastro else '?'
     return f"{codigo}/{equipamento.equ_ordem_codigo}"
 
 
@@ -329,6 +335,13 @@ def montar_dados_fluxo_a_partir_da_tabela(fluxo, preservar_posicoes_existentes=T
     # original), não mais 1 nó por equipamento -- id do nó combina os
     # dois, pra permitir o mesmo equipamento aparecer mais de uma vez,
     # em colunas diferentes.
+    # 🌟 CORRIGIDO: códigos de cadastro carregados numa consulta só.
+    codigos_cadastro = dict(
+        TbEquipamentosCadastro.objects
+        .filter(id__in={e.equ_codigo_id for e in equipamento_obj_por_id.values()})
+        .values_list('id', 'equ_cad_codigo')
+    )
+
     nodes = {}
     for oc in ocorrencias:
         equip_id, coluna_original = oc
@@ -342,7 +355,7 @@ def montar_dados_fluxo_a_partir_da_tabela(fluxo, preservar_posicoes_existentes=T
             pos_x = MARGEM_X + (coluna_rank - 1) * ESPACO_COLUNA
             pos_y = MARGEM_Y + offset_y_por_coluna[coluna_rank] + (linha_rank - 1) * espaco_linha
 
-        codigo_nome = _nome_equipamento(equipamento)
+        codigo_nome = _nome_equipamento(equipamento, codigos_cadastro)
         nodes[chave_no] = {
             'id': chave_no,
             'name': codigo_nome,
@@ -390,20 +403,86 @@ def _sincronizar_dados_fluxo_apos_alteracao_celula(sender, instance, **kwargs):
     pra mexer nessa tabela precisa chamar
     montar_dados_fluxo_a_partir_da_tabela() manualmente depois (é o
     que salvar_fluxo_a_partir_do_json, abaixo, já faz).
+
+    🌟 CORRIGIDO (exclusão lenta): antes, CADA linha gravada/apagada
+    remontava o desenho inteiro do fluxo na hora. Numa exclusão em
+    cascata (excluir fluxos, equipamentos, cenário), eram centenas de
+    milhares de remontagens de fluxos que também estavam sendo
+    apagados. Agora:
+      - cada linha só anota o id do fluxo (sem consulta ao banco);
+      - o redesenho roda UMA vez por fluxo, quando a transação termina,
+        e só para os fluxos que ainda existem -- fluxo excluído junto
+        (cascata) é simplesmente ignorado.
     """
     fluxo_id = instance.mae_id
     if not fluxo_id:
         return
-    if not TbFluxoProducao.objects.filter(id=fluxo_id).exists():
+    _agendar_redesenho(fluxo_id)
+
+
+import threading
+_estado_redesenho = threading.local()
+
+
+def _agendar_redesenho(fluxo_id):
+    """Junta os ids de fluxo alterados e agenda UM redesenho por
+    transação. Se a transação anterior foi desfeita (rollback), o
+    callback dela some da fila do Django -- detectamos isso olhando a
+    fila e começamos um conjunto novo."""
+    conexao = transaction.get_connection()
+    pend = getattr(_estado_redesenho, 'pend', None)
+    if pend is not None and conexao.in_atomic_block:
+        if any(len(item) > 1 and item[1] is pend['cb'] for item in conexao.run_on_commit):
+            pend['ids'].add(fluxo_id)
+            return
+
+    ids = {fluxo_id}
+
+    def _cb():
+        if getattr(_estado_redesenho, 'pend', None) is novo:
+            _estado_redesenho.pend = None
+        _disparar_redesenho(ids)
+
+    novo = {'ids': ids, 'cb': _cb}
+    _estado_redesenho.pend = novo
+    transaction.on_commit(_cb)
+
+
+# 🌟 NOVO (v2): quando muitos fluxos continuam existindo mas perderam
+# linhas (ex: exclusão de um consumo padrão ou equipamento usado em
+# vários fluxos), o redesenho de todos eles prendia a tela do Admin no
+# fim da exclusão. Agora, acima de LIMITE_REDESENHO_IMEDIATO fluxos, o
+# redesenho vai para o Celery (segundo plano) e a tela libera na hora.
+LIMITE_REDESENHO_IMEDIATO = 5
+
+
+def _disparar_redesenho(ids):
+    ids = sorted(ids)
+    if len(ids) <= LIMITE_REDESENHO_IMEDIATO:
+        _redesenhar_fluxos(ids)
         return
-    dados = montar_dados_fluxo_a_partir_da_tabela(TbFluxoProducao.objects.get(id=fluxo_id))
-    # update() em vez de save() no objeto -- mais barato, e não dispara
-    # nenhum sinal de TbFluxoProducao (não existe nenhum registrado
-    # hoje, mas evita loop se um dia existir).
-    TbFluxoProducao.objects.filter(id=fluxo_id).update(
-        flu_pro_dados_fluxo=dados,
-        flu_pro_data_modificacao=timezone.now(),
-    )
+    try:
+        redesenhar_fluxos_task.delay(ids)
+    except Exception:
+        # Celery/broker fora do ar: faz na hora, para não perder o redesenho.
+        _redesenhar_fluxos(ids)
+
+
+@shared_task(name='fluxos.redesenhar_fluxos_task')
+def redesenhar_fluxos_task(ids):
+    _redesenhar_fluxos(ids)
+
+
+def _redesenhar_fluxos(ids):
+    # Só os fluxos que ainda existem -- os excluídos em cascata somem aqui.
+    for fluxo in TbFluxoProducao.objects.filter(id__in=list(ids)):
+        dados = montar_dados_fluxo_a_partir_da_tabela(fluxo)
+        # update() em vez de save() no objeto -- mais barato, e não dispara
+        # nenhum sinal de TbFluxoProducao.
+        TbFluxoProducao.objects.filter(id=fluxo.id).update(
+            flu_pro_dados_fluxo=dados,
+            flu_pro_data_modificacao=timezone.now(),
+        )
 
 
 # ---------------------------------------------------------------------

@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from .diagnostico_explosao import diagnostico_explosao_view  # 🌟 NOVO (30/10/2026)
 
 urlpatterns = [
     # Views para o editor
@@ -22,5 +23,7 @@ urlpatterns = [
     # 🌟 NOVO (28/10/2026): itens do Custo Var. Adic. das ordens de um equipamento (gráfico Custo Por Equipamento)
     path('api/fluxo/<int:fluxo_id>/custo_codigo_equipamento/', views.api_fluxo_custo_codigo_equipamento, name='api_fluxo_custo_codigo_equipamento'),
     path('api/fluxo/salvar/', views.api_fluxo_salvar, name='api_fluxo_salvar'),
+    # 🌟 NOVO (30/10/2026): mapa da explosão de fluxos de um produto (só leitura, nada é gravado)
+    path('diagnostico_explosao/<int:produto_id>/', diagnostico_explosao_view, name='diagnostico_explosao'),
 
 ]

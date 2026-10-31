@@ -330,6 +330,21 @@ def conectar_sinais():
         TbFluxoProducaoDaugther01, TbFluxoProducaoInputOutputDaugther,
     ]
 
+    # 🌟 30/10/2026: nas tabelas filhas GRANDES dos fluxos (linhas do fluxo e Input/Output, com milhões de registros)
+    # o aviso de EXCLUSÃO não fica ligado nelas: com ele ligado, o Django precisa trazer cada linha filha para o Python
+    # antes de apagar (não consegue apagar com um único comando no banco) -- excluir um equipamento ou fluxo que aparece
+    # em milhares de fluxos levava muitos minutos. A exclusão é registrada pelas tabelas MÃE (Fluxo de Produção e
+    # Input/Output), que são poucas linhas. A inclusão/alteração (post_save) dessas filhas continua registrada.
+    from fluxos.models import TbFluxoProducao, TbFluxoProducaoInputOutput
+    filhas_grandes = {TbFluxoProducaoDaugther, TbFluxoProducaoDaugther01, TbFluxoProducaoInputOutputDaugther}
+    for modelo in (TbFluxoProducao, TbFluxoProducaoInputOutput):
+        post_delete.connect(
+            _resetar_flag_cenario_se_necessario, sender=modelo,
+            dispatch_uid=f'resetar_flag_cenario_delete_{modelo.__name__}',
+        )
+    for modelo in filhas_grandes:
+        post_delete.disconnect(sender=modelo, dispatch_uid=f'resetar_flag_cenario_delete_{modelo.__name__}')
+
     for modelo in modelos:
         # dispatch_uid evita conectar em dobro se ready() rodar mais de
         # uma vez no mesmo processo (o autoreloader do runserver, por
@@ -338,6 +353,8 @@ def conectar_sinais():
             _resetar_flag_cenario_se_necessario, sender=modelo,
             dispatch_uid=f'resetar_flag_cenario_save_{modelo.__name__}',
         )
+        if modelo in filhas_grandes:
+            continue        # 🌟 30/10/2026: exclusão registrada pela tabela mãe (ver acima)
         post_delete.connect(
             _resetar_flag_cenario_se_necessario, sender=modelo,
             dispatch_uid=f'resetar_flag_cenario_delete_{modelo.__name__}',
