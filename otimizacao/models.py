@@ -302,7 +302,9 @@ class TbOtimizacaoProdutoDaugther(models.Model):
                     .order_by('dau_order').values_list('dau_order', flat=True).first())
         if primeiro is not None and self.dau_order > primeiro:
             return 0        # sem produção antecipada aplicada: não sobra estoque de um período para o outro
-        return self.mae.oti_pro_produto.pro_estoque_inicial or 0
+        from decimal import Decimal, ROUND_HALF_UP
+        # 🌟 30/10/2026: sem casas decimais (como os outros volumes da tabela)
+        return Decimal(str(self.mae.oti_pro_produto.pro_estoque_inicial or 0)).quantize(Decimal('1'), rounding=ROUND_HALF_UP)
 
     estoque_inicial_periodo.short_description = 'Estoque Inicial'
 

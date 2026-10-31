@@ -116,43 +116,126 @@ def _montar_linha_historico(sender, instance, **kwargs):
     return linha
 
 
-def _resetar_flag_cenario_se_necessario(sender, instance, **kwargs):
-    """
-    Handler compartilhado por todas as tabelas conectadas (ver
-    conectar_sinais, abaixo). Cada uma delas tem um campo tbcenarios_id
-    direto -- não precisa saber qual tabela disparou, só de qual cenário.
+# ---------------------------------------------------------------------------------------------------------------------
+# 🌟 CORRIGIDO (30/10/2026): exclusão em CASCATA travava o sistema. O Django faz a cascata em Python e dispara o
+# post_delete para CADA registro filho excluído -- milhares. Antes, cada um deles: buscava o registro mãe no banco (para o
+# nome da tabela), lia o texto inteiro de ultimas_alteracoes, acrescentava uma linha e regravava o texto inteiro (que só
+# crescia: milhares de linhas regravadas milhares de vezes) -- na prática não terminava.
+# Agora as alterações ficam guardadas em memória durante a transação e são gravadas UMA vez, no fim (on_commit):
+#   - um único UPDATE por cenário (flag = 0 e o histórico);
+#   - exclusões: UMA linha por tabela com a quantidade ("1.234 registros excluídos"), sem consultar o registro mãe;
+#   - inclusões/alterações: uma linha por registro (com o link), como antes; mais de MAX_LINHAS_POR_TABELA na mesma
+#     tabela viram uma linha só com a quantidade.
+# Fora de transação (salvar um registro na tela), grava na hora, como antes.
+# ---------------------------------------------------------------------------------------------------------------------
+import threading
+from collections import OrderedDict
 
-    🌟 CORRIGIDO: agora SEMPRE registra uma linha nova em
-    TbCenarios.ultimas_alteracoes, mesmo depois da primeira vez -- só o
-    reset do flag (TbCenarios.flag=0 e os campos calculados de
-    TbCenariosDaugther) é que continua acontecendo só na PRIMEIRA
-    alteração (quando o cenário ainda não estava "ALTERADO"). A partir
-    da segunda alteração em diante, o flag não muda de novo (já está 0),
-    mas cada alteração seguinte ainda vira uma linha nova no histórico.
-    """
-    cenario_id = getattr(instance, 'tbcenarios_id', None)
-    if cenario_id is None:
+from django.db import transaction
+
+MAX_LINHAS_POR_TABELA = 20
+_pendente = threading.local()
+
+
+def _nome_tabela_sem_consulta(sender):
+    """Nome da tabela para o histórico sem ir ao banco: "Mãe/Filha" pelo modelo do campo mae (se existir)."""
+    nome_proprio = str(sender._meta.verbose_name) or sender.__name__
+    try:
+        campo_mae = sender._meta.get_field('mae')
+        return f"{campo_mae.related_model._meta.verbose_name}/{nome_proprio}"
+    except Exception:
+        return nome_proprio
+
+
+def _nome_app(sender):
+    try:
+        return str(apps.get_app_config(sender._meta.app_label).verbose_name).strip()
+    except LookupError:
+        return sender._meta.app_label
+
+
+def _gravar(cenario_id, linhas_novas):
+    """Acrescenta as linhas no histórico do cenário e, se ele ainda não estava ALTERADO, reseta o flag (uma vez só)."""
+    if not linhas_novas:
         return
-
     cenario = TbCenarios.objects_real.filter(id=cenario_id).only('id', 'flag', 'ultimas_alteracoes').first()
     if cenario is None:
         return
-
-    linha_nova = _montar_linha_historico(sender, instance, **kwargs)
     historico_atual = cenario.ultimas_alteracoes or ''
-    historico_novo = f"{historico_atual}\n{linha_nova}" if historico_atual else linha_nova
-
+    novo = '\n'.join(linhas_novas)
+    historico_novo = f"{historico_atual}\n{novo}" if historico_atual else novo
     if cenario.flag == 0:
-        # 🌟 Já estava "ALTERADO" -- só acrescenta mais uma linha no
-        # histórico, sem mexer no flag nem nos valores calculados de
-        # novo (evita updates repetidos à toa nesses dois).
         TbCenarios.objects_real.filter(id=cenario_id).update(ultimas_alteracoes=historico_novo)
         return
-
     TbCenarios.objects_real.filter(id=cenario_id).update(flag=0, ultimas_alteracoes=historico_novo)
     TbCenariosDaugther.objects.filter(mae_id=cenario_id).update(
         flag=_FLAG_ALTERADO_CENARIOS_DAUGTHER, **_CAMPOS_VALOR_CENARIOS_DAUGTHER
     )
+
+
+def _descarregar():
+    """No fim da transação: monta as linhas (exclusões resumidas por tabela) e grava uma vez por cenário."""
+    buffer = getattr(_pendente, 'buffer', None)
+    _pendente.buffer = None
+    if not buffer:
+        return
+    agora = timezone.now().strftime('%d/%m/%Y %H:%M:%S')
+    for cenario_id, por_tabela in buffer.items():
+        linhas = []
+        for (usuario, app, tabela, eh_delete), itens in por_tabela.items():
+            if eh_delete:
+                q = len(itens)
+                linhas.append(f"{agora} - {usuario} - {app} - {tabela} - "
+                              + ('registro excluído' if q == 1 else f"{q:,} registros excluídos".replace(',', '.')))
+            elif len(itens) > MAX_LINHAS_POR_TABELA:
+                linhas.append(f"{agora} - {usuario} - {app} - {tabela} - "
+                              + f"{len(itens):,} registros incluídos/alterados".replace(',', '.'))
+            else:
+                linhas.extend(itens)
+        try:
+            _gravar(cenario_id, linhas)
+        except Exception as erro:          # o histórico nunca pode derrubar a exclusão/gravação
+            print(f"[signals] não consegui gravar o histórico do cenário {cenario_id}: {erro}")
+
+
+def _resetar_flag_cenario_se_necessario(sender, instance, **kwargs):
+    """
+    Handler compartilhado por todas as tabelas conectadas (ver conectar_sinais, abaixo). Cada uma delas tem um campo
+    tbcenarios_id direto. Registra a alteração no histórico (TbCenarios.ultimas_alteracoes) e deixa o cenário ALTERADO
+    (flag = 0, com os valores calculados de TbCenariosDaugther zerados) -- dentro de uma transação, só no fim dela.
+    """
+    cenario_id = getattr(instance, 'tbcenarios_id', None)
+    if cenario_id is None:
+        return
+    eh_delete = kwargs.get('signal') is post_delete
+
+    conexao = transaction.get_connection()
+    if not conexao.in_atomic_block:
+        # fora de transação (ex.: salvar um registro): grava na hora, uma linha, como antes
+        try:
+            _gravar(cenario_id, [_montar_linha_historico(sender, instance, **kwargs)])
+        except Exception as erro:
+            print(f"[signals] não consegui gravar o histórico do cenário {cenario_id}: {erro}")
+        return
+
+    buffer = getattr(_pendente, 'buffer', None)
+    # transação anterior desfeita (rollback): o on_commit dela sumiu da fila -- o que estava guardado não vale mais
+    agendado = any(len(item) > 1 and item[1] is _descarregar for item in getattr(conexao, 'run_on_commit', []))
+    if buffer is None or not agendado:
+        buffer = _pendente.buffer = OrderedDict()
+        transaction.on_commit(_descarregar)
+    usuario = get_usuario_atual()
+    nome_usuario = usuario.get_username() if usuario is not None else 'Sistema'
+    if eh_delete:
+        chave = (nome_usuario, _nome_app(sender), _nome_tabela_sem_consulta(sender), True)
+        buffer.setdefault(cenario_id, OrderedDict()).setdefault(chave, []).append(None)
+    else:
+        chave = (nome_usuario, _nome_app(sender), _nome_tabela_sem_consulta(sender), False)
+        lista = buffer.setdefault(cenario_id, OrderedDict()).setdefault(chave, [])
+        if len(lista) < MAX_LINHAS_POR_TABELA:
+            lista.append(_montar_linha_historico(sender, instance, **kwargs))
+        else:
+            lista.append(None)          # só conta: vai virar a linha resumida
 
 
 def conectar_sinais():
@@ -166,6 +249,12 @@ def conectar_sinais():
     ready(), quando os apps ainda podem não estar 100% carregados se
     fosse import direto no topo.
     """
+    # 🌟 30/10/2026: confirmação de exclusão do Admin só com o resumo (ver parameters/exclusao_resumo.py)
+    try:
+        from .exclusao_resumo import instalar as _instalar_resumo_exclusao
+        _instalar_resumo_exclusao()
+    except Exception as erro:
+        print(f"[signals] resumo de exclusão não instalado: {erro}")
     from tabelas.models import (
         TbIndicadoresDaugther, TbCambioDaugther, TbImpostoRendaDaugther,
         TbTaxaDescontoDaugther, TbCustoFixo, TbCustoFixoDaugther,
